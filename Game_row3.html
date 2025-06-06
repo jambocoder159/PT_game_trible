@@ -1,0 +1,690 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>三消遊戲 Demo - 三排模式</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Poppins', 'Noto Sans TC', sans-serif; 
+            touch-action: manipulation; 
+            overflow: hidden; 
+        }
+        .game-container {
+            width: 100%;
+            max-width: 420px; 
+            margin: 0 auto;
+            padding: 1rem; 
+            transition: box-shadow 0.3s ease-in-out;
+        }
+        canvas {
+            background-color: rgba(255, 255, 255, 0.1); 
+            border-radius: 12px; 
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            cursor: pointer;
+        }
+        .action-button, .skill-button {
+            transition: background-color 0.2s ease-in-out, transform 0.1s ease-in-out, box-shadow 0.2s ease-in-out;
+            border-radius: 0.75rem; 
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+        .action-button:hover, .skill-button:hover {
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        }
+        .action-button:active, .skill-button:active {
+            transform: scale(0.96);
+            box-shadow: inset 0 2px 4px 0 rgba(0,0,0,0.06);
+        }
+        .skill-button:disabled {
+            background-color: #94a3b8; 
+            cursor: not-allowed;
+            opacity: 0.6;
+            box-shadow: none;
+        }
+        .modal {
+            display: none; 
+            position: fixed;
+            z-index: 1000;
+            left: 0; top: 0; width: 100%; height: 100%;
+            overflow: auto;
+            background-color: rgba(0,0,0,0.7); 
+            align-items: center; justify-content: center;
+        }
+        .modal-content {
+            background-color: #ffffff;
+            margin: auto; padding: 1.5rem; 
+            width: 85%; max-width: 340px;
+            border-radius: 1rem; 
+            text-align: center;
+            box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04);
+            transform: scale(0.95);
+            opacity: 0;
+            animation: modalAppear 0.3s ease-out forwards;
+        }
+        .modal.active { display: flex; }
+        @keyframes modalAppear { to { transform: scale(1); opacity: 1; } }
+
+        .next-block-preview {
+            transition: background-color 0.3s ease, box-shadow 0.3s ease;
+            border-radius: 0.5rem; 
+            box-shadow: inset 0 1px 2px rgba(0,0,0,0.1);
+        }
+        .canvas-skill-target-mode { cursor: crosshair !important; }
+        .stat-item p:first-child { color: #475569; font-weight: 500; }
+        .stat-item p:last-child { font-weight: 700; }
+        .skill-uses-badge {
+            background-color: rgba(0,0,0,0.2); padding: 0.1rem 0.4rem;
+            border-radius: 0.75rem; font-size: 0.7rem;
+            line-height: 1; margin-left: 0.25rem;
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-teal-400 to-cyan-600 flex flex-col items-center justify-center min-h-screen p-2 sm:p-4">
+
+    <div class="game-container bg-white/80 backdrop-blur-md rounded-2xl shadow-xl">
+        <h1 class="text-2xl sm:text-3xl font-bold text-center text-slate-800 mb-3 sm:mb-4 tracking-tight">三排挑戰</h1>
+
+        <div class="grid grid-cols-3 gap-2 sm:gap-3 mb-2 sm:mb-3 text-center">
+            <div class="stat-item bg-slate-100/70 p-2 rounded-lg shadow">
+                <p class="text-xs sm:text-sm">分數</p>
+                <p id="score" class="text-lg sm:text-xl text-sky-600">0</p>
+            </div>
+            <div class="stat-item bg-slate-100/70 p-2 rounded-lg shadow">
+                <p class="text-xs sm:text-sm">連擊</p>
+                <p id="combo" class="text-lg sm:text-xl text-emerald-600">0</p>
+            </div>
+            <div class="stat-item bg-slate-100/70 p-2 rounded-lg shadow">
+                <p class="text-xs sm:text-sm">行動點</p>
+                <p id="action-points" class="text-lg sm:text-xl text-rose-600">5</p>
+            </div>
+        </div>
+
+        <div class="mb-3 sm:mb-4 text-center">
+            <p class="text-xs sm:text-sm text-slate-700 font-medium mb-1">下個方塊</p>
+            <div id="nextBlockPreviewContainer" class="flex justify-center items-center gap-3 h-8">
+            </div>
+        </div>
+        
+        <canvas id="gameCanvas" class="rounded-xl"></canvas>
+
+        <div class="mt-3 sm:mt-4 pt-3 sm:pt-4 border-t border-slate-300/50">
+            <h2 class="text-lg sm:text-xl font-semibold text-center text-slate-700 mb-2 sm:mb-3">道具技能</h2>
+            <div class="grid grid-cols-3 gap-2 sm:gap-3">
+                <button id="skillRemoveSingle" class="skill-button bg-red-500 hover:bg-red-600 text-white text-xs sm:text-sm py-2 px-1 font-medium">
+                    移除 <span id="skillRemoveSingleUses" class="skill-uses-badge">3</span>
+                </button>
+                <button id="skillRerollNext" class="skill-button bg-amber-500 hover:bg-amber-600 text-white text-xs sm:text-sm py-2 px-1 font-medium">
+                    重骰 <span id="skillRerollNextUses" class="skill-uses-badge">3</span>
+                </button>
+                <button id="skillRerollBoard" class="skill-button bg-purple-500 hover:bg-purple-600 text-white text-xs sm:text-sm py-2 px-1 font-medium">
+                    變色 <span id="skillRerollBoardUses" class="skill-uses-badge">3</span>
+                </button>
+            </div>
+        </div>
+
+        <button id="restartButton" class="w-full mt-4 sm:mt-6 bg-gradient-to-r from-blue-500 to-sky-500 hover:from-blue-600 hover:to-sky-600 text-white font-semibold py-2.5 sm:py-3 px-4 shadow-lg action-button">
+            重新開始
+        </button>
+    </div>
+
+    <div id="gameOverModal" class="modal">
+         <div class="modal-content">
+            <h2 class="text-3xl font-bold text-rose-500 mb-3">遊戲結束！</h2>
+            <p class="text-slate-700 text-lg mb-2">最終分數: <span id="finalScore" class="font-bold text-sky-600">0</span></p>
+            <p class="text-slate-500 mb-6">再接再厲，挑戰更高分！</p>
+            <button id="modalRestartButton" class="bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white font-semibold py-2.5 px-8 shadow-md action-button">
+                再玩一次
+            </button>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const SCORE_DISPLAY = document.getElementById('score');
+        const COMBO_DISPLAY = document.getElementById('combo');
+        const ACTION_POINTS_DISPLAY = document.getElementById('action-points');
+        const RESTART_BUTTON = document.getElementById('restartButton');
+        const GAME_OVER_MODAL = document.getElementById('gameOverModal');
+        const FINAL_SCORE_DISPLAY = document.getElementById('finalScore');
+        const MODAL_RESTART_BUTTON = document.getElementById('modalRestartButton');
+        const NEXT_BLOCK_PREVIEW_CONTAINER_EL = document.getElementById('nextBlockPreviewContainer');
+        const SKILL_REMOVE_SINGLE_BTN = document.getElementById('skillRemoveSingle');
+        const SKILL_REROLL_NEXT_BTN = document.getElementById('skillRerollNext');
+        const SKILL_REROLL_BOARD_BTN = document.getElementById('skillRerollBoard');
+        const SKILL_REMOVE_SINGLE_USES_EL = document.getElementById('skillRemoveSingleUses');
+        const SKILL_REROLL_NEXT_USES_EL = document.getElementById('skillRerollNextUses');
+        const SKILL_REROLL_BOARD_USES_EL = document.getElementById('skillRerollBoardUses');
+        
+        const NUM_COLS = 3; // UPDATED to 3 columns
+        const NUM_ROWS = 10;
+        const BLOCK_HEIGHT = 34;
+        const ACTION_POINTS_START = 5;
+        const GAME_AREA_TOP_PADDING = 10;
+        const ELIMINATION_ANIMATION_DURATION = 220;
+        const PARTICLE_COUNT = 20;
+        const PARTICLE_LIFESPAN = 500;
+        const BLOCK_SWAP_ANIMATION_DURATION = 120;
+
+        const COLORS = {
+            red: { hex: '#F87171' }, blue: { hex: '#60A5FA' },
+            green: { hex: '#4ADE80' }, yellow: { hex: '#FACC15' },
+            purple: { hex: '#A78BFA' }
+        };
+        const COLOR_NAMES = Object.keys(COLORS);
+
+        let grid = [], score = 0, actionPoints = ACTION_POINTS_START, consecutiveSuccessfulActions = 0;
+        let gameOver = false, blockWidth, columnWidth, isAnimating = false, activeSkill = null;
+        let nextBlockColors = [];
+        let skillUses = { removeSingle: 3, rerollNext: 3, rerollBoard: 3 };
+        let particles = [];
+
+        function getRandomColorName() { return COLOR_NAMES[Math.floor(Math.random() * COLOR_NAMES.length)]; }
+
+        function generateNextBlockColor(colIndex) {
+            if (colIndex !== undefined) {
+                nextBlockColors[colIndex] = getRandomColorName();
+            } else {
+                nextBlockColors = Array.from({ length: NUM_COLS }, () => getRandomColorName());
+            }
+            updateNextBlockPreviewUI();
+        }
+
+        function updateNextBlockPreviewUI() {
+            NEXT_BLOCK_PREVIEW_CONTAINER_EL.innerHTML = '';
+            nextBlockColors.forEach(colorName => {
+                const previewBox = document.createElement('div');
+                previewBox.className = 'next-block-preview w-12 h-6 sm:w-14 sm:h-7 border-2 border-slate-300/70';
+                previewBox.style.backgroundColor = (colorName && COLORS[colorName]) ? COLORS[colorName].hex : 'rgba(229, 231, 235, 0.5)';
+                NEXT_BLOCK_PREVIEW_CONTAINER_EL.appendChild(previewBox);
+            });
+        }
+
+        function resetGame() {
+            score = 0; actionPoints = ACTION_POINTS_START; consecutiveSuccessfulActions = 0;
+            gameOver = false; isAnimating = false; activeSkill = null;
+            skillUses = { removeSingle: 3, rerollNext: 3, rerollBoard: 3 };
+            grid = []; particles = [];
+            generateNextBlockColor();
+            createInitialGrid();
+            updateBlockPositions(); updateUI(); updateSkillButtonsUI();
+            GAME_OVER_MODAL.classList.remove('active');
+            if (GAME_OVER_MODAL.querySelector('.modal-content')) {
+                GAME_OVER_MODAL.querySelector('.modal-content').style.opacity = '0';
+                GAME_OVER_MODAL.querySelector('.modal-content').style.transform = 'scale(0.95)';
+            }
+            canvas.classList.remove('canvas-skill-target-mode');
+        }
+
+        function createInitialGrid() {
+            grid = [];
+            for (let c = 0; c < NUM_COLS; c++) {
+                grid.push([]);
+                for (let r = 0; r < NUM_ROWS; r++) {
+                    addNewBlockToColumn(c, true);
+                }
+            }
+        }
+
+        function addNewBlockToColumn(colIndex, isInitial = false, colorName = null) {
+            if (!grid[colIndex] || grid[colIndex].length >= NUM_ROWS + 5) return;
+            let chosenColorName = isInitial ? (colorName || getRandomColorName()) : (nextBlockColors[colIndex] || getRandomColorName());
+            if (!isInitial) generateNextBlockColor(colIndex);
+
+            const newBlock = {
+                id: Date.now() + Math.random(), col: colIndex,
+                colorName: chosenColorName, colorHex: COLORS[chosenColorName].hex,
+                x: 0, y: 0, drawY: 0, width: blockWidth, height: BLOCK_HEIGHT,
+                eliminationStartTime: 0, isEliminating: false, isExploding: false,
+                isAnimatingSwap: false
+            };
+            grid[colIndex].unshift(newBlock);
+        }
+
+        function refillGrid() {
+            let refilledAny = false;
+            for (let c = 0; c < NUM_COLS; c++) {
+                if (!grid[c]) continue;
+                while (grid[c].length < NUM_ROWS) {
+                    addNewBlockToColumn(c);
+                    refilledAny = true;
+                }
+            }
+            return refilledAny;
+        }
+
+        function updateBlockPositions() {
+            if (!columnWidth || !blockWidth) return;
+            const totalGridWidth = columnWidth * NUM_COLS;
+            const startX = (canvas.width - totalGridWidth) / 2;
+            for (let c = 0; c < NUM_COLS; c++) {
+                let currentY = GAME_AREA_TOP_PADDING;
+                const columnX = startX + c * columnWidth + (columnWidth - blockWidth) / 2;
+                if (!grid[c]) continue;
+                grid[c].forEach(block => {
+                    if (!block) return;
+                    block.x = columnX;
+                    block.y = currentY;
+                    if (!block.isAnimatingSwap) block.drawY = block.y;
+                    block.width = blockWidth;
+                    currentY += block.height;
+                });
+            }
+        }
+
+        function drawCanvasContent() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            if (gameOver) return;
+            grid.forEach(column => column.forEach(block => {
+                if (block && !block.isExploding) drawBlock(block);
+            }));
+            drawParticles();
+        }
+
+        function drawBlock(block) {
+            if (!block) return;
+            let opacity = 1, scale = 1, currentDrawY = block.drawY;
+            if (block.isEliminating && !block.isExploding) {
+                const progress = Math.min((Date.now() - block.eliminationStartTime) / ELIMINATION_ANIMATION_DURATION, 1);
+                opacity = 1 - progress; scale = 1 - progress * 0.3;
+                if (opacity <= 0.05) return;
+            }
+            ctx.save(); ctx.globalAlpha = opacity;
+            const blockDrawX = block.x + (block.width * (1 - scale)) / 2;
+            const blockDrawRenderY = currentDrawY + (block.height * (1 - scale)) / 2;
+            const blockDrawWidth = block.width * scale, blockDrawHeight = block.height * scale;
+            const cornerRadius = 6;
+            ctx.beginPath();
+            ctx.moveTo(blockDrawX + cornerRadius, blockDrawRenderY);
+            ctx.lineTo(blockDrawX + blockDrawWidth - cornerRadius, blockDrawRenderY);
+            ctx.quadraticCurveTo(blockDrawX + blockDrawWidth, blockDrawRenderY, blockDrawX + blockDrawWidth, blockDrawRenderY + cornerRadius);
+            ctx.lineTo(blockDrawX + blockDrawWidth, blockDrawRenderY + blockDrawHeight - cornerRadius);
+            ctx.quadraticCurveTo(blockDrawX + blockDrawWidth, blockDrawRenderY + blockDrawHeight, blockDrawX + blockDrawWidth - cornerRadius, blockDrawRenderY + blockDrawHeight);
+            ctx.lineTo(blockDrawX + cornerRadius, blockDrawRenderY + blockDrawHeight);
+            ctx.quadraticCurveTo(blockDrawX, blockDrawRenderY + blockDrawHeight, blockDrawX, blockDrawRenderY + blockDrawHeight - cornerRadius);
+            ctx.lineTo(blockDrawX, blockDrawRenderY + cornerRadius);
+            ctx.quadraticCurveTo(blockDrawX, blockDrawRenderY, blockDrawX + cornerRadius, blockDrawRenderY);
+            ctx.closePath();
+            ctx.fillStyle = block.colorHex; ctx.fill();
+            ctx.strokeStyle = 'rgba(0,0,0,0.1)'; ctx.lineWidth = 1.5 / scale; ctx.stroke();
+            ctx.restore();
+            if (block && !block.isEliminating && !block.isExploding && opacity > 0.5 && !activeSkill) {
+                const actionAreaWidth = block.width / 3, actionTexts = ["🔼", "╳", "🔽"];
+                ctx.fillStyle = `rgba(255,255,255,${0.7 * opacity})`;
+                ctx.font = `bold ${Math.min(15, block.height * 0.35)}px 'Poppins'`;
+                ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+                for (let i = 0; i < 3; i++) {
+                    const textX = block.x + actionAreaWidth * i + actionAreaWidth / 2;
+                    const textY = currentDrawY + block.height / 2;
+                    ctx.fillText(actionTexts[i], textX, textY);
+                }
+            }
+        }
+        
+        function updateUI() {
+            SCORE_DISPLAY.textContent = score;
+            COMBO_DISPLAY.textContent = consecutiveSuccessfulActions;
+            ACTION_POINTS_DISPLAY.textContent = actionPoints;
+        }
+
+        function updateSkillButtonsUI() {
+            SKILL_REMOVE_SINGLE_USES_EL.textContent = skillUses.removeSingle;
+            SKILL_REROLL_NEXT_USES_EL.textContent = skillUses.rerollNext;
+            SKILL_REROLL_BOARD_USES_EL.textContent = skillUses.rerollBoard;
+            const buttons = [SKILL_REMOVE_SINGLE_BTN, SKILL_REROLL_NEXT_BTN, SKILL_REROLL_BOARD_BTN];
+            buttons.forEach(btn => {
+                let key = '';
+                if (btn.id === 'skillRemoveSingle') key = 'removeSingle';
+                else if (btn.id === 'skillRerollNext') key = 'rerollNext';
+                else if (btn.id === 'skillRerollBoard') key = 'rerollBoard';
+                if (key && skillUses[key] !== undefined) btn.disabled = skillUses[key] <= 0 || isAnimating;
+                else btn.disabled = isAnimating;
+                btn.classList.remove('ring-4', 'ring-offset-2', 'ring-sky-300', 'opacity-80');
+                if (activeSkill && btn.id.toLowerCase().includes(activeSkill.toLowerCase())) {
+                    btn.classList.add('ring-4', 'ring-offset-2', 'ring-sky-300', 'opacity-80');
+                }
+            });
+        }
+        
+        function createParticleExplosion(x, y, width, height, colorHex) {
+            for (let i = 0; i < PARTICLE_COUNT; i++) {
+                particles.push({
+                    x: x + width / 2, y: y + height / 2,
+                    vx: (Math.random() - 0.5) * 8, vy: (Math.random() - 0.5) * 8 - 2,
+                    size: Math.random() * 3 + 2, color: colorHex,
+                    life: PARTICLE_LIFESPAN, initialLife: PARTICLE_LIFESPAN
+                });
+            }
+        }
+        
+        function updateParticles(deltaTime) {
+            for (let i = particles.length - 1; i >= 0; i--) {
+                const p = particles[i];
+                p.x += p.vx * deltaTime / 16.67;
+                p.y += p.vy * deltaTime / 16.67;
+                p.vy += 0.15 * (deltaTime / 16.67);
+                p.life -= deltaTime;
+                if (p.life <= 0) particles.splice(i, 1);
+            }
+        }
+
+        function drawParticles() {
+            particles.forEach(p => {
+                const opacity = Math.max(0, p.life / p.initialLife);
+                ctx.fillStyle = p.color;
+                ctx.globalAlpha = opacity;
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.size * opacity, 0, Math.PI * 2);
+                ctx.fill();
+            });
+            ctx.globalAlpha = 1;
+        }
+
+        async function animateBlockSwap(colIndex, block1RowIndex, block2RowIndex) {
+            const column = grid[colIndex];
+            if (!column) return;
+            const b1 = column[block1RowIndex], b2 = column[block2RowIndex];
+            if (!b1 || !b2) return;
+            b1.isAnimatingSwap = true;
+            b2.isAnimatingSwap = true;
+            const b1InitialDrawY = b1.drawY, b2InitialDrawY = b2.drawY, b1TargetDrawY = b2.y, b2TargetDrawY = b1.y;
+            let startTime = null;
+            return new Promise(resolve => {
+                function step(timestamp) {
+                    if (!startTime) startTime = timestamp;
+                    const progress = Math.min((timestamp - startTime) / BLOCK_SWAP_ANIMATION_DURATION, 1);
+                    if (b1) b1.drawY = b1InitialDrawY + (b1TargetDrawY - b1InitialDrawY) * progress;
+                    if (b2) b2.drawY = b2InitialDrawY + (b2TargetDrawY - b2InitialDrawY) * progress;
+                    if (progress < 1) requestAnimationFrame(step);
+                    else {
+                        if (b1) { b1.drawY = b1TargetDrawY; b1.isAnimatingSwap = false; }
+                        if (b2) { b2.drawY = b2TargetDrawY; b2.isAnimatingSwap = false; }
+                        resolve();
+                    }
+                }
+                requestAnimationFrame(step);
+            });
+        }
+
+        function findMatches() {
+            const matches = new Set();
+            if (!Array.isArray(grid)) return matches;
+
+            // Vertical Check (same as before)
+            for (let c = 0; c < grid.length; c++) {
+                const column = grid[c];
+                if (!Array.isArray(column) || column.length < 3) continue;
+                for (let r = 0; r <= column.length - 3;) {
+                    const block = column[r];
+                    if (!block || block.isEliminating) { r++; continue; }
+                    let count = 1, currentColorName = block.colorName, next_r = r + 1;
+                    while (next_r < column.length && column[next_r] && column[next_r].colorName === currentColorName && !column[next_r].isEliminating) {
+                        count++; next_r++;
+                    }
+                    if (count >= 3) {
+                        for (let k = r; k < next_r; k++) {
+                            matches.add(JSON.stringify({ colIndex: c, rowIndex: k }));
+                        }
+                    }
+                    r = next_r;
+                }
+            }
+            
+            // NEW: Horizontal Check
+            if (grid.length >= 3) { // Only check if there are at least 3 columns
+                for (let r = 0; r < NUM_ROWS; r++) { // Iterate through each row
+                    for (let c = 0; c <= grid.length - 3; ) { // Iterate through columns up to the third-to-last
+                        
+                        // Ensure blocks exist at this row level for all three columns
+                        const b1 = grid[c][r];
+                        const b2 = grid[c+1][r];
+                        const b3 = grid[c+2][r];
+
+                        if (!b1 || !b2 || !b3 || b1.isEliminating || b2.isEliminating || b3.isEliminating) {
+                            c++;
+                            continue;
+                        }
+
+                        let count = 0;
+                        let currentColorName = b1.colorName;
+                        let temp_c = c;
+                        
+                        if (b1.colorName === b2.colorName && b2.colorName === b3.colorName) {
+                             // Check for more than 3
+                            count = 3;
+                            temp_c = c + 3;
+                            while(temp_c < grid.length && grid[temp_c][r] && grid[temp_c][r].colorName === currentColorName && !grid[temp_c][r].isEliminating) {
+                                count++;
+                                temp_c++;
+                            }
+                        }
+
+                        if (count >= 3) {
+                            for(let k = c; k < temp_c; k++) {
+                                matches.add(JSON.stringify({ colIndex: k, rowIndex: r }));
+                            }
+                        }
+                        
+                        // Move to the next block after the matched group, or just the next one
+                        c = temp_c > c ? temp_c : c + 1;
+                    }
+                }
+            }
+
+            return matches;
+        }
+
+        async function processSingleWaveOfMatchesAndCascades() {
+            let anyEliminationThisWave = false, internalCascadeCount = 0;
+            while (true) {
+                const matches = findMatches();
+                if (matches.size > 0) {
+                    anyEliminationThisWave = true;
+                    internalCascadeCount++;
+                    score += 10 * matches.size * internalCascadeCount;
+                    matches.forEach(matchInfo => {
+                        const { colIndex, rowIndex } = JSON.parse(matchInfo);
+                        if (grid[colIndex]?.[rowIndex]) {
+                            grid[colIndex][rowIndex].isEliminating = true;
+                            grid[colIndex][rowIndex].eliminationStartTime = Date.now();
+                        }
+                    });
+                    await new Promise(resolve => setTimeout(resolve, ELIMINATION_ANIMATION_DURATION + 30));
+                    for (let c = grid.length - 1; c >= 0; c--) {
+                        if (!grid[c]) continue;
+                        for (let r = grid[c].length - 1; r >= 0; r--) {
+                            if (grid[c][r]?.isEliminating) grid[c].splice(r, 1);
+                        }
+                    }
+                    grid.forEach(col => col.forEach(b => { if (b) b.isEliminating = false; }));
+                    updateBlockPositions();
+                } else {
+                    break;
+                }
+            }
+            return anyEliminationThisWave;
+        }
+
+        async function performPlayerAction(location, actionType) {
+            const { colIndex, rowIndex } = location;
+            if (isAnimating || !grid[colIndex]?.[rowIndex]) return;
+            isAnimating = true;
+            updateSkillButtonsUI();
+            let overallTurnSuccess = false;
+            if (actionType === "move_to_top" || actionType === "insert_at_bottom") {
+                const direction = actionType === "move_to_top" ? -1 : 1;
+                let currentRow = rowIndex;
+                while (true) {
+                    const nextRow = currentRow + direction;
+                    if (nextRow < 0 || nextRow >= grid[colIndex].length) break;
+                    await animateBlockSwap(colIndex, currentRow, nextRow);
+                    const col = grid[colIndex];
+                    [col[currentRow], col[nextRow]] = [col[nextRow], col[currentRow]];
+                    updateBlockPositions();
+                    currentRow = nextRow;
+                    if ((direction === -1 && currentRow === 0) || (direction === 1 && currentRow === grid[colIndex].length - 1)) break;
+                }
+            } else if (actionType === "remove_directly") {
+                const block = grid[colIndex][rowIndex];
+                createParticleExplosion(block.x, block.drawY, block.width, block.height, block.colorHex);
+                block.isExploding = true;
+                await new Promise(r => setTimeout(r, 50));
+                grid[colIndex].splice(rowIndex, 1);
+            }
+            updateBlockPositions();
+            while (true) {
+                updateBlockPositions();
+                const passHadElims = await processSingleWaveOfMatchesAndCascades();
+                if (passHadElims) overallTurnSuccess = true;
+                updateBlockPositions();
+                const refilled = refillGrid();
+                updateBlockPositions();
+                if (!passHadElims && !refilled) break;
+            }
+            if (overallTurnSuccess) {
+                if (actionType !== "remove_directly") consecutiveSuccessfulActions++;
+            } else {
+                actionPoints--;
+                consecutiveSuccessfulActions = 0;
+            }
+            updateUI();
+            isAnimating = false;
+            updateSkillButtonsUI();
+            if (actionPoints <= 0 && !gameOver) triggerGameOver();
+        }
+
+        async function processActiveSkillOnBlock(location) {
+            const { colIndex, rowIndex } = location;
+            if (!activeSkill || isAnimating || !grid[colIndex]?.[rowIndex]) return;
+            const skillUsed = activeSkill;
+            isAnimating = true;
+            updateSkillButtonsUI();
+            let applied = false;
+            if (skillUsed === 'removeSingle' && skillUses.removeSingle > 0) {
+                skillUses.removeSingle--;
+                const b = grid[colIndex][rowIndex];
+                createParticleExplosion(b.x, b.drawY, b.width, b.height, b.colorHex);
+                b.isExploding = true;
+                await new Promise(r => setTimeout(r, 50));
+                grid[colIndex].splice(rowIndex, 1);
+                applied = true;
+            } else if (skillUsed === 'rerollBoard' && skillUses.rerollBoard > 0) {
+                skillUses.rerollBoard--;
+                const b = grid[colIndex][rowIndex];
+                let n;
+                do { n = getRandomColorName(); } while (n === b.colorName && COLOR_NAMES.length > 1);
+                b.colorName = n;
+                b.colorHex = COLORS[n].hex;
+                applied = true;
+            }
+            activeSkill = null;
+            canvas.classList.remove('canvas-skill-target-mode');
+            if (applied) {
+                while (true) {
+                    updateBlockPositions();
+                    const pass = await processSingleWaveOfMatchesAndCascades();
+                    updateBlockPositions();
+                    const refilled = refillGrid();
+                    updateBlockPositions();
+                    if (!pass && !refilled) break;
+                }
+            }
+            updateUI();
+            isAnimating = false;
+            updateSkillButtonsUI();
+            if (actionPoints <= 0 && !gameOver) triggerGameOver();
+        }
+
+        function toggleSkill(skillName) {
+            if (isAnimating) return;
+            let uses = skillUses[skillName];
+            if (uses <= 0 && activeSkill !== skillName) return;
+            activeSkill = activeSkill === skillName ? null : skillName;
+            canvas.classList.toggle('canvas-skill-target-mode', activeSkill === 'removeSingle' || activeSkill === 'rerollBoard');
+            updateSkillButtonsUI();
+        }
+
+        function useSkillRerollNext() {
+            if (isAnimating || skillUses.rerollNext <= 0) return;
+            skillUses.rerollNext--;
+            generateNextBlockColor();
+            updateUI();
+            updateSkillButtonsUI();
+        }
+
+        function triggerGameOver() {
+            if (gameOver) return;
+            gameOver = true;
+            isAnimating = true;
+            FINAL_SCORE_DISPLAY.textContent = score;
+            GAME_OVER_MODAL.classList.add('active');
+        }
+
+        function resizeCanvas() {
+            const container = document.querySelector('.game-container');
+            const style = getComputedStyle(container);
+            const containerClientWidth = container.clientWidth;
+            const paddingLeft = parseFloat(style.paddingLeft);
+            const paddingRight = parseFloat(style.paddingRight);
+            const availableWidth = containerClientWidth - paddingLeft - paddingRight;
+            canvas.width = availableWidth;
+            columnWidth = canvas.width / NUM_COLS;
+            blockWidth = columnWidth * 0.8;
+            canvas.height = (BLOCK_HEIGHT * NUM_ROWS) + (GAME_AREA_TOP_PADDING * 2) + (NUM_ROWS * 1.5);
+            if (!gameOver) updateBlockPositions();
+        }
+
+        async function handleCanvasClick(event) {
+            if (gameOver || isAnimating) return;
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = canvas.width / rect.width, scaleY = canvas.height / rect.height;
+            const mouseX = (event.clientX - rect.left) * scaleX, mouseY = (event.clientY - rect.top) * scaleY;
+            for (let c = 0; c < grid.length; c++) {
+                if (!grid[c]) continue;
+                for (let r = 0; r < grid[c].length; r++) {
+                    const block = grid[c][r];
+                    if (!block || block.isEliminating || block.isExploding) continue;
+                    if (mouseX >= block.x && mouseX <= block.x + block.width && mouseY >= block.y && mouseY <= block.y + block.height) {
+                        const location = { colIndex: c, rowIndex: r };
+                        if (activeSkill) await processActiveSkillOnBlock(location);
+                        else {
+                            const clickXRelative = mouseX - block.x, actionAreaWidth = block.width / 3;
+                            let actionType = (clickXRelative < actionAreaWidth) ? "move_to_top" : (clickXRelative < 2 * actionAreaWidth) ? "remove_directly" : "insert_at_bottom";
+                            await performPlayerAction(location, actionType);
+                        }
+                        return;
+                    }
+                }
+            }
+        }
+
+        let lastTime = 0;
+        function gameLoop(timestamp) {
+            if (!lastTime) lastTime = timestamp;
+            const deltaTime = timestamp - lastTime;
+            lastTime = timestamp;
+            if (gameOver) {
+                requestAnimationFrame(gameLoop);
+                return;
+            }
+            updateParticles(deltaTime);
+            drawCanvasContent();
+            requestAnimationFrame(gameLoop);
+        }
+        
+        canvas.addEventListener('click', handleCanvasClick);
+        RESTART_BUTTON.addEventListener('click', () => resetGame());
+        MODAL_RESTART_BUTTON.addEventListener('click', () => resetGame());
+        SKILL_REMOVE_SINGLE_BTN.addEventListener('click', () => toggleSkill('removeSingle'));
+        SKILL_REROLL_NEXT_BTN.addEventListener('click', useSkillRerollNext);
+        SKILL_REROLL_BOARD_BTN.addEventListener('click', () => toggleSkill('rerollBoard'));
+        window.addEventListener('resize', resizeCanvas);
+
+        resizeCanvas();
+        resetGame();
+        requestAnimationFrame(gameLoop);
+    </script>
+</body>
+</html>
