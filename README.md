@@ -1,6 +1,13 @@
-# 三消遊戲框架
+# 三消遊戲框架（用戶系統版）
 
-這是一個高效的模組化三消遊戲框架，解決了原版遊戲中大量重複代碼和維護困難的問題。
+這是一個高效的模組化三消遊戲框架，整合了完整的用戶系統和排行榜功能，解決了原版遊戲中大量重複代碼和維護困難的問題。
+
+## 🎮 新功能亮點
+
+- **OAuth 快速登入**：支援 Google、GitHub、Discord 登入
+- **全球排行榜**：各模式獨立排行榜，即時更新
+- **個人統計**：詳細的遊戲統計和歷史記錄
+- **成績保存**：自動保存最佳成績，永不丟失
 
 ## 🚀 框架優勢
 
@@ -21,13 +28,17 @@
 ```
 game-framework/
 ├── game.html              # 主遊戲頁面
-├── index_new.html          # 框架版介紹頁面
+├── index.html             # 框架版介紹頁面
+├── SUPABASE_SETUP.md      # Supabase 設定指南
 ├── css/
 │   └── game.css           # 統一樣式文件
 └── js/
     ├── GameEngine.js      # 核心遊戲引擎
     ├── GameModes.js       # 遊戲模式配置
-    └── UI.js              # UI組件管理器
+    ├── UI.js              # UI組件管理器
+    ├── SupabaseAuth.js    # Supabase 認證管理
+    ├── LeaderboardManager.js # 排行榜管理
+    └── UserManager.js     # 用戶界面管理
 ```
 
 ## 🎮 使用方式
@@ -154,10 +165,17 @@ this.score += 15 * matches.size * internalCascadeCount; // 提高基礎分數
 
 ## 🚀 開始使用
 
+### 基本遊戲功能
 1. 確保所有文件在正確的目錄結構中
-2. 打開 `index_new.html` 查看介紹
+2. 使用本地服務器打開 `index.html` 查看介紹
 3. 點擊遊戲模式按鈕開始遊戲
 4. 或直接訪問 `game.html?mode=classic`
+
+### 完整用戶系統功能
+1. 按照 `SUPABASE_SETUP.md` 設定 Supabase 後端
+2. 更新 `js/SupabaseAuth.js` 中的 Supabase 配置
+3. 設定 OAuth 提供商（Google、GitHub、Discord）
+4. 重新啟動遊戲，享受完整的用戶系統和排行榜功能
 
 ## 🛠️ 開發建議
 

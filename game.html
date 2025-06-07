@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>三消挑戰 - 遊戲框架版</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="css/game.css">
 </head>
@@ -12,15 +13,38 @@
     
     <div id="gameContainer"></div>
     
+    <script src="js/SupabaseAuth.js"></script>
+    <script src="js/LeaderboardManager.js"></script>
+    <script src="js/UserManager.js"></script>
+    <script src="js/GlobalNavigation.js"></script>
     <script src="js/GameEngine.js"></script>
     <script src="js/GameModes.js"></script>
     <script src="js/UI.js"></script>
     <script>
+        // 全域變數
+        let gameEngine = null;
+        let currentGameMode = null;
+        let gameStartTime = null;
+        
         // 從URL參數獲取遊戲模式
         function getGameModeFromURL() {
             const urlParams = new URLSearchParams(window.location.search);
             const mode = urlParams.get('mode') || 'classic';
             return GameModes[mode] ? mode : 'classic';
+        }
+
+        // 初始化用戶系統
+        function initializeUserSystem() {
+            // 初始化排行榜管理器
+            window.leaderboardManager = new LeaderboardManager(window.supabaseAuth);
+            
+            // 初始化用戶管理器
+            window.userManager = new UserManager(window.supabaseAuth, window.leaderboardManager);
+            
+            // 初始化全局導航
+            window.globalNav = new GlobalNavigation(window.supabaseAuth, window.userManager);
+            
+            console.log('用戶系統已初始化');
         }
 
         // 初始化遊戲
@@ -33,6 +57,8 @@
                 return;
             }
 
+            currentGameMode = mode;
+            
             // 設置頁面標題
             document.title = config.title;
             
@@ -44,13 +70,57 @@
             gameContainer.innerHTML = UIManager.createGameHTML(mode, config);
             
             // 初始化遊戲引擎
-            const gameEngine = new GameEngine(config);
+            gameEngine = new GameEngine(config);
+            
+            // 正確覆寫遊戲結束處理
+            if (gameEngine && typeof gameEngine.triggerGameOver === 'function') {
+                const originalTriggerGameOver = gameEngine.triggerGameOver.bind(gameEngine);
+                gameEngine.triggerGameOver = function() {
+                    originalTriggerGameOver();
+                    handleGameEnd();
+                };
+            }
+            
+            // 記錄遊戲開始時間
+            gameStartTime = Date.now();
             
             console.log(`遊戲模式 "${config.title}" 已初始化`);
+            console.log('遊戲引擎:', gameEngine);
+        }
+        
+        // 處理遊戲結束
+        async function handleGameEnd() {
+            if (!window.supabaseAuth?.isAuthenticated()) {
+                return; // 用戶未登入，不保存成績
+            }
+            
+            try {
+                const gameTime = Date.now() - gameStartTime;
+                const gameData = {
+                    mode: currentGameMode,
+                    score: gameEngine.score,
+                    moves: gameEngine.actionCount,
+                    time: gameTime,
+                    level: 1 // 如果有關卡系統的話
+                };
+                
+                await window.supabaseAuth.saveGameRecord(gameData);
+                window.userManager.showSuccess('成績已保存！');
+                
+                // 清除排行榜快取以顯示最新結果
+                window.leaderboardManager.clearCache();
+                
+            } catch (error) {
+                console.error('保存遊戲成績失敗:', error);
+                window.userManager.showError('保存成績失敗：' + error.message);
+            }
         }
 
-        // 當頁面載入完成時初始化遊戲
-        document.addEventListener('DOMContentLoaded', initializeGame);
+        // 當頁面載入完成時初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeUserSystem();
+            initializeGame();
+        });
     </script>
 </body>
 </html> 

@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>登入測試頁面</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body class="bg-gray-100 min-h-screen flex items-center justify-center">
+    
+    <div class="bg-white p-8 rounded-lg shadow-lg max-w-md w-full">
+        <h1 class="text-2xl font-bold text-center mb-6">🎮 登入測試</h1>
+        
+        <div id="status" class="mb-4 p-3 rounded bg-gray-50">
+            <p class="text-sm text-gray-600">狀態：初始化中...</p>
+        </div>
+        
+        <div id="authSection"></div>
+        
+        <div class="mt-6 text-center">
+            <button onclick="testConnection()" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">
+                測試連線
+            </button>
+        </div>
+    </div>
+
+    <script src="js/SupabaseAuth.js"></script>
+    <script src="js/LeaderboardManager.js"></script>
+    <script src="js/UserManager.js"></script>
+    <script>
+        // 初始化
+        let userManager;
+        
+        document.addEventListener('DOMContentLoaded', function() {
+            updateStatus('正在初始化用戶系統...');
+            
+            // 等待一點時間讓 Supabase 初始化
+            setTimeout(() => {
+                try {
+                    if (window.supabaseAuth && window.supabaseAuth.supabase) {
+                        updateStatus('✅ Supabase 連線成功');
+                        
+                        // 初始化用戶管理器
+                        window.leaderboardManager = new LeaderboardManager(window.supabaseAuth);
+                        userManager = new UserManager(window.supabaseAuth, window.leaderboardManager);
+                        
+                        updateStatus('✅ 用戶系統初始化完成');
+                        
+                        // 強制更新 UI 以顯示登入按鈕
+                        setTimeout(() => {
+                            userManager.updateUI();
+                        }, 500);
+                    } else {
+                        updateStatus('❌ Supabase 連線失敗');
+                    }
+                } catch (error) {
+                    updateStatus('❌ 錯誤：' + error.message);
+                    console.error('初始化錯誤:', error);
+                }
+            }, 1000);
+        });
+        
+        function updateStatus(message) {
+            const status = document.getElementById('status');
+            status.innerHTML = `<p class="text-sm">${message}</p>`;
+        }
+        
+        function testConnection() {
+            try {
+                if (window.supabaseAuth && window.supabaseAuth.supabase) {
+                    updateStatus('✅ Supabase 連線正常，可以進行登入測試');
+                    
+                    // 檢查當前用戶狀態
+                    const currentUser = window.supabaseAuth.getCurrentUser();
+                    if (currentUser) {
+                        updateStatus(`✅ 已登入用戶：${currentUser.email}`);
+                    } else {
+                        updateStatus('📝 未登入，請使用下方按鈕登入');
+                        
+                        // 強制顯示登入按鈕
+                        if (userManager) {
+                            userManager.updateUI();
+                            console.log('已觸發登入界面更新');
+                        }
+                    }
+                } else {
+                    updateStatus('❌ Supabase 未正確初始化');
+                }
+            } catch (error) {
+                updateStatus('❌ 測試失敗：' + error.message);
+                console.error('測試錯誤:', error);
+            }
+        }
+    </script>
+</body>
+</html> 
