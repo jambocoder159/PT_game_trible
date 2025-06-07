@@ -3,9 +3,9 @@ class GameEngine {
         this.config = {
             numCols: 1,
             numRows: 10,
-            blockHeight: 34,
+            blockHeight: 32,
             actionPointsStart: 5,
-            gameAreaTopPadding: 10,
+            gameAreaTopPadding: 8,
             eliminationAnimationDuration: 220,
             particleCount: 20,
             particleLifespan: 500,
@@ -60,6 +60,11 @@ class GameEngine {
         this.gameStartTime = 0;
         this.timeLeft = this.config.gameDuration;
         
+        // 連擊分數系統相關
+        this.lastComboScore = 0;       // 上次連擊獲得的分數
+        this.totalComboBonus = 0;      // 總連擊獎勵分數
+        this.comboMilestoneReached = {}; // 已達成的連擊里程碑
+        
         if (this.config.hasSkills) {
             this.skillUses = { removeSingle: 3, rerollNext: 3, rerollBoard: 3 };
         }
@@ -105,6 +110,11 @@ class GameEngine {
         this.finalActionCountDisplay = document.getElementById('finalActionCount');
         this.nextBlockPreviewContainer = document.getElementById('nextBlockPreviewContainer');
         
+        // 連擊分數詳情UI
+        this.comboScoreDetailsEl = document.getElementById('comboScoreDetails');
+        this.lastComboScoreEl = document.getElementById('lastComboScore');
+        this.totalComboBonusEl = document.getElementById('totalComboBonus');
+        
         if (this.config.hasSkills) {
             this.skillRemoveSingleUsesEl = document.getElementById('skillRemoveSingleUses');
             this.skillRerollNextUsesEl = document.getElementById('skillRerollNextUses');
@@ -117,6 +127,81 @@ class GameEngine {
 
     getRandomColorName() {
         return this.colorNames[Math.floor(Math.random() * this.colorNames.length)];
+    }
+
+    // 計算連擊分數
+    calculateComboScore(blocksEliminated, chainLevel) {
+        const scoring = this.config.scoring || {
+            baseScore: 10,
+            comboMultiplier: 0.5,
+            chainMultiplier: 2,
+            comboMilestones: {}
+        };
+
+        // 基礎分數 = 消除方塊數 × 基礎分數
+        let baseScore = blocksEliminated * scoring.baseScore;
+        
+        // 連擊倍數：1 + (連擊數 × 連擊倍數)
+        const comboMultiplier = 1 + (this.consecutiveSuccessfulActions * scoring.comboMultiplier);
+        
+        // 連鎖倍數：連鎖等級 × 連鎖倍數
+        const chainMultiplier = chainLevel * scoring.chainMultiplier;
+        
+        // 計算最終分數
+        const finalScore = Math.floor(baseScore * comboMultiplier * chainMultiplier);
+        
+        return {
+            baseScore,
+            comboMultiplier,
+            chainMultiplier,
+            finalScore
+        };
+    }
+
+    // 檢查連擊里程碑獎勵
+    checkComboMilestone() {
+        const scoring = this.config.scoring || { comboMilestones: {} };
+        const milestones = scoring.comboMilestones;
+        
+        let bonusScore = 0;
+        for (const [milestone, bonus] of Object.entries(milestones)) {
+            const milestoneNum = parseInt(milestone);
+            if (this.consecutiveSuccessfulActions >= milestoneNum && 
+                !this.comboMilestoneReached[milestone]) {
+                this.comboMilestoneReached[milestone] = true;
+                bonusScore += bonus;
+                this.totalComboBonus += bonus;
+                
+                // 顯示里程碑達成提示
+                this.showComboMilestoneEffect(milestoneNum, bonus);
+            }
+        }
+        
+        return bonusScore;
+    }
+
+    // 顯示連擊里程碑效果
+    showComboMilestoneEffect(milestone, bonus) {
+        // 創建特殊的慶祝粒子效果
+        const centerX = this.canvas.width / 2;
+        const centerY = this.canvas.height / 2;
+        
+        for (let i = 0; i < 20; i++) {
+            this.particles.push({
+                x: centerX,
+                y: centerY,
+                vx: (Math.random() - 0.5) * 12,
+                vy: (Math.random() - 0.5) * 12 - 3,
+                life: 2000,
+                maxLife: 2000,
+                color: '#FFD700', // 金色
+                size: Math.random() * 6 + 4,
+                isMilestone: true
+            });
+        }
+        
+        // 在控制台顯示里程碑信息（之後可以改為UI提示）
+        console.log(`🎉 連擊里程碑達成！${milestone}連擊獲得 ${bonus} 分獎勵！`);
     }
 
     generateNextBlockColor(colIndex) {
@@ -165,6 +250,11 @@ class GameEngine {
         this.particles = [];
         this.timeLeft = this.config.gameDuration;
         this.gameStartTime = performance.now();
+
+        // 重置連擊分數系統
+        this.lastComboScore = 0;
+        this.totalComboBonus = 0;
+        this.comboMilestoneReached = {};
 
         if (this.config.hasSkills) {
             this.skillUses = { removeSingle: 3, rerollNext: 3, rerollBoard: 3 };
@@ -319,7 +409,7 @@ class GameEngine {
         
         this.canvas.height = (this.config.blockHeight * this.config.numRows) + 
                            (this.config.gameAreaTopPadding * 2) + 
-                           (this.config.numRows * 1.5);
+                           (this.config.numRows * 1);
 
         if (!this.gameOver) {
             this.updateBlockPositions();
@@ -330,6 +420,21 @@ class GameEngine {
         if (this.scoreDisplay) this.scoreDisplay.textContent = this.score;
         if (this.comboDisplay) this.comboDisplay.textContent = this.consecutiveSuccessfulActions;
         if (this.actionPointsDisplay) this.actionPointsDisplay.textContent = this.actionPoints;
+        
+        // 更新連擊分數詳情
+        if (this.lastComboScoreEl) this.lastComboScoreEl.textContent = this.lastComboScore;
+        if (this.totalComboBonusEl) this.totalComboBonusEl.textContent = this.totalComboBonus;
+        
+        // 顯示/隱藏連擊分數詳情
+        if (this.comboScoreDetailsEl) {
+            if (this.consecutiveSuccessfulActions > 0 || this.lastComboScore > 0) {
+                this.comboScoreDetailsEl.style.opacity = '1';
+                this.comboScoreDetailsEl.style.maxHeight = '60px';
+            } else {
+                this.comboScoreDetailsEl.style.opacity = '0';
+                this.comboScoreDetailsEl.style.maxHeight = '0';
+            }
+        }
         
         // 更新最高連擊記錄
         if (this.consecutiveSuccessfulActions > this.maxCombo) {
@@ -482,7 +587,16 @@ class GameEngine {
             const particle = this.particles[i];
             particle.x += particle.vx * deltaTime / 16.67;
             particle.y += particle.vy * deltaTime / 16.67;
-            particle.vy += 0.15 * (deltaTime / 16.67); // 重力
+            
+            // 里程碑粒子特殊效果
+            if (particle.isMilestone) {
+                particle.vy += 0.1 * (deltaTime / 16.67); // 較慢的重力
+                // 添加閃爍效果
+                particle.opacity = 0.7 + 0.3 * Math.sin(Date.now() * 0.01);
+            } else {
+                particle.vy += 0.15 * (deltaTime / 16.67); // 正常重力
+            }
+            
             particle.life -= deltaTime;
 
             if (particle.life <= 0) {
@@ -495,8 +609,23 @@ class GameEngine {
         this.particles.forEach(particle => {
             const alpha = particle.life / particle.maxLife;
             this.ctx.save();
-            this.ctx.globalAlpha = alpha;
-            this.ctx.fillStyle = particle.color;
+            
+            // 里程碑粒子特殊渲染
+            if (particle.isMilestone) {
+                this.ctx.globalAlpha = (particle.opacity || 1) * alpha;
+                // 添加光暈效果
+                const gradient = this.ctx.createRadialGradient(
+                    particle.x, particle.y, 0,
+                    particle.x, particle.y, particle.size * 2
+                );
+                gradient.addColorStop(0, particle.color);
+                gradient.addColorStop(1, 'rgba(255, 215, 0, 0)');
+                this.ctx.fillStyle = gradient;
+            } else {
+                this.ctx.globalAlpha = alpha;
+                this.ctx.fillStyle = particle.color;
+            }
+            
             this.ctx.beginPath();
             this.ctx.arc(particle.x, particle.y, particle.size * alpha, 0, Math.PI * 2);
             this.ctx.fill();
@@ -831,11 +960,20 @@ class GameEngine {
         }
 
         if (overallTurnSuccess) {
-            if (actionType !== "remove_directly") this.consecutiveSuccessfulActions++;
+            if (actionType !== "remove_directly") {
+                this.consecutiveSuccessfulActions++;
+                // 檢查連擊里程碑獎勵
+                const milestoneBonus = this.checkComboMilestone();
+                if (milestoneBonus > 0) {
+                    this.score += milestoneBonus;
+                }
+            }
         } else {
             if (!this.config.hasTimer) {
                 this.actionPoints--;
                 this.consecutiveSuccessfulActions = 0;
+                // 重置連擊相關數據
+                this.lastComboScore = 0;
             }
         }
 
@@ -860,7 +998,12 @@ class GameEngine {
             if (matches.size > 0) {
                 anyEliminationThisWave = true;
                 internalCascadeCount++;
-                this.score += 10 * matches.size * internalCascadeCount;
+                
+                // 使用新的連擊分數計算系統
+                const scoreInfo = this.calculateComboScore(matches.size, internalCascadeCount);
+                this.score += scoreInfo.finalScore;
+                this.lastComboScore = scoreInfo.finalScore;
+            
 
                 matches.forEach(matchInfo => {
                     const { colIndex, rowIndex } = JSON.parse(matchInfo);

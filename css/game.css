@@ -1,15 +1,61 @@
 body {
     font-family: 'Poppins', 'Noto Sans TC', sans-serif; 
     touch-action: manipulation; 
-    overflow: hidden; 
+    overflow: auto;
+    margin: 0;
+    padding: 0;
+    min-height: 100vh;
 }
 
+/* 主容器設定固定寬度和最大高度 */
 .game-container {
-    width: 100%;
-    max-width: 420px; 
+    width: 468px;
+    max-width: 468px;
+    min-width: 468px;
+    max-height: 800px;
     margin: 0 auto;
-    padding: 1rem; 
+    padding: 0.75rem;
     transition: box-shadow 0.3s ease-in-out;
+    overflow-y: auto;
+    overflow-x: hidden;
+}
+
+/* 確保在小螢幕上有滾動功能 */
+@media (max-height: 800px) {
+    body {
+        overflow: auto;
+        padding: 8px 0;
+    }
+    
+    .game-container {
+        max-height: calc(100vh - 16px);
+        overflow-y: auto;
+        margin: 8px auto;
+    }
+}
+
+/* 手機橫向模式優化 */
+@media (max-height: 600px) {
+    body {
+        padding: 4px 0;
+    }
+    
+    .game-container {
+        max-height: calc(100vh - 8px);
+        margin: 4px auto;
+        padding: 0.5rem;
+    }
+}
+
+/* 針對468px固定寬度的優化 */
+@media (max-width: 480px) {
+    body {
+        overflow-x: auto;
+    }
+    
+    .game-container {
+        margin: 0 auto;
+    }
 }
 
 canvas {
@@ -53,8 +99,8 @@ canvas {
 
 .modal-content {
     background-color: #ffffff;
-    margin: auto; padding: 1.5rem; 
-    width: 85%; max-width: 340px;
+    margin: auto; padding: 1.25rem; 
+    width: 90%; max-width: 400px;
     border-radius: 1rem; 
     text-align: center;
     box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04);
