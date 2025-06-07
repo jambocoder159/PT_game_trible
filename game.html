@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>三消挑戰 - 遊戲框架版</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/game.css">
+</head>
+<body class="flex flex-col items-center justify-center min-h-screen p-2 sm:p-4">
+    
+    <div id="gameContainer"></div>
+    
+    <script src="js/GameEngine.js"></script>
+    <script src="js/GameModes.js"></script>
+    <script src="js/UI.js"></script>
+    <script>
+        // 從URL參數獲取遊戲模式
+        function getGameModeFromURL() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const mode = urlParams.get('mode') || 'classic';
+            return GameModes[mode] ? mode : 'classic';
+        }
+
+        // 初始化遊戲
+        function initializeGame() {
+            const mode = getGameModeFromURL();
+            const config = GameModes[mode];
+            
+            if (!config) {
+                console.error('無效的遊戲模式:', mode);
+                return;
+            }
+
+            // 設置頁面標題
+            document.title = config.title;
+            
+            // 設置背景主題
+            document.body.className = `theme-${config.theme} flex flex-col items-center justify-center min-h-screen p-2 sm:p-4`;
+            
+            // 生成遊戲HTML
+            const gameContainer = document.getElementById('gameContainer');
+            gameContainer.innerHTML = UIManager.createGameHTML(mode, config);
+            
+            // 初始化遊戲引擎
+            const gameEngine = new GameEngine(config);
+            
+            console.log(`遊戲模式 "${config.title}" 已初始化`);
+        }
+
+        // 當頁面載入完成時初始化遊戲
+        document.addEventListener('DOMContentLoaded', initializeGame);
+    </script>
+</body>
+</html> 
