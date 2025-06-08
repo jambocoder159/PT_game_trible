@@ -392,12 +392,16 @@
     <script>
         // 初始化用戶系統
         document.addEventListener('DOMContentLoaded', function() {
-            setTimeout(() => {
+            setTimeout(async () => {
                 try {
                     if (window.supabaseAuth?.supabase) {
                         window.leaderboardManager = new LeaderboardManager(window.supabaseAuth);
                         window.userManager = new UserManager(window.supabaseAuth, window.leaderboardManager);
                         window.globalNav = new GlobalNavigation(window.supabaseAuth, window.userManager);
+                        
+                        // 手動初始化導航（會檢查當前用戶狀態）
+                        await window.globalNav.init();
+                        
                         console.log('首頁用戶系統初始化完成');
                     }
                 } catch (error) {

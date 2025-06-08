@@ -12,16 +12,34 @@ class GlobalNavigation {
             this.handleAuthStateChange(event, session);
         });
         
-        this.init();
+        // 不在建構函式中呼叫 init，改為手動呼叫
+        // 這樣可以在外部控制初始化時機
     }
     
     // 初始化導航
-    init() {
+    async init() {
         this.createNavigationHTML();
         this.bindEvents();
+        
+        // 檢查當前用戶狀態
+        await this.checkInitialUserState();
+        
         this.updateNavigationContent();
         // 確保導航初始為關閉狀態
         this.closeNavigation();
+    }
+    
+    // 檢查初始用戶狀態
+    async checkInitialUserState() {
+        try {
+            const currentUser = this.supabaseAuth.getCurrentUser();
+            if (currentUser) {
+                this.currentUser = currentUser;
+                await this.loadUserProfile();
+            }
+        } catch (error) {
+            console.error('檢查初始用戶狀態失敗:', error);
+        }
     }
     
     // 處理認證狀態變化

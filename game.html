@@ -34,17 +34,24 @@
         }
 
         // 初始化用戶系統
-        function initializeUserSystem() {
-            // 初始化排行榜管理器
-            window.leaderboardManager = new LeaderboardManager(window.supabaseAuth);
-            
-            // 初始化用戶管理器
-            window.userManager = new UserManager(window.supabaseAuth, window.leaderboardManager);
-            
-            // 初始化全局導航
-            window.globalNav = new GlobalNavigation(window.supabaseAuth, window.userManager);
-            
-            console.log('用戶系統已初始化');
+        async function initializeUserSystem() {
+            try {
+                // 初始化排行榜管理器
+                window.leaderboardManager = new LeaderboardManager(window.supabaseAuth);
+                
+                // 初始化用戶管理器
+                window.userManager = new UserManager(window.supabaseAuth, window.leaderboardManager);
+                
+                // 初始化全局導航
+                window.globalNav = new GlobalNavigation(window.supabaseAuth, window.userManager);
+                
+                // 手動初始化導航（會檢查當前用戶狀態）
+                await window.globalNav.init();
+                
+                console.log('用戶系統已初始化');
+            } catch (error) {
+                console.error('用戶系統初始化失敗:', error);
+            }
         }
 
         // 初始化遊戲
@@ -117,8 +124,8 @@
         }
 
         // 當頁面載入完成時初始化
-        document.addEventListener('DOMContentLoaded', function() {
-            initializeUserSystem();
+        document.addEventListener('DOMContentLoaded', async function() {
+            await initializeUserSystem();
             initializeGame();
         });
     </script>
