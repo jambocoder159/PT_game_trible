@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>重定向 URL 測試</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body class="bg-gray-100 p-8">
+    <div class="max-w-2xl mx-auto">
+        <h1 class="text-3xl font-bold text-center mb-8">重定向 URL 測試</h1>
+        
+        <div class="bg-white p-6 rounded-lg shadow mb-6">
+            <h2 class="text-xl font-bold mb-4">當前環境資訊</h2>
+            <div id="environmentInfo" class="space-y-2 font-mono text-sm bg-gray-50 p-4 rounded">
+                載入中...
+            </div>
+        </div>
+        
+        <div class="bg-white p-6 rounded-lg shadow mb-6">
+            <h2 class="text-xl font-bold mb-4">重定向 URL 測試</h2>
+            <div class="space-y-2">
+                <button onclick="testFromIndex()" class="w-full bg-blue-500 text-white py-2 px-4 rounded hover:bg-blue-600">
+                    模擬從首頁登入
+                </button>
+                <button onclick="testFromGame()" class="w-full bg-green-500 text-white py-2 px-4 rounded hover:bg-green-600">
+                    模擬從遊戲頁面登入
+                </button>
+                <button onclick="testFromGameWithMode()" class="w-full bg-purple-500 text-white py-2 px-4 rounded hover:bg-purple-600">
+                    模擬從遊戲頁面登入（帶模式參數）
+                </button>
+            </div>
+        </div>
+        
+        <div class="bg-white p-6 rounded-lg shadow">
+            <h2 class="text-xl font-bold mb-4">測試結果</h2>
+            <div id="testResults" class="bg-gray-50 p-4 rounded font-mono text-sm max-h-96 overflow-auto">
+                等待測試...
+            </div>
+        </div>
+    </div>
+
+    <script src="js/SupabaseAuth.js"></script>
+    <script>
+        function displayEnvironmentInfo() {
+            const info = document.getElementById('environmentInfo');
+            info.innerHTML = `
+                <div>當前 URL: ${window.location.href}</div>
+                <div>Host: ${window.location.hostname}</div>
+                <div>Origin: ${window.location.origin}</div>
+                <div>Pathname: ${window.location.pathname}</div>
+                <div>Search: ${window.location.search}</div>
+                <div>是否 localhost: ${window.location.hostname === 'localhost'}</div>
+                <div>User Agent: ${navigator.userAgent}</div>
+            `;
+        }
+        
+        function logResult(message) {
+            const results = document.getElementById('testResults');
+            const timestamp = new Date().toLocaleTimeString();
+            results.innerHTML += `[${timestamp}] ${message}\n`;
+            results.scrollTop = results.scrollHeight;
+        }
+        
+        function testFromIndex() {
+            // 直接測試 getRedirectUrl 方法，但傳入模擬的參數
+            try {
+                // 創建模擬的 location 對象
+                const mockLocation = {
+                    origin: window.location.origin,
+                    pathname: '/index.html',
+                    search: '',
+                    hostname: window.location.hostname,
+                    href: window.location.origin + '/index.html'
+                };
+                
+                const redirectUrl = testRedirectUrl(mockLocation);
+                logResult(`從首頁登入 - 重定向 URL: ${redirectUrl}`);
+            } catch (error) {
+                logResult(`從首頁登入測試失敗: ${error.message}`);
+            }
+        }
+        
+        function testFromGame() {
+            try {
+                const mockLocation = {
+                    origin: window.location.origin,
+                    pathname: '/game.html',
+                    search: '',
+                    hostname: window.location.hostname,
+                    href: window.location.origin + '/game.html'
+                };
+                
+                const redirectUrl = testRedirectUrl(mockLocation);
+                logResult(`從遊戲頁面登入 - 重定向 URL: ${redirectUrl}`);
+            } catch (error) {
+                logResult(`從遊戲頁面登入測試失敗: ${error.message}`);
+            }
+        }
+        
+        function testFromGameWithMode() {
+            try {
+                const mockLocation = {
+                    origin: window.location.origin,
+                    pathname: '/game.html',
+                    search: '?mode=triple',
+                    hostname: window.location.hostname,
+                    href: window.location.origin + '/game.html?mode=triple'
+                };
+                
+                const redirectUrl = testRedirectUrl(mockLocation);
+                logResult(`從遊戲頁面登入（triple模式）- 重定向 URL: ${redirectUrl}`);
+            } catch (error) {
+                logResult(`從遊戲頁面登入測試失敗: ${error.message}`);
+            }
+        }
+        
+        // 測試重定向 URL 生成的輔助函數
+        function testRedirectUrl(mockLocation) {
+            // 模擬 getRedirectUrl 的邏輯
+            let baseUrl = mockLocation.origin;
+            
+            if (mockLocation.pathname.includes('game.html')) {
+                const urlParams = new URLSearchParams(mockLocation.search);
+                const gameMode = urlParams.get('mode') || 'classic';
+                return `${baseUrl}/game.html?mode=${gameMode}`;
+            }
+            
+            return `${baseUrl}/game.html?mode=classic`;
+        }
+        
+        // 頁面載入時顯示環境資訊
+        document.addEventListener('DOMContentLoaded', function() {
+            displayEnvironmentInfo();
+            
+            setTimeout(() => {
+                if (window.supabaseAuth) {
+                    logResult('SupabaseAuth 已載入');
+                    logResult(`實際重定向 URL: ${window.supabaseAuth.getRedirectUrl()}`);
+                } else {
+                    logResult('SupabaseAuth 未載入');
+                }
+            }, 1000);
+        });
+    </script>
+</body>
+</html> 

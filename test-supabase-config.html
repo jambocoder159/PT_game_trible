@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Supabase 配置測試</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body class="bg-gray-100 p-8">
+    <div class="max-w-2xl mx-auto">
+        <h1 class="text-3xl font-bold text-center mb-8">Supabase 配置測試</h1>
+        
+        <div class="bg-white p-6 rounded-lg shadow mb-6">
+            <h2 class="text-xl font-bold mb-4">建議的 Supabase 設定</h2>
+            <div class="space-y-4">
+                <div>
+                    <h3 class="font-semibold text-gray-700">Site URL：</h3>
+                    <div class="bg-gray-100 p-2 rounded font-mono text-sm" id="siteUrl">
+                        計算中...
+                    </div>
+                </div>
+                
+                <div>
+                    <h3 class="font-semibold text-gray-700">Redirect URLs：</h3>
+                    <div class="bg-gray-100 p-2 rounded font-mono text-sm space-y-1" id="redirectUrls">
+                        計算中...
+                    </div>
+                </div>
+                
+                <div>
+                    <h3 class="font-semibold text-gray-700">Google OAuth Redirect URI：</h3>
+                    <div class="bg-gray-100 p-2 rounded font-mono text-sm">
+                        https://admkbelthyyqngsnsxmm.supabase.co/auth/v1/callback
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="bg-white p-6 rounded-lg shadow mb-6">
+            <h2 class="text-xl font-bold mb-4">配置檢查工具</h2>
+            <div class="space-y-2">
+                <button onclick="copyConfig()" class="w-full bg-blue-500 text-white py-2 px-4 rounded hover:bg-blue-600">
+                    📋 複製配置到剪貼板
+                </button>
+                <button onclick="testOAuth()" class="w-full bg-green-500 text-white py-2 px-4 rounded hover:bg-green-600">
+                    🧪 測試 OAuth 配置
+                </button>
+            </div>
+        </div>
+        
+        <div class="bg-white p-6 rounded-lg shadow">
+            <h2 class="text-xl font-bold mb-4">測試結果</h2>
+            <div id="testResults" class="bg-gray-50 p-4 rounded font-mono text-sm max-h-64 overflow-auto">
+                等待測試...
+            </div>
+        </div>
+        
+        <div class="mt-6 bg-yellow-50 border border-yellow-200 p-4 rounded">
+            <h3 class="font-bold text-yellow-800 mb-2">⚠️ 重要提醒</h3>
+            <ul class="text-yellow-700 text-sm space-y-1">
+                <li>• 更新 Supabase 設定後需要等待幾分鐘才會生效</li>
+                <li>• 如果是 Vercel 預覽部署，每次部署 URL 可能會改變</li>
+                <li>• 建議將正式域名設定為自定義域名</li>
+                <li>• 清除瀏覽器快取後再測試</li>
+            </ul>
+        </div>
+    </div>
+
+    <script src="js/SupabaseAuth.js"></script>
+    <script>
+        function log(message) {
+            const results = document.getElementById('testResults');
+            const timestamp = new Date().toLocaleTimeString();
+            results.innerHTML += `[${timestamp}] ${message}\n`;
+            results.scrollTop = results.scrollHeight;
+        }
+        
+        function generateConfig() {
+            const origin = window.location.origin;
+            
+            document.getElementById('siteUrl').textContent = origin;
+            
+            const redirectUrls = [
+                `${origin}/game.html`,
+                `${origin}/index.html`,
+                `${origin}/debug-oauth.html`,
+                `${origin}/test-supabase-config.html`
+            ];
+            
+            document.getElementById('redirectUrls').innerHTML = 
+                redirectUrls.map(url => `<div>${url}</div>`).join('');
+                
+            return { origin, redirectUrls };
+        }
+        
+        function copyConfig() {
+            const { origin, redirectUrls } = generateConfig();
+            
+            const configText = `
+Supabase URL Configuration:
+
+Site URL:
+${origin}
+
+Redirect URLs:
+${redirectUrls.join('\n')}
+
+Google OAuth Redirect URI:
+https://admkbelthyyqngsnsxmm.supabase.co/auth/v1/callback
+
+設定步驟：
+1. 前往 Supabase Dashboard > Authentication > URL Configuration
+2. 設定上述 Site URL 和 Redirect URLs
+3. 前往 Google Cloud Console 設定 OAuth Redirect URI
+4. 等待 5-10 分鐘讓設定生效
+            `.trim();
+            
+            navigator.clipboard.writeText(configText).then(() => {
+                log('✅ 配置已複製到剪貼板！');
+            }).catch(err => {
+                log('❌ 複製失敗：' + err.message);
+            });
+        }
+        
+        async function testOAuth() {
+            log('🧪 開始測試 OAuth 配置...');
+            
+            if (!window.supabaseAuth) {
+                log('❌ SupabaseAuth 未載入');
+                return;
+            }
+            
+            const redirectUrl = window.supabaseAuth.getRedirectUrl();
+            log(`📍 重定向 URL: ${redirectUrl}`);
+            
+            // 檢查 URL 是否包含正確的域名
+            if (redirectUrl.includes(window.location.hostname)) {
+                log('✅ 重定向 URL 包含正確域名');
+            } else {
+                log('❌ 重定向 URL 域名不正確');
+            }
+            
+            // 檢查協議
+            if (redirectUrl.startsWith('https://')) {
+                log('✅ 使用 HTTPS 協議');
+            } else {
+                log('⚠️ 未使用 HTTPS 協議');
+            }
+            
+            log('💡 如果測試登入仍失敗，請檢查 Supabase Dashboard 設定');
+            log('📋 使用上方按鈕複製正確的配置設定');
+        }
+        
+        // 頁面載入時生成配置
+        document.addEventListener('DOMContentLoaded', function() {
+            generateConfig();
+            
+            setTimeout(() => {
+                if (window.supabaseAuth) {
+                    log('✅ SupabaseAuth 已載入');
+                    log('🔍 當前重定向 URL: ' + window.supabaseAuth.getRedirectUrl());
+                } else {
+                    log('❌ SupabaseAuth 載入失敗');
+                }
+            }, 1000);
+        });
+    </script>
+</body>
+</html> 

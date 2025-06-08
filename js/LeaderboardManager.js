@@ -7,7 +7,7 @@ class LeaderboardManager {
         this.cacheTimeout = 5 * 60 * 1000; // 5分鐘快取
     }
     
-    // 獲取全域排行榜
+    // 獲取全域排行榜（每個玩家只顯示最高分）
     async getGlobalLeaderboard(gameMode, period = 'all', limit = 50) {
         const cacheKey = `global_${gameMode}_${period}_${limit}`;
         
@@ -20,10 +20,26 @@ class LeaderboardManager {
         }
         
         try {
-            let query = this.supabase
+            // 先獲取每個玩家的最高分記錄 ID
+            let subQuery = this.supabase
+                .from('game_records')
+                .select('player_id, MAX(score) as max_score')
+                .eq('game_mode', gameMode);
+            
+            // 根據時間段過濾
+            if (period !== 'all') {
+                const timeFilter = this.getTimeFilter(period);
+                if (timeFilter) {
+                    subQuery = subQuery.gte('created_at', timeFilter);
+                }
+            }
+            
+            // 使用子查詢的方式獲取每個玩家的最高分記錄
+            const { data: allRecords, error: allError } = await this.supabase
                 .from('game_records')
                 .select(`
                     id,
+                    player_id,
                     score,
                     moves_used,
                     time_taken,
@@ -34,33 +50,47 @@ class LeaderboardManager {
                         avatar_url
                     )
                 `)
-                .eq('game_mode', gameMode)
-                .order('score', { ascending: false })
-                .limit(limit);
+                .eq('game_mode', gameMode);
+                
+            if (allError) throw allError;
             
             // 根據時間段過濾
+            let filteredRecords = allRecords || [];
             if (period !== 'all') {
                 const timeFilter = this.getTimeFilter(period);
                 if (timeFilter) {
-                    query = query.gte('created_at', timeFilter);
+                    filteredRecords = filteredRecords.filter(record => 
+                        new Date(record.created_at) >= new Date(timeFilter)
+                    );
                 }
             }
             
-            const { data, error } = await query;
-            if (error) throw error;
+            // 找出每個玩家的最高分記錄
+            const playerBestScores = new Map();
+            filteredRecords.forEach(record => {
+                const playerId = record.player_id;
+                if (!playerBestScores.has(playerId) || 
+                    record.score > playerBestScores.get(playerId).score) {
+                    playerBestScores.set(playerId, record);
+                }
+            });
             
-            // 處理資料格式並添加排名
-            const leaderboard = (data || []).map((record, index) => ({
-                rank: index + 1,
-                id: record.id,
-                username: record.players.username,
-                avatar_url: record.players.avatar_url,
-                score: record.score,
-                moves: record.moves_used,
-                time: record.time_taken,
-                level: record.level_reached,
-                date: new Date(record.created_at).toLocaleDateString('zh-TW')
-            }));
+            // 轉換為數組並排序
+            const leaderboard = Array.from(playerBestScores.values())
+                .sort((a, b) => b.score - a.score)
+                .slice(0, limit)
+                .map((record, index) => ({
+                    rank: index + 1,
+                    id: record.id,
+                    player_id: record.player_id,
+                    username: record.players.username,
+                    avatar_url: record.players.avatar_url,
+                    score: record.score,
+                    moves: record.moves_used,
+                    time: record.time_taken,
+                    level: record.level_reached,
+                    date: new Date(record.created_at).toLocaleDateString('zh-TW')
+                }));
             
             // 更新快取
             this.cache.set(cacheKey, {
@@ -108,19 +138,36 @@ class LeaderboardManager {
                 
             if (userError || !userBest) return null;
             
-            // 計算有多少人分數比用戶高
-            const { count, error: countError } = await this.supabase
+            // 獲取所有玩家的最高分記錄
+            const { data: allRecords, error: allError } = await this.supabase
                 .from('game_records')
-                .select('*', { count: 'exact', head: true })
-                .eq('game_mode', gameMode)
-                .gt('score', userBest.score);
+                .select('player_id, score')
+                .eq('game_mode', gameMode);
                 
-            if (countError) throw countError;
+            if (allError) throw allError;
+            
+            // 計算每個玩家的最高分
+            const playerBestScores = new Map();
+            (allRecords || []).forEach(record => {
+                const playerId = record.player_id;
+                if (!playerBestScores.has(playerId) || 
+                    record.score > playerBestScores.get(playerId)) {
+                    playerBestScores.set(playerId, record.score);
+                }
+            });
+            
+            // 統計有多少玩家分數比用戶高
+            let higherCount = 0;
+            for (const [playerId, score] of playerBestScores) {
+                if (score > userBest.score) {
+                    higherCount++;
+                }
+            }
             
             return {
-                rank: (count || 0) + 1,
+                rank: higherCount + 1,
                 score: userBest.score,
-                total_players: await this.getTotalPlayers(gameMode)
+                total_players: playerBestScores.size
             };
         } catch (error) {
             console.error('獲取用戶排名失敗:', error);
@@ -153,6 +200,7 @@ class LeaderboardManager {
                 .from('game_records')
                 .select(`
                     id,
+                    player_id,
                     score,
                     moves_used,
                     time_taken,
@@ -164,23 +212,36 @@ class LeaderboardManager {
                     )
                 `)
                 .eq('game_mode', gameMode)
-                .in('player_id', friendIds)
-                .order('score', { ascending: false })
-                .limit(limit);
+                .in('player_id', friendIds);
                 
             if (error) throw error;
             
-            return (data || []).map((record, index) => ({
-                rank: index + 1,
-                id: record.id,
-                username: record.players.username,
-                avatar_url: record.players.avatar_url,
-                score: record.score,
-                moves: record.moves_used,
-                time: record.time_taken,
-                level: record.level_reached,
-                date: new Date(record.created_at).toLocaleDateString('zh-TW')
-            }));
+            // 找出每個好友的最高分記錄
+            const playerBestScores = new Map();
+            (data || []).forEach(record => {
+                const playerId = record.player_id;
+                if (!playerBestScores.has(playerId) || 
+                    record.score > playerBestScores.get(playerId).score) {
+                    playerBestScores.set(playerId, record);
+                }
+            });
+            
+            // 轉換為數組並排序
+            return Array.from(playerBestScores.values())
+                .sort((a, b) => b.score - a.score)
+                .slice(0, limit)
+                .map((record, index) => ({
+                    rank: index + 1,
+                    id: record.id,
+                    player_id: record.player_id,
+                    username: record.players.username,
+                    avatar_url: record.players.avatar_url,
+                    score: record.score,
+                    moves: record.moves_used,
+                    time: record.time_taken,
+                    level: record.level_reached,
+                    date: new Date(record.created_at).toLocaleDateString('zh-TW')
+                }));
         } catch (error) {
             console.error('獲取好友排行榜失敗:', error);
             return [];

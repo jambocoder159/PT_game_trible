@@ -1,9 +1,18 @@
 // Supabase 配置和認證管理
 class SupabaseAuth {
     constructor() {
-        // Supabase 配置
-        this.supabaseUrl = 'https://admkbelthyyqngsnsxmm.supabase.co';
-        this.supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFkbWtiZWx0aHl5cW5nc25zeG1tIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDkzMDU4NjMsImV4cCI6MjA2NDg4MTg2M30.NdpkqWnSJsb9bHQn8H7_CgpIkwu9f5kSzLrWV39ta2w';
+        // 等待環境配置載入
+        this.envConfig = window.environmentConfig;
+        
+        // 使用環境配置
+        if (this.envConfig) {
+            this.supabaseUrl = this.envConfig.config.supabaseUrl;
+            this.supabaseKey = this.envConfig.config.supabaseKey;
+        } else {
+            // 備用配置
+            this.supabaseUrl = 'https://admkbelthyyqngsnsxmm.supabase.co';
+            this.supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFkbWtiZWx0aHl5cW5nc25zeG1tIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDkzMDU4NjMsImV4cCI6MjA2NDg4MTg2M30.NdpkqWnSJsb9bHQn8H7_CgpIkwu9f5kSzLrWV39ta2w';
+        }
         
         // 初始化 Supabase 客戶端
         this.supabase = window.supabase?.createClient(this.supabaseUrl, this.supabaseKey);
@@ -57,10 +66,15 @@ class SupabaseAuth {
     // Google OAuth 登入
     async signInWithGoogle() {
         try {
+            // 動態設定重定向 URL，適應不同環境
+            const redirectTo = this.getRedirectUrl();
+            console.log('Google OAuth 重定向 URL:', redirectTo);
+            console.log('當前頁面 URL:', window.location.href);
+            
             const { data, error } = await this.supabase.auth.signInWithOAuth({
                 provider: 'google',
                 options: {
-                    redirectTo: window.location.origin + '/game.html'
+                    redirectTo: redirectTo
                 }
             });
             
@@ -75,10 +89,13 @@ class SupabaseAuth {
     // GitHub OAuth 登入
     async signInWithGitHub() {
         try {
+            // 動態設定重定向 URL，適應不同環境
+            const redirectTo = this.getRedirectUrl();
+            
             const { data, error } = await this.supabase.auth.signInWithOAuth({
                 provider: 'github',
                 options: {
-                    redirectTo: window.location.origin + '/game.html'
+                    redirectTo: redirectTo
                 }
             });
             
@@ -93,10 +110,13 @@ class SupabaseAuth {
     // Discord OAuth 登入
     async signInWithDiscord() {
         try {
+            // 動態設定重定向 URL，適應不同環境
+            const redirectTo = this.getRedirectUrl();
+            
             const { data, error } = await this.supabase.auth.signInWithOAuth({
                 provider: 'discord',
                 options: {
-                    redirectTo: window.location.origin + '/game.html'
+                    redirectTo: redirectTo
                 }
             });
             
@@ -106,6 +126,44 @@ class SupabaseAuth {
             console.error('Discord 登入失敗:', error);
             throw error;
         }
+    }
+    
+    // 獲取重定向 URL
+    getRedirectUrl() {
+        // 使用環境配置管理器
+        if (this.envConfig) {
+            // 獲取當前頁面信息
+            const pathname = window.location.pathname;
+            let searchParams = '?mode=classic';
+            
+            if (pathname.includes('game.html')) {
+                const urlParams = new URLSearchParams(window.location.search);
+                const gameMode = urlParams.get('mode') || 'classic';
+                searchParams = `?mode=${gameMode}`;
+            }
+            
+            const redirectUrl = this.envConfig.getRedirectUrl('/game.html', searchParams);
+            console.log('環境配置重定向 URL:', redirectUrl);
+            return redirectUrl;
+        }
+        
+        // 備用邏輯（如果環境配置未載入）
+        const baseUrl = window.location.origin;
+        
+        console.log('使用備用重定向邏輯:', {
+            origin: window.location.origin,
+            hostname: window.location.hostname,
+            pathname: window.location.pathname,
+            search: window.location.search
+        });
+        
+        if (window.location.pathname.includes('game.html')) {
+            const urlParams = new URLSearchParams(window.location.search);
+            const gameMode = urlParams.get('mode') || 'classic';
+            return `${baseUrl}/game.html?mode=${gameMode}`;
+        }
+        
+        return `${baseUrl}/game.html?mode=classic`;
     }
     
     // 登出
