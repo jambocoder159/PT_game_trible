@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>響應式設計測試 - 三消遊戲</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/game.css">
+    <style>
+        /* 修復CSS語法錯誤的覆蓋樣式 */
+        @media (max-height: 600px) and (orientation: landscape) {
+            .modal-content button {
+                padding-top: 0.5rem !important;
+                padding-bottom: 0.5rem !important;
+            }
+        }
+        
+        /* 測試框架樣式 */
+        .test-frame {
+            border: 2px solid #3b82f6;
+            margin: 1rem;
+            position: relative;
+        }
+        
+        .test-label {
+            position: absolute;
+            top: -12px;
+            left: 10px;
+            background: white;
+            padding: 0 8px;
+            font-size: 12px;
+            font-weight: bold;
+            color: #3b82f6;
+        }
+        
+        .desktop-frame { width: 800px; height: 600px; }
+        .tablet-frame { width: 768px; height: 500px; }
+        .mobile-frame { width: 375px; height: 600px; }
+        .mobile-landscape-frame { width: 600px; height: 375px; }
+    </style>
+</head>
+<body class="bg-gray-100 p-4">
+    <div class="max-w-7xl mx-auto">
+        <h1 class="text-3xl font-bold text-center mb-8 text-gray-800">三消遊戲響應式設計測試</h1>
+        
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <!-- 桌面版測試 -->
+            <div class="test-frame desktop-frame mx-auto">
+                <div class="test-label">桌面版 (800x600)</div>
+                <iframe src="game.html?mode=classic" width="100%" height="100%" frameborder="0"></iframe>
+            </div>
+            
+            <!-- 平板版測試 -->
+            <div class="test-frame tablet-frame mx-auto">
+                <div class="test-label">平板版 (768x500)</div>
+                <iframe src="game.html?mode=classic" width="100%" height="100%" frameborder="0"></iframe>
+            </div>
+            
+            <!-- 手機直向測試 -->
+            <div class="test-frame mobile-frame mx-auto">
+                <div class="test-label">手機直向 (375x600)</div>
+                <iframe src="game.html?mode=classic" width="100%" height="100%" frameborder="0"></iframe>
+            </div>
+            
+            <!-- 手機橫向測試 -->
+            <div class="test-frame mobile-landscape-frame mx-auto">
+                <div class="test-label">手機橫向 (600x375)</div>
+                <iframe src="game.html?mode=classic" width="100%" height="100%" frameborder="0"></iframe>
+            </div>
+        </div>
+        
+        <div class="mt-8 bg-white p-6 rounded-lg shadow-lg">
+            <h2 class="text-xl font-semibold mb-4">響應式設計檢查清單</h2>
+            <ul class="space-y-2">
+                <li class="flex items-center">
+                    <input type="checkbox" class="mr-2">
+                    <span>所有UI元件在不同尺寸下都能完整顯示</span>
+                </li>
+                <li class="flex items-center">
+                    <input type="checkbox" class="mr-2">
+                    <span>遊戲區域兩側留有適當空白</span>
+                </li>
+                <li class="flex items-center">
+                    <input type="checkbox" class="mr-2">
+                    <span>文字和按鈕大小在小螢幕上仍然可讀和可點擊</span>
+                </li>
+                <li class="flex items-center">
+                    <input type="checkbox" class="mr-2">
+                    <span>遊戲畫布能夠適應可用空間</span>
+                </li>
+                <li class="flex items-center">
+                    <input type="checkbox" class="mr-2">
+                    <span>橫向模式下佈局合理，不會被切割</span>
+                </li>
+                <li class="flex items-center">
+                    <input type="checkbox" class="mr-2">
+                    <span>彈窗在小螢幕上能完整顯示</span>
+                </li>
+            </ul>
+        </div>
+        
+        <div class="mt-6 text-center">
+            <a href="game.html?mode=classic" class="bg-blue-500 hover:bg-blue-600 text-white font-semibold py-3 px-6 rounded-lg inline-block">
+                開始遊戲測試
+            </a>
+        </div>
+    </div>
+</body>
+</html> 

@@ -132,17 +132,8 @@ class SupabaseAuth {
     getRedirectUrl() {
         // 使用環境配置管理器
         if (this.envConfig) {
-            // 獲取當前頁面信息
-            const pathname = window.location.pathname;
-            let searchParams = '?mode=classic';
-            
-            if (pathname.includes('game.html')) {
-                const urlParams = new URLSearchParams(window.location.search);
-                const gameMode = urlParams.get('mode') || 'classic';
-                searchParams = `?mode=${gameMode}`;
-            }
-            
-            const redirectUrl = this.envConfig.getRedirectUrl('/game.html', searchParams);
+            // OAuth 登入後應該重定向到主選單
+            const redirectUrl = this.envConfig.getRedirectUrl('/main-menu.html', '');
             console.log('環境配置重定向 URL:', redirectUrl);
             return redirectUrl;
         }
@@ -157,13 +148,8 @@ class SupabaseAuth {
             search: window.location.search
         });
         
-        if (window.location.pathname.includes('game.html')) {
-            const urlParams = new URLSearchParams(window.location.search);
-            const gameMode = urlParams.get('mode') || 'classic';
-            return `${baseUrl}/game.html?mode=${gameMode}`;
-        }
-        
-        return `${baseUrl}/game.html?mode=classic`;
+        // OAuth 登入成功後統一重定向到主選單
+        return `${baseUrl}/main-menu.html`;
     }
     
     // 登出

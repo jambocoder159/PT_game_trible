@@ -1,0 +1,664 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>三消挑戰 - 主選單</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&family=Poppins:wght@400;500;600;700;900&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Poppins', 'Noto Sans TC', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        
+        .glass-card {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 20px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+        }
+        
+        .mode-card {
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .mode-card:hover {
+            transform: translateY(-5px) scale(1.02);
+            box-shadow: 0 15px 40px rgba(0, 0, 0, 0.2);
+        }
+        
+        .mode-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+            transition: left 0.5s;
+        }
+        
+        .mode-card:hover::before {
+            left: 100%;
+        }
+        
+        .user-avatar {
+            background: linear-gradient(45deg, #FF6B6B, #4ECDC4);
+            border: 3px solid rgba(255, 255, 255, 0.3);
+        }
+        
+        .nav-button {
+            transition: all 0.3s ease;
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(5px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        .nav-button:hover {
+            background: rgba(255, 255, 255, 0.2);
+            transform: translateY(-2px);
+        }
+        
+        .slide-in {
+            animation: slideInUp 0.6s ease-out;
+        }
+        
+        @keyframes slideInUp {
+            from {
+                opacity: 0;
+                transform: translateY(50px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .fade-in {
+            animation: fadeIn 0.8s ease-out;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        
+        .stagger-1 { animation-delay: 0.1s; }
+        .stagger-2 { animation-delay: 0.2s; }
+        .stagger-3 { animation-delay: 0.3s; }
+        .stagger-4 { animation-delay: 0.4s; }
+    </style>
+</head>
+<body class="min-h-screen">
+    
+    <!-- 頂部導航 -->
+    <nav class="p-4 fade-in">
+        <div class="max-w-6xl mx-auto flex items-center justify-between">
+            <!-- 遊戲標題 -->
+            <div class="text-white">
+                <h1 class="text-2xl font-bold">三消挑戰</h1>
+                <p class="text-sm text-white/70">Match-3 Challenge</p>
+            </div>
+            
+            <!-- 用戶區域 -->
+            <div id="userArea" class="flex items-center gap-4">
+                <!-- 未登入狀態 -->
+                <div id="loginPrompt" class="flex items-center gap-3">
+                    <span class="text-white/80 text-sm">登入以保存成績</span>
+                    <button onclick="showLoginModal()" class="nav-button px-4 py-2 rounded-full text-white text-sm font-medium">
+                        🔑 登入
+                    </button>
+                </div>
+                
+                <!-- 已登入狀態 -->
+                <div id="userProfile" class="hidden flex items-center gap-3">
+                    <div class="user-avatar w-10 h-10 rounded-full flex items-center justify-center">
+                        <span id="userInitial" class="text-white font-bold text-sm"></span>
+                    </div>
+                    <div class="text-white">
+                        <div id="userName" class="text-sm font-medium"></div>
+                        <div id="userScore" class="text-xs text-white/70"></div>
+                    </div>
+                    <button onclick="logout()" class="nav-button px-3 py-1 rounded-full text-white text-xs">
+                        登出
+                    </button>
+                </div>
+            </div>
+        </div>
+    </nav>
+    
+    <!-- 主要內容 -->
+    <div class="max-w-6xl mx-auto px-4 pb-8">
+        
+        <!-- 歡迎訊息 -->
+        <div class="text-center mb-8 slide-in">
+            <h2 class="text-3xl font-bold text-white mb-2">選擇遊戲模式</h2>
+            <p class="text-white/80">挑戰不同難度，創造你的最佳成績！</p>
+        </div>
+        
+        <!-- 遊戲模式選擇 -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+            
+            <!-- 單排模式 -->
+            <div class="glass-card mode-card p-6 slide-in stagger-1" onclick="selectMode('classic')">
+                <div class="text-center">
+                    <div class="text-4xl mb-4">🎯</div>
+                    <h3 class="text-xl font-bold text-white mb-2">經典單排</h3>
+                    <p class="text-white/80 text-sm mb-4">經典的單排三消遊戲<br>適合新手入門</p>
+                    <div class="bg-white/20 rounded-full px-3 py-1 text-xs text-white">
+                        簡單難度
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 三排模式 -->
+            <div class="glass-card mode-card p-6 slide-in stagger-2" onclick="selectMode('triple')">
+                <div class="text-center">
+                    <div class="text-4xl mb-4">🚀</div>
+                    <h3 class="text-xl font-bold text-white mb-2">進階三排</h3>
+                    <p class="text-white/80 text-sm mb-4">三排同時進行<br>挑戰你的多工能力</p>
+                    <div class="bg-yellow-500/80 rounded-full px-3 py-1 text-xs text-white">
+                        中等難度
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 三排限時模式 -->
+            <div class="glass-card mode-card p-6 slide-in stagger-3" onclick="selectMode('timeLimit')">
+                <div class="text-center">
+                    <div class="text-4xl mb-4">⏰</div>
+                    <h3 class="text-xl font-bold text-white mb-2">限時挑戰</h3>
+                    <p class="text-white/80 text-sm mb-4">45秒限時三排<br>極速反應挑戰</p>
+                    <div class="bg-red-500/80 rounded-full px-3 py-1 text-xs text-white">
+                        困難難度
+                    </div>
+                </div>
+            </div>
+            
+        </div>
+        
+        <!-- 功能按鈕區 -->
+        <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 slide-in stagger-4">
+            
+            <!-- 排行榜 -->
+            <button onclick="showLeaderboard()" class="glass-card nav-button p-4 text-center">
+                <div class="text-2xl mb-2">🏆</div>
+                <div class="text-white font-medium text-sm">排行榜</div>
+            </button>
+            
+            <!-- 個人統計 -->
+            <button onclick="showStats()" class="glass-card nav-button p-4 text-center">
+                <div class="text-2xl mb-2">📊</div>
+                <div class="text-white font-medium text-sm">個人統計</div>
+            </button>
+            
+            <!-- 遊戲設定 -->
+            <button onclick="showSettings()" class="glass-card nav-button p-4 text-center">
+                <div class="text-2xl mb-2">⚙️</div>
+                <div class="text-white font-medium text-sm">遊戲設定</div>
+            </button>
+            
+            <!-- 關於遊戲 -->
+            <button onclick="showAbout()" class="glass-card nav-button p-4 text-center">
+                <div class="text-2xl mb-2">ℹ️</div>
+                <div class="text-white font-medium text-sm">關於遊戲</div>
+            </button>
+            
+        </div>
+        
+    </div>
+    
+    <!-- 登入模態框 -->
+    <div id="loginModal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+        <div class="glass-card p-8 max-w-md mx-4">
+            <h3 class="text-2xl font-bold text-white mb-6 text-center">登入遊戲</h3>
+            
+            <div class="space-y-4">
+                <button onclick="loginWith('google')" class="w-full bg-red-500 hover:bg-red-600 text-white font-medium py-3 px-4 rounded-lg flex items-center justify-center gap-3 transition-colors">
+                    <span>🔍</span>
+                    使用 Google 登入
+                </button>
+                
+                <button disabled class="w-full bg-gray-400 text-gray-200 font-medium py-3 px-4 rounded-lg flex items-center justify-center gap-3 cursor-not-allowed">
+                    <span>🐙</span>
+                    GitHub 登入 (開發中)
+                </button>
+                
+                <button disabled class="w-full bg-gray-400 text-gray-200 font-medium py-3 px-4 rounded-lg flex items-center justify-center gap-3 cursor-not-allowed">
+                    <span>💬</span>
+                    Discord 登入 (開發中)
+                </button>
+            </div>
+            
+            <div class="mt-6 text-center">
+                <button onclick="closeLoginModal()" class="text-white/70 hover:text-white text-sm transition-colors">
+                    稍後再說
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 個人統計模態框 -->
+    <div id="statsModal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+        <div class="glass-card p-8 max-w-4xl mx-4 max-h-[90vh] overflow-y-auto">
+            <div class="flex justify-between items-center mb-6">
+                <h3 class="text-3xl font-bold text-white">📊 個人統計</h3>
+                <button onclick="closeStatsModal()" class="text-white/70 hover:text-white text-3xl transition-colors">&times;</button>
+            </div>
+            
+            <div id="statsContent" class="space-y-6">
+                <div class="flex justify-center">
+                    <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-400"></div>
+                </div>
+                <p class="text-center text-white/70">載入統計資料中...</p>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 載入 JavaScript -->
+    <script src="js/EnvironmentConfig.js"></script>
+    <script src="js/SupabaseAuth.js"></script>
+    <script src="js/LeaderboardManager.js"></script>
+    <script src="js/UserManager.js"></script>
+    <script src="js/GlobalNavigation.js"></script>
+    
+    <script>
+        // 全域變數
+        let isLoggedIn = false;
+        let currentUser = null;
+        
+        // 初始化
+        document.addEventListener('DOMContentLoaded', async function() {
+            await initializeUserSystem();
+            updateUserInterface();
+        });
+        
+        // 初始化用戶系統
+        async function initializeUserSystem() {
+            try {
+                // 等待環境配置載入
+                if (window.EnvironmentConfig) {
+                    window.environmentConfig = new EnvironmentConfig();
+                }
+                
+                // 等待 SupabaseAuth 自動初始化完成
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                
+                if (window.supabaseAuth) {
+                    // 監聽認證狀態變化
+                    window.supabaseAuth.onAuthStateChange((event, session) => {
+                        console.log('認證狀態變化:', event, session);
+                        if (event === 'SIGNED_IN') {
+                            currentUser = session.user;
+                            isLoggedIn = true;
+                            updateUserInterface();
+                            closeLoginModal();
+                        } else if (event === 'SIGNED_OUT') {
+                            currentUser = null;
+                            isLoggedIn = false;
+                            updateUserInterface();
+                        }
+                    });
+                    
+                    // 初始化排行榜管理器
+                    window.leaderboardManager = new LeaderboardManager(window.supabaseAuth);
+                    
+                    // 初始化用戶管理器
+                    window.userManager = new UserManager(window.supabaseAuth, window.leaderboardManager);
+                    
+                    // 檢查用戶登入狀態
+                    currentUser = await window.supabaseAuth.checkCurrentUser();
+                    isLoggedIn = !!currentUser;
+                    
+                    console.log('用戶系統已初始化', { isLoggedIn, currentUser });
+                } else {
+                    console.warn('SupabaseAuth 未正確初始化');
+                }
+            } catch (error) {
+                console.error('用戶系統初始化失敗:', error);
+            }
+        }
+        
+        // 更新用戶界面
+        function updateUserInterface() {
+            const loginPrompt = document.getElementById('loginPrompt');
+            const userProfile = document.getElementById('userProfile');
+            
+            if (isLoggedIn && currentUser) {
+                // 已登入狀態
+                loginPrompt.classList.add('hidden');
+                userProfile.classList.remove('hidden');
+                
+                // 更新用戶資訊
+                const userName = currentUser.user_metadata?.full_name || currentUser.email || '玩家';
+                const userInitial = userName.charAt(0).toUpperCase();
+                
+                document.getElementById('userName').textContent = userName;
+                document.getElementById('userInitial').textContent = userInitial;
+                document.getElementById('userScore').textContent = '最佳: 加載中...';
+                
+                // 載入用戶最佳成績
+                loadUserBestScore();
+                
+            } else {
+                // 未登入狀態
+                loginPrompt.classList.remove('hidden');
+                userProfile.classList.add('hidden');
+            }
+        }
+        
+        // 載入用戶最佳成績
+        async function loadUserBestScore() {
+            try {
+                if (window.leaderboardManager && isLoggedIn) {
+                    const bestScores = await window.leaderboardManager.getUserBestScores();
+                    
+                    // 找出所有模式中的最高分
+                    let maxScore = 0;
+                    Object.values(bestScores).forEach(score => {
+                        if (score && score.score > maxScore) {
+                            maxScore = score.score;
+                        }
+                    });
+                    
+                    document.getElementById('userScore').textContent = maxScore > 0 ? `最佳: ${maxScore}` : '最佳: 尚無記錄';
+                }
+            } catch (error) {
+                console.error('載入最佳成績失敗:', error);
+                document.getElementById('userScore').textContent = '最佳: 載入失敗';
+            }
+        }
+        
+        // 選擇遊戲模式
+        function selectMode(mode) {
+            // 添加點擊效果
+            event.currentTarget.style.transform = 'scale(0.95)';
+            setTimeout(() => {
+                event.currentTarget.style.transform = '';
+            }, 150);
+            
+            // 跳轉到遊戲
+            setTimeout(() => {
+                window.location.href = `game.html?mode=${mode}`;
+            }, 200);
+        }
+        
+        // 顯示登入模態框
+        function showLoginModal() {
+            document.getElementById('loginModal').classList.remove('hidden');
+        }
+        
+        // 關閉登入模態框
+        function closeLoginModal() {
+            document.getElementById('loginModal').classList.add('hidden');
+        }
+        
+        // OAuth 登入
+        async function loginWith(provider) {
+            try {
+                if (window.supabaseAuth) {
+                    if (provider === 'google') {
+                        await window.supabaseAuth.signInWithGoogle();
+                    } else {
+                        // 其他登入方式暫時不支援
+                        alert(`${provider} 登入功能開發中...`);
+                    }
+                }
+            } catch (error) {
+                console.error('登入失敗:', error);
+                alert('登入失敗，請稍後再試：' + error.message);
+            }
+        }
+        
+        // 登出
+        async function logout() {
+            try {
+                if (window.supabaseAuth) {
+                    await window.supabaseAuth.signOut();
+                    isLoggedIn = false;
+                    currentUser = null;
+                    updateUserInterface();
+                }
+            } catch (error) {
+                console.error('登出失敗:', error);
+            }
+        }
+        
+        // 顯示排行榜
+        function showLeaderboard() {
+            // 可以跳轉到排行榜頁面或顯示模態框
+            window.location.href = 'leaderboard.html';
+        }
+        
+        // 顯示個人統計
+        async function showStats() {
+            if (!isLoggedIn) {
+                showLoginModal();
+                return;
+            }
+            
+            document.getElementById('statsModal').classList.remove('hidden');
+            await loadUserStats();
+        }
+
+        // 關閉統計模態框
+        function closeStatsModal() {
+            document.getElementById('statsModal').classList.add('hidden');
+        }
+
+        // 載入用戶統計
+        async function loadUserStats() {
+            try {
+                if (!window.leaderboardManager) {
+                    throw new Error('排行榜管理器未初始化');
+                }
+
+                // 載入統計數據
+                const [bestScores, userStats] = await Promise.all([
+                    window.leaderboardManager.getUserBestScores(),
+                    window.leaderboardManager.getUserStats()
+                ]);
+
+                renderUserStats(bestScores, userStats);
+            } catch (error) {
+                console.error('載入用戶統計失敗:', error);
+                document.getElementById('statsContent').innerHTML = `
+                    <div class="text-center text-red-400">
+                        <p class="text-xl mb-2">❌ 載入失敗</p>
+                        <p class="text-sm">${error.message}</p>
+                    </div>
+                `;
+            }
+        }
+
+        // 渲染統計數據
+        function renderUserStats(bestScores, userStats) {
+            const gameModeName = {
+                classic: '经典单排',
+                double: '进阶双排',
+                triple: '进阶三排',
+                time_limit: '限时挑战'
+            };
+
+            let statsHtml = '';
+
+            // 總體統計
+            if (userStats && userStats.totalGames > 0) {
+                statsHtml += `
+                    <div class="bg-white/10 rounded-xl p-6 mb-6">
+                        <h4 class="text-xl font-bold text-white mb-4">🎮 總體統計</h4>
+                        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                            <div class="text-center">
+                                <p class="text-2xl font-bold text-purple-300">${userStats.totalGames}</p>
+                                <p class="text-sm text-white/70">總遊戲次數</p>
+                            </div>
+                            <div class="text-center">
+                                <p class="text-2xl font-bold text-yellow-300">${userStats.bestScore}</p>
+                                <p class="text-sm text-white/70">最高分數</p>
+                            </div>
+                            <div class="text-center">
+                                <p class="text-2xl font-bold text-blue-300">${userStats.avgScore}</p>
+                                <p class="text-sm text-white/70">平均分數</p>
+                            </div>
+                            <div class="text-center">
+                                <p class="text-2xl font-bold text-green-300">${Math.round(userStats.avgTime / 60)}m</p>
+                                <p class="text-sm text-white/70">平均遊戲時間</p>
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-4 mt-4">
+                            <div class="text-center">
+                                <p class="text-lg font-semibold text-orange-300">${userStats.firstPlayDate}</p>
+                                <p class="text-sm text-white/70">首次遊戲</p>
+                            </div>
+                            <div class="text-center">
+                                <p class="text-lg font-semibold text-pink-300">${userStats.lastPlayDate}</p>
+                                <p class="text-sm text-white/70">最後遊戲</p>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+
+            // 各模式最佳成績
+            statsHtml += `
+                <div class="bg-white/10 rounded-xl p-6 mb-6">
+                    <h4 class="text-xl font-bold text-white mb-4">🏆 各模式最佳成績</h4>
+                    <div class="grid gap-4">
+            `;
+
+            Object.entries(gameModeName).forEach(([mode, name]) => {
+                const score = bestScores[mode];
+                if (score) {
+                    statsHtml += `
+                        <div class="bg-white/5 rounded-lg p-4 flex justify-between items-center">
+                            <div>
+                                <h5 class="font-semibold text-white">${name}</h5>
+                                <p class="text-sm text-white/70">${score.date}</p>
+                            </div>
+                            <div class="text-right">
+                                <p class="text-2xl font-bold text-yellow-300">${score.score}</p>
+                                <p class="text-sm text-white/70">${score.moves} 步 · ${Math.round(score.time / 60)}m${score.time % 60}s</p>
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    statsHtml += `
+                        <div class="bg-white/5 rounded-lg p-4 flex justify-between items-center opacity-50">
+                            <div>
+                                <h5 class="font-semibold text-white">${name}</h5>
+                                <p class="text-sm text-white/70">尚未遊戲</p>
+                            </div>
+                            <div class="text-right">
+                                <p class="text-lg text-white/50">-</p>
+                            </div>
+                        </div>
+                    `;
+                }
+            });
+
+            statsHtml += `
+                    </div>
+                </div>
+            `;
+
+            // 各模式詳細統計
+            if (userStats && userStats.gameModes && Object.keys(userStats.gameModes).length > 0) {
+                statsHtml += `
+                    <div class="bg-white/10 rounded-xl p-6">
+                        <h4 class="text-xl font-bold text-white mb-4">📈 模式詳細統計</h4>
+                        <div class="space-y-4">
+                `;
+
+                Object.entries(userStats.gameModes).forEach(([mode, stats]) => {
+                    const name = gameModeName[mode] || mode;
+                    statsHtml += `
+                        <div class="bg-white/5 rounded-lg p-4">
+                            <h5 class="font-semibold text-white mb-3">${name}</h5>
+                            <div class="grid grid-cols-2 md:grid-cols-5 gap-3 text-sm">
+                                <div class="text-center">
+                                    <p class="font-bold text-purple-300">${stats.games}</p>
+                                    <p class="text-white/70">遊戲次數</p>
+                                </div>
+                                <div class="text-center">
+                                    <p class="font-bold text-yellow-300">${stats.bestScore}</p>
+                                    <p class="text-white/70">最高分</p>
+                                </div>
+                                <div class="text-center">
+                                    <p class="font-bold text-blue-300">${stats.avgScore}</p>
+                                    <p class="text-white/70">平均分</p>
+                                </div>
+                                <div class="text-center">
+                                    <p class="font-bold text-green-300">${stats.avgMoves}</p>
+                                    <p class="text-white/70">平均步數</p>
+                                </div>
+                                <div class="text-center">
+                                    <p class="font-bold text-orange-300">${Math.round(stats.avgTime / 60)}m</p>
+                                    <p class="text-white/70">平均時間</p>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                });
+
+                statsHtml += `
+                        </div>
+                    </div>
+                `;
+            }
+
+            // 如果沒有任何統計數據
+            if ((!userStats || userStats.totalGames === 0) && Object.keys(bestScores).length === 0) {
+                statsHtml = `
+                    <div class="text-center py-12">
+                        <div class="text-6xl mb-4">🎮</div>
+                        <h4 class="text-2xl font-bold text-white mb-2">還沒有遊戲記錄</h4>
+                        <p class="text-white/70 mb-6">開始你的第一場遊戲吧！</p>
+                        <button onclick="closeStatsModal(); selectMode('classic')" 
+                                class="bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 px-6 rounded-xl transition-colors">
+                            開始遊戲
+                        </button>
+                    </div>
+                `;
+            }
+
+            document.getElementById('statsContent').innerHTML = statsHtml;
+        }
+        
+        // 顯示設定
+        function showSettings() {
+            alert('遊戲設定功能開發中...');
+        }
+        
+        // 顯示關於
+        function showAbout() {
+            alert('關於遊戲功能開發中...');
+        }
+        
+        // 鍵盤導航支援
+        document.addEventListener('keydown', function(event) {
+            switch(event.key) {
+                case '1':
+                    selectMode('classic');
+                    break;
+                case '2':
+                    selectMode('triple');
+                    break;
+                case '3':
+                    selectMode('timeLimit');
+                    break;
+                case 'Escape':
+                    // 關閉任何打開的模態框
+                    closeLoginModal();
+                    closeStatsModal();
+                    break;
+            }
+        });
+    </script>
+</body>
+</html> 

@@ -1,0 +1,532 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>環境配置測試 - 三消挑戰</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Microsoft JhengHei', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .header h1 {
+            color: #333;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            color: #666;
+            font-size: 16px;
+        }
+
+        .section {
+            margin-bottom: 30px;
+            padding: 20px;
+            background: #f8fafc;
+            border-radius: 12px;
+            border-left: 4px solid #667eea;
+        }
+
+        .section h2 {
+            color: #333;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .status {
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+
+        .status.development {
+            background: #10b981;
+            color: white;
+        }
+
+        .status.preview {
+            background: #f59e0b;
+            color: white;
+        }
+
+        .status.production {
+            background: #3b82f6;
+            color: white;
+        }
+
+        .info-grid {
+            display: grid;
+            grid-template-columns: auto 1fr;
+            gap: 10px;
+            font-family: monospace;
+            font-size: 14px;
+            margin-bottom: 15px;
+        }
+
+        .info-label {
+            font-weight: bold;
+            color: #374151;
+        }
+
+        .info-value {
+            color: #6b7280;
+            word-break: break-all;
+        }
+
+        .suggestion-list {
+            background: white;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 15px;
+            margin-top: 10px;
+        }
+
+        .suggestion-list h3 {
+            color: #374151;
+            margin-bottom: 10px;
+            font-size: 14px;
+        }
+
+        .suggestion-list ul {
+            list-style: none;
+            padding: 0;
+        }
+
+        .suggestion-list li {
+            padding: 8px;
+            background: #f3f4f6;
+            margin-bottom: 5px;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 13px;
+            position: relative;
+        }
+
+        .copy-btn {
+            position: absolute;
+            right: 8px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 10px;
+            cursor: pointer;
+        }
+
+        .copy-btn:hover {
+            background: #5a67d8;
+        }
+
+        .test-oauth {
+            text-align: center;
+            margin-top: 20px;
+        }
+
+        .oauth-btn {
+            background: #db4437;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+            margin: 5px;
+            transition: all 0.3s ease;
+        }
+
+        .oauth-btn:hover {
+            background: #c23321;
+            transform: translateY(-2px);
+        }
+
+        .oauth-btn:disabled {
+            background: #9ca3af;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .warning {
+            background: #fef3cd;
+            border: 1px solid #fde68a;
+            color: #92400e;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 15px 0;
+        }
+
+        .warning strong {
+            display: block;
+            margin-bottom: 5px;
+        }
+
+        .success {
+            background: #d1fae5;
+            border: 1px solid #a7f3d0;
+            color: #065f46;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 15px 0;
+        }
+
+        .console-output {
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 15px;
+            border-radius: 8px;
+            font-family: monospace;
+            font-size: 13px;
+            margin-top: 15px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🌍 環境配置測試</h1>
+            <p>檢查當前環境的 OAuth 重定向配置</p>
+        </div>
+
+        <div class="section">
+            <h2>
+                📊 當前環境資訊
+                <span id="environmentStatus" class="status">檢測中...</span>
+            </h2>
+            <div id="environmentInfo" class="info-grid">
+                <span class="info-label">加載中...</span>
+                <span class="info-value">請稍候</span>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>🔗 建議的重定向 URL</h2>
+            <p>將以下 URL 添加到你的 Google OAuth 和 Supabase 配置中：</p>
+            <div id="suggestionList" class="suggestion-list">
+                <div class="info-label">加載中...</div>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>🧪 OAuth 測試</h2>
+            <p>點擊按鈕測試 Google OAuth 登入流程：</p>
+            
+            <div id="oauthWarning"></div>
+            
+            <div class="test-oauth">
+                <button id="testGoogleOAuth" class="oauth-btn">
+                    🔐 測試 Google 登入
+                </button>
+                <button id="checkAuthStatus" class="oauth-btn" style="background: #10b981;">
+                    ✅ 檢查登入狀態
+                </button>
+                <button id="signOut" class="oauth-btn" style="background: #ef4444;">
+                    🚪 登出
+                </button>
+            </div>
+
+            <div id="authResult"></div>
+        </div>
+
+        <div class="section">
+            <h2>📋 配置檢查清單</h2>
+            <div id="checklistItems">
+                <p>⏳ 正在檢查配置...</p>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>🖥️ 控制台輸出</h2>
+            <div id="consoleOutput" class="console-output">
+                等待環境配置加載...
+            </div>
+        </div>
+    </div>
+
+    <script src="js/EnvironmentConfig.js"></script>
+    <script src="js/SupabaseAuth.js"></script>
+    <script>
+        let consoleOutput = document.getElementById('consoleOutput');
+        let originalConsoleLog = console.log;
+        
+        // 攔截控制台輸出
+        console.log = function(...args) {
+            originalConsoleLog.apply(console, args);
+            const message = args.map(arg => 
+                typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)
+            ).join(' ');
+            
+            consoleOutput.innerHTML += `<div>${new Date().toLocaleTimeString()}: ${message}</div>`;
+            consoleOutput.scrollTop = consoleOutput.scrollHeight;
+        };
+
+        // 等待配置載入
+        window.addEventListener('load', async () => {
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            initializeTest();
+        });
+
+        async function initializeTest() {
+            try {
+                // 檢查環境配置
+                if (!window.environmentConfig) {
+                    throw new Error('環境配置未載入');
+                }
+
+                const envInfo = window.environmentConfig.getEnvironmentInfo();
+                console.log('環境配置載入成功:', envInfo);
+
+                // 顯示環境資訊
+                updateEnvironmentInfo(envInfo);
+                
+                // 顯示重定向 URL 建議
+                updateSuggestionList();
+                
+                // 設置 OAuth 測試
+                setupOAuthTest();
+                
+                // 顯示配置檢查清單
+                updateChecklist(envInfo);
+                
+            } catch (error) {
+                console.error('初始化失敗:', error);
+                document.getElementById('environmentInfo').innerHTML = `
+                    <span class="info-label">錯誤:</span>
+                    <span class="info-value" style="color: red;">${error.message}</span>
+                `;
+            }
+        }
+
+        function updateEnvironmentInfo(envInfo) {
+            const statusElement = document.getElementById('environmentStatus');
+            statusElement.textContent = envInfo.environment;
+            statusElement.className = `status ${envInfo.environment}`;
+
+            const infoElement = document.getElementById('environmentInfo');
+            infoElement.innerHTML = `
+                <span class="info-label">環境:</span>
+                <span class="info-value">${envInfo.environment}</span>
+                <span class="info-label">域名:</span>
+                <span class="info-value">${envInfo.hostname}</span>
+                <span class="info-label">完整 URL:</span>
+                <span class="info-value">${envInfo.origin}</span>
+                <span class="info-label">端口:</span>
+                <span class="info-value">${envInfo.port || '預設'}</span>
+                <span class="info-label">重定向 URL:</span>
+                <span class="info-value">${window.environmentConfig.getRedirectUrl()}</span>
+            `;
+        }
+
+        function updateSuggestionList() {
+            const suggestions = window.environmentConfig.getOAuthConfigSuggestion();
+            const currentEnv = window.environmentConfig.getEnvironmentInfo().environment;
+            
+            const listElement = document.getElementById('suggestionList');
+            listElement.innerHTML = `
+                <h3>當前環境 (${currentEnv}) 需要的 URL:</h3>
+                <ul>
+                    ${suggestions[currentEnv].map(url => `
+                        <li>
+                            ${url}
+                            <button class="copy-btn" onclick="copyToClipboard('${url}')">複製</button>
+                        </li>
+                    `).join('')}
+                </ul>
+                <h3>所有環境的完整列表:</h3>
+                <ul>
+                    ${Object.entries(suggestions).map(([env, urls]) => 
+                        urls.map(url => `
+                            <li>
+                                ${url} <small>(${env})</small>
+                                <button class="copy-btn" onclick="copyToClipboard('${url}')">複製</button>
+                            </li>
+                        `).join('')
+                    ).join('')}
+                </ul>
+            `;
+        }
+
+        function copyToClipboard(text) {
+            navigator.clipboard.writeText(text).then(() => {
+                console.log('已複製到剪貼簿:', text);
+            }).catch(err => {
+                console.error('複製失敗:', err);
+            });
+        }
+
+        async function setupOAuthTest() {
+            const envInfo = window.environmentConfig.getEnvironmentInfo();
+            
+            // 檢查是否為本地開發但端口不匹配
+            if (envInfo.environment === 'development' && 
+                !['3000', '5173', '8080'].includes(envInfo.port)) {
+                
+                document.getElementById('oauthWarning').innerHTML = `
+                    <div class="warning">
+                        <strong>⚠️ 端口警告</strong>
+                        你正在使用端口 ${envInfo.port}，但建議的配置端口為 3000、5173 或 8080。
+                        如果 OAuth 失敗，請使用建議的端口或添加當前端口到配置中。
+                    </div>
+                `;
+            }
+
+            // 設置按鈕事件
+            document.getElementById('testGoogleOAuth').addEventListener('click', testGoogleOAuth);
+            document.getElementById('checkAuthStatus').addEventListener('click', checkAuthStatus);
+            document.getElementById('signOut').addEventListener('click', signOut);
+        }
+
+        async function testGoogleOAuth() {
+            try {
+                document.getElementById('authResult').innerHTML = `
+                    <div class="warning">
+                        <strong>🔄 正在測試 OAuth...</strong>
+                        請稍候，將開啟 Google 登入視窗
+                    </div>
+                `;
+
+                // 初始化 Supabase Auth
+                if (!window.supabaseAuth) {
+                    window.supabaseAuth = new SupabaseAuth();
+                    await window.supabaseAuth.initialize();
+                }
+
+                console.log('開始 Google OAuth 測試...');
+                const result = await window.supabaseAuth.signInWithGoogle();
+                
+                if (result.user) {
+                    document.getElementById('authResult').innerHTML = `
+                        <div class="success">
+                            <strong>✅ OAuth 測試成功！</strong>
+                            用戶: ${result.user.email}
+                        </div>
+                    `;
+                } else {
+                    throw new Error('登入成功但未獲取用戶資訊');
+                }
+
+            } catch (error) {
+                console.error('OAuth 測試失敗:', error);
+                document.getElementById('authResult').innerHTML = `
+                    <div class="warning">
+                        <strong>❌ OAuth 測試失敗</strong>
+                        錯誤: ${error.message}
+                    </div>
+                `;
+            }
+        }
+
+        async function checkAuthStatus() {
+            try {
+                if (!window.supabaseAuth) {
+                    window.supabaseAuth = new SupabaseAuth();
+                    await window.supabaseAuth.initialize();
+                }
+
+                const user = window.supabaseAuth.getCurrentUser();
+                
+                if (user) {
+                    document.getElementById('authResult').innerHTML = `
+                        <div class="success">
+                            <strong>✅ 已登入</strong>
+                            用戶: ${user.email}
+                        </div>
+                    `;
+                } else {
+                    document.getElementById('authResult').innerHTML = `
+                        <div class="warning">
+                            <strong>❌ 未登入</strong>
+                            請先測試 Google 登入
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                console.error('檢查登入狀態失敗:', error);
+            }
+        }
+
+        async function signOut() {
+            try {
+                if (window.supabaseAuth) {
+                    await window.supabaseAuth.signOut();
+                    document.getElementById('authResult').innerHTML = `
+                        <div class="success">
+                            <strong>✅ 已登出</strong>
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                console.error('登出失敗:', error);
+            }
+        }
+
+        function updateChecklist(envInfo) {
+            const checklistElement = document.getElementById('checklistItems');
+            
+            const items = [
+                {
+                    text: 'Google Cloud Console OAuth 配置',
+                    status: '待檢查',
+                    description: '需要手動在 Google Cloud Console 中添加重定向 URL'
+                },
+                {
+                    text: 'Supabase Authentication 配置',
+                    status: '待檢查', 
+                    description: '需要在 Supabase Dashboard 中配置 Google Provider'
+                },
+                {
+                    text: '環境配置腳本',
+                    status: '✅ 已完成',
+                    description: 'EnvironmentConfig.js 已正確載入並檢測環境'
+                },
+                {
+                    text: `${envInfo.environment} 環境重定向`,
+                    status: '待測試',
+                    description: `當前重定向 URL: ${window.environmentConfig.getRedirectUrl()}`
+                }
+            ];
+
+            checklistElement.innerHTML = items.map(item => `
+                <div style="margin-bottom: 15px; padding: 10px; background: white; border-radius: 8px;">
+                    <div style="font-weight: bold; margin-bottom: 5px;">
+                        ${item.status} ${item.text}
+                    </div>
+                    <div style="font-size: 14px; color: #666;">
+                        ${item.description}
+                    </div>
+                </div>
+            `).join('');
+        }
+    </script>
+</body>
+</html> 

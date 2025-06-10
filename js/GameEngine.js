@@ -3,9 +3,9 @@ class GameEngine {
         this.config = {
             numCols: 1,
             numRows: 10,
-            blockHeight: 32,
+            blockHeight: 36, // 增加初始高度以在小螢幕上更清楚
             actionPointsStart: 5,
-            gameAreaTopPadding: 8,
+            gameAreaTopPadding: 28, // 增加頂部間距以容納預覽方塊
             eliminationAnimationDuration: 220,
             particleCount: 20,
             particleLifespan: 500,
@@ -92,8 +92,8 @@ class GameEngine {
         
         if (restartBtn) restartBtn.addEventListener('click', () => this.resetGame());
         if (modalRestartBtn) modalRestartBtn.addEventListener('click', () => this.resetGame());
-        if (backToIntroBtn) backToIntroBtn.addEventListener('click', () => window.location.href = 'index.html');
-        if (modalBackToIntroBtn) modalBackToIntroBtn.addEventListener('click', () => window.location.href = 'index.html');
+        if (backToIntroBtn) backToIntroBtn.addEventListener('click', () => window.location.href = 'main-menu.html');
+        if (modalBackToIntroBtn) modalBackToIntroBtn.addEventListener('click', () => window.location.href = 'main-menu.html');
 
         // 視窗大小調整
         window.addEventListener('resize', () => this.resizeCanvas());
@@ -110,10 +110,10 @@ class GameEngine {
         this.finalActionCountDisplay = document.getElementById('finalActionCount');
         this.nextBlockPreviewContainer = document.getElementById('nextBlockPreviewContainer');
         
-        // 連擊分數詳情UI
-        this.comboScoreDetailsEl = document.getElementById('comboScoreDetails');
-        this.lastComboScoreEl = document.getElementById('lastComboScore');
-        this.totalComboBonusEl = document.getElementById('totalComboBonus');
+        // 移除連擊分數詳情UI以節省空間
+        // this.comboScoreDetailsEl = document.getElementById('comboScoreDetails');
+        // this.lastComboScoreEl = document.getElementById('lastComboScore');
+        // this.totalComboBonusEl = document.getElementById('totalComboBonus');
         
         if (this.config.hasSkills) {
             this.skillRemoveSingleUsesEl = document.getElementById('skillRemoveSingleUses');
@@ -214,6 +214,10 @@ class GameEngine {
     }
 
     updateNextBlockPreviewUI() {
+        // 下個方塊預覽現在在Canvas中繪製，此方法保留以供兼容性
+        // Canvas中的預覽會在drawNextBlockPreview()方法中自動更新
+        
+        // 保留原始的隱藏容器邏輯（向後兼容）
         if (!this.nextBlockPreviewContainer) return;
         
         this.nextBlockPreviewContainer.innerHTML = '';
@@ -269,7 +273,7 @@ class GameEngine {
             this.updateSkillButtonsUI();
         }
 
-        if (this.gameOverModal) {
+        if (this.gameOverModal && this.gameOverModal.classList) {
             this.gameOverModal.classList.remove('active');
             const modalContent = this.gameOverModal.querySelector('.modal-content');
             if (modalContent) {
@@ -278,7 +282,9 @@ class GameEngine {
             }
         }
 
-        this.canvas.classList.remove('canvas-skill-target-mode');
+        if (this.canvas && this.canvas.classList) {
+            this.canvas.classList.remove('canvas-skill-target-mode');
+        }
     }
 
     createInitialGrid() {
@@ -392,24 +398,87 @@ class GameEngine {
 
     resizeCanvas() {
         const container = document.querySelector('.game-container');
+        const canvasContainer = this.canvas.parentElement;
         const style = getComputedStyle(container);
         const containerClientWidth = container.clientWidth;
         const paddingLeft = parseFloat(style.paddingLeft);
         const paddingRight = parseFloat(style.paddingRight);
         const availableWidth = containerClientWidth - paddingLeft - paddingRight;
         
-        this.canvas.width = availableWidth;
+        // 計算可用的高度（扣除其他UI元素）
+        const containerHeight = container.clientHeight;
+        const paddingTop = parseFloat(style.paddingTop);
+        const paddingBottom = parseFloat(style.paddingBottom);
         
-        if (this.config.numCols === 1) {
-            this.blockWidth = this.canvas.width * this.config.blockWidthPercent;
-        } else {
-            this.columnWidth = this.canvas.width / this.config.numCols;
-            this.blockWidth = this.columnWidth * 0.8;
+        // 計算其他UI元素的總高度
+        let otherElementsHeight = 0;
+        const children = container.children;
+        for (let i = 0; i < children.length; i++) {
+            const child = children[i];
+            if (child !== canvasContainer && !child.classList.contains('modal')) {
+                const childStyle = getComputedStyle(child);
+                otherElementsHeight += child.offsetHeight + 
+                    parseFloat(childStyle.marginTop) + 
+                    parseFloat(childStyle.marginBottom);
+            }
         }
         
-        this.canvas.height = (this.config.blockHeight * this.config.numRows) + 
-                           (this.config.gameAreaTopPadding * 2) + 
-                           (this.config.numRows * 1);
+        const availableHeight = containerHeight - paddingTop - paddingBottom - otherElementsHeight - 20; // 20px緩衝
+        
+        // 設置canvas尺寸
+        this.canvas.width = availableWidth;
+        
+        // 計算理想的canvas高度
+        const idealCanvasHeight = (this.config.blockHeight * this.config.numRows) + 
+                                 (this.config.gameAreaTopPadding * 2) + 
+                                 (this.config.numRows * 1);
+        
+        // 使用可用高度和理想高度中的較小值
+        const canvasHeight = Math.min(idealCanvasHeight, availableHeight);
+        this.canvas.height = Math.max(canvasHeight, 200); // 最小高度200px
+        
+        // 根據實際canvas高度調整block大小
+        const effectiveGameAreaHeight = this.canvas.height - (this.config.gameAreaTopPadding * 2);
+        const blockHeight = Math.floor((effectiveGameAreaHeight - this.config.numRows) / this.config.numRows);
+        this.config.blockHeight = Math.max(blockHeight, 24); // 提高最小block高度到24px
+        
+        // 檢測是否為手機裝置（基於螢幕寬度）
+        const isMobile = window.innerWidth <= 768;
+        
+        if (this.config.numCols === 1) {
+            if (isMobile) {
+                // 手機版：減少寬度但增加高度，確保方塊更容易點擊
+                this.blockWidth = Math.min(this.canvas.width * 0.55, 180); // 減少寬度到55%，最大180px
+                // 如果寬度較小，增加高度補償
+                if (this.blockWidth < 120) {
+                    this.config.blockHeight = Math.max(this.config.blockHeight * 1.3, 32); // 增加30%高度
+                }
+            } else {
+                // 桌面版：使用原有比例
+                this.blockWidth = this.canvas.width * this.config.blockWidthPercent;
+            }
+        } else {
+            // 多列模式
+            this.columnWidth = this.canvas.width / this.config.numCols;
+            if (isMobile) {
+                // 手機版多列：縮小寬度但增加高度
+                this.blockWidth = this.columnWidth * 0.7;
+                this.config.blockHeight = Math.max(this.config.blockHeight * 1.2, 28); // 增加20%高度
+            } else {
+                this.blockWidth = this.columnWidth * 0.8;
+            }
+        }
+        
+        // 確保所有方塊都能完整顯示在螢幕上
+        const totalNeededHeight = (this.config.blockHeight * this.config.numRows) + 
+                                 (this.config.gameAreaTopPadding * 2);
+        
+        if (totalNeededHeight > this.canvas.height) {
+            // 如果超出高度，等比例縮小
+            const scale = this.canvas.height / totalNeededHeight * 0.95; // 留5%緩衝
+            this.config.blockHeight = Math.floor(this.config.blockHeight * scale);
+            this.config.blockHeight = Math.max(this.config.blockHeight, 20); // 保持最小高度
+        }
 
         if (!this.gameOver) {
             this.updateBlockPositions();
@@ -421,20 +490,9 @@ class GameEngine {
         if (this.comboDisplay) this.comboDisplay.textContent = this.consecutiveSuccessfulActions;
         if (this.actionPointsDisplay) this.actionPointsDisplay.textContent = this.actionPoints;
         
-        // 更新連擊分數詳情
-        if (this.lastComboScoreEl) this.lastComboScoreEl.textContent = this.lastComboScore;
-        if (this.totalComboBonusEl) this.totalComboBonusEl.textContent = this.totalComboBonus;
-        
-        // 顯示/隱藏連擊分數詳情
-        if (this.comboScoreDetailsEl) {
-            if (this.consecutiveSuccessfulActions > 0 || this.lastComboScore > 0) {
-                this.comboScoreDetailsEl.style.opacity = '1';
-                this.comboScoreDetailsEl.style.maxHeight = '60px';
-            } else {
-                this.comboScoreDetailsEl.style.opacity = '0';
-                this.comboScoreDetailsEl.style.maxHeight = '0';
-            }
-        }
+        // 移除連擊分數詳情UI以節省空間
+        // if (this.lastComboScoreEl) this.lastComboScoreEl.textContent = this.lastComboScore;
+        // if (this.totalComboBonusEl) this.totalComboBonusEl.textContent = this.totalComboBonus;
         
         // 更新最高連擊記錄
         if (this.consecutiveSuccessfulActions > this.maxCombo) {
@@ -481,9 +539,11 @@ class GameEngine {
                 btn.disabled = this.isAnimating;
             }
             
-            btn.classList.remove('ring-4', 'ring-offset-2', 'ring-sky-300', 'opacity-80');
-            if (this.activeSkill && btn.id.toLowerCase().includes(this.activeSkill.toLowerCase())) {
-                btn.classList.add('ring-4', 'ring-offset-2', 'ring-sky-300', 'opacity-80');
+            if (btn.classList) {
+                btn.classList.remove('ring-4', 'ring-offset-2', 'ring-sky-300', 'opacity-80');
+                if (this.activeSkill && btn.id.toLowerCase().includes(this.activeSkill.toLowerCase())) {
+                    btn.classList.add('ring-4', 'ring-offset-2', 'ring-sky-300', 'opacity-80');
+                }
             }
         });
     }
@@ -504,7 +564,88 @@ class GameEngine {
             }));
         }
         
+        // 繪製下個方塊預覽（在Canvas內，使用虛線外框和斜線填充）
+        this.drawNextBlockPreview();
+        
         this.drawParticles();
+    }
+    
+    drawNextBlockPreview() {
+        if (!this.nextBlockColors || this.nextBlockColors.length === 0) return;
+        
+        const isMultiColumn = this.config.numCols > 1;
+        
+        // 計算預覽位置：在最上層方塊的上方一點點
+        let previewY = this.config.gameAreaTopPadding - 25; // 稍微增加距離
+        
+        if (isMultiColumn) {
+            // 多列模式：在每一列上方顯示預覽
+            const totalGridWidth = this.columnWidth * this.config.numCols;
+            const startX = (this.canvas.width - totalGridWidth) / 2;
+            
+            for (let colIndex = 0; colIndex < this.config.numCols && colIndex < this.nextBlockColors.length; colIndex++) {
+                const columnX = startX + colIndex * this.columnWidth;
+                const previewX = columnX + (this.columnWidth - this.blockWidth) / 2;
+                const color = this.getColorHexFromName(this.nextBlockColors[colIndex]);
+                
+                this.drawSingleNextBlockPreview(previewX, previewY, this.blockWidth, this.config.blockHeight * 0.6, color);
+            }
+        } else {
+            // 單列模式：在中央上方顯示一個預覽
+            const previewX = (this.canvas.width - this.blockWidth) / 2;
+            const color = this.getColorHexFromName(this.nextBlockColors[0]);
+            
+            this.drawSingleNextBlockPreview(previewX, previewY, this.blockWidth, this.config.blockHeight * 0.6, color);
+        }
+    }
+    
+    // 繪製單個下個方塊預覽（灰色虛線外框 + 淡色填充）
+    drawSingleNextBlockPreview(x, y, width, height, color) {
+        this.ctx.save();
+        
+        // 將顏色調淡 - 提取RGB值並增加透明度
+        const lighterColor = this.getLighterColor(color, 0.7); // 70%透明度讓顏色更淡
+        
+        // 繪製淡色色塊填充
+        this.ctx.fillStyle = lighterColor;
+        this.ctx.fillRect(x, y, width, height);
+        
+        // 繪製灰色虛線外框
+        this.ctx.setLineDash([3, 3]);
+        this.ctx.strokeStyle = '#6B7280'; // 灰色邊框
+        this.ctx.lineWidth = 2;
+        this.ctx.strokeRect(x, y, width, height);
+        
+        this.ctx.restore();
+    }
+    
+    // 獲取更淡的顏色
+    getLighterColor(hexColor, opacity) {
+        // 將hex顏色轉換為RGB，然後應用透明度
+        const r = parseInt(hexColor.slice(1, 3), 16);
+        const g = parseInt(hexColor.slice(3, 5), 16);
+        const b = parseInt(hexColor.slice(5, 7), 16);
+        
+        // 混合白色讓顏色更淡
+        const lighterR = Math.round(r + (255 - r) * (1 - opacity));
+        const lighterG = Math.round(g + (255 - g) * (1 - opacity));
+        const lighterB = Math.round(b + (255 - b) * (1 - opacity));
+        
+        return `rgb(${lighterR}, ${lighterG}, ${lighterB})`;
+    }
+    
+
+    
+    getColorHexFromName(colorName) {
+        const colorMap = {
+            'blue': '#3B82F6',
+            'purple': '#8B5CF6', 
+            'red': '#EF4444',
+            'green': '#10B981',
+            'yellow': '#F59E0B',
+            'pink': '#EC4899'
+        };
+        return colorMap[colorName] || '#3B82F6';
     }
 
     drawBlock(block) {
@@ -830,7 +971,7 @@ class GameEngine {
         if (this.finalMaxComboDisplay) this.finalMaxComboDisplay.textContent = this.maxCombo;
         if (this.finalActionCountDisplay) this.finalActionCountDisplay.textContent = this.actionCount;
         
-        if (this.gameOverModal) {
+        if (this.gameOverModal && this.gameOverModal.classList) {
             this.gameOverModal.classList.add('active');
         }
     }
@@ -1062,8 +1203,10 @@ class GameEngine {
         if (usesLeft <= 0 && this.activeSkill !== skillName) return;
 
         this.activeSkill = (this.activeSkill === skillName) ? null : skillName;
-        this.canvas.classList.toggle('canvas-skill-target-mode', 
-                                   this.activeSkill === 'removeSingle' || this.activeSkill === 'rerollBoard');
+        if (this.canvas && this.canvas.classList) {
+            this.canvas.classList.toggle('canvas-skill-target-mode', 
+                                       this.activeSkill === 'removeSingle' || this.activeSkill === 'rerollBoard');
+        }
         this.updateSkillButtonsUI();
     }
 
@@ -1117,7 +1260,9 @@ class GameEngine {
         }
 
         this.activeSkill = null;
-        this.canvas.classList.remove('canvas-skill-target-mode');
+        if (this.canvas && this.canvas.classList) {
+            this.canvas.classList.remove('canvas-skill-target-mode');
+        }
 
         if (skillEffectApplied) {
             this.updateBlockPositions();

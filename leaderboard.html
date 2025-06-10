@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>三消挑戰 - 排行榜</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&family=Poppins:wght@400;500;600;700;900&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Poppins', 'Noto Sans TC', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        
+        .glass-card {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 20px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+        }
+        
+        .tab-button {
+            transition: all 0.3s ease;
+            border-radius: 12px 12px 0 0;
+        }
+        
+        .tab-button.active {
+            background: rgba(255, 255, 255, 0.2);
+            border-bottom: 2px solid #FFD700;
+        }
+        
+        .tab-button:hover {
+            background: rgba(255, 255, 255, 0.1);
+        }
+        
+        .leaderboard-item {
+            transition: all 0.3s ease;
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.05);
+        }
+        
+        .leaderboard-item:hover {
+            background: rgba(255, 255, 255, 0.1);
+            transform: translateX(5px);
+        }
+        
+        .rank-medal {
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            font-weight: bold;
+        }
+        
+        .rank-1 { background: linear-gradient(45deg, #FFD700, #FFA500); }
+        .rank-2 { background: linear-gradient(45deg, #C0C0C0, #808080); }
+        .rank-3 { background: linear-gradient(45deg, #CD7F32, #8B4513); }
+        .rank-other { background: rgba(255, 255, 255, 0.2); }
+        
+        .fade-in {
+            animation: fadeIn 0.6s ease-out;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .slide-in {
+            animation: slideIn 0.4s ease-out;
+        }
+        
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateX(-20px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+    </style>
+</head>
+<body class="min-h-screen">
+    
+    <!-- 頂部導航 -->
+    <nav class="p-4">
+        <div class="max-w-6xl mx-auto flex items-center justify-between">
+            <div class="flex items-center gap-4">
+                <button onclick="goBack()" class="text-white hover:text-yellow-300 transition-colors">
+                    ← 返回主選單
+                </button>
+                <div class="text-white">
+                    <h1 class="text-2xl font-bold">🏆 排行榜</h1>
+                </div>
+            </div>
+            
+            <div class="text-white/70 text-sm">
+                即時更新 • 全球競技
+            </div>
+        </div>
+    </nav>
+    
+    <!-- 主要內容 -->
+    <div class="max-w-6xl mx-auto px-4 pb-8">
+        
+        <!-- 模式選擇標籤 -->
+        <div class="glass-card mb-6 fade-in">
+            <div class="flex flex-wrap">
+                <button onclick="switchMode('classic')" class="tab-button active px-6 py-3 text-white font-medium" data-mode="classic">
+                    🎯 經典單排
+                </button>
+                <button onclick="switchMode('triple')" class="tab-button px-6 py-3 text-white font-medium" data-mode="triple">
+                    🚀 進階三排
+                </button>
+                <button onclick="switchMode('timeLimit')" class="tab-button px-6 py-3 text-white font-medium" data-mode="timeLimit">
+                    ⏰ 限時挑戰
+                </button>
+            </div>
+        </div>
+        
+        <div class="grid lg:grid-cols-3 gap-6">
+            
+            <!-- 排行榜主要區域 -->
+            <div class="lg:col-span-2">
+                <div class="glass-card p-6 fade-in">
+                    <div class="flex items-center justify-between mb-6">
+                        <h2 class="text-xl font-bold text-white flex items-center gap-2">
+                            <span id="modeIcon">🎯</span>
+                            <span id="modeTitle">經典單排</span> 排行榜
+                        </h2>
+                        <button onclick="refreshLeaderboard()" class="text-white/70 hover:text-white transition-colors text-sm">
+                            🔄 刷新
+                        </button>
+                    </div>
+                    
+                    <!-- 載入狀態 -->
+                    <div id="loadingState" class="text-center py-8">
+                        <div class="w-8 h-8 border-2 border-white/20 border-t-white rounded-full animate-spin mx-auto mb-4"></div>
+                        <p class="text-white/70">載入排行榜中...</p>
+                    </div>
+                    
+                    <!-- 排行榜列表 -->
+                    <div id="leaderboardList" class="space-y-3 hidden">
+                        <!-- 動態生成排行榜項目 -->
+                    </div>
+                    
+                    <!-- 空狀態 -->
+                    <div id="emptyState" class="text-center py-8 hidden">
+                        <div class="text-6xl mb-4">🏆</div>
+                        <p class="text-white/70">還沒有任何成績</p>
+                        <p class="text-white/50 text-sm">成為第一個挑戰者！</p>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 側邊欄 -->
+            <div class="space-y-6">
+                
+                <!-- 個人統計 -->
+                <div class="glass-card p-6 fade-in">
+                    <h3 class="text-lg font-bold text-white mb-4 flex items-center gap-2">
+                        📊 個人統計
+                    </h3>
+                    
+                    <div id="personalStatsContent">
+                        <!-- 未登入狀態 -->
+                        <div id="loginPrompt" class="text-center">
+                            <div class="text-4xl mb-3">🔐</div>
+                            <p class="text-white/70 text-sm mb-4">登入查看個人統計</p>
+                            <button onclick="showLoginModal()" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg text-sm transition-colors">
+                                立即登入
+                            </button>
+                        </div>
+                        
+                        <!-- 已登入狀態 -->
+                        <div id="personalStats" class="hidden space-y-4">
+                            <div class="bg-white/10 rounded-lg p-3">
+                                <div class="text-white/70 text-xs">當前模式最佳</div>
+                                <div id="currentBest" class="text-white font-bold text-lg">-</div>
+                            </div>
+                            
+                            <div class="bg-white/10 rounded-lg p-3">
+                                <div class="text-white/70 text-xs">當前排名</div>
+                                <div id="currentRank" class="text-white font-bold text-lg">-</div>
+                            </div>
+                            
+                            <div class="bg-white/10 rounded-lg p-3">
+                                <div class="text-white/70 text-xs">總遊戲次數</div>
+                                <div id="totalGames" class="text-white font-bold text-lg">-</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 遊戲模式說明 -->
+                <div class="glass-card p-6 fade-in">
+                    <h3 class="text-lg font-bold text-white mb-4">📋 模式說明</h3>
+                    
+                    <div id="modeDescription" class="text-white/80 text-sm space-y-2">
+                        <p><strong>🎯 經典單排：</strong></p>
+                        <p>• 單排三消遊戲</p>
+                        <p>• 適合新手練習</p>
+                        <p>• 重點在於策略規劃</p>
+                    </div>
+                </div>
+                
+                <!-- 快速跳轉 -->
+                <div class="glass-card p-6 fade-in">
+                    <h3 class="text-lg font-bold text-white mb-4">🚀 快速開始</h3>
+                    
+                    <div class="space-y-2">
+                        <button onclick="playMode('classic')" class="w-full bg-blue-500/20 hover:bg-blue-500/30 text-white py-2 px-4 rounded-lg transition-colors text-sm">
+                            🎯 挑戰經典模式
+                        </button>
+                        <button onclick="playMode('triple')" class="w-full bg-green-500/20 hover:bg-green-500/30 text-white py-2 px-4 rounded-lg transition-colors text-sm">
+                            🚀 挑戰三排模式
+                        </button>
+                        <button onclick="playMode('timeLimit')" class="w-full bg-red-500/20 hover:bg-red-500/30 text-white py-2 px-4 rounded-lg transition-colors text-sm">
+                            ⏰ 挑戰限時模式
+                        </button>
+                    </div>
+                </div>
+                
+            </div>
+            
+        </div>
+        
+    </div>
+    
+    <!-- 載入 JavaScript -->
+    <script src="js/SupabaseAuth.js"></script>
+    <script src="js/LeaderboardManager.js"></script>
+    <script src="js/UserManager.js"></script>
+    
+    <script>
+        // 全域變數
+        let currentMode = 'classic';
+        let leaderboardData = {};
+        let isLoggedIn = false;
+        let currentUser = null;
+        
+        // 模式配置
+        const modeConfig = {
+            classic: {
+                icon: '🎯',
+                title: '經典單排',
+                description: `
+                    <p><strong>🎯 經典單排：</strong></p>
+                    <p>• 單排三消遊戲</p>
+                    <p>• 適合新手練習</p>
+                    <p>• 重點在於策略規劃</p>
+                `
+            },
+            triple: {
+                icon: '🚀',
+                title: '進階三排',
+                description: `
+                    <p><strong>🚀 進階三排：</strong></p>
+                    <p>• 三排同時進行</p>
+                    <p>• 考驗多工處理能力</p>
+                    <p>• 支援水平匹配</p>
+                `
+            },
+            timeLimit: {
+                icon: '⏰',
+                title: '限時挑戰',
+                description: `
+                    <p><strong>⏰ 限時挑戰：</strong></p>
+                    <p>• 45秒限時挑戰</p>
+                    <p>• 極速反應測試</p>
+                    <p>• 高分數倍率</p>
+                `
+            }
+        };
+        
+        // 初始化
+        document.addEventListener('DOMContentLoaded', async function() {
+            await initializeUserSystem();
+            await loadLeaderboard();
+        });
+        
+        // 初始化用戶系統
+        async function initializeUserSystem() {
+            try {
+                if (window.supabaseAuth) {
+                    window.leaderboardManager = new LeaderboardManager(window.supabaseAuth);
+                    window.userManager = new UserManager(window.supabaseAuth, window.leaderboardManager);
+                    
+                    currentUser = await window.supabaseAuth.getCurrentUser();
+                    isLoggedIn = !!currentUser;
+                    
+                    updatePersonalStats();
+                }
+            } catch (error) {
+                console.error('用戶系統初始化失敗:', error);
+            }
+        }
+        
+        // 切換模式
+        function switchMode(mode) {
+            if (currentMode === mode) return;
+            
+            currentMode = mode;
+            
+            // 更新標籤狀態 - 添加安全檢查
+            document.querySelectorAll('.tab-button').forEach(btn => {
+                if (btn && btn.classList) {
+                    btn.classList.remove('active');
+                    if (btn.dataset && btn.dataset.mode === mode) {
+                        btn.classList.add('active');
+                    }
+                }
+            });
+            
+            // 更新模式資訊 - 添加安全檢查
+            const config = modeConfig[mode];
+            const modeIconElement = document.getElementById('modeIcon');
+            const modeTitleElement = document.getElementById('modeTitle');
+            const modeDescriptionElement = document.getElementById('modeDescription');
+            
+            if (modeIconElement) modeIconElement.textContent = config.icon;
+            if (modeTitleElement) modeTitleElement.textContent = config.title;
+            if (modeDescriptionElement) modeDescriptionElement.innerHTML = config.description;
+            
+            // 載入新的排行榜
+            loadLeaderboard();
+            updatePersonalStats();
+        }
+        
+        // 載入排行榜
+        async function loadLeaderboard() {
+            const loadingState = document.getElementById('loadingState');
+            const leaderboardList = document.getElementById('leaderboardList');
+            const emptyState = document.getElementById('emptyState');
+            
+            // 確保所有元素都存在
+            if (!loadingState || !leaderboardList || !emptyState) {
+                console.error('排行榜UI元素不完整');
+                return;
+            }
+            
+            // 顯示載入狀態
+            loadingState.classList.remove('hidden');
+            leaderboardList.classList.add('hidden');
+            emptyState.classList.add('hidden');
+            
+            try {
+                if (window.leaderboardManager) {
+                    const data = await window.leaderboardManager.getGlobalLeaderboard(currentMode, 'all', 10);
+                    leaderboardData[currentMode] = data;
+                    
+                    if (data && data.length > 0) {
+                        renderLeaderboard(data);
+                        loadingState.classList.add('hidden');
+                        leaderboardList.classList.remove('hidden');
+                    } else {
+                        loadingState.classList.add('hidden');
+                        emptyState.classList.remove('hidden');
+                    }
+                }
+            } catch (error) {
+                console.error('載入排行榜失敗:', error);
+                loadingState.classList.add('hidden');
+                emptyState.classList.remove('hidden');
+            }
+        }
+        
+        // 渲染排行榜
+        function renderLeaderboard(data) {
+            const container = document.getElementById('leaderboardList');
+            if (!container) {
+                console.error('找不到排行榜容器元素');
+                return;
+            }
+            
+            container.innerHTML = '';
+            
+            data.forEach((item, index) => {
+                const rank = index + 1;
+                const isCurrentUser = isLoggedIn && currentUser && item.player_id === currentUser.id;
+                
+                const leaderboardItem = document.createElement('div');
+                leaderboardItem.className = `leaderboard-item p-4 flex items-center gap-4 slide-in ${isCurrentUser ? 'ring-2 ring-yellow-400' : ''}`;
+                leaderboardItem.style.animationDelay = `${index * 0.1}s`;
+                
+                // 構建頭像HTML
+                const avatarHtml = item.avatar_url ? 
+                    `<img src="${item.avatar_url}" alt="${item.username || '匿名玩家'}" class="w-8 h-8 rounded-full object-cover border-2 border-white/20">` :
+                    `<div class="w-8 h-8 rounded-full bg-gradient-to-br from-blue-400 to-purple-600 flex items-center justify-center text-white font-bold text-sm">
+                        ${(item.username || '匿')[0].toUpperCase()}
+                     </div>`;
+                
+                leaderboardItem.innerHTML = `
+                    <div class="rank-medal ${getRankClass(rank)}">
+                        ${rank <= 3 ? ['🥇', '🥈', '🥉'][rank - 1] : rank}
+                    </div>
+                    
+                    <div class="flex items-center gap-3 flex-1">
+                        ${avatarHtml}
+                        <div>
+                            <div class="flex items-center gap-2">
+                                <span class="text-white font-medium">${item.username || '匿名玩家'}</span>
+                                ${isCurrentUser ? '<span class="text-yellow-400 text-xs px-2 py-1 bg-yellow-400/20 rounded-full">你</span>' : ''}
+                            </div>
+                            <div class="text-white/60 text-sm">
+                                ${formatDate(item.date || item.created_at)}
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="text-right">
+                        <div class="text-white font-bold text-lg">${(item.score || 0).toLocaleString()}</div>
+                        <div class="text-white/60 text-xs">
+                            ${item.moves || 0} 步 • ${formatTime(item.time || 0)}
+                        </div>
+                    </div>
+                `;
+                
+                container.appendChild(leaderboardItem);
+            });
+        }
+        
+        // 更新個人統計
+        async function updatePersonalStats() {
+            const loginPrompt = document.getElementById('loginPrompt');
+            const personalStats = document.getElementById('personalStats');
+            
+            // 確保元素存在
+            if (!loginPrompt || !personalStats) {
+                console.warn('個人統計元素不存在');
+                return;
+            }
+            
+            if (!isLoggedIn) {
+                loginPrompt.classList.remove('hidden');
+                personalStats.classList.add('hidden');
+                return;
+            }
+            
+            loginPrompt.classList.add('hidden');
+            personalStats.classList.remove('hidden');
+            
+            try {
+                if (window.leaderboardManager) {
+                    // 獲取用戶排名信息
+                    const userRank = await window.leaderboardManager.getUserRank(currentMode);
+                    
+                    const currentBestElement = document.getElementById('currentBest');
+                    const currentRankElement = document.getElementById('currentRank');
+                    const totalGamesElement = document.getElementById('totalGames');
+                    
+                    if (currentBestElement) {
+                        currentBestElement.textContent = userRank ? userRank.score.toLocaleString() : '0';
+                    }
+                    
+                    if (currentRankElement) {
+                        currentRankElement.textContent = userRank ? `#${userRank.rank}` : '未上榜';
+                    }
+                    
+                    if (totalGamesElement) {
+                        totalGamesElement.textContent = userRank ? userRank.total_players.toLocaleString() : '-';
+                    }
+                }
+            } catch (error) {
+                console.error('載入個人統計失敗:', error);
+                // 設置預設值
+                const currentBestElement = document.getElementById('currentBest');
+                const currentRankElement = document.getElementById('currentRank');
+                const totalGamesElement = document.getElementById('totalGames');
+                
+                if (currentBestElement) currentBestElement.textContent = '-';
+                if (currentRankElement) currentRankElement.textContent = '-';
+                if (totalGamesElement) totalGamesElement.textContent = '-';
+            }
+        }
+        
+        // 工具函數
+        function getRankClass(rank) {
+            if (rank === 1) return 'rank-1';
+            if (rank === 2) return 'rank-2';
+            if (rank === 3) return 'rank-3';
+            return 'rank-other';
+        }
+        
+        function formatDate(dateString) {
+            const date = new Date(dateString);
+            const now = new Date();
+            const diffMs = now - date;
+            const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+            
+            if (diffDays === 0) return '今天';
+            if (diffDays === 1) return '昨天';
+            if (diffDays < 7) return `${diffDays} 天前`;
+            return date.toLocaleDateString('zh-TW');
+        }
+        
+        function formatTime(ms) {
+            const seconds = Math.floor(ms / 1000);
+            const minutes = Math.floor(seconds / 60);
+            const remainingSeconds = seconds % 60;
+            return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
+        }
+        
+        // 刷新排行榜
+        async function refreshLeaderboard() {
+            if (window.leaderboardManager) {
+                window.leaderboardManager.clearCache();
+            }
+            await loadLeaderboard();
+            updatePersonalStats();
+        }
+        
+        // 直接開始遊戲
+        function playMode(mode) {
+            window.location.href = `game.html?mode=${mode}`;
+        }
+        
+        // 返回主選單
+        function goBack() {
+            window.location.href = 'main-menu.html';
+        }
+        
+        // 顯示登入模態框（簡化版）
+        function showLoginModal() {
+            alert('請返回主選單進行登入');
+        }
+    </script>
+</body>
+</html> 

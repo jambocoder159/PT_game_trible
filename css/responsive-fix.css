@@ -1,0 +1,159 @@
+/* 響應式設計修復 - 極簡化版本 */
+
+/* 全局緊湊化設計 */
+.game-container {
+    padding: 0.5rem !important;
+}
+
+/* 移除不必要的邊距和間距 */
+.game-container > * {
+    margin-bottom: 0 !important;
+}
+
+/* 緊湊化統計區域 */
+.game-container .flex.justify-between {
+    margin: 0.25rem 0 !important;
+}
+
+/* 優化canvas容器 */
+.game-container .flex-grow {
+    min-height: 200px; /* 確保最小可用高度 */
+}
+
+/* 簡化的技能按鈕樣式 */
+.skill-button {
+    transition: background-color 0.15s ease !important;
+    box-shadow: none !important;
+    border: none !important;
+}
+
+.skill-button:hover {
+    transform: none !important;
+    box-shadow: none !important;
+}
+
+.skill-button:active {
+    transform: scale(0.98) !important;
+}
+
+/* 簡化的動作按鈕樣式 */
+.action-button {
+    transition: background-color 0.15s ease !important;
+    box-shadow: none !important;
+    border: none !important;
+}
+
+.action-button:hover {
+    transform: none !important;
+    box-shadow: none !important;
+}
+
+/* 修復彈窗在橫向模式的按鈕樣式 */
+@media (max-height: 600px) and (orientation: landscape) {
+    .game-container {
+        padding: 0.25rem !important;
+    }
+    
+    .game-container h1 {
+        font-size: 0.75rem !important;
+        padding: 0.25rem 0 !important;
+    }
+    
+    .game-container .text-xs {
+        font-size: 0.625rem !important;
+    }
+    
+    .game-container .text-sm {
+        font-size: 0.75rem !important;
+    }
+    
+    .modal-content button {
+        padding-top: 0.5rem !important;
+        padding-bottom: 0.5rem !important;
+    }
+}
+
+/* 確保彈窗在極小螢幕上的可用性 */
+@media (max-width: 320px) {
+    .game-container {
+        padding: 0.25rem !important;
+    }
+    
+    .game-container h1 {
+        font-size: 0.75rem !important;
+    }
+    
+    .modal-content {
+        width: 98%;
+        padding: 0.5rem;
+    }
+    
+    .modal-content h2 {
+        font-size: 1.25rem !important;
+    }
+    
+    .modal-content .text-xl {
+        font-size: 1rem !important;
+    }
+    
+    .modal-content button {
+        font-size: 0.875rem !important;
+        padding: 0.5rem 0.75rem !important;
+    }
+}
+
+/* 優化技能按鈕在小螢幕的顯示 */
+@media (max-width: 480px) {
+    .skill-button {
+        font-size: 0.625rem !important;
+        padding: 0.25rem 0.125rem !important;
+        min-height: 24px;
+    }
+    
+    .action-button {
+        font-size: 0.625rem !important;
+        padding: 0.25rem 0.5rem !important;
+        min-height: 24px;
+    }
+}
+
+/* 極小螢幕進一步壓縮 */
+@media (max-width: 360px) {
+    .game-container {
+        padding: 0.125rem !important;
+    }
+    
+    .game-container .py-1 {
+        padding-top: 0.125rem !important;
+        padding-bottom: 0.125rem !important;
+    }
+    
+    .game-container .px-2 {
+        padding-left: 0.5rem !important;
+        padding-right: 0.5rem !important;
+    }
+}
+
+/* 橫向模式極致壓縮 */
+@media (max-height: 500px) and (orientation: landscape) {
+    .game-container {
+        padding: 0.125rem !important;
+        border-radius: 0.5rem !important;
+    }
+    
+    .game-container h1 {
+        font-size: 0.625rem !important;
+        padding: 0.125rem 0 !important;
+    }
+    
+    .game-container .py-1 {
+        padding-top: 0.0625rem !important;
+        padding-bottom: 0.0625rem !important;
+    }
+    
+    .skill-button, .action-button {
+        font-size: 0.5rem !important;
+        padding: 0.125rem 0.25rem !important;
+        min-height: 18px !important;
+    }
+} 

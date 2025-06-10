@@ -336,6 +336,142 @@ class LeaderboardManager {
             }
         }
     }
+
+    // 通用獲取排行榜方法（相容性方法）
+    async getLeaderboard(gameMode, limit = 50) {
+        return await this.getGlobalLeaderboard(gameMode, 'all', limit);
+    }
+
+    // 獲取當前用戶的最佳成績（所有遊戲模式）
+    async getUserBestScores() {
+        const currentUser = this.supabaseAuth.getCurrentUser();
+        if (!currentUser) {
+            console.log('用戶未登入，無法獲取最佳成績');
+            return {};
+        }
+
+        try {
+            // 獲取所有遊戲模式
+            const gameModes = ['classic', 'double', 'triple', 'time_limit'];
+            const bestScores = {};
+
+            for (const mode of gameModes) {
+                try {
+                    const { data, error } = await this.supabase
+                        .from('game_records')
+                        .select('score, moves_used, time_taken, level_reached, created_at')
+                        .eq('player_id', currentUser.id)
+                        .eq('game_mode', mode)
+                        .order('score', { ascending: false })
+                        .limit(1);
+
+                    if (error) {
+                        console.error(`獲取 ${mode} 模式最佳成績失敗:`, error);
+                        continue;
+                    }
+
+                    if (data && data.length > 0) {
+                        const record = data[0];
+                        bestScores[mode] = {
+                            score: record.score,
+                            moves: record.moves_used,
+                            time: record.time_taken,
+                            level: record.level_reached,
+                            date: new Date(record.created_at).toLocaleDateString('zh-TW')
+                        };
+                    } else {
+                        bestScores[mode] = null;
+                    }
+                } catch (modeError) {
+                    console.error(`處理 ${mode} 模式時發生錯誤:`, modeError);
+                    bestScores[mode] = null;
+                }
+            }
+
+            console.log('獲取用戶最佳成績成功:', bestScores);
+            return bestScores;
+        } catch (error) {
+            console.error('獲取用戶最佳成績失敗:', error);
+            return {};
+        }
+    }
+
+    // 獲取用戶統計資訊
+    async getUserStats() {
+        const currentUser = this.supabaseAuth.getCurrentUser();
+        if (!currentUser) {
+            return null;
+        }
+
+        try {
+            const { data, error } = await this.supabase
+                .from('game_records')
+                .select('game_mode, score, moves_used, time_taken, created_at')
+                .eq('player_id', currentUser.id);
+
+            if (error) throw error;
+
+            const records = data || [];
+            
+            if (records.length === 0) {
+                return {
+                    totalGames: 0,
+                    avgScore: 0,
+                    bestScore: 0,
+                    totalTime: 0,
+                    avgTime: 0,
+                    gameModes: {}
+                };
+            }
+
+            // 計算總體統計
+            const scores = records.map(r => r.score);
+            const times = records.map(r => r.time_taken);
+            
+            // 按遊戲模式分組統計
+            const modeStats = {};
+            records.forEach(record => {
+                const mode = record.game_mode;
+                if (!modeStats[mode]) {
+                    modeStats[mode] = {
+                        games: 0,
+                        totalScore: 0,
+                        bestScore: 0,
+                        totalTime: 0,
+                        totalMoves: 0
+                    };
+                }
+                
+                modeStats[mode].games++;
+                modeStats[mode].totalScore += record.score;
+                modeStats[mode].bestScore = Math.max(modeStats[mode].bestScore, record.score);
+                modeStats[mode].totalTime += record.time_taken;
+                modeStats[mode].totalMoves += record.moves_used;
+            });
+
+            // 計算平均值
+            Object.keys(modeStats).forEach(mode => {
+                const stats = modeStats[mode];
+                stats.avgScore = Math.round(stats.totalScore / stats.games);
+                stats.avgTime = Math.round(stats.totalTime / stats.games);
+                stats.avgMoves = Math.round(stats.totalMoves / stats.games);
+            });
+
+            return {
+                totalGames: records.length,
+                avgScore: Math.round(scores.reduce((a, b) => a + b, 0) / scores.length),
+                bestScore: Math.max(...scores),
+                totalTime: times.reduce((a, b) => a + b, 0),
+                avgTime: Math.round(times.reduce((a, b) => a + b, 0) / times.length),
+                gameModes: modeStats,
+                firstPlayDate: new Date(Math.min(...records.map(r => new Date(r.created_at)))).toLocaleDateString('zh-TW'),
+                lastPlayDate: new Date(Math.max(...records.map(r => new Date(r.created_at)))).toLocaleDateString('zh-TW')
+            };
+        } catch (error) {
+            console.error('獲取用戶統計失敗:', error);
+            return null;
+        }
+    }
 }
 
 // 全域實例
