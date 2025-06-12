@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>三消挑戰 - 教學模式</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&family=Poppins:wght@400;500;600;700;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/game.css">
+    <link rel="stylesheet" href="css/responsive-fix.css">
+    <style>
+        body {
+            font-family: 'Poppins', 'Noto Sans TC', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+
+        /* 教學覆蓋層樣式 */
+        .tutorial-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.3);
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            pointer-events: none;
+        }
+
+        .tutorial-dialog {
+            background: white;
+            border-radius: 16px;
+            padding: 24px;
+            max-width: 400px;
+            margin: 20px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+            position: relative;
+            animation: tutorialSlideIn 0.3s ease-out;
+            pointer-events: auto;
+        }
+
+        @keyframes tutorialSlideIn {
+            from {
+                opacity: 0;
+                transform: scale(0.9) translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: scale(1) translateY(0);
+            }
+        }
+
+        .tutorial-arrow {
+            position: absolute;
+            width: 0;
+            height: 0;
+            border-style: solid;
+        }
+
+        .tutorial-arrow.top {
+            border-left: 15px solid transparent;
+            border-right: 15px solid transparent;
+            border-bottom: 15px solid white;
+            top: -15px;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+
+        .tutorial-arrow.bottom {
+            border-left: 15px solid transparent;
+            border-right: 15px solid transparent;
+            border-top: 15px solid white;
+            bottom: -15px;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+
+        .tutorial-arrow.left {
+            border-top: 15px solid transparent;
+            border-bottom: 15px solid transparent;
+            border-right: 15px solid white;
+            left: -15px;
+            top: 50%;
+            transform: translateY(-50%);
+        }
+
+        .tutorial-arrow.right {
+            border-top: 15px solid transparent;
+            border-bottom: 15px solid transparent;
+            border-left: 15px solid white;
+            right: -15px;
+            top: 50%;
+            transform: translateY(-50%);
+        }
+
+        /* 高亮元素樣式 */
+        .highlight-element {
+            position: relative;
+            z-index: 1001;
+            box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.8), 0 0 0 8px rgba(59, 130, 246, 0.4);
+            border-radius: 8px;
+            animation: highlightPulse 2s infinite;
+        }
+
+        @keyframes highlightPulse {
+            0%, 100% {
+                box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.8), 0 0 0 8px rgba(59, 130, 246, 0.4);
+            }
+            50% {
+                box-shadow: 0 0 0 6px rgba(59, 130, 246, 1), 0 0 0 12px rgba(59, 130, 246, 0.6);
+            }
+        }
+
+        .tutorial-hand {
+            position: fixed;
+            font-size: 24px;
+            pointer-events: none;
+            z-index: 1002;
+            animation: handPoint 1s ease-in-out infinite;
+        }
+
+        @keyframes handPoint {
+            0%, 100% {
+                transform: scale(1);
+            }
+            50% {
+                transform: scale(1.2);
+            }
+        }
+
+        .tutorial-skip-btn {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 1003;
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 20px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .tutorial-skip-btn:hover {
+            background: rgba(0, 0, 0, 0.9);
+        }
+
+        /* 進度指示器 */
+        .tutorial-progress {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 1003;
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 10px 20px;
+            border-radius: 20px;
+            font-size: 14px;
+        }
+
+        .tutorial-progress-bar {
+            width: 200px;
+            height: 4px;
+            background: rgba(255, 255, 255, 0.3);
+            border-radius: 2px;
+            margin-top: 8px;
+            overflow: hidden;
+        }
+
+        .tutorial-progress-fill {
+            height: 100%;
+            background: #3b82f6;
+            transition: width 0.3s ease;
+        }
+    </style>
+</head>
+<body class="flex flex-col items-center justify-center min-h-screen p-2 sm:p-4">
+    
+    <div id="gameContainer"></div>
+    
+    <!-- 教學覆蓋層 -->
+    <div id="tutorialOverlay" class="tutorial-overlay hidden">
+        <div id="tutorialDialog" class="tutorial-dialog">
+            <div id="tutorialArrow" class="tutorial-arrow"></div>
+            <h3 id="tutorialTitle" class="text-xl font-bold text-gray-800 mb-3"></h3>
+            <p id="tutorialContent" class="text-gray-600 mb-4 leading-relaxed"></p>
+            <div class="flex justify-between items-center">
+                <button id="tutorialPrevBtn" class="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition-colors disabled:opacity-50" disabled>
+                    上一步
+                </button>
+                <span id="tutorialStepCounter" class="text-sm text-gray-500"></span>
+                <button id="tutorialNextBtn" class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors">
+                    下一步
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 指向手勢 -->
+    <div id="tutorialHand" class="tutorial-hand hidden">👆</div>
+
+    <!-- 跳過按鈕 -->
+    <button id="tutorialSkipBtn" class="tutorial-skip-btn hidden">
+        跳過教學
+    </button>
+
+    <!-- 進度指示器 -->
+    <div id="tutorialProgress" class="tutorial-progress hidden">
+        <div class="text-center">教學進度</div>
+        <div class="tutorial-progress-bar">
+            <div id="tutorialProgressFill" class="tutorial-progress-fill" style="width: 0%"></div>
+        </div>
+    </div>
+    
+    <script src="js/EnvironmentConfig.js"></script>
+    <script src="js/SupabaseAuth.js"></script>
+    <script src="js/LeaderboardManager.js"></script>
+    <script src="js/UserManager.js"></script>
+    <script src="js/GlobalNavigation.js"></script>
+    <script src="js/GameEngine.js"></script>
+    <script src="js/GameModes.js"></script>
+    <script src="js/UI.js"></script>
+    <script src="js/TutorialSystem.js"></script>
+    <script>
+        // 全域變數
+        let gameEngine = null;
+        let tutorialSystem = null;
+        let currentGameMode = 'tutorial';
+        let gameStartTime = null;
+        
+        // 初始化用戶系統
+        async function initializeUserSystem() {
+            try {
+                if (window.EnvironmentConfig) {
+                    window.environmentConfig = new EnvironmentConfig();
+                }
+                
+                await new Promise(resolve => setTimeout(resolve, 500));
+                
+                if (window.supabaseAuth) {
+                    window.leaderboardManager = new LeaderboardManager(window.supabaseAuth);
+                    window.userManager = new UserManager(window.supabaseAuth, window.leaderboardManager);
+                    window.globalNav = new GlobalNavigation(window.supabaseAuth, window.userManager);
+                    await window.globalNav.init();
+                    console.log('用戶系統已初始化');
+                } else {
+                    console.warn('SupabaseAuth 未正確初始化');
+                }
+            } catch (error) {
+                console.error('用戶系統初始化失敗:', error);
+            }
+        }
+
+        // 初始化教學模式遊戲
+        function initializeTutorialGame() {
+            // 使用教學模式的配置
+            const config = GameModes.tutorial;
+            
+            document.title = config.title;
+            document.body.className = `theme-${config.theme} flex flex-col items-center justify-center min-h-screen p-2 sm:p-4`;
+            
+            const gameContainer = document.getElementById('gameContainer');
+            if (gameContainer) {
+                gameContainer.innerHTML = UIManager.createGameHTML('tutorial', config);
+            }
+            
+            gameEngine = new GameEngine(config);
+            gameStartTime = Date.now();
+            
+            // 初始化教學系統
+            if (window.TutorialSystem) {
+                tutorialSystem = new TutorialSystem(gameEngine);
+                tutorialSystem.start();
+            }
+            
+            console.log('教學模式遊戲已初始化');
+        }
+
+        // 當頁面載入完成時初始化
+        document.addEventListener('DOMContentLoaded', async function() {
+            await initializeUserSystem();
+            initializeTutorialGame();
+        });
+    </script>
+</body>
+</html> 

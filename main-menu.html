@@ -183,6 +183,27 @@
             
         </div>
         
+        <!-- 教學模式區 -->
+        <div class="mb-8">
+            <div class="text-center mb-4">
+                <h3 class="text-lg font-semibold text-white/90">新手指南</h3>
+                <p class="text-white/70 text-sm">第一次遊玩？先來學習基本操作吧！</p>
+            </div>
+            
+            <div class="flex justify-center">
+                <div class="glass-card mode-card p-6 slide-in max-w-md" onclick="startTutorial()">
+                    <div class="text-center">
+                        <div class="text-4xl mb-4">🎓</div>
+                        <h3 class="text-xl font-bold text-white mb-2">遊戲教學</h3>
+                        <p class="text-white/80 text-sm mb-4">互動式教學<br>學習所有操作與技巧</p>
+                        <div class="bg-green-500/80 rounded-full px-3 py-1 text-xs text-white">
+                            推薦新手
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- 功能按鈕區 -->
         <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 slide-in stagger-4">
             
@@ -386,6 +407,20 @@
             // 跳轉到遊戲
             setTimeout(() => {
                 window.location.href = `game.html?mode=${mode}`;
+            }, 200);
+        }
+
+        // 開始教學
+        function startTutorial() {
+            // 添加點擊效果
+            event.currentTarget.style.transform = 'scale(0.95)';
+            setTimeout(() => {
+                event.currentTarget.style.transform = '';
+            }, 150);
+            
+            // 跳轉到教學頁面
+            setTimeout(() => {
+                window.location.href = 'tutorial.html';
             }, 200);
         }
         

@@ -1,4 +1,27 @@
 const GameModes = {
+    tutorial: {
+        numCols: 1,
+        numRows: 10,
+        theme: 'classic',
+        hasSkills: true,
+        hasTimer: false,
+        enableHorizontalMatches: false,
+        blockWidthPercent: 0.65,
+        title: '三消挑戰 - 教學模式',
+        description: '學習遊戲操作的教學模式',
+        // 教學模式的分數系統（簡化版）
+        scoring: {
+            baseScore: 10,
+            comboMultiplier: 0.5,
+            chainMultiplier: 2,
+            comboMilestones: {
+                3: 50,
+                5: 100,
+                10: 200
+            }
+        }
+    },
+    
     classic: {
         numCols: 1,
         numRows: 10,
