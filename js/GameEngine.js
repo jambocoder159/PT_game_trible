@@ -1202,6 +1202,19 @@ class GameEngine {
         const usesLeft = this.skillUses[skillName] || 0;
         if (usesLeft <= 0 && this.activeSkill !== skillName) return;
 
+        // 檢查是否需要顯示說明
+        if (this.shouldShowSkillExplanation(skillName)) {
+            // 顯示說明，確認後激活技能
+            this.showSkillExplanation(skillName, () => {
+                this.activateSkill(skillName);
+            });
+        } else {
+            // 直接激活技能
+            this.activateSkill(skillName);
+        }
+    }
+
+    activateSkill(skillName) {
         this.activeSkill = (this.activeSkill === skillName) ? null : skillName;
         if (this.canvas && this.canvas.classList) {
             this.canvas.classList.toggle('canvas-skill-target-mode', 
@@ -1210,17 +1223,242 @@ class GameEngine {
         this.updateSkillButtonsUI();
     }
 
+    // 檢查是否應該顯示技能說明
+    shouldShowSkillExplanation(skillName) {
+        try {
+            const preference = localStorage.getItem(`skillExplanation_${skillName}`);
+            return preference !== 'false'; // 如果沒有設定或設定為true，就顯示
+        } catch (error) {
+            console.warn('無法讀取技能說明偏好設定:', error);
+            return true; // 讀取失敗時預設顯示
+        }
+    }
+
+    // 設定技能說明偏好
+    setSkillExplanationPreference(skillName, shouldShow) {
+        try {
+            localStorage.setItem(`skillExplanation_${skillName}`, shouldShow.toString());
+        } catch (error) {
+            console.warn('無法保存技能說明偏好設定:', error);
+        }
+    }
+
+    // 重置所有技能說明偏好設定（用於開發或重置）
+    resetAllSkillExplanationPreferences() {
+        try {
+            const skillNames = ['removeSingle', 'rerollNext', 'rerollBoard'];
+            skillNames.forEach(skillName => {
+                localStorage.removeItem(`skillExplanation_${skillName}`);
+            });
+            console.log('所有技能說明偏好設定已重置');
+        } catch (error) {
+            console.warn('無法重置技能說明偏好設定:', error);
+        }
+    }
+
+    showSkillExplanation(skillName, onConfirm = null) {
+        const skillInfo = {
+            'removeSingle': {
+                title: '💥 移除單個方塊',
+                description: '點擊任意方塊直接移除它。這可以幫助您打破困難的局面或創造更好的消除機會。',
+                usage: '點擊要移除的方塊即可使用'
+            },
+            'rerollNext': {
+                title: '🎲 重骰下個方塊',
+                description: '改變下一個要放置的方塊顏色。當下個方塊顏色不利於當前局面時特別有用。',
+                usage: '點擊確認按鈕後立即重新生成下個方塊顏色'
+            },
+            'rerollBoard': {
+                title: '🎨 變色板面',
+                description: '點擊任意方塊將其變為隨機顏色。可以用來創造更多消除機會或改變不利局面。',
+                usage: '點擊要變色的方塊即可使用'
+            }
+        };
+
+        const info = skillInfo[skillName];
+        if (!info) return;
+
+        // 創建彈跳視窗
+        const modal = document.createElement('div');
+        modal.className = 'skill-explanation-modal';
+        modal.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 10000;
+            font-family: 'Noto Sans TC', sans-serif;
+        `;
+
+        const content = document.createElement('div');
+        content.style.cssText = `
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 30px;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            max-width: 400px;
+            margin: 20px;
+            text-align: center;
+            color: white;
+            border: 2px solid rgba(255, 255, 255, 0.2);
+        `;
+
+        content.innerHTML = `
+            <div style="font-size: 48px; margin-bottom: 20px;">${info.title.split(' ')[0]}</div>
+            <h3 style="font-size: 20px; font-weight: bold; margin-bottom: 15px; color: #FFD700;">${info.title}</h3>
+            <p style="font-size: 16px; line-height: 1.6; margin-bottom: 20px; color: rgba(255, 255, 255, 0.9);">${info.description}</p>
+            <div style="background: rgba(255, 255, 255, 0.1); padding: 15px; border-radius: 10px; margin-bottom: 25px;">
+                <p style="font-size: 14px; font-weight: 500; color: #FFD700; margin: 0;">使用方法：</p>
+                <p style="font-size: 14px; margin: 5px 0 0 0; color: rgba(255, 255, 255, 0.9);">${info.usage}</p>
+            </div>
+            <div style="margin-bottom: 20px; text-align: left;">
+                <label style="display: flex; align-items: center; cursor: pointer; color: rgba(255, 255, 255, 0.8); font-size: 14px;">
+                    <input type="checkbox" id="dontShowAgain" style="margin-right: 8px; width: 16px; height: 16px; cursor: pointer;">
+                    不再顯示此技能說明
+                </label>
+            </div>
+            <div style="display: flex; gap: 10px; justify-content: center;">
+                <button id="skillExplanationCancel" style="
+                    background: rgba(255, 255, 255, 0.2);
+                    color: rgba(255, 255, 255, 0.8);
+                    border: 1px solid rgba(255, 255, 255, 0.3);
+                    padding: 10px 20px;
+                    border-radius: 20px;
+                    font-size: 14px;
+                    cursor: pointer;
+                    transition: all 0.2s;
+                ">取消</button>
+                <button id="skillExplanationOk" style="
+                    background: linear-gradient(45deg, #FF6B6B, #4ECDC4);
+                    color: white;
+                    border: none;
+                    padding: 12px 30px;
+                    border-radius: 25px;
+                    font-size: 16px;
+                    font-weight: bold;
+                    cursor: pointer;
+                    transition: transform 0.2s;
+                    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+                ">我知道了</button>
+            </div>
+        `;
+
+        modal.appendChild(content);
+        document.body.appendChild(modal);
+
+        // 添加按鈕事件
+        const okButton = modal.querySelector('#skillExplanationOk');
+        const cancelButton = modal.querySelector('#skillExplanationCancel');
+        const dontShowAgainCheckbox = modal.querySelector('#dontShowAgain');
+
+        // 確認按鈕事件
+        okButton.addEventListener('click', () => {
+            // 檢查是否勾選了"不再顯示"
+            if (dontShowAgainCheckbox.checked) {
+                this.setSkillExplanationPreference(skillName, false);
+            }
+            
+            document.body.removeChild(modal);
+            // 如果有確認回調函數，執行它
+            if (onConfirm && typeof onConfirm === 'function') {
+                onConfirm();
+            }
+        });
+
+        // 取消按鈕事件
+        cancelButton.addEventListener('click', () => {
+            // 檢查是否勾選了"不再顯示"
+            if (dontShowAgainCheckbox.checked) {
+                this.setSkillExplanationPreference(skillName, false);
+            }
+            
+            document.body.removeChild(modal);
+            // 取消時不執行技能效果
+        });
+
+        // 按鈕hover效果
+        okButton.addEventListener('mouseenter', () => {
+            okButton.style.transform = 'scale(1.05)';
+        });
+
+        okButton.addEventListener('mouseleave', () => {
+            okButton.style.transform = 'scale(1)';
+        });
+
+        cancelButton.addEventListener('mouseenter', () => {
+            cancelButton.style.background = 'rgba(255, 255, 255, 0.3)';
+        });
+
+        cancelButton.addEventListener('mouseleave', () => {
+            cancelButton.style.background = 'rgba(255, 255, 255, 0.2)';
+        });
+
+        // 點擊背景關閉
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                document.body.removeChild(modal);
+                // 點擊背景關閉時不執行技能效果
+            }
+        });
+    }
+
     async useSkillRerollNext() {
+        if (!this.config.hasSkills || this.isAnimating || this.skillUses.rerollNext <= 0) return;
+        
+        // 檢查是否需要顯示說明
+        if (this.shouldShowSkillExplanation('rerollNext')) {
+            // 顯示說明，確認後執行技能效果
+            this.showSkillExplanation('rerollNext', async () => {
+                await this.executeRerollNextSkill();
+            });
+        } else {
+            // 直接執行技能效果
+            await this.executeRerollNextSkill();
+        }
+    }
+
+    async executeRerollNextSkill() {
         if (!this.config.hasSkills || this.isAnimating || this.skillUses.rerollNext <= 0) return;
         
         this.isAnimating = true;
         this.updateSkillButtonsUI();
         this.skillUses.rerollNext--;
-        this.generateNextBlockColor();
+        
+        // 改進的重骰邏輯，確保新顏色與原顏色不同
+        this.generateNextBlockColorWithDifferentColors();
+        
         await new Promise(resolve => setTimeout(resolve, 50));
         this.isAnimating = false;
         this.updateUI();
         this.updateSkillButtonsUI();
+    }
+
+    generateNextBlockColorWithDifferentColors() {
+        if (this.config.numCols === 1) {
+            // 單排模式
+            const oldColor = this.nextBlockColors[0];
+            let newColor;
+            do {
+                newColor = this.getRandomColorName();
+            } while (newColor === oldColor && this.colorNames.length > 1);
+            this.nextBlockColors[0] = newColor;
+        } else {
+            // 多排模式
+            for (let i = 0; i < this.config.numCols; i++) {
+                const oldColor = this.nextBlockColors[i];
+                let newColor;
+                do {
+                    newColor = this.getRandomColorName();
+                } while (newColor === oldColor && this.colorNames.length > 1);
+                this.nextBlockColors[i] = newColor;
+            }
+        }
+        this.updateNextBlockPreviewUI();
     }
 
     async processActiveSkillOnBlock(location) {

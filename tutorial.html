@@ -2,7 +2,7 @@
 <html lang="zh-Hant">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, orientation=portrait">
     <title>三消挑戰 - 教學模式</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -181,6 +181,13 @@
     </style>
 </head>
 <body class="flex flex-col items-center justify-center min-h-screen p-2 sm:p-4">
+    
+    <!-- 螢幕旋轉警告 -->
+    <div class="orientation-warning" style="display: none;">
+        <div style="font-size: 3rem; margin-bottom: 1rem;">📱</div>
+        <h2>請將裝置轉為直向</h2>
+        <p>為了最佳遊戲體驗，請將您的手機轉為直向模式</p>
+    </div>
     
     <div id="gameContainer"></div>
     
