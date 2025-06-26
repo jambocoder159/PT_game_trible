@@ -189,7 +189,7 @@
         </div>
         
         <!-- 遊戲模式選擇 -->
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
             
             <!-- 單排模式 -->
             <div class="glass-card mode-card p-6 slide-in stagger-1" onclick="selectMode('classic')">
@@ -227,11 +227,23 @@
                 </div>
             </div>
             
+            <!-- 三排限時強攻模式 -->
+            <div class="glass-card mode-card p-6 slide-in stagger-4" onclick="selectMode('tripleTimeAttack')">
+                <div class="text-center">
+                    <div class="text-4xl mb-4">💥</div>
+                    <h3 class="text-xl font-bold text-white mb-2">三排限時強攻</h3>
+                    <p class="text-white/80 text-sm mb-4">120秒內挑戰三排模式<br>只有3次失誤機會</p>
+                    <div class="bg-purple-600/80 rounded-full px-3 py-1 text-xs text-white">
+                        專家難度
+                    </div>
+                </div>
+            </div>
+            
         </div>
         
 
         <!-- 功能按鈕區 -->
-        <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 slide-in stagger-4">
+        <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 slide-in stagger-5">
             
             <!-- 排行榜 -->
             <button onclick="showLeaderboard()" class="glass-card nav-button p-4 text-center">

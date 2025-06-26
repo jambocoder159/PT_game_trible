@@ -28,6 +28,7 @@ const GameModes = {
         theme: 'classic',
         hasSkills: true,
         hasTimer: false,
+        actionPointsStart: 5,
         enableHorizontalMatches: false,
         blockWidthPercent: 0.65,
         title: '三消挑戰',
@@ -53,6 +54,7 @@ const GameModes = {
         theme: 'double',
         hasSkills: true,
         hasTimer: false,
+        actionPointsStart: 5,
         enableHorizontalMatches: false,
         title: '雙排挑戰',
         description: '快速雙排模式',
@@ -77,9 +79,36 @@ const GameModes = {
         theme: 'triple',
         hasSkills: true,
         hasTimer: false,
+        actionPointsStart: 5,
         enableHorizontalMatches: true,
         title: '三排挑戰',
         description: '進階三排模式',
+        // 連擊分數系統
+        scoring: {
+            baseScore: 20,              // 三排模式基礎分數最高
+            comboMultiplier: 0.7,       // 連擊倍數最高
+            chainMultiplier: 3,         // 連鎖倍數最高
+            comboMilestones: {          
+                5: 200,    
+                10: 500,   
+                15: 1000,   
+                20: 2000,  
+                30: 4000   
+            }
+        }
+    },
+    
+    tripleTimeAttack: {
+        numCols: 3,
+        numRows: 10,
+        theme: 'triple',
+        hasSkills: true,
+        hasTimer: true,
+        gameDuration: 120000, // 180 秒
+        actionPointsStart: 3,
+        enableHorizontalMatches: true,
+        title: '三排限時強攻',
+        description: '120秒內挑戰三排模式，只有3次失誤機會。',
         // 連擊分數系統
         scoring: {
             baseScore: 20,              // 三排模式基礎分數最高
@@ -102,6 +131,7 @@ const GameModes = {
         hasSkills: false,
         hasTimer: true,
         gameDuration: 45000,
+        actionPointsStart: 0, // 覆蓋 GameEngine 的預設值，表示沒有行動點限制
         enableHorizontalMatches: true,
         title: '45秒限時挑戰',
         description: '限時挑戰模式',
