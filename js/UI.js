@@ -60,10 +60,12 @@ class UIManager {
                                 <p class="text-slate-600">連擊</p>
                                 <p id="combo" class="text-sm font-bold text-emerald-600">0</p>
                             </div>
+                            ${(config.actionPointsStart !== undefined && config.actionPointsStart > 0) ? `
                             <div>
-                                <p class="text-slate-600">${config.hasTimer ? '時間' : '行動'}</p>
-                                <p id="${config.hasTimer ? 'time-left' : 'action-points'}" class="text-sm font-bold text-rose-600">${timeDisplay}</p>
+                                <p class="text-slate-600">行動</p>
+                                <p id="action-points" class="text-sm font-bold text-purple-600">${config.actionPointsStart}</p>
                             </div>
+                            ` : ''}
                         </div>
                     </div>
                     
@@ -76,6 +78,16 @@ class UIManager {
                 </div>
             </div>
             
+            <!-- 時間顯示區 -->
+            ${config.hasTimer ? `
+            <div class="timer-display-area p-2 bg-slate-100/30">
+                <div class="relative w-full h-5 bg-slate-300/50 rounded-full overflow-hidden shadow-inner">
+                    <div id="time-progress-bar" class="h-full bg-gradient-to-r from-sky-400 to-cyan-400 rounded-full transition-all duration-200 ease-linear" style="width: 100%;"></div>
+                    <p id="time-left" class="absolute inset-0 flex items-center justify-center text-xs font-bold text-white text-shadow">${(config.gameDuration / 1000).toFixed(0)}s</p>
+                </div>
+            </div>
+            ` : ''}
+
             <!-- 遊戲畫布區域 - 最大化空間，下個方塊預覽將在Canvas內顯示 -->
             <div class="flex-grow flex items-center justify-center game-canvas-area">
                 <canvas id="gameCanvas" class="rounded-lg max-w-full max-h-full"></canvas>

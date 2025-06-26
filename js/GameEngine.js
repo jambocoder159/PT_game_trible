@@ -104,6 +104,7 @@ class GameEngine {
         this.comboDisplay = document.getElementById('combo');
         this.actionPointsDisplay = document.getElementById('action-points');
         this.timeLeftDisplay = document.getElementById('time-left');
+        this.timeProgressBar = document.getElementById('time-progress-bar');
         this.gameOverModal = document.getElementById('gameOverModal');
         this.finalScoreDisplay = document.getElementById('finalScore');
         this.finalMaxComboDisplay = document.getElementById('finalMaxCombo');
@@ -501,13 +502,20 @@ class GameEngine {
 
         // 時間相關UI（限時模式）
         if (this.config.hasTimer && this.timeLeftDisplay) {
-            const secondsLeft = Math.ceil(Math.max(0, this.timeLeft / 1000));
-            this.timeLeftDisplay.textContent = secondsLeft;
-            
-            if (secondsLeft <= 5) {
+            const secondsLeft = Math.max(0, this.timeLeft / 1000);
+            this.timeLeftDisplay.textContent = Math.ceil(secondsLeft) + 's';
+
+            if (this.timeProgressBar) {
+                const progressPercentage = (this.timeLeft / this.config.gameDuration) * 100;
+                this.timeProgressBar.style.width = `${Math.max(0, progressPercentage)}%`;
+            }
+
+            if (secondsLeft <= 5 && !this.gameOver) {
                 this.timeLeftDisplay.classList.add('time-warning');
+                if(this.timeProgressBar) this.timeProgressBar.classList.add('time-progress-bar-warning');
             } else {
                 this.timeLeftDisplay.classList.remove('time-warning');
+                if(this.timeProgressBar) this.timeProgressBar.classList.remove('time-progress-bar-warning');
             }
         }
     }
@@ -1116,6 +1124,9 @@ class GameEngine {
                 // 重置連擊相關數據
                 this.lastComboScore = 0;
             }
+            if (this.config.title === '三排限時強攻') {
+                this.handlePenalty();
+            }
         }
 
         this.updateUI();
@@ -1519,6 +1530,26 @@ class GameEngine {
         this.updateSkillButtonsUI();
         
         if (!this.config.hasTimer && this.actionPoints <= 0 && !this.gameOver) {
+            this.triggerGameOver();
+        }
+    }
+
+    handlePenalty() {
+        if (this.config.actionPointsStart > 0) {
+            this.actionPoints--;
+        }
+        
+        const gameContainer = document.querySelector('.game-container');
+        if (gameContainer) {
+            gameContainer.classList.add('screen-shake');
+            setTimeout(() => {
+                gameContainer.classList.remove('screen-shake');
+            }, 500);
+        }
+
+        this.updateUI();
+
+        if (this.actionPoints <= 0 && this.config.actionPointsStart > 0) {
             this.triggerGameOver();
         }
     }
