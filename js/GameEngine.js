@@ -974,6 +974,11 @@ class GameEngine {
         if (this.gameOver) return;
         this.gameOver = true;
         this.isAnimating = true;
+
+        // 儲存遊戲記錄，但排除教學模式
+        if (this.gameMode !== 'tutorial') {
+            this.saveCurrentGameRecord();
+        }
         
         if (this.finalScoreDisplay) this.finalScoreDisplay.textContent = this.score;
         if (this.finalMaxComboDisplay) this.finalMaxComboDisplay.textContent = this.maxCombo;
@@ -981,6 +986,33 @@ class GameEngine {
         
         if (this.gameOverModal && this.gameOverModal.classList) {
             this.gameOverModal.classList.add('active');
+        }
+    }
+
+    async saveCurrentGameRecord() {
+        if (!window.supabaseAuth || !window.supabaseAuth.isAuthenticated()) {
+            console.log("用戶未登入，不儲存遊戲記錄。");
+            return;
+        }
+
+        const timeTaken = performance.now() - this.gameStartTime;
+
+        const gameData = {
+            mode: this.gameMode,
+            score: this.score,
+            moves: this.actionCount,
+            time: Math.round(timeTaken / 1000), // 轉換為秒
+            level: 1 // 目前所有模式都先當作 level 1
+        };
+
+        try {
+            console.log("正在儲存遊戲記錄:", gameData);
+            const savedRecord = await window.supabaseAuth.saveGameRecord(gameData);
+            console.log("遊戲記錄儲存成功:", savedRecord);
+            // 可以在這裡更新 UI，例如顯示一個「儲存成功」的提示
+        } catch (error) {
+            console.error("儲存遊戲記錄失敗:", error);
+            // 可以在 UI 提示儲存失敗
         }
     }
 

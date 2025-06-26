@@ -120,6 +120,9 @@
                 <button onclick="switchMode('triple')" class="tab-button px-6 py-3 text-white font-medium" data-mode="triple">
                     🚀 進階三排
                 </button>
+                <button onclick="switchMode('tripleTimeAttack')" class="tab-button px-6 py-3 text-white font-medium" data-mode="tripleTimeAttack">
+                    ⚔️ 三排強攻
+                </button>
                 <button onclick="switchMode('timeLimit')" class="tab-button px-6 py-3 text-white font-medium" data-mode="timeLimit">
                     ⏰ 限時挑戰
                 </button>
@@ -223,6 +226,9 @@
                         <button onclick="playMode('triple')" class="w-full bg-green-500/20 hover:bg-green-500/30 text-white py-2 px-4 rounded-lg transition-colors text-sm">
                             🚀 挑戰三排模式
                         </button>
+                        <button onclick="playMode('tripleTimeAttack')" class="w-full bg-purple-500/20 hover:bg-purple-500/30 text-white py-2 px-4 rounded-lg transition-colors text-sm">
+                            ⚔️ 挑戰強攻模式
+                        </button>
                         <button onclick="playMode('timeLimit')" class="w-full bg-red-500/20 hover:bg-red-500/30 text-white py-2 px-4 rounded-lg transition-colors text-sm">
                             ⏰ 挑戰限時模式
                         </button>
@@ -267,6 +273,16 @@
                     <p>• 三排同時進行</p>
                     <p>• 考驗多工處理能力</p>
                     <p>• 支援水平匹配</p>
+                `
+            },
+            tripleTimeAttack: {
+                icon: '⚔️',
+                title: '三排強攻',
+                description: `
+                    <p><strong>⚔️ 三排強攻：</strong></p>
+                    <p>• 120秒內挑戰三排模式</p>
+                    <p>• 只有3次失誤機會</p>
+                    <p>• 專為高手設計</p>
                 `
             },
             timeLimit: {
