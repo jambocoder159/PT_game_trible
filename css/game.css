@@ -205,9 +205,7 @@ canvas {
 }
 
 .time-progress-bar-warning {
-    background-image: none !important;
-    background-color: #ef4444 !important;
-    transition: background-color 0.3s ease;
+    background: linear-gradient(90deg, #f97316, #ef4444) !important;
 }
 
 /* ===========================================
@@ -440,4 +438,15 @@ canvas {
         padding: 0.5rem 1rem !important;
         font-size: 0.875rem !important;
     }
+}
+
+/* 闖關模式敵人受擊動畫 */
+@keyframes enemy-hit-animation {
+    0% { transform: scale(1); filter: brightness(1); }
+    50% { transform: scale(1.05) translateX(-5px) rotate(-2deg); filter: brightness(1.5); }
+    100% { transform: scale(1); filter: brightness(1); }
+}
+
+.enemy-hit {
+    animation: enemy-hit-animation 0.15s ease-in-out;
 } 

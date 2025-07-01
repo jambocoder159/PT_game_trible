@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, orientation=portrait">
+    <title>三消挑戰 - 闖關模式</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&family=Poppins:wght@400;500;600;700;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/quest-mode.css">
+</head>
+<body class="bg-gray-800 text-white">
+
+    <!-- 頂部導航 -->
+    <nav class="p-4 bg-gray-900 shadow-lg">
+        <div class="max-w-7xl mx-auto flex items-center justify-between">
+            <div class="flex items-center">
+                <a href="main-menu.html" class="text-xl font-bold text-white hover:text-yellow-400 transition-colors">
+                    &larr; 返回主選單
+                </a>
+                <h1 class="text-2xl font-bold ml-6">闖關模式</h1>
+            </div>
+            <!-- 可以放置用戶資訊 -->
+        </div>
+    </nav>
+
+    <!-- 主要內容 -->
+    <main class="max-w-7xl mx-auto p-4 sm:p-6 md:p-8">
+        <!-- 進度總覽 -->
+        <div id="progress-overview" class="bg-gray-900/50 rounded-lg p-4 mb-6 hidden">
+            <h2 class="text-lg font-bold text-yellow-400 mb-3">🏆 闖關進度</h2>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div class="text-center">
+                    <div class="text-2xl font-bold text-green-400" id="total-cleared">0</div>
+                    <div class="text-sm text-gray-400">已通關</div>
+                </div>
+                <div class="text-center">
+                    <div class="text-2xl font-bold text-blue-400" id="current-chapter">1</div>
+                    <div class="text-sm text-gray-400">當前章節</div>
+                </div>
+                <div class="text-center">
+                    <div class="text-2xl font-bold text-purple-400" id="total-attempts">0</div>
+                    <div class="text-sm text-gray-400">總嘗試次數</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 章節標籤 -->
+        <div id="chapter-tabs" class="flex space-x-2 border-b-2 border-gray-700 mb-6">
+            <!-- 章節標籤將由 JS 動態生成 -->
+        </div>
+
+        <!-- 關卡容器 -->
+        <div id="levels-container">
+            <!-- 關卡將由 JS 動態生成 -->
+        </div>
+    </main>
+
+    <script src="js/EnvironmentConfig.js"></script>
+    <script src="js/SupabaseAuth.js"></script>
+    <script src="js/UserManager.js"></script>
+    <script src="js/GlobalNavigation.js"></script>
+    <script src="js/QuestMode.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', async () => {
+            // 初始化用戶系統
+            if (window.EnvironmentConfig) {
+                window.environmentConfig = new EnvironmentConfig();
+            }
+            await new Promise(resolve => setTimeout(resolve, 100));
+            if (window.supabaseAuth) {
+                window.userManager = new UserManager(window.supabaseAuth, null);
+                window.globalNav = new GlobalNavigation(window.supabaseAuth, window.userManager);
+                await window.globalNav.init();
+            }
+
+            // 初始化闖關模式介面
+            const questMode = new QuestMode();
+            await questMode.init();
+        });
+    </script>
+</body>
+</html> 

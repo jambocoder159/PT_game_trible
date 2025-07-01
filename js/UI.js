@@ -1,112 +1,152 @@
 class UIManager {
     static createGameHTML(mode, config) {
+        const headerHTML = (mode === 'quest') 
+            ? this.createQuestHeaderHTML(config)
+            : this.createStandardHeaderHTML(mode, config);
+
         const skillsSection = config.hasSkills ? this.createSkillsSection() : '';
-        const timeDisplay = config.hasTimer ? 
-            `${config.gameDuration / 1000}s` :
-            `5`;
-        
-        const modalStats = mode !== 'timeLimit' ?
-            `<div class="bg-slate-50 rounded-lg p-3 mb-4">
-                <div class="grid grid-cols-2 gap-3 text-center">
-                    <div>
-                        <p class="text-slate-600 text-sm">最終分數</p>
-                        <p id="finalScore" class="text-xl font-bold text-sky-600">0</p>
-                    </div>
-                    <div>
-                        <p class="text-slate-600 text-sm">最高連擊</p>
-                        <p id="finalMaxCombo" class="text-xl font-bold text-emerald-600">0</p>
-                    </div>
-                    <div class="col-span-2">
-                        <p class="text-slate-600 text-sm">總操作次數</p>
-                        <p id="finalActionCount" class="text-xl font-bold text-purple-600">0</p>
-                    </div>
-                </div>
-             </div>` :
-            `<p class="text-slate-700 text-lg mb-2">最終分數: <span id="finalScore" class="font-bold text-sky-600">0</span></p>`;
-
-        const modalBackButton = mode !== 'timeLimit' ?
-            `<button id="modalBackToIntroButton" class="flex-1 bg-gray-500 hover:bg-gray-600 text-white font-medium py-2 px-3 text-sm rounded action-button">
-                返回主選單
-             </button>` : '';
-
-        const modalButtonLayout = modalBackButton ?
-            `<div class="flex gap-3">
-                ${modalBackButton}
-                <button id="modalRestartButton" class="flex-1 bg-green-500 hover:bg-green-600 text-white font-semibold py-2.5 px-4 rounded action-button">
-                    再玩一次
-                </button>
-             </div>` :
-            `<button id="modalRestartButton" class="bg-green-500 hover:bg-green-600 text-white font-semibold py-2.5 px-8 rounded action-button">
-                再玩一次
-             </button>`;
+        const modalStats = this.createModalStatsHTML(mode);
+        const modalButtonLayout = this.createModalButtonsHTML(mode);
+        const timerSection = this.createTimerHTML(config);
 
         return `
-        <div class="game-container bg-white/80 backdrop-blur-md rounded-xl shadow-xl">
-            <!-- 遊戲控制欄 - 簡化版本 -->
-            <div class="flex-shrink-0 bg-slate-100/50 rounded-t-xl px-3 py-2">
-                <!-- 控制項：技能、統計資訊、主選單 -->
+        <div class="game-container bg-white/80 backdrop-blur-md rounded-xl shadow-xl w-full max-w-lg">
+            ${headerHTML}
+            ${timerSection}
+
+            <div class="flex-grow flex items-center justify-center game-canvas-area relative">
+                <canvas id="gameCanvas" class="rounded-lg max-w-full max-h-full"></canvas>
+                <div id="nextBlockPreviewContainer" class="hidden"></div>
+            </div>
+
+            <div class="flex-shrink-0 bg-slate-100/50 rounded-b-xl px-3 py-2">
                 <div class="flex items-center justify-between">
-                    <!-- 技能區域 -->
                     ${skillsSection}
-                    
-                    <!-- 統計資訊 - 置中對齊 -->
-                    <div class="flex-1 flex justify-center">
-                        <div class="flex gap-6 text-center text-xs">
-                            <div>
-                                <p class="text-slate-600">分數</p>
-                                <p id="score" class="text-sm font-bold text-sky-600">0</p>
-                            </div>
-                            <div>
-                                <p class="text-slate-600">連擊</p>
-                                <p id="combo" class="text-sm font-bold text-emerald-600">0</p>
-                            </div>
-                            ${(config.actionPointsStart !== undefined && config.actionPointsStart > 0) ? `
-                            <div>
-                                <p class="text-slate-600">行動</p>
-                                <p id="action-points" class="text-sm font-bold text-purple-600">${config.actionPointsStart}</p>
-                            </div>
-                            ` : ''}
-                        </div>
-                    </div>
-                    
-                    <!-- 主選單按鈕 - 對所有模式都顯示 -->
                     <button id="backToIntroButton" class="bg-gray-500 hover:bg-gray-600 text-white p-2 rounded-full action-button w-8 h-8 flex items-center justify-center" title="主選單">
-                        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                            <path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z"/>
-                        </svg>
+                        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z"/></svg>
                     </button>
                 </div>
             </div>
-            
-            <!-- 時間顯示區 -->
-            ${config.hasTimer ? `
-            <div class="timer-display-area p-2 bg-slate-100/30">
-                <div class="relative w-full h-5 bg-slate-300/50 rounded-full overflow-hidden shadow-inner">
-                    <div id="time-progress-bar" class="h-full bg-gradient-to-r from-sky-400 to-cyan-400 rounded-full transition-all duration-200 ease-linear" style="width: 100%;"></div>
-                    <p id="time-left" class="absolute inset-0 flex items-center justify-center text-xs font-bold text-white text-shadow">${(config.gameDuration / 1000).toFixed(0)}s</p>
-                </div>
-            </div>
-            ` : ''}
-
-            <!-- 遊戲畫布區域 - 最大化空間，下個方塊預覽將在Canvas內顯示 -->
-            <div class="flex-grow flex items-center justify-center game-canvas-area">
-                <canvas id="gameCanvas" class="rounded-lg max-w-full max-h-full"></canvas>
-                <!-- 隱藏的下個方塊預覽容器，供遊戲引擎使用 -->
-                <div id="nextBlockPreviewContainer" class="hidden"></div>
-            </div>
         </div>
 
-        <!-- 遊戲結束彈窗 -->
         <div id="gameOverModal" class="modal">
             <div class="modal-content">
-                <h2 class="text-2xl font-bold text-rose-500 mb-3">${config.hasTimer ? '時間到！' : '遊戲結束！'}</h2>
-                
+                <h2 id="modal-title" class="text-2xl font-bold text-rose-500 mb-3">${config.hasTimer ? '時間到！' : '遊戲結束！'}</h2>
                 ${modalStats}
-                
-                <p class="text-slate-500 mb-4">再接再厲，挑戰更高分！</p>
-                
+                <p id="modal-message" class="text-slate-500 mb-4">再接再厲，挑戰更高分！</p>
                 ${modalButtonLayout}
             </div>
+        </div>`;
+    }
+
+    static createQuestHeaderHTML(config) {
+        const enemy = config.levelData.enemy;
+        
+        // 從 URL 參數獲取關卡編號，預設為 1
+        const urlParams = new URLSearchParams(window.location.search);
+        const levelNumber = parseInt(urlParams.get('level')) || 1;
+        
+        // 構建對應的敵人圖片路徑
+        const enemyImageSrc = `images/monster/ch1-${levelNumber}.png`;
+        
+        return `
+        <div id="quest-header" class="flex-shrink-0 p-3 bg-slate-800/70 rounded-t-xl text-white">
+            <div class="w-24 h-24 mx-auto relative mb-2">
+                <img id="enemy-image" src="${enemyImageSrc}" alt="${enemy.name}" class="w-full h-full object-contain transition-transform duration-100">
+            </div>
+            <div id="enemy-info" class="text-center">
+                <h3 id="enemy-name" class="text-lg font-bold text-yellow-300">${enemy.name}</h3>
+                <div class="w-full bg-gray-600 rounded-full h-5 mt-1 border-2 border-gray-500 shadow-inner">
+                    <div id="enemy-hp-bar" class="bg-gradient-to-r from-red-500 to-red-700 h-full rounded-full transition-all duration-300 ease-out flex items-center justify-end pr-2">
+                        <span id="enemy-hp-text" class="text-xs font-bold text-white text-shadow">${enemy.maxHP}/${enemy.maxHP}</span>
+                    </div>
+                </div>
+            </div>
+            <div class="absolute top-4 right-4 text-center">
+                <div class="font-bold text-white text-shadow-lg">步數</div>
+                <div id="moves-left" class="text-4xl font-black text-amber-400 text-stroke-2 text-stroke-black">${config.levelData.moves}</div>
+            </div>
+        </div>`;
+    }
+
+    static createStandardHeaderHTML(mode, config) {
+        const actionPointsHTML = (config.actionPointsStart !== undefined && config.actionPointsStart > 0) ? `
+        <div>
+            <p class="text-slate-600">行動</p>
+            <p id="action-points" class="text-sm font-bold text-purple-600">${config.actionPointsStart}</p>
+        </div>` : '';
+
+        return `
+        <div class="flex-shrink-0 bg-slate-100/50 rounded-t-xl px-3 py-2">
+            <div class="flex items-center justify-center">
+                <div class="flex gap-6 text-center text-xs">
+                    <div>
+                        <p class="text-slate-600">分數</p>
+                        <p id="score" class="text-sm font-bold text-sky-600">0</p>
+                    </div>
+                    <div>
+                        <p class="text-slate-600">連擊</p>
+                        <p id="combo" class="text-sm font-bold text-emerald-600">0</p>
+                    </div>
+                    ${actionPointsHTML}
+                </div>
+            </div>
+        </div>`;
+    }
+
+    static createTimerHTML(config) {
+        if (!config.hasTimer) return '';
+        return `
+        <div class="timer-display-area p-2 bg-slate-100/30">
+            <div class="relative w-full h-5 bg-slate-300/50 rounded-full overflow-hidden shadow-inner">
+                <div id="time-progress-bar" class="h-full bg-gradient-to-r from-sky-400 to-cyan-400 rounded-full transition-all duration-200 ease-linear" style="width: 100%;"></div>
+                <p id="time-left" class="absolute inset-0 flex items-center justify-center text-xs font-bold text-white text-shadow">${(config.gameDuration / 1000).toFixed(0)}s</p>
+            </div>
+        </div>`;
+    }
+
+    static createModalStatsHTML(mode) {
+        if (mode === 'timeLimit') {
+            return `<p class="text-slate-700 text-lg mb-2">最終分數: <span id="finalScore" class="font-bold text-sky-600">0</span></p>`;
+        }
+        return `
+        <div class="bg-slate-50 rounded-lg p-3 mb-4">
+            <div class="grid grid-cols-2 gap-3 text-center">
+                <div>
+                    <p class="text-slate-600 text-sm">最終分數</p>
+                    <p id="finalScore" class="text-xl font-bold text-sky-600">0</p>
+                </div>
+                <div>
+                    <p class="text-slate-600 text-sm">最高連擊</p>
+                    <p id="finalMaxCombo" class="text-xl font-bold text-emerald-600">0</p>
+                </div>
+                <div class="col-span-2">
+                    <p class="text-slate-600 text-sm">總操作次數</p>
+                    <p id="finalActionCount" class="text-xl font-bold text-purple-600">0</p>
+                </div>
+            </div>
+         </div>`;
+    }
+
+    static createModalButtonsHTML(mode) {
+        if (mode === 'quest') {
+            // 闖關模式專用按鈕
+            return `
+            <div class="flex gap-2">
+                <button id="modalBackToQuestButton" class="flex-1 bg-blue-500 hover:bg-blue-600 text-white font-medium py-2 px-3 text-sm rounded action-button">關卡選擇</button>
+                <button id="modalRestartButton" class="flex-1 bg-green-500 hover:bg-green-600 text-white font-semibold py-2.5 px-4 rounded action-button">重新挑戰</button>
+                <button id="modalBackToIntroButton" class="flex-1 bg-gray-500 hover:bg-gray-600 text-white font-medium py-2 px-3 text-sm rounded action-button">主選單</button>
+            </div>`;
+        }
+        
+        const backButton = (mode !== 'timeLimit') ?
+            `<button id="modalBackToIntroButton" class="flex-1 bg-gray-500 hover:bg-gray-600 text-white font-medium py-2 px-3 text-sm rounded action-button">返回主選單</button>` : '';
+        
+        const restartButtonClass = backButton ? "flex-1" : "";
+        return `
+        <div class="flex gap-3">
+            ${backButton}
+            <button id="modalRestartButton" class="${restartButtonClass} bg-green-500 hover:bg-green-600 text-white font-semibold py-2.5 px-4 rounded action-button">再玩一次</button>
         </div>`;
     }
 
@@ -306,6 +346,64 @@ class UIManager {
     </script>
 </body>
 </html>`;
+    }
+
+    static updateQuestUI(gameState) {
+        if (gameState.mode !== 'quest') return;
+
+        const hpBar = document.getElementById('enemy-hp-bar');
+        const hpText = document.getElementById('enemy-hp-text');
+        const movesLeft = document.getElementById('moves-left');
+
+        if (hpBar && hpText) {
+            const hpPercent = (gameState.enemy.hp / gameState.enemy.maxHP) * 100;
+            hpBar.style.width = `${Math.max(0, hpPercent)}%`;
+            hpText.textContent = `${gameState.enemy.hp} / ${gameState.enemy.maxHP}`;
+        }
+
+        if (movesLeft) {
+            movesLeft.textContent = gameState.movesLeft;
+        }
+    }
+
+    static triggerEnemyHitAnimation() {
+        const enemyImage = document.getElementById('enemy-image');
+        if (enemyImage) {
+            enemyImage.classList.add('enemy-hit');
+            setTimeout(() => enemyImage.classList.remove('enemy-hit'), 200);
+        }
+    }
+
+    static showGameOverModal(score, maxCombo, actionCount, status = 'default') {
+        document.getElementById('gameOverModal').style.display = 'flex';
+        
+        const titleEl = document.getElementById('modal-title');
+        const messageEl = document.getElementById('modal-message');
+
+        switch(status) {
+            case 'quest_win':
+                titleEl.textContent = '勝利！';
+                titleEl.className = 'text-2xl font-bold text-green-500 mb-3';
+                messageEl.textContent = '你擊敗了敵人！準備好挑戰下一關。';
+                break;
+            case 'quest_loss':
+                titleEl.textContent = '失敗';
+                titleEl.className = 'text-2xl font-bold text-red-500 mb-3';
+                messageEl.textContent = '步數用盡，再試一次吧！';
+                break;
+            default:
+                // Keep original text
+                break;
+        }
+
+        const finalScore = document.getElementById('finalScore');
+        if (finalScore) finalScore.textContent = score;
+
+        const finalMaxCombo = document.getElementById('finalMaxCombo');
+        if (finalMaxCombo) finalMaxCombo.textContent = maxCombo;
+
+        const finalActionCount = document.getElementById('finalActionCount');
+        if (finalActionCount) finalActionCount.textContent = actionCount;
     }
 }
 

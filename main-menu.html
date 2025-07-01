@@ -132,6 +132,8 @@
         .stagger-2 { animation-delay: 0.2s; }
         .stagger-3 { animation-delay: 0.3s; }
         .stagger-4 { animation-delay: 0.4s; }
+        .stagger-5 { animation-delay: 0.5s; }
+        .stagger-6 { animation-delay: 0.6s; }
     </style>
 </head>
 <body class="min-h-screen">
@@ -189,10 +191,22 @@
         </div>
         
         <!-- 遊戲模式選擇 -->
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
+            
+            <!-- 闖關模式 -->
+            <div class="glass-card mode-card p-6 slide-in stagger-1" onclick="navigateTo('quest-mode.html')">
+                <div class="text-center">
+                    <div class="text-4xl mb-4">⚔️</div>
+                    <h3 class="text-xl font-bold text-white mb-2">闖關模式</h3>
+                    <p class="text-white/80 text-sm mb-4">挑戰章節關卡<br>擊敗強大的敵人</p>
+                    <div class="bg-green-500/80 rounded-full px-3 py-1 text-xs text-white">
+                        劇情挑戰
+                    </div>
+                </div>
+            </div>
             
             <!-- 單排模式 -->
-            <div class="glass-card mode-card p-6 slide-in stagger-1" onclick="selectMode('classic')">
+            <div class="glass-card mode-card p-6 slide-in stagger-2" onclick="selectMode('classic')">
                 <div class="text-center">
                     <div class="text-4xl mb-4">🎯</div>
                     <h3 class="text-xl font-bold text-white mb-2">經典單排</h3>
@@ -204,7 +218,7 @@
             </div>
             
             <!-- 三排模式 -->
-            <div class="glass-card mode-card p-6 slide-in stagger-2" onclick="selectMode('triple')">
+            <div class="glass-card mode-card p-6 slide-in stagger-3" onclick="selectMode('triple')">
                 <div class="text-center">
                     <div class="text-4xl mb-4">🚀</div>
                     <h3 class="text-xl font-bold text-white mb-2">進階三排</h3>
@@ -216,7 +230,7 @@
             </div>
             
             <!-- 三排限時模式 -->
-            <div class="glass-card mode-card p-6 slide-in stagger-3" onclick="selectMode('timeLimit')">
+            <div class="glass-card mode-card p-6 slide-in stagger-4" onclick="selectMode('timeLimit')">
                 <div class="text-center">
                     <div class="text-4xl mb-4">⏰</div>
                     <h3 class="text-xl font-bold text-white mb-2">限時挑戰</h3>
@@ -228,7 +242,7 @@
             </div>
             
             <!-- 三排限時強攻模式 -->
-            <div class="glass-card mode-card p-6 slide-in stagger-4" onclick="selectMode('tripleTimeAttack')">
+            <div class="glass-card mode-card p-6 slide-in stagger-5" onclick="selectMode('tripleTimeAttack')">
                 <div class="text-center">
                     <div class="text-4xl mb-4">💥</div>
                     <h3 class="text-xl font-bold text-white mb-2">三排限時強攻</h3>
@@ -243,7 +257,7 @@
         
 
         <!-- 功能按鈕區 -->
-        <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 slide-in stagger-5">
+        <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 slide-in stagger-6">
             
             <!-- 排行榜 -->
             <button onclick="showLeaderboard()" class="glass-card nav-button p-4 text-center">
@@ -326,6 +340,7 @@
     <script src="js/LeaderboardManager.js"></script>
     <script src="js/UserManager.js"></script>
     <script src="js/GlobalNavigation.js"></script>
+    <script src="js/UI.js"></script>
     
     <script>
         // 全域變數
@@ -436,18 +451,14 @@
         
         // 選擇遊戲模式
         function selectMode(mode) {
-            // 添加點擊效果
-            event.currentTarget.style.transform = 'scale(0.95)';
-            setTimeout(() => {
-                event.currentTarget.style.transform = '';
-            }, 150);
-            
-            // 跳轉到遊戲
-            setTimeout(() => {
-                window.location.href = `game.html?mode=${mode}`;
-            }, 200);
+            window.location.href = `game.html?mode=${mode}`;
         }
-
+        
+        // 導航到頁面
+        function navigateTo(page) {
+            window.location.href = page;
+        }
+        
         // 開始教學
         function startTutorial() {
             // 添加點擊效果
@@ -504,7 +515,12 @@
         }
         
         // 顯示排行榜
-        function showLeaderboard() {
+        async function showLeaderboard() {
+            if (!window.leaderboardManager) {
+                alert('排行榜功能開發中...');
+                return;
+            }
+            
             // 可以跳轉到排行榜頁面或顯示模態框
             window.location.href = 'leaderboard.html';
         }

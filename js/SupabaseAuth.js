@@ -19,20 +19,44 @@ class SupabaseAuth {
         
         if (!this.supabase) {
             console.error('Supabase 客戶端初始化失敗！請確保已加載 Supabase SDK');
-            return;
+            // 不要 return，讓類別實例完整建立
         }
         
         this.currentUser = null;
         this.authCallbacks = [];
         
+        // 手動綁定所有需要外部呼叫的方法
+        this.checkCurrentUser = this.checkCurrentUser.bind(this);
+        this.onAuthStateChange = this.onAuthStateChange.bind(this);
+        this.signInWithGoogle = this.signInWithGoogle.bind(this);
+        this.signInWithGitHub = this.signInWithGitHub.bind(this);
+        this.signInWithDiscord = this.signInWithDiscord.bind(this);
+        this.signOut = this.signOut.bind(this);
+        this.getCurrentUser = this.getCurrentUser.bind(this);
+        this.isAuthenticated = this.isAuthenticated.bind(this);
+        this.getUserProfile = this.getUserProfile.bind(this);
+        this.createUserProfile = this.createUserProfile.bind(this);
+        this.updateLastLogin = this.updateLastLogin.bind(this);
+        this.saveGameRecord = this.saveGameRecord.bind(this);
+        this.getPersonalBest = this.getPersonalBest.bind(this);
+        this.getPersonalHistory = this.getPersonalHistory.bind(this);
+        this.saveQuestRecord = this.saveQuestRecord.bind(this);
+        this.updatePlayerProgress = this.updatePlayerProgress.bind(this);
+        this.getPlayerQuestProgress = this.getPlayerQuestProgress.bind(this);
+        this.getQuestLevelBest = this.getQuestLevelBest.bind(this);
+        this.getAllQuestBestRecords = this.getAllQuestBestRecords.bind(this);
+        this.getQuestLevelHistory = this.getQuestLevelHistory.bind(this);
+        this.getChapterStats = this.getChapterStats.bind(this);
+
         // 監聽認證狀態變化
-        this.supabase.auth.onAuthStateChange((event, session) => {
-            this.currentUser = session?.user || null;
-            this.notifyAuthCallbacks(event, session);
-        });
-        
-        // 檢查當前用戶狀態
-        this.checkCurrentUser();
+        if (this.supabase) {
+            this.supabase.auth.onAuthStateChange((event, session) => {
+                this.currentUser = session?.user || null;
+                this.notifyAuthCallbacks(event, session);
+            });
+            // 檢查當前用戶狀態
+            this.checkCurrentUser();
+        }
     }
     
     // 檢查當前用戶
@@ -130,8 +154,17 @@ class SupabaseAuth {
     
     // 獲取重定向 URL
     getRedirectUrl() {
+        console.log('=== 重定向 URL 偵測開始 ===');
+        console.log('當前 URL:', window.location.href);
+        console.log('當前 hostname:', window.location.hostname);
+        console.log('當前 origin:', window.location.origin);
+        
         // 使用環境配置管理器
         if (this.envConfig) {
+            console.log('使用環境配置管理器');
+            console.log('偵測到的環境:', this.envConfig.environment);
+            console.log('環境配置:', this.envConfig.config);
+            
             // OAuth 登入後應該重定向到主選單
             const redirectUrl = this.envConfig.getRedirectUrl('/main-menu.html', '');
             console.log('環境配置重定向 URL:', redirectUrl);
@@ -140,16 +173,26 @@ class SupabaseAuth {
         
         // 備用邏輯（如果環境配置未載入）
         const baseUrl = window.location.origin;
+        const fallbackUrl = `${baseUrl}/main-menu.html`;
         
         console.log('使用備用重定向邏輯:', {
             origin: window.location.origin,
             hostname: window.location.hostname,
             pathname: window.location.pathname,
-            search: window.location.search
+            search: window.location.search,
+            fallbackUrl: fallbackUrl
         });
         
+        // 確保本地環境使用本地 URL
+        if (window.location.hostname === 'localhost' || 
+            window.location.hostname === '127.0.0.1' || 
+            window.location.hostname.includes('localhost')) {
+            console.log('強制使用本地環境 URL');
+            return fallbackUrl;
+        }
+        
         // OAuth 登入成功後統一重定向到主選單
-        return `${baseUrl}/main-menu.html`;
+        return fallbackUrl;
     }
     
     // 登出
@@ -321,6 +364,243 @@ class SupabaseAuth {
             return data || [];
         } catch (error) {
             console.error('獲取個人歷史失敗:', error);
+            return [];
+        }
+    }
+
+    // ===== 闖關模式專用方法 =====
+    
+    // 保存關卡記錄
+    async saveQuestRecord(questData) {
+        if (!this.currentUser) {
+            throw new Error('用戶未登入');
+        }
+        
+        try {
+            const questRecord = {
+                player_id: this.currentUser.id,
+                level_number: questData.levelNumber,
+                chapter: Math.ceil(questData.levelNumber / 10), // 計算章節
+                is_completed: questData.isCompleted,
+                score: questData.score,
+                moves_used: questData.movesUsed,
+                moves_remaining: questData.movesRemaining,
+                max_combo: questData.maxCombo,
+                action_count: questData.actionCount,
+                time_taken: questData.timeTaken,
+                enemy_name: questData.enemyName,
+                enemy_max_hp: questData.enemyMaxHP,
+                damage_dealt: questData.damageDealt,
+                created_at: new Date().toISOString()
+            };
+            
+            const { data, error } = await this.supabase
+                .from('quest_records')
+                .insert([questRecord])
+                .select()
+                .single();
+                
+            if (error) throw error;
+            
+            // 如果是首次通關，更新玩家進度
+            if (questData.isCompleted) {
+                await this.updatePlayerProgress(questData.levelNumber);
+            }
+            
+            return data;
+        } catch (error) {
+            console.error('保存闖關記錄失敗:', error);
+            throw error;
+        }
+    }
+    
+    // 更新玩家闖關進度
+    async updatePlayerProgress(levelNumber) {
+        if (!this.currentUser) return null;
+
+        try {
+            // 首先，獲取玩家當前的最高通關記錄
+            const { data: currentProgress, error: selectError } = await this.supabase
+                .from('player_quest_progress')
+                .select('highest_level_cleared')
+                .eq('player_id', this.currentUser.id)
+                .single();
+
+            // 如果查詢出錯，但不是因為「找不到記錄」，則拋出錯誤
+            if (selectError && selectError.code !== 'PGRST116') {
+                throw selectError;
+            }
+
+            const currentHighest = currentProgress?.highest_level_cleared || 0;
+
+            // 只有在新完成的關卡比最高紀錄更高時，才進行更新
+            if (levelNumber > currentHighest) {
+                const { data, error: upsertError } = await this.supabase
+                    .from('player_quest_progress')
+                    .upsert({
+                        player_id: this.currentUser.id,
+                        highest_level_cleared: levelNumber, // 使用正確的欄位名稱
+                        updated_at: new Date().toISOString()
+                    }, {
+                        onConflict: 'player_id'
+                    })
+                    .select()
+                    .single();
+
+                if (upsertError) throw upsertError;
+
+                console.log('玩家進度更新成功:', data);
+                return data;
+            } else {
+                console.log(`不更新玩家進度，因為目前最高關卡 (${currentHighest}) 已高於或等於完成的關卡 (${levelNumber})。`);
+                return currentProgress;
+            }
+        } catch (error) {
+            console.error('更新玩家進度失敗:', error);
+            return null;
+        }
+    }
+    
+    // 獲取玩家闖關進度
+    async getPlayerQuestProgress() {
+        if (!this.currentUser) return { highest_level_cleared: 0 };
+        
+        try {
+            const { data, error } = await this.supabase
+                .from('player_quest_progress')
+                .select('highest_level_cleared')
+                .eq('player_id', this.currentUser.id)
+                .single();
+                
+            if (error && error.code === 'PGRST116') {
+                // 沒有記錄，返回預設值
+                return { highest_level_cleared: 0 };
+            }
+            
+            if (error) throw error;
+            return data || { highest_level_cleared: 0 };
+        } catch (error) {
+            console.error('獲取玩家進度失敗:', error);
+            return { highest_level_cleared: 0 };
+        }
+    }
+    
+    // 獲取特定關卡的最佳記錄
+    async getQuestLevelBest(levelNumber) {
+        if (!this.currentUser) return null;
+        
+        try {
+            const { data, error } = await this.supabase
+                .from('quest_records')
+                .select('*')
+                .eq('player_id', this.currentUser.id)
+                .eq('level_number', levelNumber)
+                .eq('is_completed', true)
+                .order('score', { ascending: false })
+                .limit(1)
+                .single();
+                
+            if (error && error.code === 'PGRST116') {
+                return null; // 沒有記錄
+            }
+            
+            if (error) throw error;
+            return data;
+        } catch (error) {
+            console.error('獲取關卡最佳記錄失敗:', error);
+            return null;
+        }
+    }
+    
+    // 批量獲取所有關卡的最佳記錄
+    async getAllQuestBestRecords() {
+        if (!this.currentUser) return [];
+        
+        try {
+            // 使用子查詢獲取每個關卡的最佳分數記錄
+            const { data, error } = await this.supabase
+                .from('quest_records')
+                .select('level_number, score, max_combo, time_taken, created_at')
+                .eq('player_id', this.currentUser.id)
+                .eq('is_completed', true)
+                .order('level_number')
+                .order('score', { ascending: false });
+                
+            if (error) throw error;
+            
+            // 處理數據，為每個關卡只保留最佳記錄
+            const bestRecords = {};
+            if (data && data.length > 0) {
+                data.forEach(record => {
+                    const levelNumber = record.level_number;
+                    if (!bestRecords[levelNumber] || record.score > bestRecords[levelNumber].score) {
+                        bestRecords[levelNumber] = record;
+                    }
+                });
+            }
+            
+            // 轉換為數組格式返回
+            return Object.values(bestRecords);
+        } catch (error) {
+            console.error('批量獲取關卡最佳記錄失敗:', error);
+            return [];
+        }
+    }
+    
+    // 獲取特定關卡的所有嘗試記錄
+    async getQuestLevelHistory(levelNumber, limit = 10) {
+        if (!this.currentUser) return [];
+        
+        try {
+            const { data, error } = await this.supabase
+                .from('quest_records')
+                .select('*')
+                .eq('player_id', this.currentUser.id)
+                .eq('level_number', levelNumber)
+                .order('created_at', { ascending: false })
+                .limit(limit);
+                
+            if (error) throw error;
+            return data || [];
+        } catch (error) {
+            console.error('獲取關卡歷史失敗:', error);
+            return [];
+        }
+    }
+    
+    // 獲取所有章節的通關統計
+    async getChapterStats() {
+        if (!this.currentUser) return [];
+        
+        try {
+            const { data, error } = await this.supabase
+                .from('quest_records')
+                .select('chapter, level_number, is_completed')
+                .eq('player_id', this.currentUser.id)
+                .eq('is_completed', true)
+                .order('level_number');
+                
+            if (error) throw error;
+            
+            // 統計每章節的通關數
+            const chapterStats = [
+                { chapter: 1, cleared: 0, total: 10 },
+                { chapter: 2, cleared: 0, total: 10 },
+                { chapter: 3, cleared: 0, total: 10 }
+            ];
+            
+            if (data) {
+                data.forEach(record => {
+                    const chapterIndex = record.chapter - 1;
+                    if (chapterIndex >= 0 && chapterIndex < chapterStats.length) {
+                        chapterStats[chapterIndex].cleared++;
+                    }
+                });
+            }
+            
+            return chapterStats;
+        } catch (error) {
+            console.error('獲取章節統計失敗:', error);
             return [];
         }
     }

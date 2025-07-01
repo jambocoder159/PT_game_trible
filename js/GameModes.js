@@ -148,6 +148,37 @@ const GameModes = {
                 20: 5000   
             }
         }
+    },
+
+    quest: {
+        numCols: 3,
+        numRows: 10,
+        theme: 'quest',
+        hasSkills: true,
+        hasTimer: false,
+        enableHorizontalMatches: true,
+        title: '闖關模式',
+        description: '擊敗敵人以獲得勝利',
+        // 在闖關模式中，分數也等同於對敵人的傷害
+        scoring: {
+            baseScore: 1, // 基礎傷害
+            comboMultiplier: 0.2,
+            chainMultiplier: 1.5,
+            comboMilestones: {
+                5: 10,
+                10: 25,
+                15: 50
+            }
+        },
+        // 關卡特定數據（這些值將在遊戲初始化時被特定關卡覆寫）
+        levelData: {
+            moves: 15, // 預設步數
+            enemy: {
+                name: '史萊姆',
+                maxHP: 100,
+                asset: 'slime.png' // 預設敵人圖片
+            }
+        }
     }
 };
 
