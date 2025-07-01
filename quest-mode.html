@@ -60,14 +60,19 @@
     <script src="js/SupabaseAuth.js"></script>
     <script src="js/UserManager.js"></script>
     <script src="js/GlobalNavigation.js"></script>
+    <script src="js/GameModes.js"></script>
     <script src="js/QuestMode.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', async () => {
-            // 初始化用戶系統
+            // 初始化環境配置
             if (window.EnvironmentConfig) {
                 window.environmentConfig = new EnvironmentConfig();
             }
+            
+            // 等待一段時間讓所有腳本完全載入
             await new Promise(resolve => setTimeout(resolve, 100));
+
+            // 初始化用戶管理和導航（如果 supabaseAuth 存在）
             if (window.supabaseAuth) {
                 window.userManager = new UserManager(window.supabaseAuth, null);
                 window.globalNav = new GlobalNavigation(window.supabaseAuth, window.userManager);

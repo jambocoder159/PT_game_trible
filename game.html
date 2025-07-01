@@ -145,77 +145,17 @@
                 // 根據關卡設置不同的敵人和難度
                 const levelNum = parseInt(level) || 1;
                 
-                // 設定每個關卡的敵人資料
-                const enemyData = {
-                    1: {
-                        name: "森林史萊姆",
-                        description: "森林中的初級魔物，喜歡藏在樹根附近。",
-                        maxHP: 50,
-                        moves: 15
-                    },
-                    2: {
-                        name: "莫菇",
-                        description: "一隻掌握森林魔法的菇類魔法師，外表呆萌但擅長施放睡眠孢子。",
-                        maxHP: 75,
-                        moves: 15
-                    },
-                    3: {
-                        name: "露比",
-                        description: "森林中的守護者，一隻會飛的小瓢蟲，能釋放治癒花粉。",
-                        maxHP: 100,
-                        moves: 14
-                    },
-                    4: {
-                        name: "影蜥",
-                        description: "棲息於樹蔭之下的冷血潛行者，擅長快速移動與偷襲。",
-                        maxHP: 125,
-                        moves: 14
-                    },
-                    5: {
-                        name: "希露芙",
-                        description: "翅膀如幻影般的森林妖蝶，飛行速度快且能施放睡眠粉塵。",
-                        maxHP: 150,
-                        moves: 13
-                    },
-                    6: {
-                        name: "塔嘎",
-                        description: "背著厚重岩殼的森林巨獸，全身覆滿青苔，行動緩慢但防禦極高。",
-                        maxHP: 175,
-                        moves: 13
-                    },
-                    7: {
-                        name: "希絲",
-                        description: "徘徊於迷霧中的幽靈，會模仿過路旅人的聲音，引誘其迷路。",
-                        maxHP: 200,
-                        moves: 12
-                    },
-                    8: {
-                        name: "庫比",
-                        description: "調皮又具攻擊性的森林栗鼠，常以果實當飛彈襲擊路人。",
-                        maxHP: 225,
-                        moves: 12
-                    },
-                    9: {
-                        name: "莉雅",
-                        description: "來自古老森林部族的治癒者，能用花語為盟友帶來再生與庇佑。",
-                        maxHP: 250,
-                        moves: 11
-                    },
-                    10: {
-                        name: "尤羅德",
-                        description: "沉睡於聖樹之心千年的森林古王，擁有與整片森林連結的力量，能操控萬物植物。",
-                        maxHP: 300,
-                        moves: 10
-                    }
-                };
+                // 從 GameModes 獲取關卡資料
+                const levelDetails = GameModes.quest.levelDetails;
                 
                 // 取得對應關卡的敵人資料，如果關卡超出範圍則使用最後一個
-                const currentEnemy = enemyData[levelNum] || enemyData[10];
+                const currentEnemy = levelDetails[levelNum] || levelDetails[10];
                 
                 gameConfig.levelData.enemy.name = currentEnemy.name;
                 gameConfig.levelData.enemy.description = currentEnemy.description;
                 gameConfig.levelData.enemy.maxHP = currentEnemy.maxHP;
                 gameConfig.levelData.moves = currentEnemy.moves;
+                gameConfig.levelData.restrictions = currentEnemy.restrictions;
                 
                 console.log('闖關模式配置:', gameConfig);
             }
@@ -247,6 +187,14 @@
                 console.log('- 模式:', gameEngine.config.mode);
                 console.log('- 剩餘步數:', gameEngine.movesLeft);
                 console.log('- 敵人:', gameEngine.enemy);
+            }
+
+            // 為 info icon 添加點擊事件
+            const infoIcon = document.getElementById('quest-info-icon');
+            if (infoIcon) {
+                infoIcon.addEventListener('click', () => {
+                    UIManager.showRestrictionsPopup(gameEngine.config.levelData.restrictions);
+                });
             }
         }
         

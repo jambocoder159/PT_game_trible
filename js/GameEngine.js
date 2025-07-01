@@ -155,13 +155,60 @@ class GameEngine {
     }
 
     // 計算連擊分數
-    calculateComboScore(blocksEliminated, chainLevel) {
+    calculateComboScore(matches, chainLevel) {
         const scoring = this.config.scoring || {
             baseScore: 10,
             comboMultiplier: 0.5,
             chainMultiplier: 2,
             comboMilestones: {}
         };
+
+        const restrictions = this.config.levelData?.restrictions || {};
+
+        // 檢查關卡限制條件
+        if (this.config.mode === 'quest') {
+            // 檢查最低 Combo 需求
+            if (restrictions.minComboForDamage && this.consecutiveSuccessfulActions < restrictions.minComboForDamage) {
+                console.log(`限制生效：Combo數 ${this.consecutiveSuccessfulActions} 未達到 ${restrictions.minComboForDamage}`);
+                return { finalScore: 0 };
+            }
+            // 檢查最低 Chain 需求
+            if (restrictions.minChainForDamage && chainLevel < restrictions.minChainForDamage) {
+                console.log(`限制生效：Chain數 ${chainLevel} 未達到 ${restrictions.minChainForDamage}`);
+                return { finalScore: 0 };
+            }
+        }
+
+        let validBlocks = [];
+        matches.forEach(matchInfo => {
+            const { colIndex, rowIndex } = JSON.parse(matchInfo);
+            const targetGrid = this.config.numCols === 1 ? this.grid[0] : this.grid[colIndex];
+            const block = targetGrid?.[rowIndex];
+
+            if (block) {
+                let isValid = true;
+                if (this.config.mode === 'quest') {
+                    // 檢查無效傷害顏色
+                    if (restrictions.noDamageColors?.includes(block.colorName)) {
+                        isValid = false;
+                        console.log(`限制生效：顏色 ${block.colorName} 無法造成傷害`);
+                    }
+                    // 檢查僅限傷害顏色
+                    if (restrictions.damageOnlyColors && !restrictions.damageOnlyColors.includes(block.colorName)) {
+                        isValid = false;
+                        console.log(`限制生效：只有 ${restrictions.damageOnlyColors.join(', ')} 可造成傷害，${block.colorName} 無效`);
+                    }
+                }
+                if (isValid) {
+                    validBlocks.push(block);
+                }
+            }
+        });
+        
+        const blocksEliminated = validBlocks.length;
+        if (blocksEliminated === 0) {
+            return { finalScore: 0 };
+        }
 
         // 基礎分數 = 消除方塊數 × 基礎分數
         let baseScore = blocksEliminated * scoring.baseScore;
@@ -291,7 +338,8 @@ class GameEngine {
         this.grid = [];
         this.particles = [];
         this.timeLeft = this.config.gameDuration;
-        this.gameStartTime = performance.now();
+        // 只有在限時模式下才設置遊戲開始時間
+        this.gameStartTime = this.config.hasTimer ? performance.now() : 0;
         this.pendingDamage = 0; // 重置累積傷害
 
         // 重置連擊分數系統
@@ -479,22 +527,32 @@ class GameEngine {
         // 設置canvas尺寸
         this.canvas.width = availableWidth;
         
+        // 使用配置中的 blockHeight 作為首選值，如果沒有則使用預設值
+        const preferredBlockHeight = this.config.blockHeight || 36;
+        
+        // 檢測是否為手機裝置（基於螢幕寬度）
+        const isMobile = window.innerWidth <= 768;
+        
+        // 為quest模式設定更高的最小高度保護
+        const isQuestMode = this.config.theme === 'quest';
+        const minBlockHeight = isQuestMode ? Math.max(preferredBlockHeight * 0.9, 35) : Math.max(preferredBlockHeight * 0.8, 24);
+        
         // 計算理想的canvas高度
-        const idealCanvasHeight = (this.config.blockHeight * this.config.numRows) + 
+        const idealCanvasHeight = (preferredBlockHeight * this.config.numRows) + 
                                  (this.config.gameAreaTopPadding * 2) + 
                                  (this.config.numRows * 1);
         
-        // 使用可用高度和理想高度中的較小值
-        const canvasHeight = Math.min(idealCanvasHeight, availableHeight);
+        // 使用可用高度和理想高度中的較小值，但確保最小高度
+        const canvasHeight = Math.max(Math.min(idealCanvasHeight, availableHeight), 
+                                    (minBlockHeight * this.config.numRows) + (this.config.gameAreaTopPadding * 2) + 50);
         this.canvas.height = Math.max(canvasHeight, 200); // 最小高度200px
         
         // 根據實際canvas高度調整block大小
         const effectiveGameAreaHeight = this.canvas.height - (this.config.gameAreaTopPadding * 2);
-        const blockHeight = Math.floor((effectiveGameAreaHeight - this.config.numRows) / this.config.numRows);
-        this.config.blockHeight = Math.max(blockHeight, 24); // 提高最小block高度到24px
+        const calculatedBlockHeight = Math.floor((effectiveGameAreaHeight - this.config.numRows) / this.config.numRows);
         
-        // 檢測是否為手機裝置（基於螢幕寬度）
-        const isMobile = window.innerWidth <= 768;
+        // 使用首選值和計算值中的較大者，但不低於最小高度
+        this.config.blockHeight = Math.max(preferredBlockHeight, calculatedBlockHeight, minBlockHeight);
         
         if (this.config.numCols === 1) {
             if (isMobile) {
@@ -502,7 +560,7 @@ class GameEngine {
                 this.blockWidth = Math.min(this.canvas.width * 0.55, 180); // 減少寬度到55%，最大180px
                 // 如果寬度較小，增加高度補償
                 if (this.blockWidth < 120) {
-                    this.config.blockHeight = Math.max(this.config.blockHeight * 1.3, 32); // 增加30%高度
+                    this.config.blockHeight = Math.max(this.config.blockHeight * 1.2, minBlockHeight); // 增加20%高度
                 }
             } else {
                 // 桌面版：使用原有比例
@@ -514,21 +572,28 @@ class GameEngine {
             if (isMobile) {
                 // 手機版多列：縮小寬度但增加高度
                 this.blockWidth = this.columnWidth * 0.7;
-                this.config.blockHeight = Math.max(this.config.blockHeight * 1.2, 28); // 增加20%高度
+                this.config.blockHeight = Math.max(this.config.blockHeight * 1.1, minBlockHeight); // 增加10%高度
             } else {
                 this.blockWidth = this.columnWidth * 0.8;
             }
         }
         
-        // 確保所有方塊都能完整顯示在螢幕上
+        // 最終檢查：確保所有方塊都能顯示，但使用更寬鬆的縮放策略
         const totalNeededHeight = (this.config.blockHeight * this.config.numRows) + 
                                  (this.config.gameAreaTopPadding * 2);
         
         if (totalNeededHeight > this.canvas.height) {
-            // 如果超出高度，等比例縮小
-            const scale = this.canvas.height / totalNeededHeight * 0.95; // 留5%緩衝
-            this.config.blockHeight = Math.floor(this.config.blockHeight * scale);
-            this.config.blockHeight = Math.max(this.config.blockHeight, 20); // 保持最小高度
+            // 優先增加canvas高度而不是縮小方塊
+            const neededExtraHeight = totalNeededHeight - this.canvas.height;
+            this.canvas.height = Math.min(this.canvas.height + neededExtraHeight + 10, availableHeight);
+            
+            // 如果還是超出，才進行有限的縮放
+            if (totalNeededHeight > this.canvas.height) {
+                const scale = this.canvas.height / totalNeededHeight * 0.98; // 減少緩衝到2%
+                const scaledHeight = Math.floor(this.config.blockHeight * scale);
+                // 對quest模式使用更高的最小值保護
+                this.config.blockHeight = Math.max(scaledHeight, minBlockHeight);
+            }
         }
 
         if (!this.gameOver) {
@@ -1052,9 +1117,10 @@ class GameEngine {
             const deltaTime = timestamp - (this.lastFrameTime || timestamp);
             this.lastFrameTime = timestamp;
 
-            // 處理計時器
+            // 處理計時器 - 統一使用 performance.now()
             if (this.config.hasTimer && this.gameStartTime > 0) {
-                this.timeLeft = this.config.gameDuration - (Date.now() - this.gameStartTime);
+                const elapsedTime = performance.now() - this.gameStartTime;
+                this.timeLeft = this.config.gameDuration - elapsedTime;
                 if (this.timeLeft <= 0) {
                     this.timeLeft = 0;
                     this.triggerGameOver();
@@ -1063,6 +1129,9 @@ class GameEngine {
             
             this.updateParticles(deltaTime);
             this.drawCanvasContent();
+            
+            // 更新UI以顯示當前時間
+            this.updateUI();
 
             this.gameLoopId = requestAnimationFrame(gameLoop);
         };
@@ -1331,12 +1400,6 @@ class GameEngine {
             const passHadEliminations = await this.processSingleWaveOfMatchesAndCascades();
             if (passHadEliminations) {
                 matchFound = true;
-                this.consecutiveSuccessfulActions++;
-                // 檢查連擊里程碑獎勵
-                const milestoneBonus = this.checkComboMilestone();
-                if (milestoneBonus > 0) {
-                    this.score += milestoneBonus;
-                }
             }
 
             this.updateBlockPositions();
@@ -1346,14 +1409,13 @@ class GameEngine {
             if (!passHadEliminations && !refilled) break;
         }
 
+        // 一次操作中如果有任何消除，就計算一次連擊
         if (matchFound) {
-            if (actionType !== "remove_directly") {
-                this.consecutiveSuccessfulActions++;
-                // 檢查連擊里程碑獎勵
-                const milestoneBonus = this.checkComboMilestone();
-                if (milestoneBonus > 0) {
-                    this.score += milestoneBonus;
-                }
+            this.consecutiveSuccessfulActions++;
+            // 檢查連擊里程碑獎勵
+            const milestoneBonus = this.checkComboMilestone();
+            if (milestoneBonus > 0) {
+                this.score += milestoneBonus;
             }
         } else {
             if (!this.config.hasTimer && this.config.mode !== 'quest') {
@@ -1399,7 +1461,7 @@ class GameEngine {
                 internalCascadeCount++;
                 
                 // 使用新的連擊分數計算系統
-                const scoreInfo = this.calculateComboScore(matches.size, internalCascadeCount);
+                const scoreInfo = this.calculateComboScore(matches, internalCascadeCount);
                 this.score += scoreInfo.finalScore;
                 this.lastComboScore = scoreInfo.finalScore;
             
@@ -1810,6 +1872,95 @@ class GameEngine {
         if (this.actionPoints <= 0 && this.config.actionPointsStart > 0) {
             this.triggerGameOver();
         }
+    }
+
+    static createQuestHeaderHTML(config) {
+        const enemy = config.levelData.enemy;
+        const urlParams = new URLSearchParams(window.location.search);
+        const levelNumber = parseInt(urlParams.get('level')) || 1;
+        const enemyImageSrc = `images/monster/ch1-${levelNumber}.png`;
+
+        // 獨立的 tooltip 點擊事件，避免 HTML 結構複雜
+        const restrictions = config.levelData.restrictions;
+
+        return `
+        <div id="quest-header" class="relative flex-shrink-0 p-2 bg-slate-800/70 rounded-t-xl text-white">
+            <div id="quest-info-icon" class="absolute top-2 left-2 cursor-pointer z-20">
+                <svg class="w-6 h-6 text-sky-300/70" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"></path></svg>
+            </div>
+            <div class="w-20 h-20 mx-auto relative">
+                <img id="enemy-image" src="${enemyImageSrc}" alt="${enemy.name}" class="w-full h-full object-contain transition-transform duration-100">
+            </div>
+            <div id="enemy-info" class="text-center -mt-2">
+                <h3 id="enemy-name" class="text-base font-bold text-yellow-300">${enemy.name}</h3>
+                <div class="w-full bg-gray-600 rounded-full h-4 mt-1 border border-gray-500 shadow-inner">
+                    <div id="enemy-hp-bar" class="bg-gradient-to-r from-red-500 to-red-700 h-full rounded-full transition-all duration-300 ease-out flex items-center justify-end pr-1">
+                        <span id="enemy-hp-text" class="text-xs font-bold text-white text-shadow">${enemy.maxHP}/${enemy.maxHP}</span>
+                    </div>
+                </div>
+            </div>
+            <div class="absolute top-3 right-3 text-center">
+                <div class="text-sm font-bold text-white text-shadow-lg">步數</div>
+                <div id="moves-left" class="text-3xl font-black text-amber-400 text-stroke-2 text-stroke-black">${config.levelData.moves}</div>
+            </div>
+        </div>`;
+    }
+
+    static showRestrictionsPopup(restrictions) {
+        if (!restrictions || Object.keys(restrictions).length === 0) return;
+
+        // 如果已存在，先移除
+        const existingModal = document.getElementById('restrictions-popup');
+        if (existingModal) {
+            existingModal.remove();
+        }
+
+        const descriptions = [];
+        const colorMap = {
+            red: '紅色', blue: '藍色', green: '綠色',
+            yellow: '黃色', purple: '紫色'
+        };
+    
+        if (restrictions.minComboForDamage) {
+            descriptions.push(`連擊 ≥ ${restrictions.minComboForDamage} 才能造成傷害`);
+        }
+        if (restrictions.minChainForDamage) {
+            descriptions.push(`連鎖 ≥ ${restrictions.minChainForDamage} 才能造成傷害`);
+        }
+        if (restrictions.noDamageColors) {
+            const colors = restrictions.noDamageColors.map(c => colorMap[c] || c).join('、');
+            descriptions.push(`<span class="text-red-400">無效顏色:</span> ${colors}`);
+        }
+        if (restrictions.damageOnlyColors) {
+            const colors = restrictions.damageOnlyColors.map(c => colorMap[c] || c).join('、');
+            descriptions.push(`<span class="text-green-400">有效顏色:</span> ${colors}`);
+        }
+        if (restrictions.requireHorizontalMatch) {
+            descriptions.push('僅限 <span class="text-yellow-400">橫向消除</span> 有效');
+        }
+
+        const modal = document.createElement('div');
+        modal.id = 'restrictions-popup';
+        modal.className = 'fixed inset-0 bg-black/60 flex items-center justify-center z-50';
+        modal.innerHTML = `
+            <div class="bg-gray-800 text-white border-2 border-yellow-500/50 rounded-lg shadow-lg p-6 w-full max-w-xs mx-4">
+                <h4 class="font-bold text-lg mb-4 text-center text-yellow-300">關卡限制</h4>
+                <ul class="space-y-2">
+                    ${descriptions.map(desc => `<li class="flex items-start"><span class="text-yellow-400 mr-2">&#9679;</span><span>${desc}</span></li>`).join('')}
+                </ul>
+                <button id="close-restrictions-popup" class="mt-6 w-full bg-yellow-500 hover:bg-yellow-400 text-gray-900 font-bold py-2 rounded-lg transition-colors">關閉</button>
+            </div>
+        `;
+        
+        document.body.appendChild(modal);
+
+        const closeButton = modal.querySelector('#close-restrictions-popup');
+        closeButton.onclick = () => modal.remove();
+        modal.onclick = (e) => {
+            if (e.target === modal) {
+                modal.remove();
+            }
+        };
     }
 }
 

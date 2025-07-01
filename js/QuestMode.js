@@ -210,8 +210,119 @@ class QuestMode {
 
     selectLevel(levelNumber) {
         console.log(`選擇關卡 ${levelNumber}`);
-        // 導航到遊戲頁面，並帶上關卡參數
-        // TODO: 未來將 mode=quest 傳遞給遊戲引擎
-        window.location.href = `game.html?mode=quest&level=${levelNumber}`;
+        this.showLevelConfirmationModal(levelNumber);
+    }
+
+    showLevelConfirmationModal(levelNumber) {
+        const levelData = GameModes.quest.levelDetails[levelNumber];
+        if (!levelData) {
+            console.error(`找不到關卡 ${levelNumber} 的資料`);
+            return;
+        }
+
+        // 創建遮罩層
+        const modalOverlay = document.createElement('div');
+        modalOverlay.className = 'fixed inset-0 bg-black/70 flex items-center justify-center z-50 transition-opacity duration-300';
+        modalOverlay.id = 'level-confirmation-modal';
+        
+        const enemyImageSrc = `images/monster/ch1-${levelNumber}.png`;
+        const restrictionsHTML = this.createRestrictionsHTML(levelData.restrictions);
+
+        modalOverlay.innerHTML = `
+            <div class="modal-card bg-gray-800 border-2 border-yellow-500/50 rounded-2xl shadow-lg w-full max-w-sm m-4 transform scale-95 transition-transform duration-300">
+                <div class="p-6">
+                    <h2 class="text-2xl font-bold text-center text-yellow-400 mb-4">關卡 ${levelNumber}</h2>
+                    <div class="flex flex-col items-center">
+                        <div class="w-32 h-32 bg-gray-900/50 rounded-full p-2 border-2 border-gray-700">
+                            <img src="${enemyImageSrc}" alt="${levelData.name}" class="w-full h-full object-contain">
+                        </div>
+                        <h3 class="text-xl font-bold mt-3 text-white">${levelData.name}</h3>
+                        <p class="text-sm text-gray-400 mt-1 text-center h-10">${levelData.description}</p>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-4 my-6 text-center">
+                        <div>
+                            <div class="font-bold text-lg text-red-400">${levelData.maxHP}</div>
+                            <div class="text-sm text-gray-400">敵人血量</div>
+                        </div>
+                        <div>
+                            <div class="font-bold text-lg text-blue-400">${levelData.moves}</div>
+                            <div class="text-sm text-gray-400">可用步數</div>
+                        </div>
+                    </div>
+                    
+                    ${restrictionsHTML}
+
+                    <div class="flex gap-4 mt-6">
+                        <button id="cancel-level-btn" class="flex-1 bg-gray-600 hover:bg-gray-500 text-white font-bold py-3 rounded-lg transition-colors">返回</button>
+                        <button id="start-level-btn" class="flex-1 bg-yellow-500 hover:bg-yellow-400 text-gray-900 font-bold py-3 rounded-lg transition-colors shadow-lg">開始挑戰</button>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        document.body.appendChild(modalOverlay);
+
+        // 動畫效果
+        setTimeout(() => {
+            modalOverlay.classList.add('opacity-100');
+            modalOverlay.querySelector('.modal-card').classList.remove('scale-95');
+        }, 10);
+
+        // 事件監聽
+        modalOverlay.querySelector('#start-level-btn').onclick = () => {
+            window.location.href = `game.html?mode=quest&level=${levelNumber}`;
+        };
+
+        const closeModal = () => {
+            modalOverlay.classList.remove('opacity-100');
+            modalOverlay.querySelector('.modal-card').classList.add('scale-95');
+            setTimeout(() => {
+                document.body.removeChild(modalOverlay);
+            }, 300);
+        };
+        
+        modalOverlay.querySelector('#cancel-level-btn').onclick = closeModal;
+    }
+
+    createRestrictionsHTML(restrictions) {
+        if (!restrictions || Object.keys(restrictions).length === 0) {
+            return '<div class="h-10"></div>'; // 佔位
+        }
+
+        const descriptions = [];
+        const colorMap = {
+            red: '紅色', blue: '藍色', green: '綠色',
+            yellow: '黃色', purple: '紫色'
+        };
+
+        if (restrictions.minComboForDamage) {
+            descriptions.push(`連擊 ≥ ${restrictions.minComboForDamage} 才能造成傷害`);
+        }
+        if (restrictions.minChainForDamage) {
+            descriptions.push(`連鎖 ≥ ${restrictions.minChainForDamage} 才能造成傷害`);
+        }
+        if (restrictions.noDamageColors) {
+            const colors = restrictions.noDamageColors.map(c => colorMap[c] || c).join('、');
+            descriptions.push(`${colors}方塊無效`);
+        }
+        if (restrictions.damageOnlyColors) {
+            const colors = restrictions.damageOnlyColors.map(c => colorMap[c] || c).join('、');
+            descriptions.push(`僅 ${colors}方塊有效`);
+        }
+        if (restrictions.requireHorizontalMatch) {
+            descriptions.push('僅限橫向消除有效');
+        }
+
+        if (descriptions.length === 0) return '<div class="h-10"></div>';
+
+        return `
+            <div class="bg-gray-900/70 rounded-lg p-3 text-center">
+                <div class="text-sm font-bold text-yellow-300 mb-2">關卡限制</div>
+                <div class="flex flex-col items-center gap-1 text-xs text-yellow-100/90">
+                ${descriptions.map(desc => `<span>${desc}</span>`).join('')}
+                </div>
+            </div>
+        `;
     }
 } 
