@@ -49,24 +49,88 @@ class UIManager {
         // 構建對應的敵人圖片路徑
         const enemyImageSrc = `images/monster/ch1-${levelNumber}.png`;
         
+        // 獲取關卡限制資訊
+        const levelDetails = GameModes.quest.levelDetails[levelNumber];
+        const restrictions = levelDetails?.restrictions || {};
+        const restrictionsText = this.getRestrictionsDisplayText(restrictions);
+        
         return `
-        <div id="quest-header" class="flex-shrink-0 p-3 bg-slate-800/70 rounded-t-xl text-white">
-            <div class="w-24 h-24 mx-auto relative mb-2">
-                <img id="enemy-image" src="${enemyImageSrc}" alt="${enemy.name}" class="w-full h-full object-contain transition-transform duration-100">
+        <div id="quest-header" class="relative flex-shrink-0 bg-slate-800/70 rounded-t-xl text-white">
+            <!-- 上半部：關卡資訊和步數 -->
+            <div class="flex justify-between items-start p-3 pb-2">
+                <div id="quest-info-icon" class="cursor-pointer z-20 p-1">
+                    <svg class="w-5 h-5 text-sky-300/80 hover:text-sky-200 transition-colors" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"></path>
+                    </svg>
+                </div>
+                <div class="text-center">
+                    <div class="text-xs text-slate-300">關卡 ${levelNumber}</div>
+                    <div class="text-sm font-bold text-yellow-300">${enemy.name}</div>
+                </div>
+                <div class="text-center">
+                    <div class="text-xs text-slate-300">步數</div>
+                    <div id="moves-left" class="text-xl font-black text-amber-400">${config.levelData.moves}</div>
+                </div>
             </div>
-            <div id="enemy-info" class="text-center">
-                <h3 id="enemy-name" class="text-lg font-bold text-yellow-300">${enemy.name}</h3>
-                <div class="w-full bg-gray-600 rounded-full h-5 mt-1 border-2 border-gray-500 shadow-inner">
-                    <div id="enemy-hp-bar" class="bg-gradient-to-r from-red-500 to-red-700 h-full rounded-full transition-all duration-300 ease-out flex items-center justify-end pr-2">
-                        <span id="enemy-hp-text" class="text-xs font-bold text-white text-shadow">${enemy.maxHP}/${enemy.maxHP}</span>
+            
+            <!-- 中間部：敵人圖片和血條 -->
+            <div class="px-3 pb-2">
+                <div class="flex items-center gap-3">
+                    <div class="w-16 h-16 flex-shrink-0">
+                        <img id="enemy-image" src="${enemyImageSrc}" alt="${enemy.name}" class="w-full h-full object-contain transition-transform duration-100">
+                    </div>
+                    <div class="flex-1">
+                        <div class="w-full bg-gray-600 rounded-full h-4 border border-gray-500 shadow-inner">
+                            <div id="enemy-hp-bar" class="bg-gradient-to-r from-red-500 to-red-700 h-full rounded-full transition-all duration-300 ease-out flex items-center justify-end pr-1">
+                                <span id="enemy-hp-text" class="text-xs font-bold text-white text-shadow">${enemy.maxHP}/${enemy.maxHP}</span>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
-            <div class="absolute top-4 right-4 text-center">
-                <div class="font-bold text-white text-shadow-lg">步數</div>
-                <div id="moves-left" class="text-4xl font-black text-amber-400 text-stroke-2 text-stroke-black">${config.levelData.moves}</div>
+            
+            <!-- 下半部：限制條件顯示 (如果有的話) -->
+            ${restrictionsText ? `
+            <div class="px-3 pb-2">
+                <div class="bg-slate-900/50 rounded-md px-2 py-1 text-center">
+                    <div class="text-xs text-yellow-300 font-semibold">⚠️ ${restrictionsText}</div>
+                </div>
             </div>
+            ` : ''}
         </div>`;
+    }
+
+    // 新增方法：獲取限制條件的簡短顯示文字
+    static getRestrictionsDisplayText(restrictions) {
+        if (!restrictions || Object.keys(restrictions).length === 0) return '';
+        
+        const colorMap = {
+            red: '紅', blue: '藍', green: '綠',
+            yellow: '黃', purple: '紫'
+        };
+        
+        if (restrictions.minComboForDamage) {
+            return `需連擊${restrictions.minComboForDamage}以上`;
+        }
+        if (restrictions.minChainForDamage) {
+            return `需連鎖${restrictions.minChainForDamage}以上`;
+        }
+        if (restrictions.noDamageColors) {
+            const colors = restrictions.noDamageColors.map(c => colorMap[c] || c).join('');
+            return `${colors}色無效`;
+        }
+        if (restrictions.damageOnlyColors) {
+            const colors = restrictions.damageOnlyColors.map(c => colorMap[c] || c).join('');
+            return `僅${colors}色有效`;
+        }
+        if (restrictions.requireHorizontalMatch) {
+            return '僅橫向消除';
+        }
+        if (restrictions.requireVerticalMatch) {
+            return '僅縱向消除';
+        }
+        
+        return '特殊限制';
     }
 
     static createStandardHeaderHTML(mode, config) {
@@ -404,6 +468,91 @@ class UIManager {
 
         const finalActionCount = document.getElementById('finalActionCount');
         if (finalActionCount) finalActionCount.textContent = actionCount;
+    }
+
+    static showRestrictionsPopup(restrictions) {
+        if (!restrictions || Object.keys(restrictions).length === 0) {
+            console.log("此關卡沒有限制。");
+            return;
+        }
+
+        const existingModal = document.getElementById('restrictions-popup');
+        if (existingModal) {
+            existingModal.remove();
+        }
+
+        const descriptions = [];
+        const colorMap = {
+            red: '紅色', blue: '藍色', green: '綠色',
+            yellow: '黃色', purple: '紫色'
+        };
+    
+        if (restrictions.minComboForDamage) {
+            descriptions.push(`連擊需達到 <span class="text-green-300">${restrictions.minComboForDamage} 次以上</span> 才能造成傷害`);
+        }
+        if (restrictions.minChainForDamage) {
+            descriptions.push(`連鎖需達到 <span class="text-green-300">${restrictions.minChainForDamage} 次以上</span> 才能造成傷害`);
+        }
+        if (restrictions.noDamageColors) {
+            const colors = restrictions.noDamageColors.map(c => colorMap[c] || c).join('、');
+            descriptions.push(`<span class="text-red-300">${colors}方塊無法造成傷害</span>`);
+        }
+        if (restrictions.damageOnlyColors) {
+            const colors = restrictions.damageOnlyColors.map(c => colorMap[c] || c).join('、');
+            descriptions.push(`只有 <span class="text-green-300">${colors}方塊</span> 能造成傷害`);
+        }
+        if (restrictions.requireHorizontalMatch) {
+            descriptions.push('只有 <span class="text-yellow-300">橫向消除</span> 才能造成傷害');
+        }
+        if (restrictions.requireVerticalMatch) {
+            descriptions.push('只有 <span class="text-yellow-300">縱向消除</span> 才能造成傷害');
+        }
+
+        if (descriptions.length === 0) {
+            descriptions.push('此關卡有特殊機制，請仔細觀察！');
+        }
+
+        const modal = document.createElement('div');
+        modal.id = 'restrictions-popup';
+        modal.className = 'fixed inset-0 bg-black/70 flex items-center justify-center z-50';
+        modal.innerHTML = `
+            <div class="bg-gray-800 text-white border-2 border-yellow-500/50 rounded-lg shadow-lg p-6 w-full max-w-sm mx-4 animate-fade-in-up">
+                <h4 class="font-bold text-lg mb-4 text-center text-yellow-300 border-b border-gray-700 pb-2">⚔️ 戰鬥規則</h4>
+                <div class="space-y-3 mt-4">
+                    ${descriptions.map(desc => `
+                        <div class="flex items-start bg-gray-900/50 rounded-md p-3">
+                            <span class="text-yellow-400 mr-2 mt-1 text-sm">●</span>
+                            <span class="text-sm leading-relaxed">${desc}</span>
+                        </div>
+                    `).join('')}
+                </div>
+                <div class="mt-6 text-center">
+                    <button id="close-restrictions-popup" class="w-full bg-yellow-500 hover:bg-yellow-400 text-gray-900 font-bold py-3 px-4 rounded-lg transition-colors">
+                        開始挑戰
+                    </button>
+                </div>
+            </div>
+        `;
+        
+        document.body.appendChild(modal);
+
+        const closeButton = modal.querySelector('#close-restrictions-popup');
+        const modalContent = modal.querySelector('.animate-fade-in-up');
+
+        const closeModal = () => {
+            modalContent.classList.remove('animate-fade-in-up');
+            modalContent.classList.add('animate-fade-out-down');
+            setTimeout(() => {
+                modal.remove();
+            }, 300);
+        };
+
+        closeButton.onclick = closeModal;
+        modal.onclick = (e) => {
+            if (e.target === modal) {
+                closeModal();
+            }
+        };
     }
 }
 
