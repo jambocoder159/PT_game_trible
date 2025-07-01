@@ -52,7 +52,7 @@ class UIManager {
         // 獲取關卡限制資訊
         const levelDetails = GameModes.quest.levelDetails[levelNumber];
         const restrictions = levelDetails?.restrictions || {};
-        const restrictionsText = this.getRestrictionsDisplayText(restrictions);
+        const restrictionsDisplay = this.createQuestRestrictionsDisplay(restrictions, 0);
         
         return `
         <div id="quest-header" class="relative flex-shrink-0 bg-slate-800/70 rounded-t-xl text-white">
@@ -89,11 +89,11 @@ class UIManager {
                 </div>
             </div>
             
-            <!-- 下半部：限制條件顯示 (如果有的話) -->
-            ${restrictionsText ? `
-            <div class="px-3 pb-2">
-                <div class="bg-slate-900/50 rounded-md px-2 py-1 text-center">
-                    <div class="text-xs text-yellow-300 font-semibold">⚠️ ${restrictionsText}</div>
+            <!-- 下半部：限制條件顯示 -->
+            ${restrictionsDisplay ? `
+            <div id="quest-restrictions-display" class="px-3 pb-2">
+                <div class="bg-slate-900/50 rounded-md px-2 py-1">
+                    ${restrictionsDisplay}
                 </div>
             </div>
             ` : ''}
@@ -439,7 +439,8 @@ class UIManager {
     }
 
     static showGameOverModal(score, maxCombo, actionCount, status = 'default') {
-        document.getElementById('gameOverModal').style.display = 'flex';
+        const modal = document.getElementById('gameOverModal');
+        modal.style.display = 'flex';
         
         const titleEl = document.getElementById('modal-title');
         const messageEl = document.getElementById('modal-message');
@@ -470,89 +471,183 @@ class UIManager {
         if (finalActionCount) finalActionCount.textContent = actionCount;
     }
 
-    static showRestrictionsPopup(restrictions) {
-        if (!restrictions || Object.keys(restrictions).length === 0) {
-            console.log("此關卡沒有限制。");
-            return;
+    // 新增：Toast 系統
+    static showToast(message, type = 'info', duration = 2000) {
+        // 移除現有的 toast
+        const existingToast = document.getElementById('game-toast');
+        if (existingToast) {
+            existingToast.remove();
         }
 
-        const existingModal = document.getElementById('restrictions-popup');
-        if (existingModal) {
-            existingModal.remove();
-        }
-
-        const descriptions = [];
-        const colorMap = {
-            red: '紅色', blue: '藍色', green: '綠色',
-            yellow: '黃色', purple: '紫色'
-        };
-    
-        if (restrictions.minComboForDamage) {
-            descriptions.push(`連擊需達到 <span class="text-green-300">${restrictions.minComboForDamage} 次以上</span> 才能造成傷害`);
-        }
-        if (restrictions.minChainForDamage) {
-            descriptions.push(`連鎖需達到 <span class="text-green-300">${restrictions.minChainForDamage} 次以上</span> 才能造成傷害`);
-        }
-        if (restrictions.noDamageColors) {
-            const colors = restrictions.noDamageColors.map(c => colorMap[c] || c).join('、');
-            descriptions.push(`<span class="text-red-300">${colors}方塊無法造成傷害</span>`);
-        }
-        if (restrictions.damageOnlyColors) {
-            const colors = restrictions.damageOnlyColors.map(c => colorMap[c] || c).join('、');
-            descriptions.push(`只有 <span class="text-green-300">${colors}方塊</span> 能造成傷害`);
-        }
-        if (restrictions.requireHorizontalMatch) {
-            descriptions.push('只有 <span class="text-yellow-300">橫向消除</span> 才能造成傷害');
-        }
-        if (restrictions.requireVerticalMatch) {
-            descriptions.push('只有 <span class="text-yellow-300">縱向消除</span> 才能造成傷害');
-        }
-
-        if (descriptions.length === 0) {
-            descriptions.push('此關卡有特殊機制，請仔細觀察！');
-        }
-
-        const modal = document.createElement('div');
-        modal.id = 'restrictions-popup';
-        modal.className = 'fixed inset-0 bg-black/70 flex items-center justify-center z-50';
-        modal.innerHTML = `
-            <div class="bg-gray-800 text-white border-2 border-yellow-500/50 rounded-lg shadow-lg p-6 w-full max-w-sm mx-4 animate-fade-in-up">
-                <h4 class="font-bold text-lg mb-4 text-center text-yellow-300 border-b border-gray-700 pb-2">⚔️ 戰鬥規則</h4>
-                <div class="space-y-3 mt-4">
-                    ${descriptions.map(desc => `
-                        <div class="flex items-start bg-gray-900/50 rounded-md p-3">
-                            <span class="text-yellow-400 mr-2 mt-1 text-sm">●</span>
-                            <span class="text-sm leading-relaxed">${desc}</span>
-                        </div>
-                    `).join('')}
-                </div>
-                <div class="mt-6 text-center">
-                    <button id="close-restrictions-popup" class="w-full bg-yellow-500 hover:bg-yellow-400 text-gray-900 font-bold py-3 px-4 rounded-lg transition-colors">
-                        開始挑戰
-                    </button>
-                </div>
-            </div>
-        `;
+        // 創建新的 toast
+        const toast = document.createElement('div');
+        toast.id = 'game-toast';
+        toast.className = 'fixed top-4 left-1/2 transform -translate-x-1/2 z-50 px-4 py-2 rounded-lg shadow-lg text-white font-medium text-sm max-w-xs text-center transition-all duration-300';
         
-        document.body.appendChild(modal);
+        switch(type) {
+            case 'success':
+                toast.className += ' bg-green-500';
+                break;
+            case 'damage':
+                toast.className += ' bg-red-500';
+                break;
+            case 'combo':
+                toast.className += ' bg-purple-500';
+                break;
+            case 'blocked':
+                toast.className += ' bg-gray-600';
+                break;
+            case 'milestone':
+                toast.className += ' bg-yellow-500 text-black';
+                break;
+            default:
+                toast.className += ' bg-blue-500';
+        }
 
-        const closeButton = modal.querySelector('#close-restrictions-popup');
-        const modalContent = modal.querySelector('.animate-fade-in-up');
+        toast.innerHTML = message;
+        document.body.appendChild(toast);
 
-        const closeModal = () => {
-            modalContent.classList.remove('animate-fade-in-up');
-            modalContent.classList.add('animate-fade-out-down');
+        // 顯示動畫
+        setTimeout(() => {
+            toast.style.opacity = '1';
+            toast.style.transform = 'translate(-50%, 0)';
+        }, 10);
+
+        // 自動隱藏
+        setTimeout(() => {
+            toast.style.opacity = '0';
+            toast.style.transform = 'translate(-50%, -20px)';
             setTimeout(() => {
-                modal.remove();
+                if (toast.parentNode) {
+                    toast.parentNode.removeChild(toast);
+                }
             }, 300);
+        }, duration);
+    }
+
+    // 新增：顯示動作結果的Toast
+    static showActionResultToast(result) {
+        let message = '';
+        let type = 'info';
+
+        if (result.isBlocked) {
+            if (result.reason === 'minCombo') {
+                message = `🚫 需要${result.required}連擊 (目前${result.current})`;
+            } else if (result.reason === 'colorBlocked') {
+                message = `🚫 ${result.blockedColors}方塊無效`;
+            } else if (result.reason === 'colorOnly') {
+                message = `🚫 僅${result.allowedColors}方塊有效`;
+            } else {
+                message = '🚫 攻擊被阻擋';
+            }
+            type = 'blocked';
+        } else {
+            if (result.damage > 0) {
+                const comboText = result.combo > 1 ? ` (${result.combo}連擊)` : '';
+                message = `⚔️ 造成 ${result.damage} 傷害${comboText}`;
+                type = 'damage';
+            } else if (result.score > 0) {
+                const comboText = result.combo > 1 ? ` (${result.combo}連擊)` : '';
+                message = `⭐ 獲得 ${result.score} 分${comboText}`;
+                type = 'success';
+            }
+        }
+
+        if (message) {
+            this.showToast(message, type, 2500);
+        }
+    }
+
+    // 新增：改進的限制顯示系統
+    static createQuestRestrictionsDisplay(restrictions, currentCombo = 0) {
+        if (!restrictions || Object.keys(restrictions).length === 0) {
+            return '';
+        }
+
+        const colorMap = {
+            red: { name: '紅', hex: '#EF4444' },
+            blue: { name: '藍', hex: '#3B82F6' },
+            green: { name: '綠', hex: '#10B981' },
+            yellow: { name: '黃', hex: '#F59E0B' },
+            purple: { name: '紫', hex: '#8B5CF6' }
         };
 
-        closeButton.onclick = closeModal;
-        modal.onclick = (e) => {
-            if (e.target === modal) {
-                closeModal();
-            }
-        };
+        let restrictionsHTML = '<div class="flex flex-wrap gap-2 items-center justify-center mt-2">';
+
+        // 連擊限制
+        if (restrictions.minComboForDamage) {
+            const isComboMet = currentCombo >= restrictions.minComboForDamage;
+            const statusClass = isComboMet ? 'bg-green-600' : 'bg-red-600';
+            const statusText = isComboMet ? `✓ ${currentCombo}` : `${currentCombo}/${restrictions.minComboForDamage}`;
+            
+            restrictionsHTML += `
+                <div class="flex items-center gap-1 px-2 py-1 rounded-md ${statusClass} text-white text-xs">
+                    <span>連擊</span>
+                    <span class="font-bold">${statusText}</span>
+                </div>
+            `;
+        }
+
+        // 無效顏色 (色塊 + 叉叉)
+        if (restrictions.noDamageColors && restrictions.noDamageColors.length > 0) {
+            restrictionsHTML += '<div class="flex items-center gap-1">';
+            restrictions.noDamageColors.forEach(color => {
+                const colorInfo = colorMap[color];
+                if (colorInfo) {
+                    restrictionsHTML += `
+                        <div class="relative">
+                            <div class="w-6 h-6 rounded-sm border border-gray-300" style="background-color: ${colorInfo.hex}"></div>
+                            <div class="absolute inset-0 flex items-center justify-center text-white font-bold text-lg">✕</div>
+                        </div>
+                    `;
+                }
+            });
+            restrictionsHTML += '</div>';
+        }
+
+        // 有效顏色 (色塊 + 圈圈)
+        if (restrictions.damageOnlyColors && restrictions.damageOnlyColors.length > 0) {
+            restrictionsHTML += '<div class="flex items-center gap-1">';
+            restrictions.damageOnlyColors.forEach(color => {
+                const colorInfo = colorMap[color];
+                if (colorInfo) {
+                    restrictionsHTML += `
+                        <div class="relative">
+                            <div class="w-6 h-6 rounded-sm border border-gray-300" style="background-color: ${colorInfo.hex}"></div>
+                            <div class="absolute inset-0 flex items-center justify-center text-white font-bold text-lg">○</div>
+                        </div>
+                    `;
+                }
+            });
+            restrictionsHTML += '</div>';
+        }
+
+        // 橫向消除限制
+        if (restrictions.requireHorizontalMatch) {
+            restrictionsHTML += `
+                <div class="px-2 py-1 bg-yellow-600 text-white text-xs rounded-md">
+                    僅橫向
+                </div>
+            `;
+        }
+
+        restrictionsHTML += '</div>';
+        return restrictionsHTML;
+    }
+
+    // 新增：更新限制顯示的方法
+    static updateQuestRestrictionsDisplay(restrictions, currentCombo) {
+        const restrictionsContainer = document.getElementById('quest-restrictions-display');
+        if (!restrictionsContainer) return;
+
+        const newRestrictionsHTML = this.createQuestRestrictionsDisplay(restrictions, currentCombo);
+        if (newRestrictionsHTML) {
+            restrictionsContainer.innerHTML = `
+                <div class="bg-slate-900/50 rounded-md px-2 py-1">
+                    ${newRestrictionsHTML}
+                </div>
+            `;
+        }
     }
 }
 

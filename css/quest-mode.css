@@ -109,4 +109,31 @@ body {
     font-weight: 500;
     margin-top: 4px;
     text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+/* 進度總覽區域背景 */
+#progress-overview {
+    background-image: url('../images/bg/ch1.png');
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    position: relative;
+    /* 添加遮罩層以確保文字可讀性 */
+    background-color: rgba(0, 0, 0, 0.3);
+    background-blend-mode: overlay;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(1px);
+}
+
+/* 確保進度總覽內容在背景上清晰可見 */
+#progress-overview h2 {
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8);
+}
+
+#progress-overview .text-2xl {
+    text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.8);
+}
+
+#progress-overview .text-sm {
+    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8);
 } 

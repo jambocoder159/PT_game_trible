@@ -3,8 +3,8 @@ class QuestMode {
         this.questData = {
             chapters: [
                 { name: "第一章：甦醒森林", levels: 10 },
-                { name: "第二章：熔岩洞窟", levels: 10 },
-                { name: "第三章：天空之城", levels: 10 }
+                { name: "第二章：熔岩洞窟 (即將推出)", levels: 0 },
+                { name: "第三章：天空之城 (即將推出)", levels: 0 }
             ]
         };
         this.playerProgress = {
@@ -140,6 +140,22 @@ class QuestMode {
     renderLevelsForChapter(chapterIndex) {
         this.levelsContainer.innerHTML = '';
         const chapter = this.questData.chapters[chapterIndex];
+        
+        // 如果是即將推出的章節（levels = 0）
+        if (chapter.levels === 0) {
+            const comingSoonDiv = document.createElement('div');
+            comingSoonDiv.className = 'coming-soon-message text-center py-16';
+            comingSoonDiv.innerHTML = `
+                <div class="text-6xl mb-4">🚧</div>
+                <h3 class="text-2xl font-bold text-yellow-400 mb-4">即將推出</h3>
+                <p class="text-gray-300 mb-4">開發團隊正在努力製作中...</p>
+                <p class="text-gray-400 text-sm">敬請期待更多精彩關卡！</p>
+            `;
+            this.levelsContainer.appendChild(comingSoonDiv);
+            return;
+        }
+        
+        // 正常章節的關卡渲染
         const levelsGrid = document.createElement('div');
         levelsGrid.className = 'levels-grid';
 

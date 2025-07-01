@@ -104,7 +104,7 @@ window.GameModes = {
         theme: 'triple',
         hasSkills: true,
         hasTimer: true,
-        gameDuration: 120000, // 180 秒
+        gameDuration: 120000, // 120 秒
         actionPointsStart: 3,
         enableHorizontalMatches: true,
         title: '三排限時強攻',
@@ -154,7 +154,7 @@ window.GameModes = {
         numCols: 3,
         numRows: 10,
         theme: 'quest',
-        hasSkills: false,
+        hasSkills: true,
         hasTimer: false,
         blockHeight: 40, // 為闖關模式設定合理的方塊高度
         enableHorizontalMatches: true,
@@ -271,8 +271,207 @@ window.GameModes = {
                 moves: 12,
                 restrictions: {
                     damageOnlyColors: ['blue', 'green'],  // 僅藍綠色有效
+                    minComboForDamage: 3  // 需要連擊3次以上
+                    // requireHorizontalMatch: true  // 僅橫向消除有效 (功能未實現)
+                }
+            },
+            
+            // 【第二章：熔岩洞窟】(11-20關)
+            11: {
+                name: "火焰蜥蜴",
+                description: "洞窟中的火焰守衛，身體散發灼熱的溫度。",
+                maxHP: 180,
+                moves: 15,
+                restrictions: {
+                    noDamageColors: ['red']  // 紅色無效
+                }
+            },
+            12: {
+                name: "熔岩史萊姆",
+                description: "由熔岩形成的史萊姆，需要強力的連擊才能擊破。",
+                maxHP: 200,
+                moves: 14,
+                restrictions: {
+                    minComboForDamage: 2  // 需要連擊2次以上
+                }
+            },
+            13: {
+                name: "岩漿元素",
+                description: "純粹的岩漿生物，只對冰寒的藍色能量脆弱。",
+                maxHP: 220,
+                moves: 14,
+                restrictions: {
+                    damageOnlyColors: ['blue']  // 僅藍色有效
+                }
+            },
+            14: {
+                name: "火山蠑螈",
+                description: "棲息在高溫環境的爬蟲，害怕水和自然的力量。",
+                maxHP: 240,
+                moves: 13,
+                restrictions: {
+                    noDamageColors: ['red', 'yellow']  // 紅色和黃色無效
+                }
+            },
+            15: {
+                name: "烈焰戰士",
+                description: "手持火焰之劍的戰士，需要完美的連擊組合才能擊敗。",
+                maxHP: 260,
+                moves: 13,
+                restrictions: {
+                    minComboForDamage: 3  // 需要連擊3次以上
+                }
+            },
+            16: {
+                name: "炎魔術師",
+                description: "掌控烈焰的法師，只有純淨的綠色自然力量能傷害它。",
+                maxHP: 280,
+                moves: 12,
+                restrictions: {
+                    damageOnlyColors: ['green'],  // 僅綠色有效
+                    minComboForDamage: 2  // 需要連擊2次以上
+                }
+            },
+            17: {
+                name: "熔岩巨人",
+                description: "巨大的岩石生物，身體堅硬如鐵，需要強力的攻擊。",
+                maxHP: 300,
+                moves: 12,
+                restrictions: {
+                    // requireHorizontalMatch: true,  // 僅橫向消除有效 (功能未實現)
+                    minComboForDamage: 2  // 需要連擊2次以上
+                }
+            },
+            18: {
+                name: "火焰獨眼巨人",
+                description: "單眼的火焰巨獸，害怕藍色的冰寒力量和連續攻擊。",
+                maxHP: 320,
+                moves: 11,
+                restrictions: {
+                    damageOnlyColors: ['blue'],  // 僅藍色有效
                     minComboForDamage: 3,  // 需要連擊3次以上
-                    requireHorizontalMatch: true  // 僅橫向消除有效
+                    //requireHorizontalMatch: true  // 僅橫向消除有效
+                }
+            },
+            19: {
+                name: "地獄看門犬",
+                description: "三頭地獄犬，需要同時滿足多種條件才能傷害。",
+                maxHP: 350,
+                moves: 11,
+                restrictions: {
+                    damageOnlyColors: ['blue', 'green'],  // 僅藍綠色有效
+                    minComboForDamage: 4,  // 需要連擊4次以上
+                }
+            },
+            20: {
+                name: "熔岩龍王炎帝",
+                description: "洞窟深處的炎龍之王，掌握最強的火焰力量，需要極致的戰鬥技巧。",
+                maxHP: 400,
+                moves: 10,
+                restrictions: {
+                    damageOnlyColors: ['blue'],  // 僅藍色有效
+                    minComboForDamage: 4,  // 需要連擊4次以上
+                    // requireHorizontalMatch: true  // 僅橫向消除有效
+                }
+            },
+            
+            // 【第三章：天空之城】(21-30關)
+            21: {
+                name: "風元素精靈",
+                description: "飄渺的風之精靈，身形輕盈難以捕捉。",
+                maxHP: 450,
+                moves: 12,
+                restrictions: {
+                    noDamageColors: ['yellow']  // 黃色無效
+                }
+            },
+            22: {
+                name: "雷電鳥",
+                description: "掌控雷電的神鳥，需要強力連擊才能擊中。",
+                maxHP: 480,
+                moves: 12,
+                restrictions: {
+                    minComboForDamage: 3  // 需要連擊3次以上
+                }
+            },
+            23: {
+                name: "雲中仙鶴",
+                description: "生活在雲端的仙鶴，只對綠色的自然力量有反應。",
+                maxHP: 500,
+                moves: 11,
+                restrictions: {
+                    damageOnlyColors: ['green']  // 僅綠色有效
+                }
+            },
+            24: {
+                name: "天空守護者",
+                description: "天空之城的守衛，害怕特定的能量組合。",
+                maxHP: 520,
+                moves: 11,
+                restrictions: {
+                    noDamageColors: ['red', 'yellow']  // 紅色和黃色無效
+                }
+            },
+            25: {
+                name: "雷神之鷹",
+                description: "帶有神力的巨鷹，需要完美的連擊技巧。",
+                maxHP: 550,
+                moves: 10,
+                restrictions: {
+                    minComboForDamage: 4  // 需要連擊4次以上
+                }
+            },
+            26: {
+                name: "風暴法師",
+                description: "操控風暴的強大法師，只對純淨的藍色力量脆弱。",
+                maxHP: 580,
+                moves: 10,
+                restrictions: {
+                    damageOnlyColors: ['blue'],  // 僅藍色有效
+                    minComboForDamage: 3  // 需要連擊3次以上
+                }
+            },
+            27: {
+                name: "天空巨龍",
+                description: "翱翔天際的巨龍，需要橫向的強力攻擊才能擊中。",
+                maxHP: 600,
+                moves: 9,
+                restrictions: {
+                    // requireHorizontalMatch: true,  // 僅橫向消除有效
+                    minComboForDamage: 3  // 需要連擊3次以上
+                }
+            },
+            28: {
+                name: "雲中幻獸",
+                description: "神秘的幻想生物，需要同時滾足多種嚴格條件。",
+                maxHP: 650,
+                moves: 9,
+                restrictions: {
+                    damageOnlyColors: ['blue', 'green'],  // 僅藍綠色有效
+                    minComboForDamage: 4,  // 需要連擊4次以上
+                    // requireHorizontalMatch: true  // 僅橫向消除有效
+                }
+            },
+            29: {
+                name: "天界守門神",
+                description: "天空之城的最後守護者，力量接近神明。",
+                maxHP: 700,
+                moves: 8,
+                restrictions: {
+                    damageOnlyColors: ['green'],  // 僅綠色有效
+                    minComboForDamage: 5,  // 需要連擊5次以上
+                    // requireHorizontalMatch: true  // 僅橫向消除有效
+                }
+            },
+            30: {
+                name: "天空霸主蒼龍帝",
+                description: "統治天空的蒼龍皇帝，傳說中最強的存在，需要超越極限的戰鬥技巧。",
+                maxHP: 800,
+                moves: 8,
+                restrictions: {
+                    damageOnlyColors: ['blue'],  // 僅藍色有效
+                    minComboForDamage: 5,  // 需要連擊5次以上
+                    // requireHorizontalMatch: true  // 僅橫向消除有效
                 }
             }
         }

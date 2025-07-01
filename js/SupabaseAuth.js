@@ -47,6 +47,7 @@ class SupabaseAuth {
         this.getAllQuestBestRecords = this.getAllQuestBestRecords.bind(this);
         this.getQuestLevelHistory = this.getQuestLevelHistory.bind(this);
         this.getChapterStats = this.getChapterStats.bind(this);
+        this.getQuestLeaderboard = this.getQuestLeaderboard.bind(this);
 
         // 監聽認證狀態變化
         if (this.supabase) {
@@ -418,6 +419,12 @@ class SupabaseAuth {
     async updatePlayerProgress(levelNumber) {
         if (!this.currentUser) return null;
 
+        // 暫時限制只能玩到第10關
+        if (levelNumber > 10) {
+            console.log(`關卡 ${levelNumber} 暫未開放，最高只能到第10關`);
+            return null;
+        }
+
         try {
             // 首先，獲取玩家當前的最高通關記錄
             const { data: currentProgress, error: selectError } = await this.supabase
@@ -601,6 +608,119 @@ class SupabaseAuth {
             return chapterStats;
         } catch (error) {
             console.error('獲取章節統計失敗:', error);
+            return [];
+        }
+    }
+    
+    // 獲取 quest 模式排行榜 (按最高關卡、步數、時間排序)
+    async getQuestLeaderboard(limit = 50) {
+        try {
+            // 先獲取所有玩家的進度記錄
+            const { data: progressData, error: progressError } = await this.supabase
+                .from('player_quest_progress')
+                .select('player_id, highest_level_cleared, updated_at')
+                .order('highest_level_cleared', { ascending: false })
+                .order('updated_at', { ascending: true })
+                .limit(limit);
+                
+            if (progressError) throw progressError;
+            
+            if (!progressData || progressData.length === 0) {
+                return [];
+            }
+            
+            // 獲取所有玩家的基本資料
+            const playerIds = progressData.map(p => p.player_id);
+            const { data: playersData, error: playersError } = await this.supabase
+                .from('players')
+                .select('id, username, avatar_url')
+                .in('id', playerIds);
+                
+            if (playersError) throw playersError;
+            
+            // 建立玩家資料對照表
+            const playersMap = new Map();
+            (playersData || []).forEach(player => {
+                playersMap.set(player.id, player);
+            });
+            
+            // 對於每個玩家，獲取其最高關卡的最佳記錄
+            const leaderboard = [];
+            
+            for (const progress of progressData) {
+                const playerInfo = playersMap.get(progress.player_id);
+                
+                if (!playerInfo) {
+                    console.warn(`找不到玩家資料: ${progress.player_id}`);
+                    continue;
+                }
+                
+                if (progress.highest_level_cleared > 0) {
+                    // 獲取該玩家在最高關卡的最佳記錄
+                    const { data: bestRecord, error: recordError } = await this.supabase
+                        .from('quest_records')
+                        .select('level_number, score, moves_used, time_taken, created_at')
+                        .eq('player_id', progress.player_id)
+                        .eq('level_number', progress.highest_level_cleared)
+                        .eq('is_completed', true)
+                        .order('moves_used', { ascending: true })  // 優先步數少的
+                        .order('created_at', { ascending: true })  // 再按達成時間早的
+                        .limit(1)
+                        .single();
+                        
+                    if (!recordError && bestRecord) {
+                        leaderboard.push({
+                            player_id: progress.player_id,
+                            username: playerInfo.username,
+                            avatar_url: playerInfo.avatar_url,
+                            highest_level: progress.highest_level_cleared,
+                            score: bestRecord.score,
+                            moves_used: bestRecord.moves_used,
+                            time_taken: bestRecord.time_taken,
+                            achieved_at: bestRecord.created_at,
+                            progress_updated_at: progress.updated_at
+                        });
+                    } else {
+                        // 如果沒有找到記錄，仍然顯示玩家（可能是數據不一致）
+                        leaderboard.push({
+                            player_id: progress.player_id,
+                            username: playerInfo.username,
+                            avatar_url: playerInfo.avatar_url,
+                            highest_level: progress.highest_level_cleared,
+                            score: 0,
+                            moves_used: 999,
+                            time_taken: 999999,
+                            achieved_at: progress.updated_at,
+                            progress_updated_at: progress.updated_at
+                        });
+                    }
+                }
+            }
+            
+            // 最終排序：關卡高 -> 步數少 -> 時間早
+            leaderboard.sort((a, b) => {
+                // 1. 最高關卡優先
+                if (a.highest_level !== b.highest_level) {
+                    return b.highest_level - a.highest_level;
+                }
+                
+                // 2. 同關卡比較步數（少的優先）
+                if (a.moves_used !== b.moves_used) {
+                    return a.moves_used - b.moves_used;
+                }
+                
+                // 3. 同步數比較達成時間（早的優先）
+                return new Date(a.achieved_at) - new Date(b.achieved_at);
+            });
+            
+            // 添加排名
+            return leaderboard.map((player, index) => ({
+                ...player,
+                rank: index + 1
+            }));
+            
+        } catch (error) {
+            console.error('獲取 quest 排行榜失敗:', error);
             return [];
         }
     }

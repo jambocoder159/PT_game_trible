@@ -36,12 +36,15 @@ class GameEngine {
         this.setupEventListeners();
         this.setupUI();
         this.resetGame();
+        // 確保初始化後方塊位置正確
+        this.updateBlockPositions();
         this.startGameLoop();
     }
 
     setupCanvas() {
         this.canvas = document.getElementById('gameCanvas');
         this.ctx = this.canvas.getContext('2d');
+        // 確保 Canvas 尺寸正確設置
         this.resizeCanvas();
     }
 
@@ -77,6 +80,7 @@ class GameEngine {
         this.lastComboScore = 0;       // 上次連擊獲得的分數
         this.totalComboBonus = 0;      // 總連擊獎勵分數
         this.comboMilestoneReached = {}; // 已達成的連擊里程碑
+        this.pendingDamage = 0;        // 闖關模式累積傷害
         
         if (this.config.hasSkills) {
             this.skillUses = { removeSingle: 3, rerollNext: 3, rerollBoard: 3 };
@@ -164,22 +168,40 @@ class GameEngine {
         };
 
         const restrictions = this.config.levelData?.restrictions || {};
+        const colorMap = {
+            red: '紅', blue: '藍', green: '綠',
+            yellow: '黃', purple: '紫'
+        };
 
         // 檢查關卡限制條件
         if (this.config.mode === 'quest') {
             // 檢查最低 Combo 需求
             if (restrictions.minComboForDamage && this.consecutiveSuccessfulActions < restrictions.minComboForDamage) {
                 console.log(`限制生效：Combo數 ${this.consecutiveSuccessfulActions} 未達到 ${restrictions.minComboForDamage}`);
-                return { finalScore: 0 };
+                // 顯示Toast提示
+                UIManager.showActionResultToast({
+                    isBlocked: true,
+                    reason: 'minCombo',
+                    required: restrictions.minComboForDamage,
+                    current: this.consecutiveSuccessfulActions
+                });
+                return { finalScore: 0, isBlocked: true, reason: 'minCombo' };
             }
             // 檢查最低 Chain 需求
             if (restrictions.minChainForDamage && chainLevel < restrictions.minChainForDamage) {
                 console.log(`限制生效：Chain數 ${chainLevel} 未達到 ${restrictions.minChainForDamage}`);
-                return { finalScore: 0 };
+                UIManager.showActionResultToast({
+                    isBlocked: true,
+                    reason: 'minChain',
+                    required: restrictions.minChainForDamage,
+                    current: chainLevel
+                });
+                return { finalScore: 0, isBlocked: true, reason: 'minChain' };
             }
         }
 
         let validBlocks = [];
+        let blockedColors = [];
         matches.forEach(matchInfo => {
             const { colIndex, rowIndex } = JSON.parse(matchInfo);
             const targetGrid = this.config.numCols === 1 ? this.grid[0] : this.grid[colIndex];
@@ -191,11 +213,17 @@ class GameEngine {
                     // 檢查無效傷害顏色
                     if (restrictions.noDamageColors?.includes(block.colorName)) {
                         isValid = false;
+                        if (!blockedColors.includes(block.colorName)) {
+                            blockedColors.push(block.colorName);
+                        }
                         console.log(`限制生效：顏色 ${block.colorName} 無法造成傷害`);
                     }
                     // 檢查僅限傷害顏色
                     if (restrictions.damageOnlyColors && !restrictions.damageOnlyColors.includes(block.colorName)) {
                         isValid = false;
+                        if (!blockedColors.includes(block.colorName)) {
+                            blockedColors.push(block.colorName);
+                        }
                         console.log(`限制生效：只有 ${restrictions.damageOnlyColors.join(', ')} 可造成傷害，${block.colorName} 無效`);
                     }
                 }
@@ -207,7 +235,25 @@ class GameEngine {
         
         const blocksEliminated = validBlocks.length;
         if (blocksEliminated === 0) {
-            return { finalScore: 0 };
+            // 顯示顏色限制提示
+            if (blockedColors.length > 0) {
+                const blockedColorNames = blockedColors.map(c => colorMap[c] || c).join('');
+                if (restrictions.noDamageColors) {
+                    UIManager.showActionResultToast({
+                        isBlocked: true,
+                        reason: 'colorBlocked',
+                        blockedColors: blockedColorNames
+                    });
+                } else if (restrictions.damageOnlyColors) {
+                    const allowedColorNames = restrictions.damageOnlyColors.map(c => colorMap[c] || c).join('');
+                    UIManager.showActionResultToast({
+                        isBlocked: true,
+                        reason: 'colorOnly',
+                        allowedColors: allowedColorNames
+                    });
+                }
+            }
+            return { finalScore: 0, isBlocked: true, reason: 'colorRestriction' };
         }
 
         // 基礎分數 = 消除方塊數 × 基礎分數
@@ -229,11 +275,23 @@ class GameEngine {
             this.pendingDamage += finalScore;
         }
 
+        // 顯示成功的Toast
+        if (finalScore > 0) {
+            const result = {
+                isBlocked: false,
+                combo: this.consecutiveSuccessfulActions,
+                damage: this.config.mode === 'quest' ? finalScore : 0,
+                score: this.config.mode !== 'quest' ? finalScore : 0
+            };
+            UIManager.showActionResultToast(result);
+        }
+
         return {
             baseScore,
             comboMultiplier,
             chainMultiplier,
-            finalScore
+            finalScore,
+            isBlocked: false
         };
     }
 
@@ -285,7 +343,9 @@ class GameEngine {
             });
         }
         
-        // 在控制台顯示里程碑信息（之後可以改為UI提示）
+        // 顯示Toast提示
+        const damageText = this.config.mode === 'quest' ? '傷害' : '分';
+        UIManager.showToast(`🏆 ${milestone}連擊里程碑！獲得 ${bonus} ${damageText}`, 'milestone', 3000);
         console.log(`🎉 連擊里程碑達成！${milestone}連擊獲得 ${bonus} 分獎勵！`);
     }
 
@@ -327,62 +387,72 @@ class GameEngine {
     }
 
     resetGame() {
-        this.score = 0;
-        this.actionPoints = this.config.actionPointsStart;
-        this.consecutiveSuccessfulActions = 0;
-        this.maxCombo = 0;
-        this.actionCount = 0;
-        this.gameOver = false;
-        this.isAnimating = false;
-        this.activeSkill = null;
-        this.grid = [];
-        this.particles = [];
-        this.timeLeft = this.config.gameDuration;
-        // 只有在限時模式下才設置遊戲開始時間
-        this.gameStartTime = this.config.hasTimer ? performance.now() : 0;
-        this.pendingDamage = 0; // 重置累積傷害
-
-        // 重置連擊分數系統
-        this.lastComboScore = 0;
-        this.totalComboBonus = 0;
-        this.comboMilestoneReached = {};
-
-        if (this.config.hasSkills) {
-            this.skillUses = { removeSingle: 3, rerollNext: 3, rerollBoard: 3 };
-        }
-
-        if (this.config.mode === 'quest' && this.config.levelData) {
-            this.movesLeft = this.config.levelData.moves;
-            this.enemy = {
-                ...this.config.levelData.enemy,
-                hp: this.config.levelData.enemy.maxHP
-            };
-            console.log('GameEngine: 重置闖關模式狀態', {
-                movesLeft: this.movesLeft,
-                enemy: this.enemy
-            });
-        }
-
-        this.generateNextBlockColor();
-        this.createInitialGrid();
-        this.updateBlockPositions();
-        this.updateUI();
+        console.log('開始重置遊戲');
         
-        if (this.config.hasSkills) {
-            this.updateSkillButtonsUI();
+        // 停止遊戲循環
+        this.gameLoopRunning = false;
+        if (this.gameLoopId) {
+            cancelAnimationFrame(this.gameLoopId);
+            this.gameLoopId = null;
         }
-
+        
+        // 關閉遊戲結束彈窗
         if (this.gameOverModal && this.gameOverModal.classList) {
             this.gameOverModal.classList.remove('active');
+            this.gameOverModal.style.display = 'none'; // 確保彈窗被隱藏
             const modalContent = this.gameOverModal.querySelector('.modal-content');
             if (modalContent) {
-                modalContent.style.opacity = '0';
-                modalContent.style.transform = 'scale(0.95)';
+                modalContent.classList.remove('animate-scale-in');
             }
         }
 
-        if (this.canvas && this.canvas.classList) {
-            this.canvas.classList.remove('canvas-skill-target-mode');
+        // 移除任何現有的toast
+        const existingToast = document.getElementById('game-toast');
+        if (existingToast) {
+            existingToast.remove();
+        }
+
+        // 重置遊戲狀態
+        this.setupGameState();
+        this.createInitialGrid();
+        this.generateNextBlockColor();
+        this.updateNextBlockPreviewUI();
+        
+        // 確保方塊位置正確設置
+        this.updateBlockPositions();
+        
+        this.updateUI();
+        this.updateSkillButtonsUI();
+
+        // 闖關模式UI重置
+        if (this.config.mode === 'quest') {
+            UIManager.updateQuestUI({
+                mode: this.config.mode,
+                enemy: this.enemy,
+                movesLeft: this.movesLeft
+            });
+            
+            // 重置限制顯示
+            const urlParams = new URLSearchParams(window.location.search);
+            const levelNumber = parseInt(urlParams.get('level')) || 1;
+            const levelDetails = GameModes.quest.levelDetails[levelNumber];
+            const restrictions = levelDetails?.restrictions || {};
+            UIManager.updateQuestRestrictionsDisplay(restrictions, 0);
+        }
+
+        // 設置開始時間 - 統一使用 performance.now()
+        if (this.config.hasTimer) {
+            this.gameStartTime = performance.now();
+            this.timeLeft = this.config.gameDuration; // 重置時間
+        }
+        
+        // 確保遊戲迴圈正在運行（只有在遊戲沒有結束時才啟動）
+        if (!this.gameOver) {
+            this.gameLoopRunning = false; // 重置標誌
+            this.startGameLoop();
+            console.log('遊戲已重置，遊戲循環已啟動');
+        } else {
+            console.log('遊戲已重置，但遊戲處於結束狀態，不啟動遊戲循環');
         }
     }
 
@@ -613,6 +683,13 @@ class GameEngine {
                 enemy: this.enemy,
                 movesLeft: this.movesLeft
             });
+
+            // 更新限制顯示
+            const urlParams = new URLSearchParams(window.location.search);
+            const levelNumber = parseInt(urlParams.get('level')) || 1;
+            const levelDetails = GameModes.quest.levelDetails[levelNumber];
+            const restrictions = levelDetails?.restrictions || {};
+            UIManager.updateQuestRestrictionsDisplay(restrictions, this.consecutiveSuccessfulActions);
         }
         
         // 更新最高連擊記錄
@@ -1109,10 +1186,26 @@ class GameEngine {
     }
 
     startGameLoop() {
-        if (this.gameLoopId) cancelAnimationFrame(this.gameLoopId);
-        let lastTime = 0;
+        if (this.gameLoopId) {
+            cancelAnimationFrame(this.gameLoopId);
+            this.gameLoopId = null;
+        }
+        
+        // 如果遊戲已結束，不要開始新的遊戲循環
+        if (this.gameOver) {
+            console.log('遊戲已結束，不啟動遊戲循環');
+            return;
+        }
+        
+        this.gameLoopRunning = true;
+        
         const gameLoop = (timestamp) => {
-            if (this.gameOver) return;
+            if (this.gameOver || !this.gameLoopRunning) {
+                this.gameLoopRunning = false;
+                this.gameLoopId = null;
+                console.log('遊戲循環已停止');
+                return;
+            }
 
             const deltaTime = timestamp - (this.lastFrameTime || timestamp);
             this.lastFrameTime = timestamp;
@@ -1124,6 +1217,7 @@ class GameEngine {
                 if (this.timeLeft <= 0) {
                     this.timeLeft = 0;
                     this.triggerGameOver();
+                    return;
                 }
             }
             
@@ -1133,7 +1227,9 @@ class GameEngine {
             // 更新UI以顯示當前時間
             this.updateUI();
 
-            this.gameLoopId = requestAnimationFrame(gameLoop);
+            if (this.gameLoopRunning && !this.gameOver) {
+                this.gameLoopId = requestAnimationFrame(gameLoop);
+            }
         };
         this.gameLoopId = requestAnimationFrame(gameLoop);
     }
@@ -1145,16 +1241,34 @@ class GameEngine {
         if (this.config.mode === 'quest') {
             if (this.enemy.hp <= 0) {
                 this.gameOver = true;
-                UIManager.showGameOverModal(this.score, this.maxCombo, this.actionCount, 'quest_win');
-                if (this.gameLoopId) cancelAnimationFrame(this.gameLoopId);
+                this.gameLoopRunning = false;
+                if (this.gameLoopId) {
+                    cancelAnimationFrame(this.gameLoopId);
+                    this.gameLoopId = null;
+                }
+                
+                console.log('闖關模式勝利，顯示勝利彈窗');
+                setTimeout(() => {
+                    UIManager.showGameOverModal(this.score, this.maxCombo, this.actionCount, 'quest_win');
+                }, 100);
+                
                 // 只在通關成功時保存記錄
                 this.saveQuestRecord().catch(err => console.error("儲存闖關記錄失敗:", err));
                 return;
             }
             if (this.movesLeft <= 0) {
                 this.gameOver = true;
-                UIManager.showGameOverModal(this.score, this.maxCombo, this.actionCount, 'quest_loss');
-                if (this.gameLoopId) cancelAnimationFrame(this.gameLoopId);
+                this.gameLoopRunning = false;
+                if (this.gameLoopId) {
+                    cancelAnimationFrame(this.gameLoopId);
+                    this.gameLoopId = null;
+                }
+                
+                console.log('闖關模式失敗，顯示失敗彈窗');
+                setTimeout(() => {
+                    UIManager.showGameOverModal(this.score, this.maxCombo, this.actionCount, 'quest_loss');
+                }, 100);
+                
                 // 失敗時不保存記錄，只顯示結果
                 console.log("闖關失敗，不保存記錄");
                 return;
@@ -1165,16 +1279,21 @@ class GameEngine {
         
         // 原有的遊戲結束邏輯 (例如計時器或行動點數)
         this.gameOver = true;
-        if (this.gameLoopId) cancelAnimationFrame(this.gameLoopId);
-        
-        if (this.finalScoreDisplay) this.finalScoreDisplay.textContent = this.score;
-        if (this.finalMaxComboDisplay) this.finalMaxComboDisplay.textContent = this.maxCombo;
-        if (this.finalActionCountDisplay) this.finalActionCountDisplay.textContent = this.actionCount;
-        
-        if (this.gameOverModal && this.gameOverModal.classList) {
-            this.gameOverModal.classList.add('active');
+        this.gameLoopRunning = false;
+        if (this.gameLoopId) {
+            cancelAnimationFrame(this.gameLoopId);
+            this.gameLoopId = null;
         }
+        
+        console.log('三排強攻遊戲結束，觸發結算彈窗');
+        
+        // 確保彈窗顯示在下一個事件循環中，避免被其他操作截斷
+        setTimeout(() => {
+            UIManager.showGameOverModal(this.score, this.maxCombo, this.actionCount, 'default');
+            console.log('結算彈窗已顯示');
+        }, 100);
 
+        // 異步保存記錄，不阻塞彈窗顯示
         this.saveCurrentGameRecord().catch(err => console.error("儲存遊戲記錄失敗:", err));
     }
 
@@ -1280,7 +1399,10 @@ class GameEngine {
     }
 
     async handleCanvasClick(event) {
-        if (this.gameOver || this.isAnimating) return;
+        if (this.gameOver || this.isAnimating) {
+            console.log('遊戲已結束或正在執行動畫，忽略點擊');
+            return;
+        }
         
         const rect = this.canvas.getBoundingClientRect();
         const scaleX = this.canvas.width / rect.width;
@@ -1412,20 +1534,31 @@ class GameEngine {
         // 一次操作中如果有任何消除，就計算一次連擊
         if (matchFound) {
             this.consecutiveSuccessfulActions++;
+            
             // 檢查連擊里程碑獎勵
             const milestoneBonus = this.checkComboMilestone();
             if (milestoneBonus > 0) {
                 this.score += milestoneBonus;
             }
         } else {
-            if (!this.config.hasTimer && this.config.mode !== 'quest') {
+            // 處理失誤懲罰
+            this.consecutiveSuccessfulActions = 0;
+            this.lastComboScore = 0;
+            
+            // 根據不同模式處理行動點數扣除和顯示Toast
+            if (this.config.mode === 'quest') {
+                // 闖關模式不扣除行動點數，步數已在開始時扣除
+                UIManager.showToast('❌ 沒有消除方塊', 'error', 1500);
+            } else if (this.config.actionPointsStart > 0) {
+                // 有行動點數限制的模式（包括三排限時強攻）
                 this.actionPoints--;
-                this.consecutiveSuccessfulActions = 0;
-                // 重置連擊相關數據
-                this.lastComboScore = 0;
-            }
-            if (this.config.title === '三排限時強攻') {
-                this.handlePenalty();
+                UIManager.showToast(`❌ 沒有消除方塊 (剩餘 ${this.actionPoints} 點)`, 'error', 2000);
+                if (this.config.title === '三排限時強攻') {
+                    this.handlePenalty(); // 額外的震動效果
+                }
+            } else {
+                // actionPointsStart = 0 的模式（如45秒限時）不扣除行動點數
+                UIManager.showToast('❌ 沒有消除方塊', 'error', 1500);
             }
         }
 
@@ -1444,8 +1577,9 @@ class GameEngine {
         if (this.config.mode === 'quest') {
             // 闖關模式：檢查敵人血量和剩餘步數
             this.triggerGameOver();
-        } else if (!this.config.hasTimer && this.actionPoints <= 0 && !this.gameOver) {
-            // 其他模式：檢查行動點數
+        } else if (this.config.actionPointsStart > 0 && this.actionPoints <= 0 && !this.gameOver) {
+            // 有行動點數限制的模式：檢查行動點數用盡
+            console.log('行動點數用盡，觸發遊戲結束');
             this.triggerGameOver();
         }
     }
@@ -1849,16 +1983,14 @@ class GameEngine {
         // 檢查遊戲結束條件
         if (this.config.mode === 'quest') {
             this.triggerGameOver();
-        } else if (!this.config.hasTimer && this.actionPoints <= 0 && !this.gameOver) {
+        } else if (this.config.actionPointsStart > 0 && this.actionPoints <= 0 && !this.gameOver) {
+            console.log('技能使用後行動點數用盡，觸發遊戲結束');
             this.triggerGameOver();
         }
     }
 
     handlePenalty() {
-        if (this.config.actionPointsStart > 0) {
-            this.actionPoints--;
-        }
-        
+        // 震動效果
         const gameContainer = document.querySelector('.game-container');
         if (gameContainer) {
             gameContainer.classList.add('screen-shake');
@@ -1869,9 +2001,8 @@ class GameEngine {
 
         this.updateUI();
 
-        if (this.actionPoints <= 0 && this.config.actionPointsStart > 0) {
-            this.triggerGameOver();
-        }
+        // 三排限時強攻模式的行動點數已在 performPlayerAction 中處理
+        // 這裡只需要提供視覺反饋
     }
 
     static createQuestHeaderHTML(config) {

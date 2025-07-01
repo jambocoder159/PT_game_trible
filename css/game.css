@@ -458,6 +458,15 @@ canvas {
 #quest-header {
     min-height: auto;
     overflow: hidden;
+    background-image: url('../images/bg/ch1.png');
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    position: relative;
+    /* 添加遮罩層以確保文字清晰可見 */
+    background-color: rgba(30, 41, 59, 0.85); /* slate-800 with opacity */
+    background-blend-mode: overlay;
+    border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 /* Quest header 響應式調整 */
@@ -480,10 +489,16 @@ canvas {
     }
 }
 
-/* 限制條件提示樣式 */
-#quest-header .bg-slate-900\/50 {
-    backdrop-filter: blur(4px);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+/* 確保 quest-header 內的文字在背景上清晰可見 */
+#quest-header .text-yellow-300,
+#quest-header .text-amber-400,
+#quest-header .text-slate-300 {
+    text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.8);
+}
+
+/* 敵人血條文字陰影 */
+#quest-header #enemy-hp-text {
+    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.9);
 }
 
 /* 敵人血條動畫 */
@@ -572,7 +587,9 @@ canvas {
     animation: fade-out-down 0.3s ease-in forwards;
 }
 
-/* 限制條件彈窗特殊效果 */
+/* ===========================================
+   限制條件彈窗特殊效果
+=========================================== */
 #restrictions-popup .bg-gray-900\/50 {
     border-left: 3px solid #fbbf24;
     transition: all 0.2s ease;
@@ -581,4 +598,129 @@ canvas {
 #restrictions-popup .bg-gray-900\/50:hover {
     background-color: rgba(17, 24, 39, 0.7);
     border-left-color: #f59e0b;
+}
+
+/* ===========================================
+   Toast系統樣式
+=========================================== */
+#game-toast {
+    opacity: 0;
+    transform: translate(-50%, -20px);
+    transition: all 0.3s ease-in-out;
+    z-index: 1000;
+    backdrop-filter: blur(8px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    animation: toast-slide-in 0.3s ease-out;
+}
+
+@keyframes toast-slide-in {
+    0% {
+        opacity: 0;
+        transform: translate(-50%, -30px) scale(0.9);
+    }
+    100% {
+        opacity: 1;
+        transform: translate(-50%, 0) scale(1);
+    }
+}
+
+/* Toast類型樣式 */
+#game-toast.bg-green-500 {
+    background: linear-gradient(45deg, #10b981, #059669);
+    box-shadow: 0 4px 20px rgba(16, 185, 129, 0.3);
+}
+
+#game-toast.bg-red-500 {
+    background: linear-gradient(45deg, #ef4444, #dc2626);
+    box-shadow: 0 4px 20px rgba(239, 68, 68, 0.3);
+}
+
+#game-toast.bg-purple-500 {
+    background: linear-gradient(45deg, #8b5cf6, #7c3aed);
+    box-shadow: 0 4px 20px rgba(139, 92, 246, 0.3);
+}
+
+#game-toast.bg-gray-600 {
+    background: linear-gradient(45deg, #4b5563, #374151);
+    box-shadow: 0 4px 20px rgba(75, 85, 99, 0.3);
+}
+
+#game-toast.bg-yellow-500 {
+    background: linear-gradient(45deg, #f59e0b, #d97706);
+    box-shadow: 0 4px 20px rgba(245, 158, 11, 0.3);
+}
+
+#game-toast.bg-blue-500 {
+    background: linear-gradient(45deg, #3b82f6, #2563eb);
+    box-shadow: 0 4px 20px rgba(59, 130, 246, 0.3);
+}
+
+/* ===========================================
+   闖關模式限制顯示樣式
+=========================================== */
+#quest-restrictions-display {
+    animation: restrictions-fade-in 0.5s ease-out;
+}
+
+@keyframes restrictions-fade-in {
+    0% {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    100% {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* 限制條件色塊樣式 */
+.restriction-color-block {
+    position: relative;
+    display: inline-block;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    transition: all 0.2s ease;
+}
+
+.restriction-color-block:hover {
+    transform: scale(1.1);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+}
+
+/* 連擊狀態指示器 */
+.combo-status-indicator {
+    animation: combo-pulse 1s ease-in-out infinite;
+}
+
+.combo-status-indicator.satisfied {
+    animation: none;
+    background: linear-gradient(45deg, #10b981, #059669);
+}
+
+@keyframes combo-pulse {
+    0%, 100% {
+        transform: scale(1);
+        opacity: 0.8;
+    }
+    50% {
+        transform: scale(1.05);
+        opacity: 1;
+    }
+}
+
+/* 響應式調整 */
+@media (max-width: 480px) {
+    #game-toast {
+        max-width: 280px;
+        font-size: 0.8rem;
+        padding: 8px 12px;
+    }
+    
+    .restriction-color-block {
+        width: 20px !important;
+        height: 20px !important;
+    }
+    
+    #quest-restrictions-display .text-xs {
+        font-size: 0.7rem;
+    }
 } 

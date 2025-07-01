@@ -126,6 +126,9 @@
                 <button onclick="switchMode('timeLimit')" class="tab-button px-6 py-3 text-white font-medium" data-mode="timeLimit">
                     ⏰ 限時挑戰
                 </button>
+                <button onclick="switchMode('quest')" class="tab-button px-6 py-3 text-white font-medium" data-mode="quest">
+                    🏰 闖關模式
+                </button>
             </div>
         </div>
         
@@ -232,6 +235,9 @@
                         <button onclick="playMode('timeLimit')" class="w-full bg-red-500/20 hover:bg-red-500/30 text-white py-2 px-4 rounded-lg transition-colors text-sm">
                             ⏰ 挑戰限時模式
                         </button>
+                        <button onclick="playMode('quest')" class="w-full bg-yellow-500/20 hover:bg-yellow-500/30 text-white py-2 px-4 rounded-lg transition-colors text-sm">
+                            🏰 挑戰闖關模式
+                        </button>
                     </div>
                 </div>
                 
@@ -293,6 +299,17 @@
                     <p>• 45秒限時挑戰</p>
                     <p>• 極速反應測試</p>
                     <p>• 高分數倍率</p>
+                `
+            },
+            quest: {
+                icon: '🏰',
+                title: '闖關模式',
+                description: `
+                    <p><strong>🏰 闖關模式：</strong></p>
+                    <p>• 逐關解鎖挑戰</p>
+                    <p>• 擊敗各種敵人</p>
+                    <p>• 排名依最高關卡</p>
+                    <p>• 同關卡比步數和時間</p>
                 `
             }
         };
@@ -414,31 +431,61 @@
                         ${(item.username || '匿')[0].toUpperCase()}
                      </div>`;
                 
-                leaderboardItem.innerHTML = `
-                    <div class="rank-medal ${getRankClass(rank)}">
-                        ${rank <= 3 ? ['🥇', '🥈', '🥉'][rank - 1] : rank}
-                    </div>
-                    
-                    <div class="flex items-center gap-3 flex-1">
-                        ${avatarHtml}
-                        <div>
-                            <div class="flex items-center gap-2">
-                                <span class="text-white font-medium">${item.username || '匿名玩家'}</span>
-                                ${isCurrentUser ? '<span class="text-yellow-400 text-xs px-2 py-1 bg-yellow-400/20 rounded-full">你</span>' : ''}
-                            </div>
-                            <div class="text-white/60 text-sm">
-                                ${formatDate(item.date || item.created_at)}
+                // Quest 模式顯示邏輯
+                if (currentMode === 'quest') {
+                    leaderboardItem.innerHTML = `
+                        <div class="rank-medal ${getRankClass(rank)}">
+                            ${rank <= 3 ? ['🥇', '🥈', '🥉'][rank - 1] : rank}
+                        </div>
+                        
+                        <div class="flex items-center gap-3 flex-1">
+                            ${avatarHtml}
+                            <div>
+                                <div class="flex items-center gap-2">
+                                    <span class="text-white font-medium">${item.username || '匿名玩家'}</span>
+                                    ${isCurrentUser ? '<span class="text-yellow-400 text-xs px-2 py-1 bg-yellow-400/20 rounded-full">你</span>' : ''}
+                                </div>
+                                <div class="text-white/60 text-sm">
+                                    ${formatDate(item.date || item.created_at)}
+                                </div>
                             </div>
                         </div>
-                    </div>
-                    
-                    <div class="text-right">
-                        <div class="text-white font-bold text-lg">${(item.score || 0).toLocaleString()}</div>
-                        <div class="text-white/60 text-xs">
-                            ${item.moves || 0} 步 • ${formatTime(item.time || 0)}
+                        
+                        <div class="text-right">
+                            <div class="text-white font-bold text-lg">關卡 ${item.highest_level || item.level || 0}</div>
+                            <div class="text-white/60 text-xs">
+                                ${item.moves || 0} 步 • ${formatTime(item.time || 0)}
+                            </div>
                         </div>
-                    </div>
-                `;
+                    `;
+                } else {
+                    // 其他模式的原有顯示邏輯
+                    leaderboardItem.innerHTML = `
+                        <div class="rank-medal ${getRankClass(rank)}">
+                            ${rank <= 3 ? ['🥇', '🥈', '🥉'][rank - 1] : rank}
+                        </div>
+                        
+                        <div class="flex items-center gap-3 flex-1">
+                            ${avatarHtml}
+                            <div>
+                                <div class="flex items-center gap-2">
+                                    <span class="text-white font-medium">${item.username || '匿名玩家'}</span>
+                                    ${isCurrentUser ? '<span class="text-yellow-400 text-xs px-2 py-1 bg-yellow-400/20 rounded-full">你</span>' : ''}
+                                </div>
+                                <div class="text-white/60 text-sm">
+                                    ${formatDate(item.date || item.created_at)}
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="text-right">
+                            <div class="text-white font-bold text-lg">${(item.score || 0).toLocaleString()}</div>
+                            <div class="text-white/60 text-xs">
+                                ${item.moves || 0} 步 • ${formatTime(item.time || 0)}
+                            </div>
+                        </div>
+                    `;
+                }
                 
                 container.appendChild(leaderboardItem);
             });
@@ -474,11 +521,15 @@
                     const totalGamesElement = document.getElementById('totalGames');
                     
                     if (currentBestElement) {
-                        currentBestElement.textContent = userRank ? userRank.score.toLocaleString() : '0';
+                        if (currentMode === 'quest') {
+                            currentBestElement.textContent = userRank ? `關卡 ${userRank.score}` : '關卡 0';
+                        } else {
+                            currentBestElement.textContent = userRank ? userRank.score.toLocaleString() : '0';
+                        }
                     }
                     
                     if (currentRankElement) {
-                        currentRankElement.textContent = userRank ? `#${userRank.rank}` : '未上榜';
+                        currentRankElement.textContent = userRank && userRank.rank ? `#${userRank.rank}` : '未上榜';
                     }
                     
                     if (totalGamesElement) {
@@ -492,7 +543,9 @@
                 const currentRankElement = document.getElementById('currentRank');
                 const totalGamesElement = document.getElementById('totalGames');
                 
-                if (currentBestElement) currentBestElement.textContent = '-';
+                if (currentBestElement) {
+                    currentBestElement.textContent = currentMode === 'quest' ? '關卡 0' : '-';
+                }
                 if (currentRankElement) currentRankElement.textContent = '-';
                 if (totalGamesElement) totalGamesElement.textContent = '-';
             }
@@ -536,7 +589,11 @@
         
         // 直接開始遊戲
         function playMode(mode) {
-            window.location.href = `game.html?mode=${mode}`;
+            if (mode === 'quest') {
+                window.location.href = 'quest-mode.html';
+            } else {
+                window.location.href = `game.html?mode=${mode}`;
+            }
         }
         
         // 返回主選單

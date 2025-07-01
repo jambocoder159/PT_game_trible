@@ -145,11 +145,24 @@
                 // 根據關卡設置不同的敵人和難度
                 const levelNum = parseInt(level) || 1;
                 
+                // 暫時限制只能玩到第10關
+                if (levelNum > 10) {
+                    console.error(`關卡 ${levelNum} 暫未開放，目前最高只能到第10關`);
+                    showLevelNotAvailableModal(levelNum, '此關卡暫未開放，敬請期待後續更新！');
+                    return;
+                }
+                
                 // 從 GameModes 獲取關卡資料
                 const levelDetails = GameModes.quest.levelDetails;
                 
-                // 取得對應關卡的敵人資料，如果關卡超出範圍則使用最後一個
-                const currentEnemy = levelDetails[levelNum] || levelDetails[10];
+                // 檢查關卡資料是否存在
+                const currentEnemy = levelDetails[levelNum];
+                
+                if (!currentEnemy) {
+                    console.error(`關卡 ${levelNum} 的資料不存在`);
+                    showLevelNotAvailableModal(levelNum, '關卡資料尚未建立，請選擇其他關卡進行挑戰。');
+                    return;
+                }
                 
                 gameConfig.levelData.enemy.name = currentEnemy.name;
                 gameConfig.levelData.enemy.description = currentEnemy.description;
@@ -196,6 +209,40 @@
                     UIManager.showRestrictionsPopup(gameEngine.config.levelData.restrictions);
                 });
             }
+        }
+        
+        // 顯示關卡尚未建立的彈窗
+        function showLevelNotAvailableModal(levelNum, message) {
+            const modalOverlay = document.createElement('div');
+            modalOverlay.className = 'fixed inset-0 bg-black/70 flex items-center justify-center z-50';
+            modalOverlay.id = 'level-not-available-modal';
+            
+            modalOverlay.innerHTML = `
+                <div class="bg-gray-800 border-2 border-yellow-500/50 rounded-2xl shadow-lg w-full max-w-sm m-4 p-6">
+                    <div class="text-center">
+                        <div class="text-6xl mb-4">🚧</div>
+                        <h2 class="text-2xl font-bold text-yellow-400 mb-4">關卡無法進入</h2>
+                        <p class="text-gray-300 mb-6">${message}</p>
+                        <button id="return-to-quest-btn" class="w-full bg-yellow-500 hover:bg-yellow-400 text-gray-900 font-bold py-3 rounded-lg transition-colors">
+                            返回選關頁面
+                        </button>
+                    </div>
+                </div>
+            `;
+            
+            document.body.appendChild(modalOverlay);
+            
+            // 點擊按鈕返回選關頁面
+            modalOverlay.querySelector('#return-to-quest-btn').onclick = () => {
+                window.location.href = 'quest-mode.html';
+            };
+            
+            // 點擊外部也可以關閉（並返回選關頁面）
+            modalOverlay.onclick = (e) => {
+                if (e.target === modalOverlay) {
+                    window.location.href = 'quest-mode.html';
+                }
+            };
         }
         
         // 當頁面載入完成時初始化
