@@ -1,0 +1,139 @@
+body {
+    font-family: 'Poppins', 'Noto Sans TC', sans-serif;
+    background: linear-gradient(180deg, #2a3a4a 0%, #1a202c 100%);
+    min-height: 100vh;
+}
+
+/* 章節標籤 */
+.chapter-tab {
+    padding: 10px 20px;
+    cursor: pointer;
+    border-bottom: 3px solid transparent;
+    transition: all 0.3s ease;
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: #a0aec0; /* non-active text-gray-400 */
+}
+
+.chapter-tab:hover {
+    background-color: rgba(255, 255, 255, 0.05);
+    color: #e2e8f0; /* hover text-gray-200 */
+}
+
+.chapter-tab.active {
+    color: #f6e05e; /* active text-yellow-400 */
+    border-color: #f6e05e; /* active border-yellow-400 */
+}
+
+/* 關卡網格 */
+.levels-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    gap: 1.5rem;
+    animation: fadeIn 0.5s ease-out;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* 關卡節點 */
+.level-node {
+    position: relative;
+    aspect-ratio: 1 / 1;
+    border-radius: 1rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    font-weight: 700;
+    color: white;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    border: 2px solid transparent;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+}
+
+.level-node .level-number {
+    font-size: 2rem;
+    line-height: 1;
+}
+
+.level-node .level-status-icon {
+    font-size: 1.25rem;
+    position: absolute;
+    top: 8px;
+    right: 8px;
+}
+
+/* 已解鎖 (可挑戰) */
+.level-node.unlocked {
+    background: linear-gradient(135deg, #4299e1, #3182ce); /* blue-500 to blue-600 */
+    border-color: #63b3ed; /* blue-300 */
+}
+
+.level-node.unlocked:hover {
+    transform: translateY(-5px) scale(1.05);
+    box-shadow: 0 8px 25px rgba(49, 130, 206, 0.4);
+}
+
+/* 已破關 */
+.level-node.cleared {
+    background: linear-gradient(135deg, #48bb78, #38a169); /* green-500 to green-600 */
+    border-color: #68d391; /* green-300 */
+    opacity: 0.8;
+}
+
+.level-node.cleared:hover {
+    opacity: 1;
+    transform: translateY(-5px);
+}
+
+/* 未開放 */
+.level-node.locked {
+    background: #4a5568; /* gray-600 */
+    cursor: not-allowed;
+    color: #a0aec0; /* gray-400 */
+}
+
+.level-node.locked .level-number {
+    opacity: 0.5;
+}
+
+/* 最佳分數顯示 */
+.level-best-score {
+    font-size: 0.75rem;
+    color: #fbbf24;
+    font-weight: 500;
+    margin-top: 4px;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+/* 進度總覽區域背景 */
+#progress-overview {
+    background-image: url('../images/bg/ch1.png');
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    position: relative;
+    /* 添加遮罩層以確保文字可讀性 */
+    background-color: rgba(0, 0, 0, 0.3);
+    background-blend-mode: overlay;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(1px);
+}
+
+/* 確保進度總覽內容在背景上清晰可見 */
+#progress-overview h2 {
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8);
+}
+
+#progress-overview .text-2xl {
+    text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.8);
+}
+
+#progress-overview .text-sm {
+    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8);
+} 

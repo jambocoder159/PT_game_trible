@@ -9,6 +9,11 @@ class LeaderboardManager {
     
     // 獲取全域排行榜（每個玩家只顯示最高分）
     async getGlobalLeaderboard(gameMode, period = 'all', limit = 50) {
+        // 如果是 quest 模式，使用特殊的排行榜邏輯
+        if (gameMode === 'quest') {
+            return await this.getQuestLeaderboard(limit);
+        }
+        
         const cacheKey = `global_${gameMode}_${period}_${limit}`;
         
         // 檢查快取
@@ -105,6 +110,49 @@ class LeaderboardManager {
         }
     }
     
+    // 獲取 quest 模式排行榜
+    async getQuestLeaderboard(limit = 50) {
+        const cacheKey = `quest_leaderboard_${limit}`;
+        
+        // 檢查快取
+        if (this.cache.has(cacheKey)) {
+            const cached = this.cache.get(cacheKey);
+            if (Date.now() - cached.timestamp < this.cacheTimeout) {
+                return cached.data;
+            }
+        }
+        
+        try {
+            const questLeaderboard = await this.supabaseAuth.getQuestLeaderboard(limit);
+            
+            // 轉換為統一的排行榜格式
+            const formattedLeaderboard = questLeaderboard.map(player => ({
+                rank: player.rank,
+                id: player.player_id,
+                player_id: player.player_id,
+                username: player.username,
+                avatar_url: player.avatar_url,
+                score: player.score,
+                moves: player.moves_used,
+                time: player.time_taken,
+                level: player.highest_level,  // quest 模式特有：最高關卡
+                date: new Date(player.achieved_at).toLocaleDateString('zh-TW'),
+                highest_level: player.highest_level  // 保留原始欄位
+            }));
+            
+            // 更新快取
+            this.cache.set(cacheKey, {
+                data: formattedLeaderboard,
+                timestamp: Date.now()
+            });
+            
+            return formattedLeaderboard;
+        } catch (error) {
+            console.error('獲取 quest 排行榜失敗:', error);
+            return [];
+        }
+    }
+    
     // 獲取今日排行榜
     async getTodayLeaderboard(gameMode, limit = 20) {
         return await this.getGlobalLeaderboard(gameMode, 'today', limit);
@@ -126,6 +174,30 @@ class LeaderboardManager {
         if (!targetUserId) return null;
         
         try {
+            // 如果是 quest 模式，使用特殊的排名邏輯
+            if (gameMode === 'quest') {
+                // 獲取所有排行榜數據
+                const allRankings = await this.getQuestLeaderboard(1000); // 獲取足夠多的數據
+                
+                // 找到當前用戶的排名
+                const userRanking = allRankings.find(player => player.player_id === targetUserId);
+                
+                if (userRanking) {
+                    return {
+                        rank: userRanking.rank,
+                        score: userRanking.highest_level, // quest 模式的「分數」是最高關卡
+                        total_players: allRankings.length
+                    };
+                } else {
+                    // 用戶沒有 quest 記錄
+                    return {
+                        rank: null,
+                        score: 0,
+                        total_players: allRankings.length
+                    };
+                }
+            }
+            
             // 先獲取用戶的最佳成績
             const { data: userBest, error: userError } = await this.supabase
                 .from('game_records')
