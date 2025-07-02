@@ -73,30 +73,32 @@ class UIManager {
                 </div>
             </div>
             
-            <!-- 中間部：敵人圖片和血條 -->
-            <div class="px-3 pb-2">
-                <div class="flex items-center gap-3">
+            <!-- 中間部：敵人圖片與血條/限制條件對齊 -->
+            <div class="px-3 pb-3">
+                <div class="flex items-start gap-3">
+                    <!-- 左側：敵人圖片 -->
                     <div class="w-16 h-16 flex-shrink-0">
                         <img id="enemy-image" src="${enemyImageSrc}" alt="${enemy.name}" class="w-full h-full object-contain transition-transform duration-100">
                     </div>
-                    <div class="flex-1">
+                    
+                    <!-- 右側：血條和限制條件垂直排列 -->
+                    <div class="flex-1 h-16 flex flex-col justify-between">
+                        <!-- 血條區域 -->
                         <div class="w-full bg-gray-600 rounded-full h-4 border border-gray-500 shadow-inner">
                             <div id="enemy-hp-bar" class="bg-gradient-to-r from-red-500 to-red-700 h-full rounded-full transition-all duration-300 ease-out flex items-center justify-end pr-1">
                                 <span id="enemy-hp-text" class="text-xs font-bold text-white text-shadow">${enemy.maxHP}/${enemy.maxHP}</span>
                             </div>
                         </div>
+                        
+                        <!-- 限制條件區域 -->
+                        ${restrictionsDisplay ? `
+                        <div id="quest-restrictions-display" class="bg-slate-900/50 rounded-md px-2 py-1 flex-1 flex items-center">
+                            ${restrictionsDisplay}
+                        </div>
+                        ` : '<div class="flex-1"></div>'}
                     </div>
                 </div>
             </div>
-            
-            <!-- 下半部：限制條件顯示 -->
-            ${restrictionsDisplay ? `
-            <div id="quest-restrictions-display" class="px-3 pb-2">
-                <div class="bg-slate-900/50 rounded-md px-2 py-1">
-                    ${restrictionsDisplay}
-                </div>
-            </div>
-            ` : ''}
         </div>`;
     }
 

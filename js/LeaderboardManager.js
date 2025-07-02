@@ -5,6 +5,25 @@ class LeaderboardManager {
         this.supabase = supabaseAuth.supabase;
         this.cache = new Map();
         this.cacheTimeout = 5 * 60 * 1000; // 5分鐘快取
+        this.currentUser = null; // 添加當前用戶屬性
+    }
+    
+    // 設置當前用戶
+    setCurrentUser(user) {
+        this.currentUser = user;
+    }
+    
+    // 檢查是否為當前用戶
+    isCurrentUser(playerId) {
+        return this.currentUser && this.currentUser.id === playerId;
+    }
+    
+    // 獲取排名徽章的 CSS 類
+    getRankBadgeClass(rank) {
+        if (rank === 1) return 'rank-1 text-yellow-400 font-bold';
+        if (rank === 2) return 'rank-2 text-gray-300 font-bold';
+        if (rank === 3) return 'rank-3 text-orange-400 font-bold';
+        return 'rank-other text-white/80';
     }
     
     // 獲取全域排行榜（每個玩家只顯示最高分）
@@ -25,54 +44,27 @@ class LeaderboardManager {
         }
         
         try {
-            // 先獲取每個玩家的最高分記錄 ID
-            let subQuery = this.supabase
+            // 獲取所有遊戲記錄
+            let query = this.supabase
                 .from('game_records')
-                .select('player_id, MAX(score) as max_score')
+                .select('id, player_id, score, moves_used, time_taken, level_reached, created_at')
                 .eq('game_mode', gameMode);
             
             // 根據時間段過濾
             if (period !== 'all') {
                 const timeFilter = this.getTimeFilter(period);
                 if (timeFilter) {
-                    subQuery = subQuery.gte('created_at', timeFilter);
+                    query = query.gte('created_at', timeFilter);
                 }
             }
             
-            // 使用子查詢的方式獲取每個玩家的最高分記錄
-            const { data: allRecords, error: allError } = await this.supabase
-                .from('game_records')
-                .select(`
-                    id,
-                    player_id,
-                    score,
-                    moves_used,
-                    time_taken,
-                    level_reached,
-                    created_at,
-                    players!inner (
-                        username,
-                        avatar_url
-                    )
-                `)
-                .eq('game_mode', gameMode);
-                
-            if (allError) throw allError;
+            const { data: allRecords, error: recordsError } = await query;
             
-            // 根據時間段過濾
-            let filteredRecords = allRecords || [];
-            if (period !== 'all') {
-                const timeFilter = this.getTimeFilter(period);
-                if (timeFilter) {
-                    filteredRecords = filteredRecords.filter(record => 
-                        new Date(record.created_at) >= new Date(timeFilter)
-                    );
-                }
-            }
+            if (recordsError) throw recordsError;
             
             // 找出每個玩家的最高分記錄
             const playerBestScores = new Map();
-            filteredRecords.forEach(record => {
+            (allRecords || []).forEach(record => {
                 const playerId = record.player_id;
                 if (!playerBestScores.has(playerId) || 
                     record.score > playerBestScores.get(playerId).score) {
@@ -80,22 +72,50 @@ class LeaderboardManager {
                 }
             });
             
+            // 獲取所有相關玩家的資料
+            const playerIds = Array.from(playerBestScores.keys());
+            if (playerIds.length === 0) {
+                return [];
+            }
+            
+            const { data: playersData, error: playersError } = await this.supabase
+                .from('players')
+                .select('id, username, avatar_url')
+                .in('id', playerIds);
+                
+            if (playersError) {
+                console.error('獲取玩家資料失敗:', playersError);
+                // 即使玩家資料獲取失敗，也可以顯示基本排行榜
+            }
+            
+            // 建立玩家資料對照表
+            const playersMap = new Map();
+            (playersData || []).forEach(player => {
+                playersMap.set(player.id, player);
+            });
+            
             // 轉換為數組並排序
             const leaderboard = Array.from(playerBestScores.values())
                 .sort((a, b) => b.score - a.score)
                 .slice(0, limit)
-                .map((record, index) => ({
-                    rank: index + 1,
-                    id: record.id,
-                    player_id: record.player_id,
-                    username: record.players.username,
-                    avatar_url: record.players.avatar_url,
-                    score: record.score,
-                    moves: record.moves_used,
-                    time: record.time_taken,
-                    level: record.level_reached,
-                    date: new Date(record.created_at).toLocaleDateString('zh-TW')
-                }));
+                .map((record, index) => {
+                    const playerInfo = playersMap.get(record.player_id);
+                    return {
+                        rank: index + 1,
+                        id: record.id,
+                        player_id: record.player_id,
+                        username: playerInfo?.username || `玩家_${record.player_id.slice(-4)}`,
+                        avatar_url: playerInfo?.avatar_url || null,
+                        score: record.score,
+                        moves: record.moves_used,
+                        moves_used: record.moves_used, // 相容性欄位
+                        time: record.time_taken,
+                        time_taken: record.time_taken, // 相容性欄位
+                        level: record.level_reached,
+                        date: new Date(record.created_at).toLocaleDateString('zh-TW'),
+                        created_at: record.created_at
+                    };
+                });
             
             // 更新快取
             this.cache.set(cacheKey, {
@@ -137,7 +157,9 @@ class LeaderboardManager {
                 time: player.time_taken,
                 level: player.highest_level,  // quest 模式特有：最高關卡
                 date: new Date(player.achieved_at).toLocaleDateString('zh-TW'),
-                highest_level: player.highest_level  // 保留原始欄位
+                highest_level: player.highest_level,  // 保留原始欄位
+                moves_remaining: player.moves_remaining,
+                achieved_at: player.achieved_at
             }));
             
             // 更新快取
@@ -542,6 +564,118 @@ class LeaderboardManager {
         } catch (error) {
             console.error('獲取用戶統計失敗:', error);
             return null;
+        }
+    }
+
+    // 顯示排行榜項目
+    displayLeaderboardItem(player, index, gameMode) {
+        const isCurrentUser = this.isCurrentUser(player.player_id);
+        const rank = player.rank || (index + 1); // 使用傳入的 rank 或計算排名
+        
+        // 根據遊戲模式決定顯示內容
+        let scoreDisplay, detailsDisplay;
+        
+        if (gameMode === 'quest') {
+            // Quest 模式顯示關卡數和詳細資訊
+            const levelNumber = player.highest_level || player.highest_level_cleared || 0;
+            scoreDisplay = `
+                <div class="flex items-center gap-2">
+                    <span class="text-lg font-bold">關卡 ${levelNumber}</span>
+                    ${player.moves_used > 0 ? `<span class="text-sm text-gray-400">• 用了 ${player.moves_used} 步</span>` : ''}
+                </div>
+            `;
+            
+            // 顯示詳細的遊戲資訊
+            const timeDisplay = player.time_taken > 0 ? this.formatTime(player.time_taken) : '--';
+            const movesRemaining = player.moves_remaining || 0;
+            
+            detailsDisplay = `
+                <div class="text-xs text-gray-400 mt-1 space-y-1">
+                    <div class="flex justify-between">
+                        <span>用時：${timeDisplay}</span>
+                        <span>剩餘步數：${movesRemaining}</span>
+                    </div>
+                    <div class="text-xs text-gray-500">
+                        ${this.formatDateTime(player.achieved_at)}
+                    </div>
+                </div>
+            `;
+        } else {
+            // 其他模式顯示分數
+            scoreDisplay = `<span class="text-lg font-bold">${(player.score || 0).toLocaleString()}</span>`;
+            detailsDisplay = '';
+        }
+
+        return `
+            <div class="leaderboard-item ${isCurrentUser ? 'current-user' : ''} p-4 bg-white/10 rounded-lg backdrop-blur-sm border border-white/20">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-3">
+                        <div class="rank-badge ${this.getRankBadgeClass(rank)}">
+                            ${rank}
+                        </div>
+                        <div class="player-avatar">
+                            ${player.avatar_url ? 
+                                `<img src="${player.avatar_url}" alt="${player.username}" class="w-10 h-10 rounded-full">` : 
+                                `<div class="w-10 h-10 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white font-bold">${(player.username || 'U').charAt(0).toUpperCase()}</div>`
+                            }
+                        </div>
+                        <div class="player-info">
+                            <div class="player-name text-white font-medium">
+                                ${player.username || '未知玩家'}
+                                ${isCurrentUser ? '<span class="text-yellow-400 ml-2">👑</span>' : ''}
+                            </div>
+                            ${detailsDisplay}
+                        </div>
+                    </div>
+                    <div class="score text-white">
+                        ${scoreDisplay}
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+    
+    // 格式化時間顯示
+    formatTime(milliseconds) {
+        if (!milliseconds || milliseconds === 0) return '--';
+        
+        const totalSeconds = Math.floor(milliseconds / 1000);
+        const minutes = Math.floor(totalSeconds / 60);
+        const seconds = totalSeconds % 60;
+        
+        if (minutes > 0) {
+            return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+        } else {
+            return `${seconds}秒`;
+        }
+    }
+    
+    // 格式化日期時間
+    formatDateTime(dateString) {
+        if (!dateString) return '';
+        
+        const date = new Date(dateString);
+        const now = new Date();
+        const diffMs = now - date;
+        const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+        
+        if (diffDays === 0) {
+            return '今天 ' + date.toLocaleTimeString('zh-TW', { 
+                hour: '2-digit', 
+                minute: '2-digit' 
+            });
+        } else if (diffDays === 1) {
+            return '昨天 ' + date.toLocaleTimeString('zh-TW', { 
+                hour: '2-digit', 
+                minute: '2-digit' 
+            });
+        } else if (diffDays < 7) {
+            return `${diffDays}天前`;
+        } else {
+            return date.toLocaleDateString('zh-TW', { 
+                month: 'short', 
+                day: 'numeric'
+            });
         }
     }
 }

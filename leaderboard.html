@@ -330,6 +330,11 @@
                     currentUser = await window.supabaseAuth.getCurrentUser();
                     isLoggedIn = !!currentUser;
                     
+                    // 設置當前用戶信息到 LeaderboardManager
+                    if (currentUser && window.leaderboardManager) {
+                        window.leaderboardManager.setCurrentUser(currentUser);
+                    }
+                    
                     updatePersonalStats();
                 }
             } catch (error) {
@@ -417,71 +422,53 @@
             container.innerHTML = '';
             
             data.forEach((item, index) => {
-                const rank = index + 1;
-                const isCurrentUser = isLoggedIn && currentUser && item.player_id === currentUser.id;
-                
                 const leaderboardItem = document.createElement('div');
-                leaderboardItem.className = `leaderboard-item p-4 flex items-center gap-4 slide-in ${isCurrentUser ? 'ring-2 ring-yellow-400' : ''}`;
+                leaderboardItem.className = 'slide-in';
                 leaderboardItem.style.animationDelay = `${index * 0.1}s`;
                 
-                // 構建頭像HTML
-                const avatarHtml = item.avatar_url ? 
-                    `<img src="${item.avatar_url}" alt="${item.username || '匿名玩家'}" class="w-8 h-8 rounded-full object-cover border-2 border-white/20">` :
-                    `<div class="w-8 h-8 rounded-full bg-gradient-to-br from-blue-400 to-purple-600 flex items-center justify-center text-white font-bold text-sm">
-                        ${(item.username || '匿')[0].toUpperCase()}
-                     </div>`;
-                
-                // Quest 模式顯示邏輯
-                if (currentMode === 'quest') {
-                    leaderboardItem.innerHTML = `
-                        <div class="rank-medal ${getRankClass(rank)}">
-                            ${rank <= 3 ? ['🥇', '🥈', '🥉'][rank - 1] : rank}
-                        </div>
-                        
-                        <div class="flex items-center gap-3 flex-1">
-                            ${avatarHtml}
-                            <div>
-                                <div class="flex items-center gap-2">
-                                    <span class="text-white font-medium">${item.username || '匿名玩家'}</span>
-                                    ${isCurrentUser ? '<span class="text-yellow-400 text-xs px-2 py-1 bg-yellow-400/20 rounded-full">你</span>' : ''}
-                                </div>
-                                <div class="text-white/60 text-sm">
-                                    ${formatDate(item.date || item.created_at)}
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <div class="text-right">
-                            <div class="text-white font-bold text-lg">關卡 ${item.highest_level || item.level || 0}</div>
-                            <div class="text-white/60 text-xs">
-                                ${item.moves || 0} 步 • ${formatTime(item.time || 0)}
-                            </div>
-                        </div>
-                    `;
+                // 使用 LeaderboardManager 的新方法來顯示項目
+                if (window.leaderboardManager) {
+                    leaderboardItem.innerHTML = window.leaderboardManager.displayLeaderboardItem(item, index, currentMode);
                 } else {
-                    // 其他模式的原有顯示邏輯
+                    // 備用顯示邏輯
+                    const isCurrentUser = isLoggedIn && currentUser && item.player_id === currentUser.id;
+                    const rank = index + 1;
+                    
+                    const avatarHtml = item.avatar_url ? 
+                        `<img src="${item.avatar_url}" alt="${item.username || '匿名玩家'}" class="w-8 h-8 rounded-full object-cover border-2 border-white/20">` :
+                        `<div class="w-8 h-8 rounded-full bg-gradient-to-br from-blue-400 to-purple-600 flex items-center justify-center text-white font-bold text-sm">
+                            ${(item.username || '匿')[0].toUpperCase()}
+                         </div>`;
+                    
                     leaderboardItem.innerHTML = `
-                        <div class="rank-medal ${getRankClass(rank)}">
-                            ${rank <= 3 ? ['🥇', '🥈', '🥉'][rank - 1] : rank}
-                        </div>
-                        
-                        <div class="flex items-center gap-3 flex-1">
-                            ${avatarHtml}
-                            <div>
-                                <div class="flex items-center gap-2">
-                                    <span class="text-white font-medium">${item.username || '匿名玩家'}</span>
-                                    ${isCurrentUser ? '<span class="text-yellow-400 text-xs px-2 py-1 bg-yellow-400/20 rounded-full">你</span>' : ''}
-                                </div>
-                                <div class="text-white/60 text-sm">
-                                    ${formatDate(item.date || item.created_at)}
+                        <div class="leaderboard-item p-4 flex items-center gap-4 ${isCurrentUser ? 'ring-2 ring-yellow-400' : ''}">
+                            <div class="rank-medal ${getRankClass(rank)}">
+                                ${rank <= 3 ? ['🥇', '🥈', '🥉'][rank - 1] : rank}
+                            </div>
+                            
+                            <div class="flex items-center gap-3 flex-1">
+                                ${avatarHtml}
+                                <div>
+                                    <div class="flex items-center gap-2">
+                                        <span class="text-white font-medium">${item.username || '匿名玩家'}</span>
+                                        ${isCurrentUser ? '<span class="text-yellow-400 text-xs px-2 py-1 bg-yellow-400/20 rounded-full">你</span>' : ''}
+                                    </div>
+                                    <div class="text-white/60 text-sm">
+                                        ${formatDate(item.date || item.created_at)}
+                                    </div>
                                 </div>
                             </div>
-                        </div>
-                        
-                        <div class="text-right">
-                            <div class="text-white font-bold text-lg">${(item.score || 0).toLocaleString()}</div>
-                            <div class="text-white/60 text-xs">
-                                ${item.moves || 0} 步 • ${formatTime(item.time || 0)}
+                            
+                            <div class="text-right">
+                                <div class="text-white font-bold text-lg">
+                                    ${currentMode === 'quest' ? 
+                                        `關卡 ${item.highest_level || item.level || 0}` : 
+                                        (item.score || 0).toLocaleString()
+                                    }
+                                </div>
+                                <div class="text-white/60 text-xs">
+                                    ${item.moves || item.moves_used || 0} 步 • ${formatTime(item.time || item.time_taken || 0)}
+                                </div>
                             </div>
                         </div>
                     `;
