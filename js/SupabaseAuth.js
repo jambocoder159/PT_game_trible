@@ -48,6 +48,7 @@ class SupabaseAuth {
         this.getQuestLevelHistory = this.getQuestLevelHistory.bind(this);
         this.getChapterStats = this.getChapterStats.bind(this);
         this.getQuestLeaderboard = this.getQuestLeaderboard.bind(this);
+        this.getSurvivalLeaderboard = this.getSurvivalLeaderboard.bind(this);
 
         // 監聽認證狀態變化
         if (this.supabase) {
@@ -761,6 +762,158 @@ class SupabaseAuth {
             
         } catch (error) {
             console.error('備用查詢也失敗:', error);
+            return [];
+        }
+    }
+    
+    // 獲取存活模式排行榜 (按存活時間、分數排序)
+    async getSurvivalLeaderboard(limit = 50) {
+        try {
+            console.log('開始獲取存活模式排行榜...');
+            
+            // 查詢 leaderboards 表，篩選存活模式的記錄
+            const { data: leaderboardData, error } = await this.supabase
+                .from('leaderboards')
+                .select(`
+                    *,
+                    players!inner (
+                        username,
+                        avatar_url
+                    )
+                `)
+                .eq('game_mode', 'survival')
+                .order('best_time', { ascending: false }) // 先按存活時間排序（時間越長越好）
+                .order('best_score', { ascending: false }) // 再按最佳分數排序
+                .limit(limit);
+                
+            console.log('存活模式排行榜查詢結果:', { leaderboardData, error });
+            
+            if (error) {
+                console.error('查詢 leaderboards 表失敗，嘗試查詢 game_records 表:', error);
+                
+                // 備用方案：查詢 game_records 表
+                return await this.getSurvivalLeaderboardFromGameRecords(limit);
+            }
+            
+            if (!leaderboardData || leaderboardData.length === 0) {
+                console.log('leaderboards 表中沒有存活模式資料，嘗試 game_records 表');
+                return await this.getSurvivalLeaderboardFromGameRecords(limit);
+            }
+            
+            // 格式化結果
+            const result = leaderboardData.map((item, index) => ({
+                rank: index + 1,
+                player_id: item.player_id,
+                username: item.players?.username || `玩家_${item.player_id.slice(-4)}`,
+                avatar_url: item.players?.avatar_url,
+                score: item.best_score || 0,
+                time: item.best_time || 0,
+                time_taken: item.best_time || 0,
+                moves: item.best_moves || 0,
+                moves_used: item.best_moves || 0,
+                level: item.level_reached || 1,
+                date: new Date(item.latest_play || item.created_at).toLocaleDateString('zh-TW'),
+                created_at: item.latest_play || item.created_at
+            }));
+            
+            console.log('存活模式排行榜結果:', result);
+            return result;
+            
+        } catch (error) {
+            console.error('獲取存活模式排行榜失敗:', error);
+            // 備用方案
+            return await this.getSurvivalLeaderboardFromGameRecords(limit);
+        }
+    }
+    
+    // 從 game_records 表獲取存活模式排行榜（備用方案）
+    async getSurvivalLeaderboardFromGameRecords(limit = 50) {
+        try {
+            console.log('從 game_records 表獲取存活模式排行榜...');
+            
+            // 獲取所有存活模式記錄
+            const { data: allRecords, error: recordsError } = await this.supabase
+                .from('game_records')
+                .select('id, player_id, score, moves_used, time_taken, level_reached, created_at')
+                .eq('game_mode', 'survival');
+            
+            if (recordsError) throw recordsError;
+            
+            console.log('找到的存活模式記錄:', allRecords);
+            
+            if (!allRecords || allRecords.length === 0) {
+                console.log('沒有找到任何存活模式記錄');
+                return [];
+            }
+            
+            // 找出每個玩家的最佳記錄（先按時間，再按分數）
+            const playerBestRecords = new Map();
+            allRecords.forEach(record => {
+                const playerId = record.player_id;
+                const currentBest = playerBestRecords.get(playerId);
+                
+                if (!currentBest) {
+                    playerBestRecords.set(playerId, record);
+                } else {
+                    // 先比較存活時間，再比較分數
+                    if (record.time_taken > currentBest.time_taken || 
+                        (record.time_taken === currentBest.time_taken && record.score > currentBest.score)) {
+                        playerBestRecords.set(playerId, record);
+                    }
+                }
+            });
+            
+            // 獲取玩家資料
+            const playerIds = Array.from(playerBestRecords.keys());
+            const { data: playersData, error: playersError } = await this.supabase
+                .from('players')
+                .select('id, username, avatar_url')
+                .in('id', playerIds);
+                
+            if (playersError) {
+                console.error('獲取玩家資料失敗:', playersError);
+            }
+            
+            // 建立玩家資料對照表
+            const playersMap = new Map();
+            (playersData || []).forEach(player => {
+                playersMap.set(player.id, player);
+            });
+            
+            // 轉換並排序
+            const leaderboard = Array.from(playerBestRecords.values())
+                .sort((a, b) => {
+                    // 先按存活時間降序排列（時間越長越好）
+                    if (a.time_taken !== b.time_taken) {
+                        return b.time_taken - a.time_taken;
+                    }
+                    // 存活時間相同時，按分數降序排列
+                    return b.score - a.score;
+                })
+                .slice(0, limit)
+                .map((record, index) => {
+                    const playerInfo = playersMap.get(record.player_id);
+                    return {
+                        rank: index + 1,
+                        player_id: record.player_id,
+                        username: playerInfo?.username || `玩家_${record.player_id.slice(-4)}`,
+                        avatar_url: playerInfo?.avatar_url,
+                        score: record.score,
+                        time: record.time_taken,
+                        time_taken: record.time_taken,
+                        moves: record.moves_used,
+                        moves_used: record.moves_used,
+                        level: record.level_reached,
+                        date: new Date(record.created_at).toLocaleDateString('zh-TW'),
+                        created_at: record.created_at
+                    };
+                });
+            
+            console.log('從 game_records 獲取的存活模式排行榜:', leaderboard);
+            return leaderboard;
+            
+        } catch (error) {
+            console.error('從 game_records 獲取存活模式排行榜失敗:', error);
             return [];
         }
     }

@@ -2,14 +2,50 @@
 <html lang="zh-Hant">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, orientation=portrait">
-    <title>三消挑戰 - 遊戲框架版</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>三排快節奏RPG - 三消挑戰</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="css/game.css">
     <link rel="stylesheet" href="css/responsive-fix.css">
     <style>
+        /* RPG模式專用樣式 */
+        .theme-rpg {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        
+        .skill-icon {
+            transition: transform 0.2s ease;
+        }
+        
+        .skill-icon:hover {
+            transform: scale(1.1);
+        }
+        
+        #levelUpModal {
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+        
+        .skill-option:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+        }
+        
+        .exp-bar-animation {
+            transition: width 0.8s ease-out;
+        }
+        
+        .level-up-glow {
+            animation: levelUpGlow 2s ease-in-out;
+        }
+        
+        @keyframes levelUpGlow {
+            0%, 100% { box-shadow: 0 0 0 rgba(255, 215, 0, 0); }
+            50% { box-shadow: 0 0 30px rgba(255, 215, 0, 0.8); }
+        }
+        
         /* 禁止螢幕旋轉 */
         @media screen and (orientation: landscape) and (max-width: 768px) {
             body {
@@ -50,7 +86,7 @@
         }
     </style>
 </head>
-<body class="flex flex-col items-center justify-center min-h-screen p-2 sm:p-4">
+<body class="theme-rpg flex flex-col items-center justify-center min-h-screen p-2 sm:p-4">
     
     <!-- 螢幕旋轉警告 -->
     <div class="orientation-warning">
@@ -68,8 +104,9 @@
     <script src="js/LeaderboardManager.js"></script>
     <script src="js/UserManager.js"></script>
     <script src="js/GlobalNavigation.js"></script>
+    <script src="js/SkillSystem.js"></script>
     <script src="js/GameEngine.js"></script>
-    <script src="js/GameModes.js"></script>
+    <script src="js/GameModes.js?v=blackened_blocks_1"></script>
     <script src="js/UI.js"></script>
     <script>
         // 全域變數
@@ -182,11 +219,29 @@
             // 生成遊戲HTML
             const gameContainer = document.getElementById('gameContainer');
             if (gameContainer) {
-                gameContainer.innerHTML = UIManager.createGameHTML(mode, gameConfig);
+                // 如果是存活模式，創建包含存活模式信息的初始gameState
+                let gameState = null;
+                if (gameConfig.isSurvivalMode && gameConfig.hasRPGSystem) {
+                    gameState = {
+                        level: 1,
+                        exp: 0,
+                        expToNextLevel: 300,
+                        gold: 0,
+                        playerSkills: {},
+                        isSurvivalMode: true,
+                        survivalTime: 0,
+                        targetSurvivalTime: gameConfig.survivalConfig?.targetSurvivalTime || 180000
+                    };
+                }
+                
+                gameContainer.innerHTML = UIManager.createGameHTML(mode, gameConfig, gameState);
             }
             
             // 初始化遊戲引擎
             gameEngine = new GameEngine(gameConfig);
+            
+            // 確保gameEngine在全局可用
+            window.gameEngine = gameEngine;
             
             // 記錄遊戲開始時間
             gameStartTime = Date.now();

@@ -33,6 +33,11 @@ class LeaderboardManager {
             return await this.getQuestLeaderboard(limit);
         }
         
+        // 如果是 survival 模式，使用特殊的排行榜邏輯
+        if (gameMode === 'survival') {
+            return await this.getSurvivalLeaderboard(limit);
+        }
+        
         const cacheKey = `global_${gameMode}_${period}_${limit}`;
         
         // 檢查快取
@@ -96,7 +101,19 @@ class LeaderboardManager {
             
             // 轉換為數組並排序
             const leaderboard = Array.from(playerBestScores.values())
-                .sort((a, b) => b.score - a.score)
+                .sort((a, b) => {
+                    // 存活模式：先按存活時間排序，再按分數排序
+                    if (gameMode === 'survival') {
+                        // 首先按存活時間降序排列（時間越長越好）
+                        if (a.time_taken !== b.time_taken) {
+                            return b.time_taken - a.time_taken;
+                        }
+                        // 存活時間相同時，按分數降序排列
+                        return b.score - a.score;
+                    }
+                    // 其他模式：按分數排序
+                    return b.score - a.score;
+                })
                 .slice(0, limit)
                 .map((record, index) => {
                     const playerInfo = playersMap.get(record.player_id);
@@ -175,6 +192,50 @@ class LeaderboardManager {
         }
     }
     
+    // 獲取 survival 模式排行榜
+    async getSurvivalLeaderboard(limit = 50) {
+        const cacheKey = `survival_leaderboard_${limit}`;
+        
+        // 檢查快取
+        if (this.cache.has(cacheKey)) {
+            const cached = this.cache.get(cacheKey);
+            if (Date.now() - cached.timestamp < this.cacheTimeout) {
+                return cached.data;
+            }
+        }
+        
+        try {
+            const survivalLeaderboard = await this.supabaseAuth.getSurvivalLeaderboard(limit);
+            
+            // 轉換為統一的排行榜格式
+            const formattedLeaderboard = survivalLeaderboard.map(player => ({
+                rank: player.rank,
+                id: player.player_id,
+                player_id: player.player_id,
+                username: player.username,
+                avatar_url: player.avatar_url,
+                score: player.score,
+                moves: player.moves,
+                time: player.time,
+                time_taken: player.time_taken, // 存活時間
+                level: player.level,
+                date: player.date,
+                created_at: player.created_at
+            }));
+            
+            // 更新快取
+            this.cache.set(cacheKey, {
+                data: formattedLeaderboard,
+                timestamp: Date.now()
+            });
+            
+            return formattedLeaderboard;
+        } catch (error) {
+            console.error('獲取 survival 排行榜失敗:', error);
+            return [];
+        }
+    }
+    
     // 獲取今日排行榜
     async getTodayLeaderboard(gameMode, limit = 20) {
         return await this.getGlobalLeaderboard(gameMode, 'today', limit);
@@ -220,47 +281,107 @@ class LeaderboardManager {
                 }
             }
             
+            // 如果是 survival 模式，使用特殊的排名邏輯
+            if (gameMode === 'survival') {
+                // 獲取所有排行榜數據
+                const allRankings = await this.getSurvivalLeaderboard(1000); // 獲取足夠多的數據
+                
+                // 找到當前用戶的排名
+                const userRanking = allRankings.find(player => player.player_id === targetUserId);
+                
+                if (userRanking) {
+                    return {
+                        rank: userRanking.rank,
+                        score: userRanking.score,
+                        time: userRanking.time_taken, // 存活時間
+                        total_players: allRankings.length
+                    };
+                } else {
+                    // 用戶沒有 survival 記錄
+                    return {
+                        rank: null,
+                        score: 0,
+                        time: 0,
+                        total_players: allRankings.length
+                    };
+                }
+            }
+            
             // 先獲取用戶的最佳成績
-            const { data: userBest, error: userError } = await this.supabase
+            let userBestQuery = this.supabase
                 .from('game_records')
-                .select('score')
+                .select('score, time_taken')
                 .eq('player_id', targetUserId)
-                .eq('game_mode', gameMode)
-                .order('score', { ascending: false })
+                .eq('game_mode', gameMode);
+                
+            // 存活模式：按存活時間排序，再按分數排序
+            if (gameMode === 'survival') {
+                userBestQuery = userBestQuery
+                    .order('time_taken', { ascending: false })
+                    .order('score', { ascending: false });
+            } else {
+                userBestQuery = userBestQuery.order('score', { ascending: false });
+            }
+            
+            const { data: userBest, error: userError } = await userBestQuery
                 .limit(1)
                 .single();
                 
             if (userError || !userBest) return null;
             
-            // 獲取所有玩家的最高分記錄
+            // 獲取所有玩家的記錄
             const { data: allRecords, error: allError } = await this.supabase
                 .from('game_records')
-                .select('player_id, score')
+                .select('player_id, score, time_taken')
                 .eq('game_mode', gameMode);
                 
             if (allError) throw allError;
             
-            // 計算每個玩家的最高分
+            // 計算每個玩家的最佳記錄
             const playerBestScores = new Map();
             (allRecords || []).forEach(record => {
                 const playerId = record.player_id;
-                if (!playerBestScores.has(playerId) || 
-                    record.score > playerBestScores.get(playerId)) {
-                    playerBestScores.set(playerId, record.score);
+                const currentBest = playerBestScores.get(playerId);
+                
+                if (!currentBest) {
+                    playerBestScores.set(playerId, record);
+                } else {
+                    // 存活模式：先比較存活時間，再比較分數
+                    if (gameMode === 'survival') {
+                        if (record.time_taken > currentBest.time_taken || 
+                            (record.time_taken === currentBest.time_taken && record.score > currentBest.score)) {
+                            playerBestScores.set(playerId, record);
+                        }
+                    } else {
+                        // 其他模式：只比較分數
+                        if (record.score > currentBest.score) {
+                            playerBestScores.set(playerId, record);
+                        }
+                    }
                 }
             });
             
-            // 統計有多少玩家分數比用戶高
+            // 統計有多少玩家成績比用戶好
             let higherCount = 0;
-            for (const [playerId, score] of playerBestScores) {
-                if (score > userBest.score) {
-                    higherCount++;
+            for (const [playerId, record] of playerBestScores) {
+                if (gameMode === 'survival') {
+                    // 存活模式：先比較存活時間，再比較分數
+                    if (record.time_taken > userBest.time_taken || 
+                        (record.time_taken === userBest.time_taken && record.score > userBest.score)) {
+                        higherCount++;
+                    }
+                } else {
+                    // 其他模式：只比較分數
+                    if (record.score > userBest.score) {
+                        higherCount++;
+                    }
                 }
             }
             
             return {
                 rank: higherCount + 1,
                 score: userBest.score,
+                time: userBest.time_taken || 0, // 添加時間信息
                 total_players: playerBestScores.size
             };
         } catch (error) {
@@ -310,19 +431,45 @@ class LeaderboardManager {
                 
             if (error) throw error;
             
-            // 找出每個好友的最高分記錄
+            // 找出每個好友的最佳記錄
             const playerBestScores = new Map();
             (data || []).forEach(record => {
                 const playerId = record.player_id;
-                if (!playerBestScores.has(playerId) || 
-                    record.score > playerBestScores.get(playerId).score) {
+                const currentBest = playerBestScores.get(playerId);
+                
+                if (!currentBest) {
                     playerBestScores.set(playerId, record);
+                } else {
+                    // 存活模式：先比較存活時間，再比較分數
+                    if (gameMode === 'survival') {
+                        if (record.time_taken > currentBest.time_taken || 
+                            (record.time_taken === currentBest.time_taken && record.score > currentBest.score)) {
+                            playerBestScores.set(playerId, record);
+                        }
+                    } else {
+                        // 其他模式：只比較分數
+                        if (record.score > currentBest.score) {
+                            playerBestScores.set(playerId, record);
+                        }
+                    }
                 }
             });
             
             // 轉換為數組並排序
             return Array.from(playerBestScores.values())
-                .sort((a, b) => b.score - a.score)
+                .sort((a, b) => {
+                    // 存活模式：先按存活時間排序，再按分數排序
+                    if (gameMode === 'survival') {
+                        // 首先按存活時間降序排列（時間越長越好）
+                        if (a.time_taken !== b.time_taken) {
+                            return b.time_taken - a.time_taken;
+                        }
+                        // 存活時間相同時，按分數降序排列
+                        return b.score - a.score;
+                    }
+                    // 其他模式：按分數排序
+                    return b.score - a.score;
+                })
                 .slice(0, limit)
                 .map((record, index) => ({
                     rank: index + 1,
@@ -580,8 +727,8 @@ class LeaderboardManager {
             const levelNumber = player.highest_level || player.highest_level_cleared || 0;
             scoreDisplay = `
                 <div class="flex items-center gap-2">
-                    <span class="text-lg font-bold">關卡 ${levelNumber}</span>
-                    ${player.moves_used > 0 ? `<span class="text-sm text-gray-400">• 用了 ${player.moves_used} 步</span>` : ''}
+                    <span class="text-lg font-bold text-white">關卡 ${levelNumber}</span>
+                    ${player.moves_used > 0 ? `<span class="text-sm text-white/70">• 用了 ${player.moves_used} 步</span>` : ''}
                 </div>
             `;
             
@@ -590,24 +737,49 @@ class LeaderboardManager {
             const movesRemaining = player.moves_remaining || 0;
             
             detailsDisplay = `
-                <div class="text-xs text-gray-400 mt-1 space-y-1">
+                <div class="text-xs text-white/60 mt-1 space-y-1">
                     <div class="flex justify-between">
                         <span>用時：${timeDisplay}</span>
                         <span>剩餘步數：${movesRemaining}</span>
                     </div>
-                    <div class="text-xs text-gray-500">
+                    <div class="text-xs text-white/50">
                         ${this.formatDateTime(player.achieved_at)}
+                    </div>
+                </div>
+            `;
+        } else if (gameMode === 'survival') {
+            // Survival 模式顯示存活時間和分數
+            const survivalTime = player.time || player.time_taken || 0;
+            const survivalMinutes = Math.floor(survivalTime / 60);
+            const survivalSeconds = survivalTime % 60;
+            const timeDisplay = `${survivalMinutes}:${survivalSeconds.toString().padStart(2, '0')}`;
+            
+            scoreDisplay = `
+                <div class="flex flex-col items-end">
+                    <div class="text-lg font-bold text-green-300">⏱️ ${timeDisplay}</div>
+                    <div class="text-sm text-white/70">${(player.score || 0).toLocaleString()} 分</div>
+                </div>
+            `;
+            
+            detailsDisplay = `
+                <div class="text-xs text-white/60 mt-1 space-y-1">
+                    <div class="flex justify-between">
+                        <span>行動次數：${player.moves || player.moves_used || 0} | </span>
+                        <span>遊玩次數：${player.level || 1}</span>
+                    </div>
+                    <div class="text-xs text-white/50">
+                        ${this.formatDateTime(player.created_at)}
                     </div>
                 </div>
             `;
         } else {
             // 其他模式顯示分數
-            scoreDisplay = `<span class="text-lg font-bold">${(player.score || 0).toLocaleString()}</span>`;
+            scoreDisplay = `<span class="text-lg font-bold text-white">${(player.score || 0).toLocaleString()}</span>`;
             detailsDisplay = '';
         }
 
         return `
-            <div class="leaderboard-item ${isCurrentUser ? 'current-user' : ''} p-4 bg-white/10 rounded-lg backdrop-blur-sm border border-white/20">
+            <div class="leaderboard-item ${isCurrentUser ? 'current-user' : ''} p-4 bg-white/15 rounded-lg backdrop-blur-sm border border-white/30">
                 <div class="flex items-center justify-between">
                     <div class="flex items-center gap-3">
                         <div class="rank-badge ${this.getRankBadgeClass(rank)}">
@@ -620,9 +792,9 @@ class LeaderboardManager {
                             }
                         </div>
                         <div class="player-info">
-                            <div class="player-name text-white font-medium">
+                            <div class="player-name text-white font-semibold">
                                 ${player.username || '未知玩家'}
-                                ${isCurrentUser ? '<span class="text-yellow-400 ml-2">👑</span>' : ''}
+                                ${isCurrentUser ? '<span class="text-yellow-300 ml-2">👑</span>' : ''}
                             </div>
                             ${detailsDisplay}
                         </div>

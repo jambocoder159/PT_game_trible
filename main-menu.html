@@ -7,6 +7,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&family=Poppins:wght@400;500;600;700;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/game.css">
     <style>
         body {
             font-family: 'Poppins', 'Noto Sans TC', sans-serif;
@@ -134,9 +135,32 @@
         .stagger-4 { animation-delay: 0.4s; }
         .stagger-5 { animation-delay: 0.5s; }
         .stagger-6 { animation-delay: 0.6s; }
+        
+        .gradient-bg {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
+        }
+        
+        .game-mode-card {
+            transition: all 0.3s ease;
+            backdrop-filter: blur(10px);
+        }
+        
+        .game-mode-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 20px 40px rgba(0,0,0,0.2);
+        }
+        
+        .new-badge {
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
     </style>
 </head>
-<body class="min-h-screen">
+<body class="min-h-screen gradient-bg">
     
     <!-- 螢幕旋轉警告 -->
     <div class="orientation-warning">
@@ -191,65 +215,118 @@
         </div>
         
         <!-- 遊戲模式選擇 -->
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
             
-            <!-- 闖關模式 -->
-            <div class="glass-card mode-card p-6 slide-in stagger-1" onclick="navigateTo('quest-mode.html')">
+            <!-- 教學模式 -->
+            <div class="game-mode-card bg-white/10 backdrop-blur-md rounded-xl p-6 border border-white/20">
                 <div class="text-center">
-                    <div class="text-4xl mb-4">⚔️</div>
-                    <h3 class="text-xl font-bold text-white mb-2">闖關模式</h3>
-                    <p class="text-white/80 text-sm mb-4">挑戰章節關卡<br>擊敗強大的敵人</p>
-                    <div class="bg-green-500/80 rounded-full px-3 py-1 text-xs text-white">
-                        劇情挑戰
-                    </div>
+                    <div class="text-4xl mb-3">📚</div>
+                    <h3 class="text-xl font-bold text-white mb-2">教學模式</h3>
+                    <p class="text-white/80 text-sm mb-4">學習遊戲基本操作</p>
+                    <button onclick="startGame('tutorial')" class="w-full bg-blue-500 hover:bg-blue-600 text-white font-medium py-2 px-4 rounded-lg transition-colors">
+                        開始教學
+                    </button>
                 </div>
             </div>
             
-            <!-- 單排模式 -->
-            <div class="glass-card mode-card p-6 slide-in stagger-2" onclick="selectMode('classic')">
+            <!-- 經典模式 -->
+            <div class="game-mode-card bg-white/10 backdrop-blur-md rounded-xl p-6 border border-white/20">
                 <div class="text-center">
-                    <div class="text-4xl mb-4">🎯</div>
-                    <h3 class="text-xl font-bold text-white mb-2">經典單排</h3>
-                    <p class="text-white/80 text-sm mb-4">經典的單排三消遊戲<br>適合新手入門</p>
-                    <div class="bg-white/20 rounded-full px-3 py-1 text-xs text-white">
-                        簡單難度
-                    </div>
+                    <div class="text-4xl mb-3">🎯</div>
+                    <h3 class="text-xl font-bold text-white mb-2">經典模式</h3>
+                    <p class="text-white/80 text-sm mb-4">單排消除，穩紮穩打</p>
+                    <button onclick="startGame('classic')" class="w-full bg-green-500 hover:bg-green-600 text-white font-medium py-2 px-4 rounded-lg transition-colors">
+                        開始遊戲
+                    </button>
+                </div>
+            </div>
+            
+            <!-- 雙排模式 -->
+            <div class="game-mode-card bg-white/10 backdrop-blur-md rounded-xl p-6 border border-white/20">
+                <div class="text-center">
+                    <div class="text-4xl mb-3">⚡</div>
+                    <h3 class="text-xl font-bold text-white mb-2">雙排挑戰</h3>
+                    <p class="text-white/80 text-sm mb-4">快速雙排消除</p>
+                    <button onclick="startGame('double')" class="w-full bg-yellow-500 hover:bg-yellow-600 text-white font-medium py-2 px-4 rounded-lg transition-colors">
+                        開始遊戲
+                    </button>
                 </div>
             </div>
             
             <!-- 三排模式 -->
-            <div class="glass-card mode-card p-6 slide-in stagger-3" onclick="selectMode('triple')">
+            <div class="game-mode-card bg-white/10 backdrop-blur-md rounded-xl p-6 border border-white/20">
                 <div class="text-center">
-                    <div class="text-4xl mb-4">🚀</div>
-                    <h3 class="text-xl font-bold text-white mb-2">進階三排</h3>
-                    <p class="text-white/80 text-sm mb-4">三排同時進行<br>挑戰你的多工能力</p>
-                    <div class="bg-yellow-500/80 rounded-full px-3 py-1 text-xs text-white">
-                        中等難度
-                    </div>
+                    <div class="text-4xl mb-3">🔥</div>
+                    <h3 class="text-xl font-bold text-white mb-2">三排挑戰</h3>
+                    <p class="text-white/80 text-sm mb-4">進階三排消除</p>
+                    <button onclick="startGame('triple')" class="w-full bg-red-500 hover:bg-red-600 text-white font-medium py-2 px-4 rounded-lg transition-colors">
+                        開始遊戲
+                    </button>
                 </div>
             </div>
             
-            <!-- 三排限時模式 -->
-            <div class="glass-card mode-card p-6 slide-in stagger-4" onclick="selectMode('timeLimit')">
+            <!-- 三排限時強攻 -->
+            <div class="game-mode-card bg-white/10 backdrop-blur-md rounded-xl p-6 border border-white/20">
                 <div class="text-center">
-                    <div class="text-4xl mb-4">⏰</div>
-                    <h3 class="text-xl font-bold text-white mb-2">限時挑戰</h3>
-                    <p class="text-white/80 text-sm mb-4">45秒限時三排<br>極速反應挑戰</p>
-                    <div class="bg-red-500/80 rounded-full px-3 py-1 text-xs text-white">
-                        困難難度
-                    </div>
-                </div>
-            </div>
-            
-            <!-- 三排限時強攻模式 -->
-            <div class="glass-card mode-card p-6 slide-in stagger-5" onclick="selectMode('tripleTimeAttack')">
-                <div class="text-center">
-                    <div class="text-4xl mb-4">💥</div>
+                    <div class="text-4xl mb-3">💥</div>
                     <h3 class="text-xl font-bold text-white mb-2">三排限時強攻</h3>
-                    <p class="text-white/80 text-sm mb-4">120秒內挑戰三排模式<br>只有3次失誤機會</p>
-                    <div class="bg-purple-600/80 rounded-full px-3 py-1 text-xs text-white">
-                        專家難度
-                    </div>
+                    <p class="text-white/80 text-sm mb-4">120秒極限挑戰</p>
+                    <button onclick="startGame('tripleTimeAttack')" class="w-full bg-orange-500 hover:bg-orange-600 text-white font-medium py-2 px-4 rounded-lg transition-colors">
+                        開始遊戲
+                    </button>
+                </div>
+            </div>
+            
+            <!-- 三排生存RPG模式 (新) -->
+            <div class="game-mode-card bg-white/15 backdrop-blur-md rounded-xl p-6 border border-purple-300/50 relative">
+                <div class="absolute top-2 right-2">
+                    <span class="new-badge bg-gradient-to-r from-yellow-400 to-orange-400 text-black text-xs font-bold px-2 py-1 rounded-full">
+                        NEW!
+                    </span>
+                </div>
+                <div class="text-center">
+                    <div class="text-4xl mb-3">⏳🛡️</div>
+                    <h3 class="text-xl font-bold text-white mb-2">三排生存RPG</h3>
+                    <p class="text-white/80 text-sm mb-4">存活3分鐘！面對階段性挑戰並成長</p>
+                    <button onclick="startGame('tripleActionTimer')" class="w-full bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white font-medium py-2 px-4 rounded-lg transition-all transform hover:scale-105">
+                        開始生存
+                    </button>
+                </div>
+            </div>
+            
+            <!-- 45秒限時挑戰 -->
+            <div class="game-mode-card bg-white/10 backdrop-blur-md rounded-xl p-6 border border-white/20">
+                <div class="text-center">
+                    <div class="text-4xl mb-3">⏰</div>
+                    <h3 class="text-xl font-bold text-white mb-2">45秒限時挑戰</h3>
+                    <p class="text-white/80 text-sm mb-4">極速消除模式</p>
+                    <button onclick="startGame('timeLimit')" class="w-full bg-gray-500 hover:bg-gray-600 text-white font-medium py-2 px-4 rounded-lg transition-colors">
+                        開始遊戲
+                    </button>
+                </div>
+            </div>
+            
+            <!-- 闖關模式 -->
+            <div class="game-mode-card bg-white/10 backdrop-blur-md rounded-xl p-6 border border-white/20">
+                <div class="text-center">
+                    <div class="text-4xl mb-3">🏰</div>
+                    <h3 class="text-xl font-bold text-white mb-2">闖關模式</h3>
+                    <p class="text-white/80 text-sm mb-4">挑戰各種敵人</p>
+                    <button onclick="goToQuestMode()" class="w-full bg-indigo-500 hover:bg-indigo-600 text-white font-medium py-2 px-4 rounded-lg transition-colors">
+                        選擇關卡
+                    </button>
+                </div>
+            </div>
+            
+            <!-- 排行榜 -->
+            <div class="game-mode-card bg-white/10 backdrop-blur-md rounded-xl p-6 border border-white/20">
+                <div class="text-center">
+                    <div class="text-4xl mb-3">🏆</div>
+                    <h3 class="text-xl font-bold text-white mb-2">排行榜</h3>
+                    <p class="text-white/80 text-sm mb-4">查看最高分記錄</p>
+                    <button onclick="goToLeaderboard()" class="w-full bg-cyan-500 hover:bg-cyan-600 text-white font-medium py-2 px-4 rounded-lg transition-colors">
+                        查看排名
+                    </button>
                 </div>
             </div>
             
@@ -258,12 +335,6 @@
 
         <!-- 功能按鈕區 -->
         <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 slide-in stagger-6">
-            
-            <!-- 排行榜 -->
-            <button onclick="showLeaderboard()" class="glass-card nav-button p-4 text-center">
-                <div class="text-2xl mb-2">🏆</div>
-                <div class="text-white font-medium text-sm">排行榜</div>
-            </button>
             
             <!-- 個人統計 -->
             <button onclick="showStats()" class="glass-card nav-button p-4 text-center">
@@ -275,12 +346,6 @@
             <button onclick="showSettings()" class="glass-card nav-button p-4 text-center">
                 <div class="text-2xl mb-2">⚙️</div>
                 <div class="text-white font-medium text-sm">遊戲設定</div>
-            </button>
-            
-            <!-- 新手教學 -->
-            <button onclick="startTutorial()" class="glass-card nav-button p-4 text-center">
-                <div class="text-2xl mb-2">🎓</div>
-                <div class="text-white font-medium text-sm">新手教學</div>
             </button>
             
         </div>
@@ -747,6 +812,32 @@
                     closeStatsModal();
                     break;
             }
+        });
+
+        function startGame(mode) {
+            window.location.href = `game.html?mode=${mode}`;
+        }
+
+        function goToQuestMode() {
+            window.location.href = 'quest-mode.html';
+        }
+
+        function goToLeaderboard() {
+            window.location.href = 'leaderboard.html';
+        }
+
+        // 添加進入動畫
+        document.addEventListener('DOMContentLoaded', function() {
+            const cards = document.querySelectorAll('.game-mode-card');
+            cards.forEach((card, index) => {
+                card.style.opacity = '0';
+                card.style.transform = 'translateY(30px)';
+                setTimeout(() => {
+                    card.style.transition = 'all 0.6s ease';
+                    card.style.opacity = '1';
+                    card.style.transform = 'translateY(0)';
+                }, index * 100);
+            });
         });
     </script>
 </body>
