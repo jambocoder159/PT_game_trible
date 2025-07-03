@@ -59,7 +59,6 @@
     <script src="js/EnvironmentConfig.js"></script>
     <script src="js/SupabaseAuth.js"></script>
     <script src="js/UserManager.js"></script>
-    <script src="js/GlobalNavigation.js"></script>
     <script src="js/GameModes.js?v=blackened_blocks_1"></script>
     <script src="js/QuestMode.js"></script>
     <script>
@@ -72,11 +71,9 @@
             // 等待一段時間讓所有腳本完全載入
             await new Promise(resolve => setTimeout(resolve, 100));
 
-            // 初始化用戶管理和導航（如果 supabaseAuth 存在）
+            // 初始化用戶管理（如果 supabaseAuth 存在）
             if (window.supabaseAuth) {
                 window.userManager = new UserManager(window.supabaseAuth, null);
-                window.globalNav = new GlobalNavigation(window.supabaseAuth, window.userManager);
-                await window.globalNav.init();
             }
 
             // 初始化闖關模式介面

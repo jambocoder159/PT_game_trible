@@ -74,15 +74,30 @@ class GameEngine {
             this.processingTimeoutPenalty = false; // 是否正在處理超時懲罰
             this.isTimerPaused = false; // 計時器是否暫停（用戶操作時）
             
-            // 存活模式狀態
-            if (this.config.isSurvivalMode) {
-                this.survivalTime = 0; // 累積存活時間（只有倒數時才計算）
-                this.totalGameTime = 0; // 總遊戲時間
-                this.challengesTriggered = []; // 已觸發的挑戰里程碑
-                this.activeChallenges = []; // 當前生效的挑戰
-                // 黑色方塊信息現在直接存儲在方塊對象上，不再需要 Map 追蹤
-                this.clearancesCount = 0; // 消除次數計數器
-                this.hasUsedFreeReroll = false; // 是否已使用免費重抽
+                    // 存活模式狀態
+        if (this.config.isSurvivalMode) {
+            this.survivalTime = 0; // 累積存活時間（只有倒數時才計算）
+            this.totalGameTime = 0; // 總遊戲時間
+            this.challengesTriggered = []; // 已觸發的挑戰里程碑
+            this.activeChallenges = []; // 當前生效的挑戰
+            // 黑色方塊信息現在直接存儲在方塊對象上，不再需要 Map 追蹤
+            this.clearancesCount = 0; // 消除次數計數器
+            this.hasUsedFreeReroll = false; // 是否已使用免費重抽
+            
+            // 效能優化：節流檢查的時間間隔
+            this.lastSurvivalCheck = 0; // 上次檢查存活里程碑的時間
+            this.lastWinCheck = 0; // 上次檢查勝利條件的時間
+            this.lastBlackenedCheck = 0; // 上次檢查黑色方塊的時間
+            this.survivalCheckInterval = 500; // 存活檢查間隔500ms
+            this.winCheckInterval = 1000; // 勝利檢查間隔1000ms
+            this.blackenedCheckInterval = 200; // 黑色方塊檢查間隔200ms
+            
+            // 動態效能監控
+            this.frameCount = 0;
+            this.lastFrameTime = 0;
+            this.avgFrameTime = 16.67; // 預設60fps
+            this.performanceCheckInterval = 2000; // 每2秒檢查一次效能
+            this.lastPerformanceCheck = 0;
                 
                 console.log('🔄 存活模式狀態初始化完成:', {
                     isSurvivalMode: this.config.isSurvivalMode,
@@ -743,23 +758,30 @@ class GameEngine {
         
         // 更新RPG模式UI
         if (this.config.hasRPGSystem) {
-            const rpgData = {
-                level: this.level,
-                exp: this.exp,
-                expToNextLevel: this.expToNextLevel,
-                gold: this.gold,
-                actionPoints: this.actionPoints,
-                playerSkills: this.playerSkills
-            };
+            // 效能優化：節流UI更新頻率（每100ms更新一次）
+            if (!this.lastUIUpdate) this.lastUIUpdate = 0;
+            const currentTime = performance.now();
             
-            // 如果是存活模式，添加存活模式數據
-            if (this.config.isSurvivalMode) {
-                rpgData.isSurvivalMode = true;
-                rpgData.survivalTime = this.survivalTime || 0;
-                rpgData.targetSurvivalTime = this.config.survivalConfig?.targetSurvivalTime || 180000;
+            if (currentTime - this.lastUIUpdate >= 100) {
+                const rpgData = {
+                    level: this.level,
+                    exp: this.exp,
+                    expToNextLevel: this.expToNextLevel,
+                    gold: this.gold,
+                    actionPoints: this.actionPoints,
+                    playerSkills: this.playerSkills
+                };
+                
+                // 如果是存活模式，添加存活模式數據
+                if (this.config.isSurvivalMode) {
+                    rpgData.isSurvivalMode = true;
+                    rpgData.survivalTime = this.survivalTime || 0;
+                    rpgData.targetSurvivalTime = this.config.survivalConfig?.targetSurvivalTime || 180000;
+                }
+                
+                UIManager.updateRPGStatsUI(rpgData);
+                this.lastUIUpdate = currentTime;
             }
-            
-            UIManager.updateRPGStatsUI(rpgData);
         }
         
         // 更新闖關模式UI
@@ -1348,6 +1370,18 @@ class GameEngine {
 
             const deltaTime = timestamp - (this.lastFrameTime || timestamp);
             this.lastFrameTime = timestamp;
+            
+            // 效能監控和動態調整（僅存活模式）
+            if (this.config.isSurvivalMode) {
+                this.frameCount++;
+                this.avgFrameTime = (this.avgFrameTime * 0.9) + (deltaTime * 0.1); // 移動平均
+                
+                // 每2秒檢查一次效能並調整節流間隔
+                if (timestamp - this.lastPerformanceCheck >= this.performanceCheckInterval) {
+                    this.adjustPerformanceSettings();
+                    this.lastPerformanceCheck = timestamp;
+                }
+            }
 
             // 處理計時器 - 統一使用 performance.now()
             if (this.config.hasTimer && this.gameStartTime > 0) {
@@ -1362,9 +1396,21 @@ class GameEngine {
                     // 存活模式：更新存活時間（獨立於8秒計時器）
                     if (this.config.isSurvivalMode) {
                         this.updateSurvivalTime(deltaTime);
-                        this.checkSurvivalMilestones();
-                        // 檢查是否達到3分鐘勝利條件
-                        this.checkSurvivalWinCondition();
+                        
+                        // 效能優化：節流檢查頻率
+                        const currentTime = performance.now();
+                        
+                        // 存活里程碑檢查（每500ms檢查一次）
+                        if (currentTime - this.lastSurvivalCheck >= this.survivalCheckInterval) {
+                            this.checkSurvivalMilestones();
+                            this.lastSurvivalCheck = currentTime;
+                        }
+                        
+                        // 勝利條件檢查（每1000ms檢查一次）
+                        if (currentTime - this.lastWinCheck >= this.winCheckInterval) {
+                            this.checkSurvivalWinCondition();
+                            this.lastWinCheck = currentTime;
+                        }
                     }
                     
                     if (this.timeLeft <= 0) {
@@ -1811,7 +1857,13 @@ class GameEngine {
                 if (this.config.isSurvivalMode) {
                     this.clearancesCount++;
                     console.log(`消除次數: ${this.clearancesCount}`);
-                    this.updateBlackenedBlocks();
+                    
+                    // 效能優化：節流黑色方塊檢查（每200ms檢查一次）
+                    const currentTime = performance.now();
+                    if (currentTime - this.lastBlackenedCheck >= this.blackenedCheckInterval) {
+                        this.updateBlackenedBlocks();
+                        this.lastBlackenedCheck = currentTime;
+                    }
                 }
                 
                 // 使用新的連擊分數計算系統
@@ -2710,8 +2762,8 @@ class GameEngine {
             this.survivalTime += deltaTime;
             this.totalGameTime += deltaTime;
             
-            // 每5秒打印一次存活時間用於調試
-            if (Math.floor(this.survivalTime / 5000) > Math.floor((this.survivalTime - deltaTime) / 5000)) {
+            // 效能優化：減少日誌輸出頻率（每10秒打印一次）
+            if (Math.floor(this.survivalTime / 10000) > Math.floor((this.survivalTime - deltaTime) / 10000)) {
                 console.log(`⏰ 存活時間更新: ${Math.floor(this.survivalTime / 1000)} 秒`);
             }
         }
@@ -2993,19 +3045,21 @@ class GameEngine {
         if (!this.config.isSurvivalMode) return;
         
         let removedCount = 0;
+        let processedBlocks = 0;
         
-        // 遍歷所有方塊，檢查黑色方塊狀態
+        // 效能優化：遍歷所有方塊，檢查黑色方塊狀態
         for (let col = 0; col < this.grid.length; col++) {
             for (let row = 0; row < this.grid[col].length; row++) {
                 const block = this.grid[col][row];
                 if (!block || !block.isBlackened) continue;
                 
+                processedBlocks++;
+                
                 // 遞減剩餘需要的消除次數
                 if (block.blackenedClearancesRequired > 0) {
                     block.blackenedClearancesRequired--;
-                    console.log(`⚫ 方塊 [${col}][${row}] 還需要 ${block.blackenedClearancesRequired} 次消除`);
                     
-                    // 如果達到解除條件
+                    // 效能優化：只在解除時才輸出日誌
                     if (block.blackenedClearancesRequired <= 0) {
                         // 恢復方塊的原始顏色
                         block.isBlackened = false;
@@ -3034,6 +3088,11 @@ class GameEngine {
                 console.error('顯示黑色方塊解除提示出錯:', error);
             }
         }
+        
+        // 效能優化：批量處理日誌（避免過多的日誌輸出）
+        if (processedBlocks > 0 && Math.random() < 0.1) {
+            console.log(`⚫ 處理了 ${processedBlocks} 個黑色方塊`);
+        }
     }
 
     // 重抽技能選項
@@ -3052,6 +3111,36 @@ class GameEngine {
         console.log('重抽技能選項:', newOptions);
         
         return newOptions;
+    }
+    
+    // 效能優化：動態調整節流設定
+    adjustPerformanceSettings() {
+        if (!this.config.isSurvivalMode) return;
+        
+        // 計算當前FPS
+        const currentFPS = 1000 / this.avgFrameTime;
+        const targetFPS = 60;
+        const performanceRatio = currentFPS / targetFPS;
+        
+        // 根據效能調整節流間隔
+        if (performanceRatio < 0.5) {
+            // 低效能設備：增加節流間隔
+            this.survivalCheckInterval = Math.min(1000, this.survivalCheckInterval * 1.2);
+            this.winCheckInterval = Math.min(2000, this.winCheckInterval * 1.2);
+            this.blackenedCheckInterval = Math.min(500, this.blackenedCheckInterval * 1.2);
+            console.log('🐌 效能較低，調整為低頻率檢查');
+        } else if (performanceRatio > 0.8) {
+            // 高效能設備：減少節流間隔
+            this.survivalCheckInterval = Math.max(300, this.survivalCheckInterval * 0.9);
+            this.winCheckInterval = Math.max(600, this.winCheckInterval * 0.9);
+            this.blackenedCheckInterval = Math.max(100, this.blackenedCheckInterval * 0.9);
+            console.log('⚡ 效能良好，調整為高頻率檢查');
+        }
+        
+        // 每30秒輸出一次效能報告
+        if (this.frameCount % 1800 === 0) {
+            console.log(`📊 效能報告: 平均FPS=${currentFPS.toFixed(1)}, 存活檢查間隔=${this.survivalCheckInterval}ms, 勝利檢查間隔=${this.winCheckInterval}ms`);
+        }
     }
 }
 

@@ -1128,15 +1128,22 @@ class UIManager {
                 const targetSeconds = Math.floor((targetTime % 60000) / 1000);
                 const survivalPercent = Math.min((survivalTime / targetTime) * 100, 100);
                 
-                if (survivalTimeEl) {
-                    survivalTimeEl.textContent = `${minutes}:${seconds.toString().padStart(2, '0')} / ${targetMinutes}:${targetSeconds.toString().padStart(2, '0')}`;
+                // 效能優化：只在時間發生變化時才更新UI
+                const timeText = `${minutes}:${seconds.toString().padStart(2, '0')} / ${targetMinutes}:${targetSeconds.toString().padStart(2, '0')}`;
+                const percentText = `${survivalPercent}%`;
+                
+                if (survivalTimeEl && survivalTimeEl.textContent !== timeText) {
+                    survivalTimeEl.textContent = timeText;
                 }
                 
-                if (survivalBar) {
-                    survivalBar.style.width = `${survivalPercent}%`;
+                if (survivalBar && survivalBar.style.width !== percentText) {
+                    survivalBar.style.width = percentText;
                 }
                 
-                console.log(`存活時間UI更新: ${minutes}:${seconds.toString().padStart(2, '0')} (${survivalPercent.toFixed(1)}%)`);
+                // 效能優化：減少控制台日誌輸出頻率
+                if (seconds % 5 === 0 && survivalTime % 1000 < 100) {
+                    console.log(`存活時間UI更新: ${minutes}:${seconds.toString().padStart(2, '0')} (${survivalPercent.toFixed(1)}%)`);
+                }
             }
         }
         

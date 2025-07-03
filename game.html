@@ -103,7 +103,6 @@
     <script src="js/SupabaseAuth.js"></script>
     <script src="js/LeaderboardManager.js"></script>
     <script src="js/UserManager.js"></script>
-    <script src="js/GlobalNavigation.js"></script>
     <script src="js/SkillSystem.js"></script>
     <script src="js/GameEngine.js"></script>
     <script src="js/GameModes.js?v=blackened_blocks_1"></script>
@@ -138,12 +137,6 @@
                     
                     // 初始化用戶管理器
                     window.userManager = new UserManager(window.supabaseAuth, window.leaderboardManager);
-                    
-                    // 初始化全局導航
-                    window.globalNav = new GlobalNavigation(window.supabaseAuth, window.userManager);
-                    
-                    // 手動初始化導航（會檢查當前用戶狀態）
-                    await window.globalNav.init();
                     
                     console.log('用戶系統已初始化');
                 } else {
