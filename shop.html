@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>道具商城 - 三消挑戰</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Noto Sans TC', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        
+        .shop-card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+        }
+        
+        .item-card {
+            background: rgba(255, 255, 255, 0.9);
+            backdrop-filter: blur(5px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            transition: all 0.3s ease;
+        }
+        
+        .item-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+        }
+        
+        .currency-display {
+            background: linear-gradient(45deg, #fbbf24, #f59e0b);
+            color: white;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-weight: 600;
+            box-shadow: 0 4px 12px rgba(251, 191, 36, 0.3);
+        }
+        
+        .nav-button {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+        
+        .nav-button:hover {
+            background: linear-gradient(45deg, #5a67d8, #6b46c1);
+            transform: translateY(-1px);
+        }
+        
+        .buy-button {
+            background: linear-gradient(45deg, #10b981, #065f46);
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-weight: 500;
+            font-size: 0.875rem;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+        
+        .buy-button:hover:not(:disabled) {
+            background: linear-gradient(45deg, #059669, #047857);
+            transform: translateY(-1px);
+        }
+        
+        .buy-button:disabled {
+            background: #9ca3af;
+            cursor: not-allowed;
+            transform: none;
+        }
+    </style>
+</head>
+<body class="min-h-screen p-4">
+    <!-- 導航欄 -->
+    <div class="max-w-6xl mx-auto mb-6">
+        <div class="flex justify-between items-center">
+            <div>
+                <h1 class="text-3xl font-bold text-white mb-2">🏪 道具商城</h1>
+                <p class="text-white/80">購買道具增強你的遊戲體驗</p>
+            </div>
+            <div class="flex items-center gap-4">
+                <div class="currency-display" id="currency-display">
+                    💰 載入中...
+                </div>
+                <!-- 測試按鈕 -->
+                <button class="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-lg font-medium transition-colors" 
+                        onclick="fillMoneyTest()" 
+                        title="測試功能：補充金錢到1000元">
+                    🧪 補充金錢
+                </button>
+                <button class="nav-button" onclick="goToMainMenu()">
+                    返回主選單
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 主要內容 -->
+    <div class="max-w-6xl mx-auto">
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <!-- 商城區域 -->
+            <div class="lg:col-span-2">
+                <div class="shop-card rounded-lg p-6">
+                    <div class="mb-4">
+                        <h2 class="text-xl font-bold text-gray-800 mb-2">可購買道具</h2>
+                        <p class="text-gray-600">選擇你需要的道具，每種道具最多持有 3 個</p>
+                    </div>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4" id="shop-items">
+                        <!-- 商城道具列表將在這裡動態生成 -->
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 側邊欄 -->
+            <div class="space-y-6">
+                <!-- 裝備欄 -->
+                <div class="shop-card rounded-lg p-6">
+                    <h3 class="text-lg font-bold text-gray-800 mb-4">⚔️ 裝備欄 (0/3)</h3>
+                    <div class="space-y-3" id="equipped-items">
+                        <!-- 裝備道具將在這裡顯示 -->
+                    </div>
+                </div>
+                
+                <!-- 背包 -->
+                <div class="shop-card rounded-lg p-6">
+                    <h3 class="text-lg font-bold text-gray-800 mb-4">🎒 我的背包</h3>
+                    <div class="space-y-2" id="inventory-items">
+                        <!-- 背包道具將在這裡顯示 -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 載入所有系統 -->
+    <script src="js/ItemSystem.js"></script>
+    <script src="js/ShopSystem.js"></script>
+    <script src="js/InventorySystem.js"></script>
+    
+    <script>
+        // 頁面載入完成後初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            // 等待所有系統載入完成
+            setTimeout(() => {
+                initializeSystems();
+                updateDisplay();
+            }, 100);
+        });
+        
+        // 初始化系統
+        function initializeSystems() {
+            // 檢查系統是否已載入
+            if (typeof ShopSystem === 'undefined') {
+                console.error('ShopSystem 未載入');
+                return;
+            }
+            if (typeof InventorySystem === 'undefined') {
+                console.error('InventorySystem 未載入');
+                return;
+            }
+            if (typeof ItemSystem === 'undefined') {
+                console.error('ItemSystem 未載入');
+                return;
+            }
+            
+            ShopSystem.init();
+            InventorySystem.init();
+        }
+        
+        // 返回主選單
+        function goToMainMenu() {
+            window.location.href = 'main-menu.html';
+        }
+        
+        // 更新顯示
+        function updateDisplay() {
+            updateCurrencyDisplay();
+            updateShopItems();
+            updateEquippedItems();
+            updateInventoryItems();
+        }
+        
+        // 更新貨幣顯示
+        function updateCurrencyDisplay() {
+            const currency = ShopSystem.getCurrency() || 0;
+            document.getElementById('currency-display').textContent = `💰 ${currency.toLocaleString()}`;
+        }
+        
+        // 更新商城道具
+        function updateShopItems() {
+            const shopItems = ShopSystem.getShopItems();
+            const container = document.getElementById('shop-items');
+            
+            container.innerHTML = '';
+            
+            shopItems.forEach(item => {
+                const itemElement = createShopItemElement(item);
+                container.appendChild(itemElement);
+            });
+        }
+        
+        // 創建商城道具元素
+        function createShopItemElement(item) {
+            const div = document.createElement('div');
+            div.className = 'item-card rounded-lg p-4';
+            
+            const canAfford = ShopSystem.canAfford(item.price);
+            const isMaxed = item.isMaxed;
+            const canBuy = canAfford && !isMaxed;
+            
+            div.innerHTML = `
+                <div class="flex items-start justify-between mb-3">
+                    <div>
+                        <div class="flex items-center gap-2 mb-1">
+                            <span class="text-2xl">${item.icon}</span>
+                            <h3 class="font-bold text-gray-800">${item.name}</h3>
+                        </div>
+                        <p class="text-sm text-gray-600 mb-2">${item.description}</p>
+                        <div class="text-sm text-gray-500">
+                            持有：${item.owned}/${item.maxStack}
+                        </div>
+                    </div>
+                    <div class="text-right">
+                        <div class="text-lg font-bold text-orange-600 mb-2">
+                            💰 ${item.price}
+                        </div>
+                        <button 
+                            class="buy-button ${canBuy ? '' : 'opacity-50 cursor-not-allowed'}"
+                            onclick="purchaseItem('${item.id}')"
+                            ${canBuy ? '' : 'disabled'}
+                        >
+                            ${isMaxed ? '已滿' : canAfford ? '購買' : '金幣不足'}
+                        </button>
+                    </div>
+                </div>
+            `;
+            
+            return div;
+        }
+        
+        // 更新裝備道具
+        function updateEquippedItems() {
+            const equippedItems = InventorySystem.getEquippedItems();
+            const container = document.getElementById('equipped-items');
+            
+            container.innerHTML = '';
+            
+            // 創建3個裝備槽位
+            for (let i = 0; i < 3; i++) {
+                const slot = document.createElement('div');
+                slot.className = 'p-3 border-2 border-dashed border-gray-300 rounded-lg';
+                
+                if (equippedItems[i]) {
+                    const item = ItemSystem.getItemData(equippedItems[i]);
+                    const quantity = InventorySystem.getItemQuantity(equippedItems[i]);
+                    
+                    if (item) {
+                        slot.className = 'p-3 border-2 border-green-300 bg-green-50 rounded-lg';
+                        slot.innerHTML = `
+                            <div class="flex items-center justify-between">
+                                <div class="flex items-center gap-2">
+                                    <span class="text-lg">${item.icon}</span>
+                                    <div>
+                                        <div class="font-medium text-sm">${item.name}</div>
+                                        <div class="text-xs text-gray-500">x${quantity}</div>
+                                    </div>
+                                </div>
+                                <button class="text-red-500 hover:text-red-700 text-sm"
+                                        onclick="unequipItem('${item.id}')">
+                                    卸下
+                                </button>
+                            </div>
+                        `;
+                    }
+                } else {
+                    slot.innerHTML = `
+                        <div class="text-center text-gray-400">
+                            <div class="text-2xl mb-1">➕</div>
+                            <div class="text-xs">空槽位</div>
+                        </div>
+                    `;
+                }
+                
+                container.appendChild(slot);
+            }
+        }
+        
+        // 更新背包道具
+        function updateInventoryItems() {
+            const inventory = InventorySystem.getInventory();
+            const container = document.getElementById('inventory-items');
+            
+            container.innerHTML = '';
+            
+            if (Object.keys(inventory).length === 0) {
+                container.innerHTML = `
+                    <div class="text-center text-gray-500 py-4">
+                        <div class="text-2xl mb-2">🎒</div>
+                        <p class="text-sm">背包是空的</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            Object.entries(inventory).forEach(([itemId, quantity]) => {
+                const item = ItemSystem.getItemData(itemId);
+                if (item) {
+                    const isEquipped = InventorySystem.isEquipped(itemId);
+                    const canEquip = !isEquipped && InventorySystem.getEquippedItems().length < 3;
+                    
+                    const div = document.createElement('div');
+                    div.className = 'flex items-center justify-between p-2 bg-gray-50 rounded';
+                    
+                    div.innerHTML = `
+                        <div class="flex items-center gap-2">
+                            <span class="text-lg">${item.icon}</span>
+                            <div>
+                                <div class="font-medium text-sm">${item.name}</div>
+                                <div class="text-xs text-gray-500">x${quantity}</div>
+                            </div>
+                        </div>
+                        <div class="flex gap-2">
+                            ${isEquipped ? 
+                                '<span class="text-xs text-green-600 bg-green-100 px-2 py-1 rounded">已裝備</span>' :
+                                `<button class="text-blue-600 hover:text-blue-800 text-sm ${canEquip ? '' : 'opacity-50 cursor-not-allowed'}"
+                                    onclick="equipItem('${itemId}')" ${canEquip ? '' : 'disabled'}>
+                                    ${canEquip ? '裝備' : '槽位已滿'}
+                                </button>`
+                            }
+                        </div>
+                    `;
+                    
+                    container.appendChild(div);
+                }
+            });
+        }
+        
+        // 購買道具
+        function purchaseItem(itemId) {
+            const result = ShopSystem.purchaseItem(itemId, 1);
+            
+            if (result.success) {
+                showNotification(result.message, 'success');
+                updateDisplay();
+            } else {
+                showNotification(result.message, 'error');
+            }
+        }
+        
+        // 裝備道具
+        function equipItem(itemId) {
+            const success = InventorySystem.equipItem(itemId);
+            const item = ItemSystem.getItemData(itemId);
+            
+            if (success) {
+                showNotification(`⚔️ 裝備了 ${item.name}`, 'success');
+                updateDisplay();
+            } else {
+                showNotification(`無法裝備 ${item.name}`, 'error');
+            }
+        }
+        
+        // 卸下道具
+        function unequipItem(itemId) {
+            const success = InventorySystem.unequipItem(itemId);
+            const item = ItemSystem.getItemData(itemId);
+            
+            if (success) {
+                showNotification(`🔽 卸下了 ${item.name}`, 'info');
+                updateDisplay();
+            } else {
+                showNotification(`無法卸下 ${item.name}`, 'error');
+            }
+        }
+        
+        // 顯示通知
+        function showNotification(message, type = 'info') {
+            // 創建簡單的通知
+            const notification = document.createElement('div');
+            notification.className = `fixed top-4 right-4 p-4 rounded-lg text-white font-medium z-50 transition-all duration-300`;
+            notification.style.transform = 'translateX(100%)';
+            
+            switch (type) {
+                case 'success':
+                    notification.className += ' bg-green-500';
+                    break;
+                case 'error':
+                    notification.className += ' bg-red-500';
+                    break;
+                default:
+                    notification.className += ' bg-blue-500';
+            }
+            
+            notification.textContent = message;
+            document.body.appendChild(notification);
+            
+            // 顯示動畫
+            setTimeout(() => {
+                notification.style.transform = 'translateX(0)';
+            }, 100);
+            
+            // 自動消失
+            setTimeout(() => {
+                notification.style.transform = 'translateX(100%)';
+                setTimeout(() => {
+                    document.body.removeChild(notification);
+                }, 300);
+            }, 3000);
+        }
+        
+        // 測試功能：補充金錢到1000元
+        function fillMoneyTest() {
+            try {
+                const newAmount = ShopSystem.fillMoneyTo1000();
+                showNotification(`💰 測試功能：金錢已補充到 ${newAmount.toLocaleString()} 元`, 'success');
+                updateDisplay();
+            } catch (error) {
+                console.error('補充金錢失敗:', error);
+                showNotification('補充金錢失敗', 'error');
+            }
+        }
+        
+        // 返回主選單
+        function goToMainMenu() {
+            window.location.href = 'main-menu.html';
+        }
+    </script>
+</body>
+</html> 

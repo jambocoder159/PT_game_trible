@@ -10,7 +10,9 @@ class UIManager {
                 exp: 0,
                 expToNextLevel: 100,
                 gold: 0,
-                playerSkills: {}
+                playerSkills: {},
+                hasTimer: config.hasTimer || false,
+                actionPoints: config.actionPointsStart || 5
             };
             headerHTML = this.createRPGHeaderHTML(mode, config, defaultGameState);
         } else {
@@ -18,6 +20,7 @@ class UIManager {
         }
 
         const skillsSection = config.hasSkills ? this.createSkillsSection() : '';
+        const itemsSection = this.createItemsSection(); // 所有模式都顯示道具區域
         const modalStats = this.createModalStatsHTML(mode);
         const modalButtonLayout = this.createModalButtonsHTML(mode);
         const timerSection = this.createTimerHTML(config);
@@ -34,11 +37,15 @@ class UIManager {
 
             <div class="flex-shrink-0 bg-slate-100/50 rounded-b-xl px-3 py-2">
                 <div class="flex items-center justify-between">
-                    ${skillsSection}
+                    <div class="flex items-center gap-2">
+                        ${skillsSection}
+                        ${itemsSection}
+                    </div>
                     <button id="backToIntroButton" class="bg-gray-500 hover:bg-gray-600 text-white p-2 rounded-full action-button w-8 h-8 flex items-center justify-center" title="主選單">
                         <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z"/></svg>
                     </button>
                 </div>
+                <div id="itemStatus" class="text-center text-xs text-gray-600 mt-1"></div>
             </div>
         </div>
 
@@ -175,6 +182,13 @@ class UIManager {
 
     static createTimerHTML(config) {
         if (!config.hasTimer) return '';
+        
+        // RPG模式的計時器已整合到RPG狀態欄中的環形倒數器
+        if (config.hasRPGSystem) {
+            return '';
+        }
+        
+        // 非RPG模式仍使用原有的橫向進度條
         return `
         <div class="timer-display-area p-2 bg-slate-100/30">
             <div class="relative w-full h-5 bg-slate-300/50 rounded-full overflow-hidden shadow-inner">
@@ -230,32 +244,15 @@ class UIManager {
     }
 
     static createSkillsSection() {
+        // 技能系統已整合到道具系統中，不再需要獨立的技能按鈕
+        return '';
+    }
+
+    // 創建道具系統UI
+    static createItemsSection() {
         return `
-        <div class="flex gap-1">
-            <div class="relative">
-                <button id="skillRemoveSingle" class="skill-button bg-red-500 hover:bg-red-600 text-white p-2 rounded-full w-8 h-8 flex items-center justify-center" title="移除單個方塊">
-                    <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                        <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/>
-                    </svg>
-                </button>
-                <span id="skillRemoveSingleUses" class="skill-badge">3</span>
-            </div>
-            <div class="relative">
-                <button id="skillRerollNext" class="skill-button bg-amber-500 hover:bg-amber-600 text-white p-2 rounded-full w-8 h-8 flex items-center justify-center" title="重骰下個方塊">
-                    <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                        <path fill-rule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clip-rule="evenodd"/>
-                    </svg>
-                </button>
-                <span id="skillRerollNextUses" class="skill-badge">3</span>
-            </div>
-            <div class="relative">
-                <button id="skillRerollBoard" class="skill-button bg-purple-500 hover:bg-purple-600 text-white p-2 rounded-full w-8 h-8 flex items-center justify-center" title="變色板面">
-                    <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                        <path fill-rule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clip-rule="evenodd"/>
-                    </svg>
-                </button>
-                <span id="skillRerollBoardUses" class="skill-badge">3</span>
-            </div>
+        <div class="flex gap-3" id="equippedItems">
+            <!-- 道具按鈕將在這裡動態生成 -->
         </div>`;
     }
 
@@ -691,8 +688,24 @@ class UIManager {
         
         // 檢查是否為存活模式
         const isSurvivalMode = gameState.isSurvivalMode || (window.gameEngine?.config?.isSurvivalMode);
-        let survivalTimeHTML = '';
         
+        // 檢查是否有計時器需求
+        const hasTimer = gameState.hasTimer !== undefined ? gameState.hasTimer : true; // RPG模式預設有計時器
+        let timerProgressHTML = '';
+        
+        if (hasTimer) {
+            timerProgressHTML = `
+                <!-- 底部細橫向進度條 -->
+                <div class="absolute bottom-0 left-0 right-0 h-1">
+                    <div id="timer-progress-bar" class="h-full bg-gradient-to-r from-emerald-400 via-cyan-400 to-blue-400 transition-all duration-200 ease-linear shadow-sm" style="width: 100%"></div>
+                </div>`;
+        }
+        
+        // 創建已獲技能HTML（整合模式）
+        const acquiredSkillsHTML = this.createAcquiredSkillsHTML(gameState.playerSkills, true);
+        
+        // 存活時間和技能合併的HTML
+        let survivalAndSkillsHTML = '';
         if (isSurvivalMode) {
             const survivalTime = gameState.survivalTime || 0;
             const targetTime = gameState.targetSurvivalTime || 180000; // 3分鐘
@@ -700,99 +713,185 @@ class UIManager {
             const seconds = Math.floor((survivalTime % 60000) / 1000);
             const targetMinutes = Math.floor(targetTime / 60000);
             const targetSeconds = Math.floor((targetTime % 60000) / 1000);
-            const survivalPercent = Math.min((survivalTime / targetTime) * 100, 100);
             
-            survivalTimeHTML = `
-                <div class="mt-1">
-                    <div class="flex items-center gap-2 mb-1">
-                        <span class="text-xs font-medium">存活時間</span>
-                        <span id="survival-time" class="text-sm font-bold text-green-300">${minutes}:${seconds.toString().padStart(2, '0')} / ${targetMinutes}:${targetSeconds.toString().padStart(2, '0')}</span>
+            survivalAndSkillsHTML = `
+                <div class="flex items-center justify-between gap-2 mt-1">
+                    <!-- 存活時間 -->
+                    <div class="flex items-center gap-1 flex-shrink-0">
+                        <span class="text-xs text-green-200">⏰</span>
+                        <span id="survival-time" class="text-xs font-semibold text-green-300">${minutes}:${seconds.toString().padStart(2, '0')} / ${targetMinutes}:${targetSeconds.toString().padStart(2, '0')}</span>
                     </div>
-                    <div class="relative w-full h-2 bg-gray-600/50 rounded-full overflow-hidden">
-                        <div id="survival-bar" class="h-full bg-gradient-to-r from-green-400 to-green-600 rounded-full transition-all duration-300 ease-out" style="width: ${survivalPercent}%"></div>
+                    
+                    <!-- 已獲技能 -->
+                    <div class="flex items-center gap-1 flex-1 min-w-0">
+                        <span class="text-xs text-slate-200 whitespace-nowrap">技能:</span>
+                        <div class="flex gap-1 overflow-x-auto">
+                            ${this.createSkillIconsHTML(gameState.playerSkills)}
+                        </div>
                     </div>
                 </div>`;
+        } else {
+            // 非存活模式只顯示技能
+            survivalAndSkillsHTML = acquiredSkillsHTML;
         }
         
         return `
-        <div id="rpg-stats" class="flex-shrink-0 bg-gradient-to-r from-purple-600/80 to-blue-600/80 rounded-t-xl px-3 py-2 text-white">
-            <div class="flex items-center justify-between">
-                <!-- 左側：等級和經驗條 -->
-                <div class="flex-1 mr-4">
-                    <div class="flex items-center gap-2 mb-1">
-                        <span class="text-xs font-medium">等級</span>
-                        <span id="player-level" class="text-lg font-bold text-yellow-300">${level}</span>
-                        <span class="text-xs font-medium">金幣</span>
-                        <span id="player-gold" class="text-sm font-bold text-yellow-300">💰${gold}</span>
-                        <span class="text-xs font-medium">行動</span>
-                        <span id="action-points-display" class="text-sm font-bold text-red-300">${actionPoints}</span>
+        <div id="rpg-stats" class="relative flex-shrink-0 bg-gradient-to-br from-indigo-500/80 via-purple-500/80 to-pink-400/80 rounded-t-xl px-3 py-2 text-white backdrop-blur-sm">
+            <div class="space-y-2">
+                <!-- 第一排：緊湊的狀態顯示 -->
+                <div class="flex items-center gap-3 text-xs">
+                    <div class="flex items-center gap-1">
+                        <span class="text-yellow-200">Lv</span>
+                        <span id="player-level" class="font-bold text-yellow-300">${level}</span>
                     </div>
-                    <div class="relative w-full h-3 bg-gray-600/50 rounded-full overflow-hidden">
-                        <div id="exp-bar" class="h-full bg-gradient-to-r from-green-400 to-emerald-500 rounded-full transition-all duration-300 ease-out" style="width: ${expPercent}%"></div>
-                        <span id="exp-text" class="absolute inset-0 flex items-center justify-center text-xs font-bold text-white text-shadow">EXP ${exp}/${expToNextLevel}</span>
+                    <div class="flex items-center gap-1">
+                        <span class="text-yellow-200"></span>
+                        <span id="player-gold" class="font-semibold text-yellow-300">${gold}</span>
                     </div>
-                    ${survivalTimeHTML}
+                    <div class="flex items-center gap-1">
+                        <span class="text-red-200">🩷</span>
+                        <span id="action-points-display" class="font-semibold text-red-300">${actionPoints}</span>
+                    </div>
+                    ${hasTimer ? `
+                    <div class="flex items-center gap-1">
+                        <span class="text-orange-200">⏱️</span>
+                        <span id="time-left" class="font-semibold text-orange-300">8s</span>
+                    </div>` : ''}
+                    <div class="flex items-center gap-1">
+                        <span class="text-sky-200">📊</span>
+                        <span id="score" class="font-semibold text-sky-300">0</span>
+                    </div>
+                    <div class="flex items-center gap-1">
+                        <span class="text-emerald-200">🔗</span>
+                        <span id="combo" class="font-semibold text-emerald-300">0</span>
+                    </div>
                 </div>
                 
-                <!-- 右側：分數和連擊 -->
-                <div class="flex gap-4 text-center text-xs">
-                    <div>
-                        <p class="text-gray-200">分數</p>
-                        <p id="score" class="text-sm font-bold text-sky-200">0</p>
-                    </div>
-                    <div>
-                        <p class="text-gray-200">連擊</p>
-                        <p id="combo" class="text-sm font-bold text-emerald-200">0</p>
-                    </div>
+                <!-- 經驗條 -->
+                <div class="relative w-full h-2.5 bg-white/20 rounded-full overflow-hidden backdrop-blur-sm">
+                    <div id="exp-bar" class="h-full bg-gradient-to-r from-emerald-400 to-cyan-400 rounded-full transition-all duration-300 ease-out" style="width: ${expPercent}%"></div>
+                    <span id="exp-text" class="absolute inset-0 flex items-center justify-center text-xs font-bold text-white drop-shadow-sm">EXP ${exp}/${expToNextLevel}</span>
                 </div>
+                
+                <!-- 存活時間和已獲技能 -->
+                ${survivalAndSkillsHTML}
             </div>
+            
+            ${timerProgressHTML}
         </div>`;
     }
     
-    // 創建已獲技能欄HTML
-    static createAcquiredSkillsHTML(playerSkills) {
-        if (!playerSkills || Object.keys(playerSkills).length === 0) {
+    // 創建技能圖標HTML（用於整合顯示）
+    static createSkillIconsHTML(playerSkills) {
+        const hasSkills = playerSkills && Object.keys(playerSkills).length > 0;
+        
+        if (hasSkills) {
+            let skillsHTML = '';
+            Object.entries(playerSkills).forEach(([skillId, level]) => {
+                const skillData = window.SkillSystem?.getSkillData(skillId, level);
+                if (skillData) {
+                    skillsHTML += `
+                    <div class="skill-icon relative" title="${skillData.name} Lv.${level}&#10;${skillData.description}">
+                        <div class="w-6 h-6 bg-gradient-to-br from-slate-500/80 to-slate-600/80 rounded-md flex items-center justify-center text-sm border border-slate-300/30 shadow-sm backdrop-blur-sm">
+                            ${skillData.icon}
+                        </div>
+                        <span class="absolute -bottom-0.5 -right-0.5 bg-emerald-500 text-white text-xs font-bold rounded-full w-3 h-3 flex items-center justify-center border border-slate-300/50 text-[10px]">${level}</span>
+                    </div>`;
+                }
+            });
+            return skillsHTML;
+        } else {
+            // 提供骨架佔位符
             return `
-            <div id="acquired-skills" class="px-3 py-2 bg-slate-100/30 border-b border-slate-200/50">
-                <div class="text-center text-xs text-slate-500">尚未獲得技能</div>
+            <div class="skill-icon-placeholder opacity-30">
+                <div class="w-6 h-6 bg-slate-400/60 rounded-md flex items-center justify-center text-sm border border-slate-300/40 shadow-sm backdrop-blur-sm">
+                    <span class="text-slate-100 text-xs">?</span>
+                </div>
+            </div>
+            <div class="skill-icon-placeholder opacity-20">
+                <div class="w-6 h-6 bg-slate-400/60 rounded-md flex items-center justify-center text-sm border border-slate-300/40 shadow-sm backdrop-blur-sm">
+                    <span class="text-slate-100 text-xs">?</span>
+                </div>
+            </div>
+            <div class="skill-icon-placeholder opacity-10">
+                <div class="w-6 h-6 bg-slate-400/60 rounded-md flex items-center justify-center text-sm border border-slate-300/40 shadow-sm backdrop-blur-sm">
+                    <span class="text-slate-100 text-xs">?</span>
+                </div>
+            </div>`;
+        }
+    }
+
+    // 創建已獲技能欄HTML
+    static createAcquiredSkillsHTML(playerSkills, isIntegrated = false) {
+        // 優化：始終提供固定高度的容器，避免佈局變化
+        const hasSkills = playerSkills && Object.keys(playerSkills).length > 0;
+        
+        let skillsHTML = '';
+        if (hasSkills) {
+            Object.entries(playerSkills).forEach(([skillId, level]) => {
+                const skillData = window.SkillSystem?.getSkillData(skillId, level);
+                if (skillData) {
+                    skillsHTML += `
+                    <div class="skill-icon relative" title="${skillData.name} Lv.${level}&#10;${skillData.description}">
+                        <div class="w-8 h-8 bg-gradient-to-br from-slate-500/80 to-slate-600/80 rounded-lg flex items-center justify-center text-lg border-2 border-slate-300/30 shadow-md backdrop-blur-sm">
+                            ${skillData.icon}
+                        </div>
+                        <span class="absolute -bottom-1 -right-1 bg-emerald-500 text-white text-xs font-bold rounded-full w-4 h-4 flex items-center justify-center border border-slate-300/50">${level}</span>
+                    </div>`;
+                }
+            });
+        } else {
+            // 提供骨架佔位符 - 使用更柔和的配色
+            skillsHTML = `
+            <div class="skill-icon-placeholder opacity-30">
+                <div class="w-8 h-8 bg-slate-400/60 rounded-lg flex items-center justify-center text-lg border-2 border-slate-300/40 shadow-md backdrop-blur-sm">
+                    <span class="text-slate-100">?</span>
+                </div>
+            </div>
+            <div class="skill-icon-placeholder opacity-20">
+                <div class="w-8 h-8 bg-slate-400/60 rounded-lg flex items-center justify-center text-lg border-2 border-slate-300/40 shadow-md backdrop-blur-sm">
+                    <span class="text-slate-100">?</span>
+                </div>
+            </div>
+            <div class="skill-icon-placeholder opacity-10">
+                <div class="w-8 h-8 bg-slate-400/60 rounded-lg flex items-center justify-center text-lg border-2 border-slate-300/40 shadow-md backdrop-blur-sm">
+                    <span class="text-slate-100">?</span>
+                </div>
             </div>`;
         }
         
-        let skillsHTML = '';
-        Object.entries(playerSkills).forEach(([skillId, level]) => {
-            const skillData = window.SkillSystem?.getSkillData(skillId, level);
-            if (skillData) {
-                skillsHTML += `
-                <div class="skill-icon relative" title="${skillData.name} Lv.${level}&#10;${skillData.description}">
-                    <div class="w-8 h-8 bg-gradient-to-br from-purple-500 to-blue-600 rounded-lg flex items-center justify-center text-lg border-2 border-white/20 shadow-md">
-                        ${skillData.icon}
+        if (isIntegrated) {
+            // 整合模式：直接返回技能內容，在狀態欄中顯示
+            return `
+                <div class="flex items-center gap-2 mt-1">
+                    <span class="text-xs text-slate-200 whitespace-nowrap">已獲技能:</span>
+                    <div class="flex gap-1 overflow-x-auto">
+                        ${skillsHTML}
                     </div>
-                    <span class="absolute -bottom-1 -right-1 bg-yellow-500 text-black text-xs font-bold rounded-full w-4 h-4 flex items-center justify-center">${level}</span>
                 </div>`;
-            }
-        });
-        
-        return `
-        <div id="acquired-skills" class="px-3 py-2 bg-slate-100/30 border-b border-slate-200/50">
-            <div class="flex items-center gap-2 overflow-x-auto">
-                <span class="text-xs text-slate-600 whitespace-nowrap">已獲技能:</span>
-                <div class="flex gap-1">
-                    ${skillsHTML}
+        } else {
+            // 獨立模式：完整的技能區域
+            return `
+            <div id="acquired-skills" class="px-3 py-2 bg-slate-100/20 border-b border-slate-200/30 min-h-[3.5rem] backdrop-blur-sm">
+                <div class="flex items-center gap-2 overflow-x-auto h-10">
+                    <span class="text-xs text-slate-100 whitespace-nowrap">已獲技能:</span>
+                    <div class="flex gap-1">
+                        ${skillsHTML}
+                    </div>
                 </div>
-            </div>
-        </div>`;
+            </div>`;
+        }
     }
     
     // 修改createStandardHeaderHTML以支持RPG模式
     static createRPGHeaderHTML(mode, config, gameState) {
         if (config.hasRPGSystem && gameState) {
-            // RPG模式header
+            // RPG模式header - 技能已整合到狀態欄中，不需要單獨創建
             const rpgStatsHTML = this.createRPGStatsHTML(gameState);
-            const acquiredSkillsHTML = this.createAcquiredSkillsHTML(gameState.playerSkills);
             
-            return rpgStatsHTML + acquiredSkillsHTML;
+            return rpgStatsHTML;
         } else {
-            // 標準header
+            // 非RPG模式使用標準header
             return this.createStandardHeaderHTML(mode, config);
         }
     }
@@ -825,11 +924,11 @@ class UIManager {
                     : 'bg-gray-400 cursor-not-allowed';
                 
                 skillOptionsHTML += `
-                <div class="skill-option bg-slate-50 rounded-lg p-4 border-2 border-transparent hover:border-purple-300 transition-colors">
-                    <div class="flex items-start gap-3">
-                        <div class="skill-icon-large w-12 h-12 bg-gradient-to-br from-purple-500 to-blue-600 rounded-lg flex items-center justify-center text-2xl border-2 border-white/20 shadow-md">
-                            ${skillData.icon}
-                        </div>
+                                        <div class="skill-option bg-slate-50 rounded-lg p-4 border-2 border-transparent hover:border-purple-300 transition-colors">
+                            <div class="flex items-start gap-3">
+                                <div class="skill-icon-large w-12 h-12 bg-gradient-to-br from-slate-500/80 to-slate-600/80 rounded-lg flex items-center justify-center text-2xl border-2 border-slate-300/30 shadow-md backdrop-blur-sm">
+                                    ${skillData.icon}
+                                </div>
                         <div class="flex-1">
                             <h4 class="font-bold text-gray-800 mb-1">
                                 ${skillData.name}
@@ -984,7 +1083,7 @@ class UIManager {
                     skillOptionsHTML += `
                     <div class="skill-option bg-slate-50 rounded-lg p-4 border-2 border-transparent hover:border-purple-300 transition-colors">
                         <div class="flex items-start gap-3">
-                            <div class="skill-icon-large w-12 h-12 bg-gradient-to-br from-purple-500 to-blue-600 rounded-lg flex items-center justify-center text-2xl border-2 border-white/20 shadow-md">
+                            <div class="skill-icon-large w-12 h-12 bg-gradient-to-br from-slate-500/80 to-slate-600/80 rounded-lg flex items-center justify-center text-2xl border-2 border-slate-300/30 shadow-md backdrop-blur-sm">
                                 ${skillData.icon}
                             </div>
                             <div class="flex-1">
@@ -1026,7 +1125,7 @@ class UIManager {
         // 更新金幣顯示
         const goldDisplay = modal.querySelector('.bg-white\\/20');
         if (goldDisplay) {
-            goldDisplay.textContent = `目前金幣: 💰${playerGold}`;
+            goldDisplay.textContent = `目前金幣: ${playerGold}`;
         }
         
         // 更新重抽按鈕
@@ -1117,43 +1216,59 @@ class UIManager {
         const isSurvivalMode = gameState.isSurvivalMode || (window.gameEngine?.config?.isSurvivalMode);
         if (isSurvivalMode) {
             const survivalTimeEl = document.getElementById('survival-time');
-            const survivalBar = document.getElementById('survival-bar');
             
-            if (survivalTimeEl || survivalBar) {
+            if (survivalTimeEl) {
                 const survivalTime = gameState.survivalTime || 0;
                 const targetTime = gameState.targetSurvivalTime || 180000; // 3分鐘
                 const minutes = Math.floor(survivalTime / 60000);
                 const seconds = Math.floor((survivalTime % 60000) / 1000);
                 const targetMinutes = Math.floor(targetTime / 60000);
                 const targetSeconds = Math.floor((targetTime % 60000) / 1000);
-                const survivalPercent = Math.min((survivalTime / targetTime) * 100, 100);
                 
                 // 效能優化：只在時間發生變化時才更新UI
                 const timeText = `${minutes}:${seconds.toString().padStart(2, '0')} / ${targetMinutes}:${targetSeconds.toString().padStart(2, '0')}`;
-                const percentText = `${survivalPercent}%`;
                 
-                if (survivalTimeEl && survivalTimeEl.textContent !== timeText) {
+                if (survivalTimeEl.textContent !== timeText) {
                     survivalTimeEl.textContent = timeText;
-                }
-                
-                if (survivalBar && survivalBar.style.width !== percentText) {
-                    survivalBar.style.width = percentText;
-                }
-                
-                // 效能優化：減少控制台日誌輸出頻率
-                if (seconds % 5 === 0 && survivalTime % 1000 < 100) {
-                    console.log(`存活時間UI更新: ${minutes}:${seconds.toString().padStart(2, '0')} (${survivalPercent.toFixed(1)}%)`);
                 }
             }
         }
         
-        // 更新已獲技能
-        const acquiredSkillsContainer = document.getElementById('acquired-skills');
-        if (acquiredSkillsContainer) {
-            const newSkillsHTML = this.createAcquiredSkillsHTML(gameState.playerSkills);
-            const tempDiv = document.createElement('div');
-            tempDiv.innerHTML = newSkillsHTML;
-            acquiredSkillsContainer.parentNode.replaceChild(tempDiv.firstElementChild, acquiredSkillsContainer);
+        // 更新已獲技能 - 修正：針對新的整合布局
+        this.updateSkillsDisplay(gameState.playerSkills);
+    }
+    
+    // 新增：更新技能顯示的專用函數
+    static updateSkillsDisplay(playerSkills) {
+        // 查找技能顯示容器
+        const skillsContainer = document.querySelector('#rpg-stats .flex.gap-1.overflow-x-auto');
+        
+        if (skillsContainer) {
+            // 直接更新技能內容
+            skillsContainer.innerHTML = this.createSkillIconsHTML(playerSkills);
+            // console.log('✅ 技能顯示已更新:', playerSkills);
+        } else {
+            console.log('❌ 未找到技能顯示容器');
+            
+            // 備用方案：重新構建整個RPG狀態欄
+            const rpgStatsContainer = document.getElementById('rpg-stats');
+            if (rpgStatsContainer && window.gameEngine) {
+                const gameState = {
+                    level: window.gameEngine.level,
+                    exp: window.gameEngine.exp,
+                    expToNextLevel: window.gameEngine.expToNextLevel,
+                    gold: window.gameEngine.gold,
+                    actionPoints: window.gameEngine.actionPoints,
+                    playerSkills: playerSkills,
+                    hasTimer: window.gameEngine.config.hasTimer,
+                    isSurvivalMode: window.gameEngine.config.isSurvivalMode,
+                    survivalTime: window.gameEngine.survivalTime || 0,
+                    targetSurvivalTime: window.gameEngine.config.survivalConfig?.targetSurvivalTime || 180000
+                };
+                
+                rpgStatsContainer.outerHTML = this.createRPGStatsHTML(gameState);
+                console.log('✅ RPG狀態欄已重新構建，技能已更新');
+            }
         }
     }
 }
@@ -1161,4 +1276,4 @@ class UIManager {
 // 導出類
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = UIManager;
-} 
+}

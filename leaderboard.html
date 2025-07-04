@@ -417,7 +417,11 @@
             
             try {
                 if (window.leaderboardManager) {
-                    const data = await window.leaderboardManager.getGlobalLeaderboard(currentMode, 'all', 10);
+                    // 更新模式說明信息
+                    updateModeDescription();
+                    
+                    // 使用新的 getLeaderboardData 方法
+                    const data = await window.leaderboardManager.getLeaderboardData(currentMode, 10);
                     leaderboardData[currentMode] = data;
                     
                     if (data && data.length > 0) {
@@ -433,6 +437,37 @@
                 console.error('載入排行榜失敗:', error);
                 loadingState.classList.add('hidden');
                 emptyState.classList.remove('hidden');
+            }
+        }
+        
+        // 更新模式說明
+        function updateModeDescription() {
+            if (!window.leaderboardManager) return;
+            
+            const modeDescription = window.leaderboardManager.getLeaderboardDescription(currentMode);
+            
+            // 更新現有的 UI 元素
+            const modeDescriptionElement = document.getElementById('modeDescription');
+            if (modeDescriptionElement) {
+                // 創建更詳細的說明 HTML
+                const detailedDescription = `
+                    <div class="mb-4">
+                        <h4 class="text-lg font-bold text-white mb-2">📋 排行規則</h4>
+                        <p class="text-white/80 text-sm">${modeDescription.description}</p>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-2 text-xs">
+                        ${Object.entries(modeDescription.metrics).map(([key, metric]) => `
+                            <div class="bg-white/10 rounded-lg p-2 text-center">
+                                <div class="text-white font-medium">${metric.label}</div>
+                                <div class="text-white/60 text-xs mt-1">
+                                    ${metric.direction === 'higher_better' ? '越高越好' : 
+                                      metric.direction === 'lower_better' ? '越低越好' : '參考數據'}
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+                modeDescriptionElement.innerHTML = detailedDescription;
             }
         }
         
@@ -486,13 +521,13 @@
                             
                             <div class="text-right">
                                 <div class="text-white font-bold text-lg">
-                                    ${currentMode === 'quest' ? 
+                                    ${item.display?.primary || (currentMode === 'quest' ? 
                                         `關卡 ${item.highest_level || item.level || 0}` : 
                                         (item.score || 0).toLocaleString()
-                                    }
+                                    )}
                                 </div>
                                 <div class="text-white/60 text-xs">
-                                    ${item.moves || item.moves_used || 0} 步 • ${formatTime(item.time || item.time_taken || 0)}
+                                    ${getSecondaryDisplay(item, currentMode)}
                                 </div>
                             </div>
                         </div>
@@ -525,36 +560,44 @@
             
             try {
                 if (window.leaderboardManager) {
-                    // 獲取用戶排名信息
-                    const userRank = await window.leaderboardManager.getUserRank(currentMode);
+                    // 獲取用戶統計信息
+                    const userStats = await window.leaderboardManager.getUserRankingStats(currentMode);
                     
                     const currentBestElement = document.getElementById('currentBest');
                     const currentRankElement = document.getElementById('currentRank');
                     const totalGamesElement = document.getElementById('totalGames');
                     
-                    if (currentBestElement) {
-                        if (currentMode === 'quest') {
-                            currentBestElement.textContent = userRank ? `關卡 ${userRank.score}` : '關卡 0';
-                        } else if (currentMode === 'survival') {
-                            // 存活模式：顯示存活時間
-                            if (userRank && userRank.time > 0) {
-                                const survivalMinutes = Math.floor(userRank.time / 60);
-                                const survivalSeconds = userRank.time % 60;
-                                currentBestElement.textContent = `${survivalMinutes}:${survivalSeconds.toString().padStart(2, '0')}`;
-                            } else {
-                                currentBestElement.textContent = '0:00';
-                            }
-                        } else {
-                            currentBestElement.textContent = userRank ? userRank.score.toLocaleString() : '0';
+                    if (userStats) {
+                        if (currentBestElement) {
+                            currentBestElement.textContent = userStats.primary_metric.value;
                         }
-                    }
-                    
-                    if (currentRankElement) {
-                        currentRankElement.textContent = userRank && userRank.rank ? `#${userRank.rank}` : '未上榜';
-                    }
-                    
-                    if (totalGamesElement) {
-                        totalGamesElement.textContent = userRank ? userRank.total_players.toLocaleString() : '-';
+                        
+                        if (currentRankElement) {
+                            currentRankElement.textContent = userStats.rank ? `#${userStats.rank}` : '未上榜';
+                        }
+                        
+                        if (totalGamesElement) {
+                            totalGamesElement.textContent = userStats.total_players.toLocaleString();
+                        }
+                        
+                        // 如果有改進建議，顯示給用戶
+                        if (userStats.improvement_tips && userStats.improvement_tips.length > 0) {
+                            showImprovementTips(userStats.improvement_tips);
+                        }
+                    } else {
+                        // 沒有數據時設置預設值
+                        const modeConfig = window.leaderboardManager.getModeConfig(currentMode);
+                        if (currentBestElement) {
+                            if (currentMode === 'quest') {
+                                currentBestElement.textContent = '關卡 0';
+                            } else if (currentMode === 'survival') {
+                                currentBestElement.textContent = '0:00';
+                            } else {
+                                currentBestElement.textContent = '0';
+                            }
+                        }
+                        if (currentRankElement) currentRankElement.textContent = '未上榜';
+                        if (totalGamesElement) totalGamesElement.textContent = '-';
                     }
                 }
             } catch (error) {
@@ -576,6 +619,12 @@
                 if (currentRankElement) currentRankElement.textContent = '-';
                 if (totalGamesElement) totalGamesElement.textContent = '-';
             }
+        }
+        
+        // 顯示改進建議
+        function showImprovementTips(tips) {
+            // 這個函數可以在未來實現為顯示改進建議的 UI
+            console.log('改進建議:', tips);
         }
         
         // 工具函數
@@ -603,6 +652,28 @@
             const minutes = Math.floor(seconds / 60);
             const remainingSeconds = seconds % 60;
             return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
+        }
+        
+        // 獲取次要顯示信息
+        function getSecondaryDisplay(item, mode) {
+            if (item.display?.secondary) {
+                return item.display.secondary;
+            }
+            
+            // 備用顯示邏輯
+            if (mode === 'survival') {
+                const score = (item.score || 0).toLocaleString();
+                const moves = item.moves || item.moves_used || 0;
+                return `${score} 分 • ${moves} 次移動`;
+            } else if (mode === 'quest') {
+                const moves = item.moves_used || 0;
+                const time = formatTime(item.time_taken || 0);
+                return `${moves} 步 • ${time}`;
+            } else {
+                const moves = item.moves || item.moves_used || 0;
+                const time = formatTime(item.time || item.time_taken || 0);
+                return `${moves} 步 • ${time}`;
+            }
         }
         
         // 刷新排行榜
