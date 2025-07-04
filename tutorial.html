@@ -229,9 +229,8 @@
     <script src="js/SupabaseAuth.js"></script>
     <script src="js/LeaderboardManager.js"></script>
     <script src="js/UserManager.js"></script>
-    <script src="js/GlobalNavigation.js"></script>
     <script src="js/GameEngine.js"></script>
-    <script src="js/GameModes.js"></script>
+    <script src="js/GameModes.js?v=blackened_blocks_1"></script>
     <script src="js/UI.js"></script>
     <script src="js/TutorialSystem.js"></script>
     <script>
@@ -253,8 +252,6 @@
                 if (window.supabaseAuth) {
                     window.leaderboardManager = new LeaderboardManager(window.supabaseAuth);
                     window.userManager = new UserManager(window.supabaseAuth, window.leaderboardManager);
-                    window.globalNav = new GlobalNavigation(window.supabaseAuth, window.userManager);
-                    await window.globalNav.init();
                     console.log('用戶系統已初始化');
                 } else {
                     console.warn('SupabaseAuth 未正確初始化');

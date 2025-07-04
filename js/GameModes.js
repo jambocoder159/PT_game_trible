@@ -1,3 +1,7 @@
+// 版本控制 - 防止瀏覽器緩存舊版本
+const CONFIG_VERSION = "blackened_blocks_v1.0";
+console.log("🔄 載入遊戲模式配置版本:", CONFIG_VERSION);
+
 window.GameModes = {
     tutorial: {
         numCols: 1,
@@ -121,6 +125,73 @@ window.GameModes = {
                 20: 2000,  
                 30: 4000   
             }
+        }
+    },
+    
+    tripleActionTimer: {
+        numCols: 3,
+        numRows: 10,
+        theme: 'rpg',
+        hasSkills: true,
+        hasTimer: true,
+        hasRPGSystem: true,
+        isSurvivalMode: true, // 新增：存活模式標誌
+        gameDuration: 8000, // 基礎13秒，每次操作後重置
+        actionPointsStart: 5, // RPG模式也有行動點，計時結束時扣除
+        enableHorizontalMatches: true,
+        title: '三排生存RPG',
+        description: '存活3分鐘！在階段性挑戰中生存並成長，獲得更強大的技能！（最大上限：3分鐘）',
+        // RPG模式分數系統
+        scoring: {
+            baseScore: 15,              // 中等基礎分數
+            comboMultiplier: 0.6,       // 中等連擊倍數
+            chainMultiplier: 2.5,       // 中等連鎖倍數
+            comboMilestones: {          
+                5: 150,    
+                10: 400,   
+                15: 800,   
+                20: 1600,  
+                30: 3200   
+            }
+        },
+        // RPG系統配置
+        rpgConfig: {
+            initialLevel: 1,
+            maxLevel: 20, // 擴增到二十級
+            baseTimer: 8, // 基礎計時器時間（秒）
+            timerReductionPerLevel: 0.2, // 降低每升級的減少量
+            minTimer: 5 // 提高最低計時器時間
+        },
+        // 存活模式配置
+        survivalConfig: {
+            targetSurvivalTime: 180000, // 3分鐘 = 180,000毫秒 = 180秒
+            challengeMilestones: [60000, 120000, 150000], // 1分鐘、2分鐘、2.5分鐘
+            challengeTypes: [
+                {
+                    type: 'blackenBlocks',
+                    name: '黑色方塊',
+                    description: '2顆方塊變成黑色，等3次消除自然解除',
+                    difficulty: 1,
+                    blocksCount: 2,
+                    clearancesRequired: 3
+                },
+                {
+                    type: 'blackenBlocks',
+                    name: '黑色方塊',
+                    description: '3顆方塊變成黑色，等4次消除自然解除',
+                    difficulty: 2,
+                    blocksCount: 3,
+                    clearancesRequired: 4
+                },
+                {
+                    type: 'blackenBlocks',
+                    name: '黑色方塊',
+                    description: '5顆方塊變成黑色，等5次消除自然解除',
+                    difficulty: 3,
+                    blocksCount: 5,
+                    clearancesRequired: 5
+                }
+            ]
         }
     },
     

@@ -1,8 +1,21 @@
 class UIManager {
-    static createGameHTML(mode, config) {
-        const headerHTML = (mode === 'quest') 
-            ? this.createQuestHeaderHTML(config)
-            : this.createStandardHeaderHTML(mode, config);
+    static createGameHTML(mode, config, gameState = null) {
+        let headerHTML;
+        if (mode === 'quest') {
+            headerHTML = this.createQuestHeaderHTML(config);
+        } else if (config.hasRPGSystem) {
+            // RPG模式使用特殊的header，即使gameState為null也要創建框架
+            const defaultGameState = gameState || {
+                level: 1,
+                exp: 0,
+                expToNextLevel: 100,
+                gold: 0,
+                playerSkills: {}
+            };
+            headerHTML = this.createRPGHeaderHTML(mode, config, defaultGameState);
+        } else {
+            headerHTML = this.createStandardHeaderHTML(mode, config);
+        }
 
         const skillsSection = config.hasSkills ? this.createSkillsSection() : '';
         const modalStats = this.createModalStatsHTML(mode);
@@ -458,6 +471,16 @@ class UIManager {
                 titleEl.className = 'text-2xl font-bold text-red-500 mb-3';
                 messageEl.textContent = '步數用盡，再試一次吧！';
                 break;
+            case 'survival_victory':
+                titleEl.textContent = '挑戰成功！';
+                titleEl.className = 'text-2xl font-bold text-green-500 mb-3';
+                messageEl.textContent = '🎉 恭喜！你成功存活了3分鐘！';
+                break;
+            case 'survival_failure':
+                titleEl.textContent = '挑戰失敗';
+                titleEl.className = 'text-2xl font-bold text-red-500 mb-3';
+                messageEl.textContent = '時間到！再接再厲，挑戰更高分！';
+                break;
             default:
                 // Keep original text
                 break;
@@ -489,6 +512,12 @@ class UIManager {
         switch(type) {
             case 'success':
                 toast.className += ' bg-green-500';
+                break;
+            case 'warning':
+                toast.className += ' bg-orange-500';
+                break;
+            case 'error':
+                toast.className += ' bg-red-600';
                 break;
             case 'damage':
                 toast.className += ' bg-red-500';
@@ -649,6 +678,482 @@ class UIManager {
                     ${newRestrictionsHTML}
                 </div>
             `;
+        }
+    }
+
+    // ===== RPG系統UI方法 =====
+    
+    // 創建RPG狀態欄HTML
+    static createRPGStatsHTML(gameState) {
+        const { level, exp, expToNextLevel, gold } = gameState;
+        const actionPoints = gameState.actionPoints !== undefined ? gameState.actionPoints : 5;
+        const expPercent = expToNextLevel > 0 ? (exp / expToNextLevel) * 100 : 100;
+        
+        // 檢查是否為存活模式
+        const isSurvivalMode = gameState.isSurvivalMode || (window.gameEngine?.config?.isSurvivalMode);
+        let survivalTimeHTML = '';
+        
+        if (isSurvivalMode) {
+            const survivalTime = gameState.survivalTime || 0;
+            const targetTime = gameState.targetSurvivalTime || 180000; // 3分鐘
+            const minutes = Math.floor(survivalTime / 60000);
+            const seconds = Math.floor((survivalTime % 60000) / 1000);
+            const targetMinutes = Math.floor(targetTime / 60000);
+            const targetSeconds = Math.floor((targetTime % 60000) / 1000);
+            const survivalPercent = Math.min((survivalTime / targetTime) * 100, 100);
+            
+            survivalTimeHTML = `
+                <div class="mt-1">
+                    <div class="flex items-center gap-2 mb-1">
+                        <span class="text-xs font-medium">存活時間</span>
+                        <span id="survival-time" class="text-sm font-bold text-green-300">${minutes}:${seconds.toString().padStart(2, '0')} / ${targetMinutes}:${targetSeconds.toString().padStart(2, '0')}</span>
+                    </div>
+                    <div class="relative w-full h-2 bg-gray-600/50 rounded-full overflow-hidden">
+                        <div id="survival-bar" class="h-full bg-gradient-to-r from-green-400 to-green-600 rounded-full transition-all duration-300 ease-out" style="width: ${survivalPercent}%"></div>
+                    </div>
+                </div>`;
+        }
+        
+        return `
+        <div id="rpg-stats" class="flex-shrink-0 bg-gradient-to-r from-purple-600/80 to-blue-600/80 rounded-t-xl px-3 py-2 text-white">
+            <div class="flex items-center justify-between">
+                <!-- 左側：等級和經驗條 -->
+                <div class="flex-1 mr-4">
+                    <div class="flex items-center gap-2 mb-1">
+                        <span class="text-xs font-medium">等級</span>
+                        <span id="player-level" class="text-lg font-bold text-yellow-300">${level}</span>
+                        <span class="text-xs font-medium">金幣</span>
+                        <span id="player-gold" class="text-sm font-bold text-yellow-300">💰${gold}</span>
+                        <span class="text-xs font-medium">行動</span>
+                        <span id="action-points-display" class="text-sm font-bold text-red-300">${actionPoints}</span>
+                    </div>
+                    <div class="relative w-full h-3 bg-gray-600/50 rounded-full overflow-hidden">
+                        <div id="exp-bar" class="h-full bg-gradient-to-r from-green-400 to-emerald-500 rounded-full transition-all duration-300 ease-out" style="width: ${expPercent}%"></div>
+                        <span id="exp-text" class="absolute inset-0 flex items-center justify-center text-xs font-bold text-white text-shadow">EXP ${exp}/${expToNextLevel}</span>
+                    </div>
+                    ${survivalTimeHTML}
+                </div>
+                
+                <!-- 右側：分數和連擊 -->
+                <div class="flex gap-4 text-center text-xs">
+                    <div>
+                        <p class="text-gray-200">分數</p>
+                        <p id="score" class="text-sm font-bold text-sky-200">0</p>
+                    </div>
+                    <div>
+                        <p class="text-gray-200">連擊</p>
+                        <p id="combo" class="text-sm font-bold text-emerald-200">0</p>
+                    </div>
+                </div>
+            </div>
+        </div>`;
+    }
+    
+    // 創建已獲技能欄HTML
+    static createAcquiredSkillsHTML(playerSkills) {
+        if (!playerSkills || Object.keys(playerSkills).length === 0) {
+            return `
+            <div id="acquired-skills" class="px-3 py-2 bg-slate-100/30 border-b border-slate-200/50">
+                <div class="text-center text-xs text-slate-500">尚未獲得技能</div>
+            </div>`;
+        }
+        
+        let skillsHTML = '';
+        Object.entries(playerSkills).forEach(([skillId, level]) => {
+            const skillData = window.SkillSystem?.getSkillData(skillId, level);
+            if (skillData) {
+                skillsHTML += `
+                <div class="skill-icon relative" title="${skillData.name} Lv.${level}&#10;${skillData.description}">
+                    <div class="w-8 h-8 bg-gradient-to-br from-purple-500 to-blue-600 rounded-lg flex items-center justify-center text-lg border-2 border-white/20 shadow-md">
+                        ${skillData.icon}
+                    </div>
+                    <span class="absolute -bottom-1 -right-1 bg-yellow-500 text-black text-xs font-bold rounded-full w-4 h-4 flex items-center justify-center">${level}</span>
+                </div>`;
+            }
+        });
+        
+        return `
+        <div id="acquired-skills" class="px-3 py-2 bg-slate-100/30 border-b border-slate-200/50">
+            <div class="flex items-center gap-2 overflow-x-auto">
+                <span class="text-xs text-slate-600 whitespace-nowrap">已獲技能:</span>
+                <div class="flex gap-1">
+                    ${skillsHTML}
+                </div>
+            </div>
+        </div>`;
+    }
+    
+    // 修改createStandardHeaderHTML以支持RPG模式
+    static createRPGHeaderHTML(mode, config, gameState) {
+        if (config.hasRPGSystem && gameState) {
+            // RPG模式header
+            const rpgStatsHTML = this.createRPGStatsHTML(gameState);
+            const acquiredSkillsHTML = this.createAcquiredSkillsHTML(gameState.playerSkills);
+            
+            return rpgStatsHTML + acquiredSkillsHTML;
+        } else {
+            // 標準header
+            return this.createStandardHeaderHTML(mode, config);
+        }
+    }
+    
+    // 顯示升級彈窗
+    static showLevelUpModal(levelUpData) {
+        const { level, skillOptions, playerGold, hasUsedFreeReroll, onSkillPurchase, onSkipUpgrade, onRerollOptions } = levelUpData;
+        
+        // 移除現有的升級彈窗
+        const existingModal = document.getElementById('levelUpModal');
+        if (existingModal) {
+            existingModal.remove();
+        }
+        
+        // 生成技能選項HTML
+        let skillOptionsHTML = '';
+        skillOptions.forEach(skillOption => {
+            // 支持新的技能選項格式
+            const skillId = skillOption.id || skillOption;
+            const skillData = skillOption.id ? skillOption : window.SkillSystem?.getSkillData(skillId, 1);
+            
+            if (skillData) {
+                const currentLevel = skillOption.currentPlayerLevel || 0;
+                const nextLevel = skillData.currentLevel?.level || 1;
+                const cost = skillData.currentLevel?.cost || 0;
+                const isUpgrade = skillOption.isUpgrade || false;
+                const canAfford = playerGold >= cost;
+                const buttonClass = canAfford 
+                    ? 'bg-green-500 hover:bg-green-600 cursor-pointer' 
+                    : 'bg-gray-400 cursor-not-allowed';
+                
+                skillOptionsHTML += `
+                <div class="skill-option bg-slate-50 rounded-lg p-4 border-2 border-transparent hover:border-purple-300 transition-colors">
+                    <div class="flex items-start gap-3">
+                        <div class="skill-icon-large w-12 h-12 bg-gradient-to-br from-purple-500 to-blue-600 rounded-lg flex items-center justify-center text-2xl border-2 border-white/20 shadow-md">
+                            ${skillData.icon}
+                        </div>
+                        <div class="flex-1">
+                            <h4 class="font-bold text-gray-800 mb-1">
+                                ${skillData.name}
+                                ${isUpgrade ? `<span class="text-orange-600 text-xs ml-1">升級</span>` : `<span class="text-green-600 text-xs ml-1">新技能</span>`}
+                            </h4>
+                            <p class="text-sm text-gray-600 mb-2">${skillData.description}</p>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm font-medium text-gray-700">
+                                    ${isUpgrade ? `等級 ${currentLevel} → ${nextLevel}` : `獲得等級 ${nextLevel}`}
+                                </span>
+                                <span class="text-lg font-bold text-yellow-600">💰${cost}</span>
+                            </div>
+                        </div>
+                    </div>
+                    <button class="skill-purchase-btn w-full mt-3 ${buttonClass} text-white font-medium py-2 px-4 rounded-lg transition-colors" 
+                            data-skill-id="${skillId}" 
+                            ${!canAfford ? 'disabled' : ''}>
+                        ${canAfford ? (isUpgrade ? '升級技能' : '獲得技能') : '金幣不足'}
+                    </button>
+                </div>`;
+            }
+        });
+        
+        // 重抽按鈕邏輯
+        const rerollCost = 50;
+        const canRerollFree = !hasUsedFreeReroll;
+        const canRerollPaid = playerGold >= rerollCost;
+        
+        let rerollButtonsHTML = '';
+        if (canRerollFree) {
+            rerollButtonsHTML = `
+                <button id="free-reroll-btn" class="flex-1 bg-blue-500 hover:bg-blue-600 text-white font-medium py-2 px-4 rounded-lg transition-colors">
+                    🎲 免費重抽
+                </button>`;
+        } else if (canRerollPaid) {
+            rerollButtonsHTML = `
+                <button id="paid-reroll-btn" class="flex-1 bg-orange-500 hover:bg-orange-600 text-white font-medium py-2 px-4 rounded-lg transition-colors">
+                    🎲 重抽 (💰${rerollCost})
+                </button>`;
+        }
+        
+        // 創建升級彈窗
+        const modal = document.createElement('div');
+        modal.id = 'levelUpModal';
+        modal.className = 'fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4';
+        modal.innerHTML = `
+            <div class="bg-white rounded-xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto">
+                <div class="bg-gradient-to-r from-purple-600 to-blue-600 text-white p-4 rounded-t-xl">
+                    <h2 class="text-xl font-bold text-center">🎉 升級到 ${level} 級！</h2>
+                    <p class="text-center text-purple-100 mt-1">選擇一個技能來強化自己</p>
+                    <div class="text-center mt-2">
+                        <span class="bg-white/20 rounded-full px-3 py-1 text-sm">目前金幣: 💰${playerGold}</span>
+                    </div>
+                </div>
+                
+                <div class="p-4">
+                    <div id="skill-options-container" class="space-y-3 mb-4">
+                        ${skillOptionsHTML}
+                    </div>
+                    
+                    <div class="flex gap-2">
+                        ${rerollButtonsHTML}
+                        <button id="skip-upgrade-btn" class="flex-1 bg-gray-500 hover:bg-gray-600 text-white font-medium py-2 px-4 rounded-lg transition-colors">
+                            跳過升級
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        document.body.appendChild(modal);
+        
+        // 綁定事件
+        modal.querySelectorAll('.skill-purchase-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const skillId = e.target.dataset.skillId;
+                if (skillId && !e.target.disabled) {
+                    onSkillPurchase(skillId);
+                }
+            });
+        });
+        
+        const skipBtn = modal.querySelector('#skip-upgrade-btn');
+        skipBtn.addEventListener('click', () => {
+            onSkipUpgrade();
+        });
+        
+        // 重抽按鈕事件
+        const freeRerollBtn = modal.querySelector('#free-reroll-btn');
+        if (freeRerollBtn) {
+            freeRerollBtn.addEventListener('click', () => {
+                console.log('免費重抽按鈕點擊 (初次創建)');
+                if (typeof onRerollOptions === 'function') {
+                    onRerollOptions(true);
+                } else {
+                    console.error('onRerollOptions is not a function:', onRerollOptions);
+                    // 備用方案：直接調用gameEngine
+                    if (window.gameEngine && typeof window.gameEngine.handleRerollOptions === 'function') {
+                        window.gameEngine.handleRerollOptions(true);
+                    }
+                }
+            });
+        }
+        
+        const paidRerollBtn = modal.querySelector('#paid-reroll-btn');
+        if (paidRerollBtn) {
+            paidRerollBtn.addEventListener('click', () => {
+                console.log('付費重抽按鈕點擊 (初次創建)');
+                if (typeof onRerollOptions === 'function') {
+                    onRerollOptions(false);
+                } else {
+                    console.error('onRerollOptions is not a function:', onRerollOptions);
+                    // 備用方案：直接調用gameEngine
+                    if (window.gameEngine && typeof window.gameEngine.handleRerollOptions === 'function') {
+                        window.gameEngine.handleRerollOptions(false);
+                    }
+                }
+            });
+        }
+        
+        // 顯示動畫
+        setTimeout(() => {
+            modal.style.opacity = '1';
+        }, 10);
+    }
+    
+    // 更新升級彈窗（用於重抽）
+    static updateLevelUpModal(updateData) {
+        const modal = document.getElementById('levelUpModal');
+        if (!modal) return;
+        
+        const { skillOptions, playerGold, hasUsedFreeReroll } = updateData;
+        
+        // 更新技能選項
+        const container = modal.querySelector('#skill-options-container');
+        if (container && skillOptions) {
+            let skillOptionsHTML = '';
+            skillOptions.forEach(skillOption => {
+                const skillId = skillOption.id || skillOption;
+                const skillData = skillOption.id ? skillOption : window.SkillSystem?.getSkillData(skillId, 1);
+                
+                if (skillData) {
+                    const currentLevel = skillOption.currentPlayerLevel || 0;
+                    const nextLevel = skillData.currentLevel?.level || 1;
+                    const cost = skillData.currentLevel?.cost || 0;
+                    const isUpgrade = skillOption.isUpgrade || false;
+                    const canAfford = playerGold >= cost;
+                    const buttonClass = canAfford 
+                        ? 'bg-green-500 hover:bg-green-600 cursor-pointer' 
+                        : 'bg-gray-400 cursor-not-allowed';
+                    
+                    skillOptionsHTML += `
+                    <div class="skill-option bg-slate-50 rounded-lg p-4 border-2 border-transparent hover:border-purple-300 transition-colors">
+                        <div class="flex items-start gap-3">
+                            <div class="skill-icon-large w-12 h-12 bg-gradient-to-br from-purple-500 to-blue-600 rounded-lg flex items-center justify-center text-2xl border-2 border-white/20 shadow-md">
+                                ${skillData.icon}
+                            </div>
+                            <div class="flex-1">
+                                <h4 class="font-bold text-gray-800 mb-1">
+                                    ${skillData.name}
+                                    ${isUpgrade ? `<span class="text-orange-600 text-xs ml-1">升級</span>` : `<span class="text-green-600 text-xs ml-1">新技能</span>`}
+                                </h4>
+                                <p class="text-sm text-gray-600 mb-2">${skillData.description}</p>
+                                <div class="flex items-center justify-between">
+                                    <span class="text-sm font-medium text-gray-700">
+                                        ${isUpgrade ? `等級 ${currentLevel} → ${nextLevel}` : `獲得等級 ${nextLevel}`}
+                                    </span>
+                                    <span class="text-lg font-bold text-yellow-600">💰${cost}</span>
+                                </div>
+                            </div>
+                        </div>
+                        <button class="skill-purchase-btn w-full mt-3 ${buttonClass} text-white font-medium py-2 px-4 rounded-lg transition-colors" 
+                                data-skill-id="${skillId}" 
+                                ${!canAfford ? 'disabled' : ''}>
+                            ${canAfford ? (isUpgrade ? '升級技能' : '獲得技能') : '金幣不足'}
+                        </button>
+                    </div>`;
+                }
+            });
+            
+            container.innerHTML = skillOptionsHTML;
+            
+            // 重新綁定購買按鈕事件
+            container.querySelectorAll('.skill-purchase-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const skillId = e.target.dataset.skillId;
+                    if (skillId && !e.target.disabled && window.gameEngine) {
+                        window.gameEngine.purchaseSkill(skillId);
+                    }
+                });
+            });
+        }
+        
+        // 更新金幣顯示
+        const goldDisplay = modal.querySelector('.bg-white\\/20');
+        if (goldDisplay) {
+            goldDisplay.textContent = `目前金幣: 💰${playerGold}`;
+        }
+        
+        // 更新重抽按鈕
+        const buttonContainer = modal.querySelector('.flex.gap-2');
+        if (buttonContainer) {
+            const rerollCost = 50;
+            const canRerollFree = !hasUsedFreeReroll;
+            const canRerollPaid = playerGold >= rerollCost;
+            
+            // 移除舊的重抽按鈕
+            const oldRerollBtn = buttonContainer.querySelector('#free-reroll-btn, #paid-reroll-btn');
+            if (oldRerollBtn) {
+                oldRerollBtn.remove();
+            }
+            
+                         // 添加新的重抽按鈕
+            if (canRerollFree) {
+                const freeRerollBtn = document.createElement('button');
+                freeRerollBtn.id = 'free-reroll-btn';
+                freeRerollBtn.className = 'flex-1 bg-blue-500 hover:bg-blue-600 text-white font-medium py-2 px-4 rounded-lg transition-colors';
+                freeRerollBtn.textContent = '🎲 免費重抽';
+                freeRerollBtn.addEventListener('click', () => {
+                    console.log('免費重抽按鈕點擊');
+                    if (window.gameEngine && typeof window.gameEngine.handleRerollOptions === 'function') {
+                        window.gameEngine.handleRerollOptions(true);
+                    } else {
+                        console.error('gameEngine.handleRerollOptions 方法未找到');
+                    }
+                });
+                buttonContainer.insertBefore(freeRerollBtn, buttonContainer.firstChild);
+            } else if (canRerollPaid) {
+                const paidRerollBtn = document.createElement('button');
+                paidRerollBtn.id = 'paid-reroll-btn';
+                paidRerollBtn.className = 'flex-1 bg-orange-500 hover:bg-orange-600 text-white font-medium py-2 px-4 rounded-lg transition-colors';
+                paidRerollBtn.textContent = `🎲 重抽 (💰${rerollCost})`;
+                paidRerollBtn.addEventListener('click', () => {
+                    console.log('付費重抽按鈕點擊');
+                    if (window.gameEngine && typeof window.gameEngine.handleRerollOptions === 'function') {
+                        window.gameEngine.handleRerollOptions(false);
+                    } else {
+                        console.error('gameEngine.handleRerollOptions 方法未找到');
+                    }
+                });
+                buttonContainer.insertBefore(paidRerollBtn, buttonContainer.firstChild);
+            }
+        }
+    }
+    
+    // 關閉升級彈窗
+    static closeLevelUpModal() {
+        const modal = document.getElementById('levelUpModal');
+        if (modal) {
+            modal.style.opacity = '0';
+            setTimeout(() => {
+                if (modal.parentNode) {
+                    modal.parentNode.removeChild(modal);
+                }
+            }, 300);
+        }
+    }
+    
+    // 更新RPG狀態UI
+    static updateRPGStatsUI(gameState) {
+        if (!gameState.level) return;
+        
+        // 更新等級
+        const levelEl = document.getElementById('player-level');
+        if (levelEl) levelEl.textContent = gameState.level;
+        
+        // 更新金幣
+        const goldEl = document.getElementById('player-gold');
+        if (goldEl) goldEl.textContent = `💰${gameState.gold}`;
+        
+        // 更新行動點
+        const actionPointsEl = document.getElementById('action-points-display');
+        if (actionPointsEl) actionPointsEl.textContent = gameState.actionPoints || 0;
+        
+        // 更新經驗條
+        const expBar = document.getElementById('exp-bar');
+        const expText = document.getElementById('exp-text');
+        if (expBar && expText) {
+            const expPercent = gameState.expToNextLevel > 0 ? (gameState.exp / gameState.expToNextLevel) * 100 : 100;
+            expBar.style.width = `${expPercent}%`;
+            expText.textContent = `EXP ${gameState.exp}/${gameState.expToNextLevel}`;
+        }
+        
+        // 更新存活時間（如果是存活模式）
+        const isSurvivalMode = gameState.isSurvivalMode || (window.gameEngine?.config?.isSurvivalMode);
+        if (isSurvivalMode) {
+            const survivalTimeEl = document.getElementById('survival-time');
+            const survivalBar = document.getElementById('survival-bar');
+            
+            if (survivalTimeEl || survivalBar) {
+                const survivalTime = gameState.survivalTime || 0;
+                const targetTime = gameState.targetSurvivalTime || 180000; // 3分鐘
+                const minutes = Math.floor(survivalTime / 60000);
+                const seconds = Math.floor((survivalTime % 60000) / 1000);
+                const targetMinutes = Math.floor(targetTime / 60000);
+                const targetSeconds = Math.floor((targetTime % 60000) / 1000);
+                const survivalPercent = Math.min((survivalTime / targetTime) * 100, 100);
+                
+                // 效能優化：只在時間發生變化時才更新UI
+                const timeText = `${minutes}:${seconds.toString().padStart(2, '0')} / ${targetMinutes}:${targetSeconds.toString().padStart(2, '0')}`;
+                const percentText = `${survivalPercent}%`;
+                
+                if (survivalTimeEl && survivalTimeEl.textContent !== timeText) {
+                    survivalTimeEl.textContent = timeText;
+                }
+                
+                if (survivalBar && survivalBar.style.width !== percentText) {
+                    survivalBar.style.width = percentText;
+                }
+                
+                // 效能優化：減少控制台日誌輸出頻率
+                if (seconds % 5 === 0 && survivalTime % 1000 < 100) {
+                    console.log(`存活時間UI更新: ${minutes}:${seconds.toString().padStart(2, '0')} (${survivalPercent.toFixed(1)}%)`);
+                }
+            }
+        }
+        
+        // 更新已獲技能
+        const acquiredSkillsContainer = document.getElementById('acquired-skills');
+        if (acquiredSkillsContainer) {
+            const newSkillsHTML = this.createAcquiredSkillsHTML(gameState.playerSkills);
+            const tempDiv = document.createElement('div');
+            tempDiv.innerHTML = newSkillsHTML;
+            acquiredSkillsContainer.parentNode.replaceChild(tempDiv.firstElementChild, acquiredSkillsContainer);
         }
     }
 }

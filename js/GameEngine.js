@@ -35,6 +35,7 @@ class GameEngine {
         this.setupCanvas();
         this.setupEventListeners();
         this.setupUI();
+        this.initializeItemSystem();
         this.resetGame();
         // 確保初始化後方塊位置正確
         this.updateBlockPositions();
@@ -60,8 +61,77 @@ class GameEngine {
         this.activeSkill = null;
         this.nextBlockColors = [];
         this.particles = [];
-        this.gameStartTime = 0;
         this.timeLeft = this.config.gameDuration;
+        
+        // 道具系統狀態 - 所有模式都支援
+        this.activeItem = null;         // 當前使用的道具
+        this.isItemTargeting = false;   // 是否正在選擇道具目標
+        this.itemTargetingType = null;  // 道具目標類型
+        this.equippedItems = [];        // 裝備的道具列表
+        this.itemCooldowns = {};        // 道具冷卻時間
+        
+        // 遊戲狀態歷史記錄（供返回上一步道具使用）
+        this.gameStateHistory = [];     // 保存遊戲狀態的歷史記錄
+        this.maxHistorySize = 10;       // 最大歷史記錄數量
+        
+        console.log('道具系統狀態已初始化');
+        
+        // RPG系統狀態
+        if (this.config.hasRPGSystem) {
+            this.level = this.config.rpgConfig?.initialLevel || 1;
+            this.exp = 0;
+            this.expToNextLevel = SkillSystem.calculateExpRequired(this.level);
+            this.gold = 0;
+            this.playerSkills = {}; // 玩家已獲取的技能及等級
+            this.isLevelUpInProgress = false; // 是否正在升級流程中
+            this.isPaused = false; // 遊戲是否暫停
+            this.processingTimeoutPenalty = false; // 是否正在處理超時懲罰
+            this.isTimerPaused = false; // 計時器是否暫停（用戶操作時）
+            
+                    // 存活模式狀態
+        if (this.config.isSurvivalMode) {
+            this.survivalTime = 0; // 累積存活時間（只有倒數時才計算）
+            this.totalGameTime = 0; // 總遊戲時間
+            this.challengesTriggered = []; // 已觸發的挑戰里程碑
+            this.activeChallenges = []; // 當前生效的挑戰
+            // 黑色方塊信息現在直接存儲在方塊對象上，不再需要 Map 追蹤
+            this.clearancesCount = 0; // 消除次數計數器
+            this.hasUsedFreeReroll = false; // 是否已使用免費重抽
+            
+            // 效能優化：節流檢查的時間間隔
+            this.lastSurvivalCheck = 0; // 上次檢查存活里程碑的時間
+            this.lastWinCheck = 0; // 上次檢查勝利條件的時間
+            this.lastBlackenedCheck = 0; // 上次檢查黑色方塊的時間
+            this.survivalCheckInterval = 500; // 存活檢查間隔500ms
+            this.winCheckInterval = 1000; // 勝利檢查間隔1000ms
+            this.blackenedCheckInterval = 200; // 黑色方塊檢查間隔200ms
+            
+            // 動態效能監控
+            this.frameCount = 0;
+            this.lastFrameTime = 0;
+            this.avgFrameTime = 16.67; // 預設60fps
+            this.performanceCheckInterval = 2000; // 每2秒檢查一次效能
+            this.lastPerformanceCheck = 0;
+                
+                console.log('🔄 存活模式狀態初始化完成:', {
+                    isSurvivalMode: this.config.isSurvivalMode,
+                    survivalConfig: this.config.survivalConfig,
+                    challengeMilestones: this.config.survivalConfig?.challengeMilestones,
+                    challengeTypes: this.config.survivalConfig?.challengeTypes
+                });
+            }
+            
+            // 設置當前等級對應的計時器時間
+            this.timeLeft = this.calculateTimerForLevel(this.level);
+            
+            console.log('RPG系統已初始化:', {
+                level: this.level,
+                exp: this.exp,
+                expToNextLevel: this.expToNextLevel,
+                gold: this.gold,
+                timeLeft: this.timeLeft
+            });
+        }
         
         // 闖關模式狀態
         if (this.config.mode === 'quest' && this.config.levelData) {
@@ -90,16 +160,7 @@ class GameEngine {
     setupEventListeners() {
         this.canvas.addEventListener('click', (e) => this.handleCanvasClick(e));
         
-        // 技能按鈕事件（如果啟用）
-        if (this.config.hasSkills) {
-            const skillRemoveBtn = document.getElementById('skillRemoveSingle');
-            const skillRerollBtn = document.getElementById('skillRerollNext');
-            const skillRerollBoardBtn = document.getElementById('skillRerollBoard');
-            
-            if (skillRemoveBtn) skillRemoveBtn.addEventListener('click', () => this.toggleSkill('removeSingle'));
-            if (skillRerollBtn) skillRerollBtn.addEventListener('click', () => this.useSkillRerollNext());
-            if (skillRerollBoardBtn) skillRerollBoardBtn.addEventListener('click', () => this.toggleSkill('rerollBoard'));
-        }
+        // 技能系統已整合到道具系統中，不再需要單獨的技能按鈕事件
 
         // 重啟按鈕
         const restartBtn = document.getElementById('restartButton');
@@ -116,6 +177,332 @@ class GameEngine {
 
         // 視窗大小調整
         window.addEventListener('resize', () => this.resizeCanvas());
+        
+        // 鍵盤事件監聽器
+        document.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape') {
+                // 檢查是否有道具或技能激活
+                if (this.activeItem) {
+                    this.cancelActiveItem();
+                    console.log('📛 ESC鍵取消道具選擇');
+                } else if (this.activeSkill) {
+                    this.activeSkill = null;
+                    if (this.canvas && this.canvas.classList) {
+                        this.canvas.classList.remove('canvas-skill-target-mode');
+                    }
+                    // RPG模式：取消技能時也恢復計時器
+                    if (this.config.hasRPGSystem && this.isTimerPaused) {
+                        this.resumeTimer();
+                    }
+                    this.updateSkillButtonsUI();
+                    console.log('📛 ESC鍵取消技能選擇');
+                }
+            }
+        });
+    }
+    
+    // 初始化道具系統
+    initializeItemSystem() {
+        // 檢查道具系統是否已載入
+        if (typeof InventorySystem === 'undefined') {
+            console.warn('道具系統未載入，跳過初始化');
+            return;
+        }
+        
+        console.log('🎯 初始化道具系統整合');
+        
+        // 從背包系統載入已裝備的道具
+        this.loadEquippedItems();
+        
+        // 設置道具按鈕事件監聽器
+        this.setupItemEventListeners();
+        
+        // 更新道具UI（強制更新，因為激活狀態發生了變化）
+        this.updateItemsUI(true);
+    }
+    
+    // 載入已裝備的道具
+    loadEquippedItems() {
+        try {
+            const newEquippedItems = InventorySystem.getEquippedItems();
+            // 只有當裝備發生變化時才輸出日誌
+            if (JSON.stringify(this.equippedItems) !== JSON.stringify(newEquippedItems)) {
+                console.log('✅ 裝備道具已更新:', newEquippedItems);
+                this.equippedItems = newEquippedItems;
+            }
+        } catch (error) {
+            console.error('載入裝備道具失敗:', error);
+            this.equippedItems = [];
+        }
+    }
+    
+    // 設置道具事件監聽器
+    setupItemEventListeners() {
+        // 為每個裝備的道具設置按鈕事件
+        this.equippedItems.forEach((itemId, index) => {
+            const button = document.getElementById(`item-${index}`);
+            if (button) {
+                button.addEventListener('click', () => this.useItem(itemId));
+            }
+        });
+    }
+    
+    // 使用道具
+    async useItem(itemId) {
+        if (this.isAnimating || this.gameOver) {
+            console.log('遊戲狀態不允許使用道具');
+            return false;
+        }
+        
+        if (this.activeItem) {
+            console.log('已有道具正在使用中');
+            return false;
+        }
+        
+        // 檢查是否擁有該道具
+        if (!InventorySystem.hasItem(itemId)) {
+            console.log(`沒有道具 ${itemId}`);
+            return false;
+        }
+        
+        const item = ItemSystem.getItemData(itemId);
+        if (!item) {
+            console.error(`道具 ${itemId} 不存在`);
+            return false;
+        }
+        
+        // 根據道具類型處理
+        if (item.type === ItemSystem.ItemTypes.INSTANT) {
+            // 即時效果道具
+            console.log(`🎯 使用即時道具: ${item.name}`);
+            return await this.useInstantItem(itemId);
+        } else if (item.type === ItemSystem.ItemTypes.TARGET) {
+            // 需要選擇目標的道具
+            console.log(`🎯 激活目標道具: ${item.name}`);
+            return this.activateTargetItem(itemId);
+        }
+        
+        return false;
+    }
+    
+    // 使用即時效果道具
+    async useInstantItem(itemId) {
+        try {
+            const success = await ItemSystem.useItem(itemId, this);
+            
+            if (success) {
+                // 從背包移除道具
+                InventorySystem.removeItem(itemId, 1);
+                
+                // 更新UI（強制更新，因為道具數量發生了變化）
+                this.updateItemsUI(true);
+                
+                // 顯示使用成功的提示
+                if (typeof UIManager !== 'undefined' && UIManager.showToast) {
+                    const item = ItemSystem.getItemData(itemId);
+                    UIManager.showToast(`✨ 使用了 ${item.name}`, 'success', 1500);
+                }
+                
+                return true;
+            }
+        } catch (error) {
+            console.error('使用即時道具失敗:', error);
+        }
+        
+        return false;
+    }
+    
+    // 激活目標道具
+    activateTargetItem(itemId) {
+        this.activeItem = itemId;
+        this.isItemTargeting = true;
+        this.itemTargetingType = ItemSystem.getItemData(itemId).type;
+        
+        // 添加視覺指示器
+        if (this.canvas && this.canvas.classList) {
+            this.canvas.classList.add('canvas-item-target-mode');
+        }
+        
+        // 更新UI狀態（強制更新，因為道具激活狀態發生了變化）
+        this.updateItemsUI(true);
+        
+        // 顯示目標選擇提示
+        if (typeof UIManager !== 'undefined' && UIManager.showToast) {
+            const item = ItemSystem.getItemData(itemId);
+            UIManager.showToast(`🎯 ${item.name}：請選擇目標方塊`, 'info', 3000);
+        }
+        
+        return true;
+    }
+    
+    // 更新道具UI
+    updateItemsUI(forceUpdate = false) {
+        // 效能優化：如果沒有裝備任何道具且非強制更新，跳過更新
+        if (!forceUpdate && (!this.equippedItems || this.equippedItems.every(item => !item))) {
+            return;
+        }
+        
+        // 效能優化：只在需要時重新載入裝備道具
+        // 在遊戲循環中，裝備道具不太可能頻繁變化
+        if (forceUpdate || !this.lastEquippedItemsReload || 
+            performance.now() - this.lastEquippedItemsReload > 1000) { // 每秒最多重新載入一次
+            this.loadEquippedItems();
+            this.lastEquippedItemsReload = performance.now();
+        }
+        
+        // 更新道具按鈕（強制更新時清除緩存）
+        if (forceUpdate) {
+            this.lastItemButtonState = null;
+        }
+        this.updateItemButtons();
+        
+        // 更新道具狀態顯示
+        this.updateItemStatusDisplay();
+    }
+    
+    // 高效比較道具狀態
+    itemStatesEqual(state1, state2) {
+        if (state1.length !== state2.length) return false;
+        
+        for (let i = 0; i < state1.length; i++) {
+            const s1 = state1[i];
+            const s2 = state2[i];
+            
+            if (!s1 && !s2) continue;
+            if (!s1 || !s2) return false;
+            
+            if (s1.id !== s2.id || s1.quantity !== s2.quantity || s1.isActive !== s2.isActive) {
+                return false;
+            }
+        }
+        
+        return true;
+    }
+
+    // 更新道具按鈕
+    updateItemButtons() {
+        if (!this.itemsContainer) return;
+        
+        // 效能優化：檢查道具狀態是否有變化，避免不必要的DOM重建
+        const currentItemState = this.equippedItems.map(itemId => {
+            if (!itemId) return null;
+            const quantity = InventorySystem.getItemQuantity(itemId);
+            return {
+                id: itemId,
+                quantity: quantity,
+                isActive: this.activeItem === itemId
+            };
+        });
+        
+        // 比較與上次狀態是否相同（避免昂貴的JSON序列化）
+        if (this.lastItemButtonState && this.itemStatesEqual(currentItemState, this.lastItemButtonState)) {
+            return; // 狀態沒有變化，跳過更新
+        }
+        
+        this.lastItemButtonState = currentItemState;
+        this.itemsContainer.innerHTML = '';
+        
+        // 最多顯示3個道具槽
+        for (let i = 0; i < 3; i++) {
+            const itemId = this.equippedItems[i];
+            const itemContainer = document.createElement('div');
+            itemContainer.className = 'relative flex-shrink-0';
+            
+            const button = document.createElement('button');
+            button.id = `item-${i}`;
+            
+            if (itemId) {
+                const item = ItemSystem.getItemData(itemId);
+                const quantity = InventorySystem.getItemQuantity(itemId);
+                
+                if (item && quantity > 0) {
+                    // 根據道具類型設置顏色
+                    let buttonColor = 'bg-gray-500 hover:bg-gray-600';
+                    switch(itemId) {
+                        case 'REMOVE_SINGLE':
+                            buttonColor = 'bg-red-500 hover:bg-red-600';
+                            break;
+                        case 'REROLL_NEXT':
+                            buttonColor = 'bg-amber-500 hover:bg-amber-600';
+                            break;
+                        case 'CHANGE_COLOR':
+                            buttonColor = 'bg-purple-500 hover:bg-purple-600';
+                            break;
+                        case 'CLEAR_ALL':
+                            buttonColor = 'bg-rose-500 hover:bg-rose-600';
+                            break;
+                        case 'CLEAR_ROW':
+                            buttonColor = 'bg-blue-500 hover:bg-blue-600';
+                            break;
+                        case 'CLEAR_COLOR':
+                            buttonColor = 'bg-emerald-500 hover:bg-emerald-600';
+                            break;
+                    }
+                    
+                    button.className = `skill-button ${buttonColor} text-white p-3 rounded-full w-12 h-12 flex items-center justify-center text-lg font-bold shadow-lg hover:shadow-xl transition-all duration-200 cursor-pointer`;
+                    button.innerHTML = item.icon;
+                    button.title = `${item.name} (${quantity})`;
+                    button.disabled = this.isAnimating || this.gameOver || (this.activeItem !== null && this.activeItem !== itemId);
+                    
+                    // 添加點擊事件
+                    button.addEventListener('click', (e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        console.log(`🎯 點擊道具按鈕: ${itemId}`);
+                        
+                        // 如果當前已有激活的道具，取消它
+                        if (this.activeItem && this.activeItem !== itemId) {
+                            this.cancelActiveItem();
+                            return;
+                        }
+                        
+                        // 如果點擊的是同一個道具，取消激活
+                        if (this.activeItem === itemId) {
+                            this.cancelActiveItem();
+                            return;
+                        }
+                        
+                        this.useItem(itemId);
+                    });
+                    
+                    // 如果是當前激活的道具，添加特殊樣式
+                    if (this.activeItem === itemId) {
+                        button.classList.add('ring-4', 'ring-offset-2', 'ring-sky-300', 'opacity-80');
+                    }
+                    
+                    // 添加數量顯示 - 使用原本的技能數量樣式
+                    const countBadge = document.createElement('span');
+                    countBadge.className = 'skill-badge';
+                    countBadge.textContent = quantity;
+                    itemContainer.appendChild(countBadge);
+                } else {
+                    button.className = 'skill-button bg-gray-400 text-white p-3 rounded-full w-12 h-12 flex items-center justify-center text-lg opacity-50';
+                    button.innerHTML = '?';
+                    button.disabled = true;
+                }
+            } else {
+                button.className = 'skill-button bg-gray-400 text-white p-3 rounded-full w-12 h-12 flex items-center justify-center text-lg opacity-50';
+                button.innerHTML = '?';
+                button.disabled = true;
+            }
+            
+            itemContainer.appendChild(button);
+            this.itemsContainer.appendChild(itemContainer);
+        }
+    }
+    
+    // 更新道具狀態顯示
+    updateItemStatusDisplay() {
+        if (!this.itemStatusDisplay) return;
+        
+        if (this.activeItem) {
+            const item = ItemSystem.getItemData(this.activeItem);
+            this.itemStatusDisplay.textContent = `使用中: ${item.name}`;
+            this.itemStatusDisplay.classList.add('active');
+        } else {
+            this.itemStatusDisplay.textContent = '';
+            this.itemStatusDisplay.classList.remove('active');
+        }
     }
 
     setupUI() {
@@ -130,16 +517,16 @@ class GameEngine {
         this.finalActionCountDisplay = document.getElementById('finalActionCount');
         this.nextBlockPreviewContainer = document.getElementById('nextBlockPreviewContainer');
         
+        // 道具系統UI元素 - 所有模式都支援
+        this.itemsContainer = document.getElementById('equippedItems');
+        this.itemStatusDisplay = document.getElementById('itemStatus');
+        
         // 移除連擊分數詳情UI以節省空間
         // this.comboScoreDetailsEl = document.getElementById('comboScoreDetails');
         // this.lastComboScoreEl = document.getElementById('lastComboScore');
         // this.totalComboBonusEl = document.getElementById('totalComboBonus');
         
-        if (this.config.hasSkills) {
-            this.skillRemoveSingleUsesEl = document.getElementById('skillRemoveSingleUses');
-            this.skillRerollNextUsesEl = document.getElementById('skillRerollNextUses');
-            this.skillRerollBoardUsesEl = document.getElementById('skillRerollBoardUses');
-        }
+        // 技能系統已整合到道具系統中，不再需要技能UI元素
 
         // 闖關模式UI初始化
         if (this.config.mode === 'quest') {
@@ -210,21 +597,24 @@ class GameEngine {
             if (block) {
                 let isValid = true;
                 if (this.config.mode === 'quest') {
+                    // 支援兩種屬性名稱：colorName (正常遊戲) 和 color (教學模式)
+                    const blockColor = block.colorName || block.color;
+                    
                     // 檢查無效傷害顏色
-                    if (restrictions.noDamageColors?.includes(block.colorName)) {
+                    if (restrictions.noDamageColors?.includes(blockColor)) {
                         isValid = false;
-                        if (!blockedColors.includes(block.colorName)) {
-                            blockedColors.push(block.colorName);
+                        if (!blockedColors.includes(blockColor)) {
+                            blockedColors.push(blockColor);
                         }
-                        console.log(`限制生效：顏色 ${block.colorName} 無法造成傷害`);
+                        console.log(`限制生效：顏色 ${blockColor} 無法造成傷害`);
                     }
                     // 檢查僅限傷害顏色
-                    if (restrictions.damageOnlyColors && !restrictions.damageOnlyColors.includes(block.colorName)) {
+                    if (restrictions.damageOnlyColors && !restrictions.damageOnlyColors.includes(blockColor)) {
                         isValid = false;
-                        if (!blockedColors.includes(block.colorName)) {
-                            blockedColors.push(block.colorName);
+                        if (!blockedColors.includes(blockColor)) {
+                            blockedColors.push(blockColor);
                         }
-                        console.log(`限制生效：只有 ${restrictions.damageOnlyColors.join(', ')} 可造成傷害，${block.colorName} 無效`);
+                        console.log(`限制生效：只有 ${restrictions.damageOnlyColors.join(', ')} 可造成傷害，${blockColor} 無效`);
                     }
                 }
                 if (isValid) {
@@ -260,10 +650,28 @@ class GameEngine {
         let baseScore = blocksEliminated * scoring.baseScore;
         
         // 連擊倍數：1 + (連擊數 × 連擊倍數)
-        const comboMultiplier = 1 + (this.consecutiveSuccessfulActions * scoring.comboMultiplier);
+        let comboMultiplier = 1 + (this.consecutiveSuccessfulActions * scoring.comboMultiplier);
         
         // 連鎖倍數：連鎖等級 × 連鎖倍數
         const chainMultiplier = chainLevel * scoring.chainMultiplier;
+        
+        // 應用RPG技能加成
+        if (this.config.hasRPGSystem && window.SkillSystem) {
+            // 獲取消除的方塊顏色列表
+            const matchedColors = validBlocks.map(block => block.colorName);
+            
+            // 應用被動技能效果
+            baseScore = SkillSystem.applyPassiveSkillEffects(baseScore, matchedColors, this.playerSkills);
+            
+            // 應用連擊倍率加成技能
+            if (this.playerSkills['COMBO_MULTIPLIER_BONUS']) {
+                const skillData = SkillSystem.getSkillData('COMBO_MULTIPLIER_BONUS', this.playerSkills['COMBO_MULTIPLIER_BONUS']);
+                if (skillData) {
+                    const bonus = skillData.currentLevel.value / 100;
+                    comboMultiplier *= (1 + bonus);
+                }
+            }
+        }
         
         // 計算最終分數
         const finalScore = Math.floor(baseScore * comboMultiplier * chainMultiplier);
@@ -418,6 +826,9 @@ class GameEngine {
         this.generateNextBlockColor();
         this.updateNextBlockPreviewUI();
         
+        // 重置時間相關變數，避免 deltaTime 計算錯誤
+        this.lastFrameTime = null;
+        
         // 確保方塊位置正確設置
         this.updateBlockPositions();
         
@@ -444,6 +855,9 @@ class GameEngine {
         if (this.config.hasTimer) {
             this.gameStartTime = performance.now();
             this.timeLeft = this.config.gameDuration; // 重置時間
+        } else {
+            // 即使沒有計時器，也要設置開始時間供其他功能使用
+            this.gameStartTime = performance.now();
         }
         
         // 確保遊戲迴圈正在運行（只有在遊戲沒有結束時才啟動）
@@ -676,6 +1090,35 @@ class GameEngine {
         if (this.comboDisplay) this.comboDisplay.textContent = this.consecutiveSuccessfulActions;
         if (this.actionPointsDisplay) this.actionPointsDisplay.textContent = this.actionPoints;
         
+        // 更新RPG模式UI
+        if (this.config.hasRPGSystem) {
+            // 效能優化：節流UI更新頻率（每100ms更新一次）
+            if (!this.lastUIUpdate) this.lastUIUpdate = 0;
+            const currentTime = performance.now();
+            
+            if (currentTime - this.lastUIUpdate >= 100) {
+                const rpgData = {
+                    level: this.level,
+                    exp: this.exp,
+                    expToNextLevel: this.expToNextLevel,
+                    gold: this.gold,
+                    actionPoints: this.actionPoints,
+                    playerSkills: this.playerSkills,
+                    hasTimer: this.config.hasTimer || false // 添加hasTimer信息
+                };
+                
+                // 如果是存活模式，添加存活模式數據
+                if (this.config.isSurvivalMode) {
+                    rpgData.isSurvivalMode = true;
+                    rpgData.survivalTime = this.survivalTime || 0;
+                    rpgData.targetSurvivalTime = this.config.survivalConfig?.targetSurvivalTime || 180000;
+                }
+                
+                UIManager.updateRPGStatsUI(rpgData);
+                this.lastUIUpdate = currentTime;
+            }
+        }
+        
         // 更新闖關模式UI
         if (this.config.mode === 'quest') {
             UIManager.updateQuestUI({
@@ -700,8 +1143,38 @@ class GameEngine {
         // 時間相關UI（限時模式）
         if (this.config.hasTimer && this.timeLeftDisplay) {
             const secondsLeft = Math.max(0, this.timeLeft / 1000);
-            this.timeLeftDisplay.textContent = Math.ceil(secondsLeft) + 's';
+            const displayTime = Math.ceil(secondsLeft) + 's';
+            
+            // 只在時間真正改變時更新顯示，避免不必要的DOM操作
+            if (this.timeLeftDisplay.textContent !== displayTime) {
+                this.timeLeftDisplay.textContent = displayTime;
+                
+                // RPG模式的調試信息
+                if (this.config.hasRPGSystem) {
+                    console.log(`UI更新: 計時器顯示 ${displayTime}, 實際剩餘 ${secondsLeft.toFixed(1)}秒`);
+                }
+            }
 
+            // 更新橫向進度條（如果存在）
+            const timerProgressBar = document.getElementById('timer-progress-bar');
+            if (timerProgressBar) {
+                const progressPercentage = (this.timeLeft / this.config.gameDuration) * 100;
+                timerProgressBar.style.width = `${Math.max(0, progressPercentage)}%`;
+                
+                // 優化顏色變化：使用飽和的配色
+                if (secondsLeft <= 5 && !this.gameOver) {
+                    // 警告時使用飽和的紅色
+                    timerProgressBar.className = 'h-full bg-gradient-to-r from-red-500 via-red-400 to-red-600 transition-all duration-200 ease-linear shadow-sm';
+                } else if (secondsLeft <= 10 && !this.gameOver) {
+                    // 注意時使用飽和的橙色
+                    timerProgressBar.className = 'h-full bg-gradient-to-r from-orange-500 via-yellow-400 to-orange-600 transition-all duration-200 ease-linear shadow-sm';
+                } else {
+                    // 正常時使用飽和的青綠色
+                    timerProgressBar.className = 'h-full bg-gradient-to-r from-emerald-400 via-cyan-400 to-blue-400 transition-all duration-200 ease-linear shadow-sm';
+                }
+            }
+
+            // 保留原有的橫向進度條邏輯（向後兼容）
             if (this.timeProgressBar) {
                 const progressPercentage = (this.timeLeft / this.config.gameDuration) * 100;
                 this.timeProgressBar.style.width = `${Math.max(0, progressPercentage)}%`;
@@ -717,6 +1190,22 @@ class GameEngine {
         }
 
         this.updateSkillButtonsUI();
+        
+        // 更新道具UI（非RPG模式） - 添加節流以避免性能問題
+        if (!this.config.hasRPGSystem) {
+            // 效能優化：節流道具UI更新頻率（每200ms更新一次）
+            if (!this.lastItemUIUpdate) this.lastItemUIUpdate = 0;
+            const currentTime = performance.now();
+            
+            // 移動設備進一步降低更新頻率
+            const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+            const updateInterval = isMobile ? 500 : 200; // 移動設備500ms，桌面200ms
+            
+            if (currentTime - this.lastItemUIUpdate >= updateInterval) {
+                this.updateItemsUI();
+                this.lastItemUIUpdate = currentTime;
+            }
+        }
     }
 
     updateSkillButtonsUI() {
@@ -889,7 +1378,13 @@ class GameEngine {
         this.ctx.lineTo(blockDrawX, blockDrawRenderY + cornerRadius);
         this.ctx.quadraticCurveTo(blockDrawX, blockDrawRenderY, blockDrawX + cornerRadius, blockDrawRenderY);
         this.ctx.closePath();
-        this.ctx.fillStyle = block.colorHex;
+        
+        // 檢查是否為黑色方塊
+        if (block.isBlackened) {
+            this.ctx.fillStyle = '#222222'; // 深灰色/黑色
+        } else {
+            this.ctx.fillStyle = block.colorHex;
+        }
         this.ctx.fill();
 
         this.ctx.strokeStyle = 'rgba(0,0,0,0.1)';
@@ -898,8 +1393,8 @@ class GameEngine {
 
         this.ctx.restore();
 
-        // 繪製操作提示
-        if (block && !block.isEliminating && !block.isExploding && opacity > 0.5 && !this.activeSkill) {
+        // 繪製操作提示（黑色方塊不顯示操作提示）
+        if (block && !block.isEliminating && !block.isExploding && opacity > 0.5 && !this.activeSkill && !block.isBlackened) {
             const actionAreaWidth = block.width / 3;
             const actionTexts = ["🔼", "╳", "🔽"];
             this.ctx.fillStyle = `rgba(255,255,255,${0.7 * opacity})`;
@@ -912,6 +1407,25 @@ class GameEngine {
                 const textY = currentDrawY + block.height / 2;
                 this.ctx.fillText(actionTexts[i], textX, textY);
             }
+        }
+        
+        // 繪製黑色方塊的剩餘回合數
+        if (block && block.isBlackened && !block.isEliminating && !block.isExploding && opacity > 0.5) {
+            this.ctx.fillStyle = `rgba(255,255,255,${0.9 * opacity})`;
+            this.ctx.font = `bold ${Math.min(24, block.height * 0.5)}px 'Poppins'`;
+            this.ctx.textAlign = 'center';
+            this.ctx.textBaseline = 'middle';
+            const textX = block.x + block.width / 2;
+            const textY = currentDrawY + block.height / 2;
+            
+            // 顯示剩餘回合數
+            const remainingTurns = block.blackenedClearancesRequired || 0;
+            this.ctx.fillText(remainingTurns.toString(), textX, textY);
+            
+            // 在數字下方顯示小圖標
+            this.ctx.font = `${Math.min(12, block.height * 0.2)}px 'Poppins'`;
+            this.ctx.fillStyle = `rgba(255,255,255,${0.7 * opacity})`;
+            this.ctx.fillText('🔒', textX, textY + block.height * 0.25);
         }
     }
 
@@ -966,6 +1480,12 @@ class GameEngine {
                 particle.vy += 0.1 * (deltaTime / 16.67); // 較慢的重力
                 // 添加閃爍效果
                 particle.opacity = 0.7 + 0.3 * Math.sin(Date.now() * 0.01);
+            } else if (particle.isCelebration) {
+                // 慶祝粒子效果
+                particle.vy += 0.05 * (deltaTime / 16.67); // 很慢的重力
+                // 添加閃爍和旋轉效果
+                particle.opacity = 0.8 + 0.2 * Math.sin(Date.now() * 0.005);
+                particle.rotation = (particle.rotation || 0) + 0.1 * (deltaTime / 16.67);
             } else if (particle.isQuestAttack) {
                 // 攻擊粒子不受重力影響，直線飛向敵人
                 // 檢查是否接近敵人位置
@@ -1012,6 +1532,17 @@ class GameEngine {
                 );
                 gradient.addColorStop(0, particle.color);
                 gradient.addColorStop(1, 'rgba(255, 215, 0, 0)');
+                this.ctx.fillStyle = gradient;
+            } else if (particle.isCelebration) {
+                // 慶祝粒子特殊渲染
+                this.ctx.globalAlpha = (particle.opacity || 1) * alpha;
+                // 添加彩色光暈效果
+                const gradient = this.ctx.createRadialGradient(
+                    particle.x, particle.y, 0,
+                    particle.x, particle.y, particle.size * 1.5
+                );
+                gradient.addColorStop(0, particle.color);
+                gradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
                 this.ctx.fillStyle = gradient;
             } else {
                 this.ctx.globalAlpha = alpha;
@@ -1084,18 +1615,19 @@ class GameEngine {
             
             for (let r = 0; r <= column.length - 3;) {
                 const block = column[r];
-                if (!block || block.isEliminating) {
+                if (!block || block.isEliminating || block.isBlackened) {
                     r++;
                     continue;
                 }
                 
                 let count = 1;
-                const currentColorName = block.colorName;
+                // 支援兩種屬性名稱：colorName (正常遊戲) 和 color (教學模式)
+                const currentColorName = block.colorName || block.color;
                 let next_r = r + 1;
                 
                 while (next_r < column.length && column[next_r] && 
-                       column[next_r].colorName === currentColorName && 
-                       !column[next_r].isEliminating) {
+                       (column[next_r].colorName || column[next_r].color) === currentColorName && 
+                       !column[next_r].isEliminating && !column[next_r].isBlackened) {
                     count++;
                     next_r++;
                 }
@@ -1116,18 +1648,19 @@ class GameEngine {
                 
                 for (let r = 0; r <= column.length - 3;) {
                     const block = column[r];
-                    if (!block || block.isEliminating) {
+                    if (!block || block.isEliminating || block.isBlackened) {
                         r++;
                         continue;
                     }
                     
                     let count = 1;
-                    const currentColorName = block.colorName;
+                    // 支援兩種屬性名稱：colorName (正常遊戲) 和 color (教學模式)
+                    const currentColorName = block.colorName || block.color;
                     let next_r = r + 1;
                     
                     while (next_r < column.length && column[next_r] && 
-                           column[next_r].colorName === currentColorName && 
-                           !column[next_r].isEliminating) {
+                           (column[next_r].colorName || column[next_r].color) === currentColorName && 
+                           !column[next_r].isEliminating && !column[next_r].isBlackened) {
                         count++;
                         next_r++;
                     }
@@ -1150,21 +1683,27 @@ class GameEngine {
                         const b2 = this.grid[c + 1]?.[r];
                         const b3 = this.grid[c + 2]?.[r];
 
-                        if (!b1 || !b2 || !b3 || b1.isEliminating || b2.isEliminating || b3.isEliminating) {
+                        if (!b1 || !b2 || !b3 || b1.isEliminating || b2.isEliminating || b3.isEliminating || 
+                            b1.isBlackened || b2.isBlackened || b3.isBlackened) {
                             c++;
                             continue;
                         }
 
                         let count = 0;
-                        let currentColorName = b1.colorName;
+                        // 支援兩種屬性名稱：colorName (正常遊戲) 和 color (教學模式)
+                        let currentColorName = b1.colorName || b1.color;
                         let temp_c = c;
 
-                        if (b1.colorName === b2.colorName && b2.colorName === b3.colorName) {
+                        const b1Color = b1.colorName || b1.color;
+                        const b2Color = b2.colorName || b2.color;
+                        const b3Color = b3.colorName || b3.color;
+
+                        if (b1Color === b2Color && b2Color === b3Color) {
                             count = 3;
                             temp_c = c + 3;
                             while (temp_c < this.grid.length && this.grid[temp_c][r] && 
-                                   this.grid[temp_c][r].colorName === currentColorName && 
-                                   !this.grid[temp_c][r].isEliminating) {
+                                   (this.grid[temp_c][r].colorName || this.grid[temp_c][r].color) === currentColorName && 
+                                   !this.grid[temp_c][r].isEliminating && !this.grid[temp_c][r].isBlackened) {
                                 count++;
                                 temp_c++;
                             }
@@ -1209,15 +1748,61 @@ class GameEngine {
 
             const deltaTime = timestamp - (this.lastFrameTime || timestamp);
             this.lastFrameTime = timestamp;
+            
+            // 效能監控和動態調整（僅存活模式）
+            if (this.config.isSurvivalMode) {
+                this.frameCount++;
+                this.avgFrameTime = (this.avgFrameTime * 0.9) + (deltaTime * 0.1); // 移動平均
+                
+                // 每2秒檢查一次效能並調整節流間隔
+                if (timestamp - this.lastPerformanceCheck >= this.performanceCheckInterval) {
+                    this.adjustPerformanceSettings();
+                    this.lastPerformanceCheck = timestamp;
+                }
+            }
 
             // 處理計時器 - 統一使用 performance.now()
             if (this.config.hasTimer && this.gameStartTime > 0) {
-                const elapsedTime = performance.now() - this.gameStartTime;
-                this.timeLeft = this.config.gameDuration - elapsedTime;
-                if (this.timeLeft <= 0) {
-                    this.timeLeft = 0;
-                    this.triggerGameOver();
-                    return;
+                // RPG模式在暫停時不更新計時器
+                if (this.config.hasRPGSystem && (this.isPaused || this.isLevelUpInProgress || this.isTimerPaused)) {
+                    // 暫停時，調整遊戲開始時間以補償暫停的時間
+                    this.gameStartTime = performance.now() - (this.config.gameDuration - this.timeLeft);
+                } else {
+                    const elapsedTime = performance.now() - this.gameStartTime;
+                    this.timeLeft = Math.max(0, this.config.gameDuration - elapsedTime);
+                    
+                    // 存活模式：更新存活時間（獨立於8秒計時器）
+                    if (this.config.isSurvivalMode) {
+                        this.updateSurvivalTime(deltaTime);
+                        
+                        // 效能優化：節流檢查頻率
+                        const currentTime = performance.now();
+                        
+                        // 存活里程碑檢查（每500ms檢查一次）
+                        if (currentTime - this.lastSurvivalCheck >= this.survivalCheckInterval) {
+                            this.checkSurvivalMilestones();
+                            this.lastSurvivalCheck = currentTime;
+                        }
+                        
+                        // 勝利條件檢查（每1000ms檢查一次）
+                        if (currentTime - this.lastWinCheck >= this.winCheckInterval) {
+                            this.checkSurvivalWinCondition();
+                            this.lastWinCheck = currentTime;
+                        }
+                    }
+                    
+                    if (this.timeLeft <= 0) {
+                        this.timeLeft = 0;
+                        
+                        // RPG模式：計時結束時扣除行動點而不是直接結束遊戲
+                        if (this.config.hasRPGSystem && !this.isLevelUpInProgress) {
+                            this.handleTimeoutPenalty();
+                            // 不要return，讓遊戲循環繼續
+                        } else if (!this.config.hasRPGSystem) {
+                            this.triggerGameOver();
+                            return;
+                        }
+                    }
                 }
             }
             
@@ -1301,6 +1886,12 @@ class GameEngine {
         // quest 模式有專用的保存方法，不使用此方法
         if (this.config.mode === 'quest') {
             console.log("偵測到 Quest 模式，已阻止儲存普通遊戲記錄。");
+            return;
+        }
+
+        // 存活模式有專用的保存方法，不使用此方法
+        if (this.config.isSurvivalMode) {
+            console.log("偵測到存活模式，已阻止儲存普通遊戲記錄。");
             return;
         }
 
@@ -1410,6 +2001,9 @@ class GameEngine {
         const mouseX = (event.clientX - rect.left) * scaleX;
         const mouseY = (event.clientY - rect.top) * scaleY;
 
+        // 先檢查是否點擊了黑色方塊，如果是則不重置計時器
+        let clickedBlackenedBlock = false;
+
         if (this.config.numCols === 1) {
             // 單排模式
             for (let i = 0; i < this.grid[0].length; i++) {
@@ -1419,8 +2013,29 @@ class GameEngine {
                 if (mouseX >= block.x && mouseX <= block.x + block.width && 
                     mouseY >= block.y && mouseY <= block.y + block.height) {
                     
+                    // 檢查是否為黑色方塊
+                    if (block.isBlackened) {
+                        clickedBlackenedBlock = true;
+                        // 顯示黑色方塊不能操作的提示
+                        try {
+                            if (typeof UIManager !== 'undefined' && UIManager.showToast) {
+                                UIManager.showToast('🔒 黑色方塊無法操作！', 'warning', 2000);
+                            }
+                        } catch (error) {
+                            console.error('顯示黑色方塊提示出錯:', error);
+                        }
+                        return;
+                    }
+                    
+                    // RPG模式：用戶點擊有效方塊時立即重置計時器並暫停倒數
+                    if (this.config.hasRPGSystem && !this.isLevelUpInProgress) {
+                        this.resetTimerAndPause();
+                    }
+                    
                     if (this.activeSkill) {
                         await this.processActiveSkillOnBlock({ colIndex: 0, rowIndex: i });
+                    } else if (this.activeItem) {
+                        await this.processActiveItemOnBlock({ colIndex: 0, rowIndex: i });
                     } else {
                         const clickXRelative = mouseX - block.x;
                         const actionAreaWidth = block.width / 3;
@@ -1442,9 +2057,30 @@ class GameEngine {
                     if (mouseX >= block.x && mouseX <= block.x + block.width && 
                         mouseY >= block.y && mouseY <= block.y + block.height) {
                         
+                        // 檢查是否為黑色方塊
+                        if (block.isBlackened) {
+                            clickedBlackenedBlock = true;
+                            // 顯示黑色方塊不能操作的提示
+                            try {
+                                if (typeof UIManager !== 'undefined' && UIManager.showToast) {
+                                    UIManager.showToast('🔒 黑色方塊無法操作！', 'warning', 2000);
+                                }
+                            } catch (error) {
+                                console.error('顯示黑色方塊提示出錯:', error);
+                            }
+                            return;
+                        }
+                        
+                        // RPG模式：用戶點擊有效方塊時立即重置計時器並暫停倒數
+                        if (this.config.hasRPGSystem && !this.isLevelUpInProgress) {
+                            this.resetTimerAndPause();
+                        }
+                        
                         const location = { colIndex: c, rowIndex: r };
                         if (this.activeSkill) {
                             await this.processActiveSkillOnBlock(location);
+                        } else if (this.activeItem) {
+                            await this.processActiveItemOnBlock(location);
                         } else {
                             const clickXRelative = mouseX - block.x;
                             const actionAreaWidth = block.width / 3;
@@ -1460,7 +2096,19 @@ class GameEngine {
     }
 
     async performPlayerAction(location, actionType) {
-        if (this.gameOver || this.isAnimating || this.activeSkill) return;
+        if (this.gameOver || this.isAnimating || this.activeSkill || this.activeItem) return;
+
+        const { colIndex, rowIndex } = location;
+        if (this.config.numCols === 1) {
+            if (!this.grid[0] || !this.grid[0][rowIndex]) return;
+        } else {
+            if (!this.grid[colIndex] || !this.grid[colIndex][rowIndex]) return;
+        }
+
+        // 黑色方塊檢查已在 handleCanvasClick 中處理，這裡不再需要
+
+        // 在執行操作前保存遊戲狀態（供返回上一步道具使用）
+        this.saveGameState();
 
         // 在闖關模式下，每次操作即消耗步數
         if (this.config.mode === 'quest' && this.movesLeft !== undefined) {
@@ -1473,13 +2121,6 @@ class GameEngine {
         this.isAnimating = true;
         this.actionCount++;
         let matchFound = false;
-
-        const { colIndex, rowIndex } = location;
-        if (this.config.numCols === 1) {
-            if (!this.grid[0] || !this.grid[0][rowIndex]) return;
-        } else {
-            if (!this.grid[colIndex] || !this.grid[colIndex][rowIndex]) return;
-        }
         
         this.updateSkillButtonsUI();
         
@@ -1556,6 +2197,10 @@ class GameEngine {
                 if (this.config.title === '三排限時強攻') {
                     this.handlePenalty(); // 額外的震動效果
                 }
+            } else if (this.config.hasRPGSystem) {
+                // RPG模式：無效移動觸發晃動效果
+                UIManager.showToast('❌ 沒有消除方塊', 'error', 1500);
+                this.triggerShakeEffect(); // RPG模式的晃動效果
             } else {
                 // actionPointsStart = 0 的模式（如45秒限時）不扣除行動點數
                 UIManager.showToast('❌ 沒有消除方塊', 'error', 1500);
@@ -1572,6 +2217,11 @@ class GameEngine {
         this.updateUI();
         this.isAnimating = false;
         this.updateSkillButtonsUI();
+        
+        // RPG模式：操作完成後恢復計時器倒數
+        if (this.config.hasRPGSystem && !this.isLevelUpInProgress) {
+            this.resumeTimer();
+        }
         
         // 檢查遊戲結束條件
         if (this.config.mode === 'quest') {
@@ -1594,10 +2244,29 @@ class GameEngine {
                 anyEliminationThisWave = true;
                 internalCascadeCount++;
                 
+                // 存活模式：增加消除次數計數器
+                if (this.config.isSurvivalMode) {
+                    this.clearancesCount++;
+                    console.log(`消除次數: ${this.clearancesCount}`);
+                    
+                    // 效能優化：節流黑色方塊檢查（每200ms檢查一次）
+                    const currentTime = performance.now();
+                    if (currentTime - this.lastBlackenedCheck >= this.blackenedCheckInterval) {
+                        this.updateBlackenedBlocks();
+                        this.lastBlackenedCheck = currentTime;
+                    }
+                }
+                
                 // 使用新的連擊分數計算系統
                 const scoreInfo = this.calculateComboScore(matches, internalCascadeCount);
                 this.score += scoreInfo.finalScore;
                 this.lastComboScore = scoreInfo.finalScore;
+                
+                // RPG系統：處理經驗值和金幣
+                if (this.config.hasRPGSystem && window.SkillSystem && scoreInfo.finalScore > 0) {
+                    this.addExp(scoreInfo.finalScore);
+                    this.addGold(scoreInfo.finalScore);
+                }
             
                 matches.forEach(matchInfo => {
                     const { colIndex, rowIndex } = JSON.parse(matchInfo);
@@ -1675,6 +2344,10 @@ class GameEngine {
             this.canvas.classList.toggle('canvas-skill-target-mode', 
                                        this.activeSkill === 'removeSingle' || this.activeSkill === 'rerollBoard');
         }
+        
+        // RPG模式：選擇技能本身不重置計時器，只有使用技能後才重置
+        // 移除了這裡的計時器重置邏輯
+        
         this.updateSkillButtonsUI();
     }
 
@@ -1887,6 +2560,11 @@ class GameEngine {
         // 改進的重骰邏輯，確保新顏色與原顏色不同
         this.generateNextBlockColorWithDifferentColors();
         
+        // RPG模式：使用技能時重置計時器
+        if (this.config.hasRPGSystem && !this.isLevelUpInProgress) {
+            this.resetTimer();
+        }
+        
         await new Promise(resolve => setTimeout(resolve, 50));
         this.isAnimating = false;
         this.updateUI();
@@ -1941,13 +2619,20 @@ class GameEngine {
         } else if (skillUsed === 'rerollBoard' && this.skillUses.rerollBoard > 0) {
             this.skillUses.rerollBoard--;
             const block = targetGrid[rowIndex];
-            const oldColor = block.colorName;
+            // 支援兩種屬性名稱：colorName (正常遊戲) 和 color (教學模式)
+            const oldColor = block.colorName || block.color;
             let newColorName;
             do {
                 newColorName = this.getRandomColorName();
             } while (newColorName === oldColor && this.colorNames.length > 1);
             
-            block.colorName = newColorName;
+            // 更新方塊顏色（同時更新兩種屬性以確保兼容性）
+            if (block.colorName !== undefined) {
+                block.colorName = newColorName;
+            }
+            if (block.color !== undefined) {
+                block.color = newColorName;
+            }
             block.colorHex = this.config.colors[newColorName].hex;
             skillEffectApplied = true;
         }
@@ -1980,12 +2665,145 @@ class GameEngine {
         this.isAnimating = false;
         this.updateSkillButtonsUI();
         
+        // RPG模式：使用技能後重置並恢復計時器倒數
+        if (this.config.hasRPGSystem && skillEffectApplied && !this.isLevelUpInProgress) {
+            this.resetTimerAndPause();
+            this.resumeTimer();
+        }
+        
         // 檢查遊戲結束條件
         if (this.config.mode === 'quest') {
             this.triggerGameOver();
         } else if (this.config.actionPointsStart > 0 && this.actionPoints <= 0 && !this.gameOver) {
             console.log('技能使用後行動點數用盡，觸發遊戲結束');
             this.triggerGameOver();
+        }
+    }
+
+    // 處理道具目標選擇
+    async processActiveItemOnBlock(location) {
+        const { colIndex, rowIndex } = location;
+        console.log('🎯 處理道具目標選擇:', { colIndex, rowIndex });
+        console.log('當前激活道具:', this.activeItem);
+        
+        if (!this.activeItem || this.isAnimating) return;
+        
+        // 驗證位置
+        const targetGrid = this.config.numCols === 1 ? this.grid[0] : this.grid[colIndex];
+        console.log('驗證位置:', { targetGrid: targetGrid ? targetGrid.length : 'null', colIndex, rowIndex });
+        
+        if (!targetGrid || !targetGrid[rowIndex]) return;
+
+        const itemId = this.activeItem;
+        const item = ItemSystem.getItemData(itemId);
+        
+        if (!item) {
+            console.error(`道具 ${itemId} 不存在`);
+            this.cancelActiveItem(false);
+            return;
+        }
+
+        try {
+            // 使用道具（在設置 isAnimating 之前調用）
+            const success = await ItemSystem.useItem(itemId, this, { colIndex, rowIndex });
+            
+            // 道具使用成功後才設置動畫狀態和增加行動計數
+            if (success) {
+                this.isAnimating = true;
+                this.actionCount++;
+            }
+            
+            if (success) {
+                // 從背包移除道具
+                InventorySystem.removeItem(itemId, 1);
+                
+                // 處理連鎖消除
+                this.updateBlockPositions();
+                while (true) {
+                    this.updateBlockPositions();
+                    const passHadEliminations = await this.processSingleWaveOfMatchesAndCascades();
+                    this.updateBlockPositions();
+                    const refilled = this.refillGrid();
+                    this.updateBlockPositions();
+                    if (!passHadEliminations && !refilled) break;
+                }
+                
+                // 顯示使用成功提示
+                if (typeof UIManager !== 'undefined' && UIManager.showToast) {
+                    UIManager.showToast(`✨ 使用了 ${item.name}`, 'success', 1500);
+                }
+            } else {
+                // 道具使用失敗
+                if (typeof UIManager !== 'undefined' && UIManager.showToast) {
+                    UIManager.showToast(`❌ 道具使用失敗`, 'error', 1500);
+                }
+            }
+        } catch (error) {
+            console.error('使用道具時發生錯誤:', error);
+            if (typeof UIManager !== 'undefined' && UIManager.showToast) {
+                UIManager.showToast(`❌ 道具使用失敗`, 'error', 1500);
+            }
+        }
+        
+        // 清除道具狀態（不顯示取消提示）
+        this.cancelActiveItem(false);
+        
+        // RPG模式：恢復計時器
+        if (this.config.hasRPGSystem) {
+            this.resumeTimer();
+        }
+        
+        // 更新UI（強制更新，因為道具使用完成，狀態發生了變化）
+        this.updateUI();
+        this.updateItemsUI(true);
+        
+        this.isAnimating = false;
+        
+        // 檢查遊戲結束條件
+        if (this.config.mode === 'quest') {
+            this.triggerGameOver();
+        } else if (this.config.actionPointsStart > 0 && this.actionPoints <= 0 && !this.gameOver) {
+            console.log('道具使用後行動點數用盡，觸發遊戲結束');
+            this.triggerGameOver();
+        }
+    }
+    
+    // 取消當前道具
+    cancelActiveItem(showToast = true) {
+        this.activeItem = null;
+        this.isItemTargeting = false;
+        this.itemTargetingType = null;
+        
+        // 移除視覺效果
+        if (this.canvas && this.canvas.classList) {
+            this.canvas.classList.remove('canvas-item-target-mode');
+        }
+        
+        // RPG模式：恢復計時器狀態
+        if (this.config.hasRPGSystem && this.isTimerPaused) {
+            this.resumeTimer();
+        }
+        
+        // 確保動畫狀態正確重置
+        this.isAnimating = false;
+        
+        // 更新UI（強制更新，因為激活狀態發生了變化）
+        this.updateItemsUI(true);
+        
+        // 只在用戶主動取消時顯示取消提示
+        if (showToast && typeof UIManager !== 'undefined' && UIManager.showToast) {
+            UIManager.showToast('取消道具使用', 'info', 1000);
+        }
+    }
+    
+    // 添加震動效果（用於道具使用）
+    addScreenShakeEffect() {
+        const gameContainer = document.querySelector('.game-container');
+        if (gameContainer) {
+            gameContainer.classList.add('screen-shake');
+            setTimeout(() => {
+                gameContainer.classList.remove('screen-shake');
+            }, 500);
         }
     }
 
@@ -2092,6 +2910,812 @@ class GameEngine {
                 modal.remove();
             }
         };
+    }
+
+    // ===== RPG系統方法 =====
+    
+    // 處理計時器超時懲罰
+    handleTimeoutPenalty() {
+        if (!this.config.hasRPGSystem || this.isLevelUpInProgress || this.gameOver) return;
+        
+        // 防止重複調用
+        if (this.processingTimeoutPenalty) return;
+        this.processingTimeoutPenalty = true;
+        
+        console.log(`計時器超時！當前行動點: ${this.actionPoints}`);
+        
+        // 扣除行動點
+        this.actionPoints--;
+        console.log(`扣除行動點，剩餘: ${this.actionPoints}`);
+        
+        // 重置combo（超時懲罰也會中斷連擊）
+        this.consecutiveSuccessfulActions = 0;
+        this.lastComboScore = 0;
+        console.log('超時懲罰：重置combo');
+        
+        // 觸發晃動特效
+        this.triggerShakeEffect();
+        
+        // 顯示懲罰提示
+        try {
+            if (typeof UIManager !== 'undefined' && UIManager.showToast) {
+                UIManager.showToast(`⏰ 時間到！扣除行動點 (剩餘 ${this.actionPoints} 點)`, 'error', 2000);
+            }
+        } catch (error) {
+            console.error('顯示Toast出錯:', error);
+        }
+        
+        // 檢查是否遊戲結束
+        if (this.actionPoints <= 0) {
+            console.log('行動點歸零，觸發遊戲結束');
+            this.processingTimeoutPenalty = false;
+            
+            // 存活模式：行動點歸零就是失敗
+            if (this.config.isSurvivalMode) {
+                this.triggerSurvivalGameOver();
+            } else {
+                this.triggerGameOver();
+            }
+            return;
+        }
+        
+        // 重置計時器 - 確保恢復正常計時
+        console.log('準備重置計時器...');
+        this.resetTimer();
+        
+        // 確保遊戲狀態正確恢復
+        this.isPaused = false;
+        this.isAnimating = false;
+        this.isLevelUpInProgress = false;  // 確保不在升級流程中
+        
+        console.log(`計時器重置完成，恢復計時，遊戲狀態已恢復 - isPaused:${this.isPaused}, isAnimating:${this.isAnimating}`);
+        
+        // 更新UI
+        this.updateUI();
+        
+        // 重置處理標誌，確保下次超時可以正常處理
+        this.processingTimeoutPenalty = false;
+    }
+    
+    // 觸發晃動特效
+    triggerShakeEffect() {
+        const gameContainer = document.getElementById('game-container');
+        const rpgStats = document.getElementById('rpg-stats');
+        
+        if (gameContainer) {
+            gameContainer.classList.add('shake-effect');
+            setTimeout(() => {
+                gameContainer.classList.remove('shake-effect');
+            }, 500);
+        }
+        
+        if (rpgStats) {
+            rpgStats.classList.add('shake-effect');
+            setTimeout(() => {
+                rpgStats.classList.remove('shake-effect');
+            }, 500);
+        }
+    }
+    
+    // 計算當前等級對應的計時器時間（毫秒）
+    calculateTimerForLevel(level) {
+        if (!this.config.hasRPGSystem) return this.config.gameDuration;
+        
+        const baseTimer = this.config.rpgConfig?.baseTimer || 13;
+        const reduction = (level - 1) * (this.config.rpgConfig?.timerReductionPerLevel || 0.5);
+        const minTimer = this.config.rpgConfig?.minTimer || 8;
+        
+        const currentTimer = Math.max(baseTimer - reduction, minTimer);
+        return currentTimer * 1000; // 轉換為毫秒
+    }
+    
+    // 重置計時器到當前等級對應的時間
+    resetTimer() {
+        if (!this.config.hasRPGSystem) return;
+        
+        const newTimeLeft = this.calculateTimerForLevel(this.level);
+        this.timeLeft = newTimeLeft;
+        
+        // 重置遊戲開始時間以確保計時器正確計算
+        const currentTime = performance.now();
+        this.gameStartTime = currentTime;
+        this.config.gameDuration = newTimeLeft;
+        
+        console.log(`計時器重置: timeLeft=${this.timeLeft}ms, gameDuration=${this.config.gameDuration}ms, gameStartTime=${this.gameStartTime}`);
+        
+        // 確保UI立即更新
+        if (this.timeLeftDisplay) {
+            const secondsLeft = Math.max(0, this.timeLeft / 1000);
+            const displayTime = Math.ceil(secondsLeft) + 's';
+            this.timeLeftDisplay.textContent = displayTime;
+            console.log(`UI已更新顯示: ${displayTime}`);
+        }
+        
+        console.log('計時器重置完成，下次遊戲循環將開始新的倒數');
+    }
+    
+    // 重置計時器並暫停倒數（用戶點擊時）
+    resetTimerAndPause() {
+        if (!this.config.hasRPGSystem) return;
+        
+        const newTimeLeft = this.calculateTimerForLevel(this.level);
+        this.timeLeft = newTimeLeft;
+        this.config.gameDuration = newTimeLeft;
+        
+        // 暫停計時器：設置一個未來的開始時間
+        this.isTimerPaused = true;
+        
+        console.log(`計時器重置並暫停: timeLeft=${this.timeLeft}ms, 等待操作完成後恢復倒數`);
+        
+        // 更新UI顯示
+        if (this.timeLeftDisplay) {
+            const secondsLeft = Math.max(0, this.timeLeft / 1000);
+            const displayTime = Math.ceil(secondsLeft) + 's';
+            this.timeLeftDisplay.textContent = displayTime;
+        }
+    }
+    
+    // 恢復計時器倒數（操作完成後）
+    resumeTimer() {
+        if (!this.config.hasRPGSystem || !this.isTimerPaused) return;
+        
+        // 恢復計時：重新設置開始時間
+        this.gameStartTime = performance.now();
+        this.isTimerPaused = false;
+        
+        console.log(`計時器恢復倒數: gameStartTime=${this.gameStartTime}, timeLeft=${this.timeLeft}ms`);
+    }
+    
+    // 保存遊戲狀態到歷史記錄（供返回上一步道具使用）
+    saveGameState() {
+        try {
+            // 創建深拷貝的遊戲狀態快照
+            const gameState = {
+                grid: JSON.parse(JSON.stringify(this.grid)),
+                score: this.score,
+                actionPoints: this.actionPoints,
+                consecutiveSuccessfulActions: this.consecutiveSuccessfulActions,
+                maxCombo: this.maxCombo,
+                actionCount: this.actionCount,
+                timestamp: Date.now()
+            };
+            
+            // 添加到歷史記錄
+            this.gameStateHistory.push(gameState);
+            
+            // 限制歷史記錄大小
+            if (this.gameStateHistory.length > this.maxHistorySize) {
+                this.gameStateHistory.shift(); // 移除最舊的記錄
+            }
+            
+            console.log('遊戲狀態已保存到歷史記錄', {
+                historySize: this.gameStateHistory.length,
+                maxSize: this.maxHistorySize
+            });
+        } catch (error) {
+            console.error('保存遊戲狀態失敗:', error);
+        }
+    }
+    
+    // 增加經驗值
+    addExp(baseScore) {
+        if (!this.config.hasRPGSystem || this.isLevelUpInProgress) return;
+        
+        const expGained = SkillSystem.calculateExpGained(baseScore, this.level);
+        this.exp += expGained;
+        
+        console.log(`獲得經驗值: ${expGained}, 當前經驗: ${this.exp}/${this.expToNextLevel}`);
+        
+        // 檢查是否升級
+        if (this.exp >= this.expToNextLevel) {
+            this.levelUp();
+        }
+    }
+    
+    // 增加金幣
+    addGold(baseScore) {
+        if (!this.config.hasRPGSystem) return;
+        
+        const goldGained = SkillSystem.calculateGoldGained(baseScore);
+        this.gold += goldGained;
+        
+        console.log(`獲得金幣: ${goldGained}, 當前金幣: ${this.gold}`);
+    }
+    
+    // 升級
+    levelUp() {
+        if (!this.config.hasRPGSystem || this.isLevelUpInProgress) return;
+        
+        // 檢查是否達到最大等級
+        const maxLevel = this.config.rpgConfig?.maxLevel || 10;
+        if (this.level >= maxLevel) {
+            console.log(`已達到最大等級 ${maxLevel}，不再升級`);
+            return;
+        }
+        
+        this.isLevelUpInProgress = true;
+        this.isPaused = true; // 暫停遊戲計時
+        this.level++;
+        this.exp -= this.expToNextLevel;
+        this.expToNextLevel = SkillSystem.calculateExpRequired(this.level);
+        
+        console.log(`升級到 ${this.level} 級！`);
+        
+        // 暫停遊戲並顯示技能選擇
+        this.showLevelUpModal();
+    }
+    
+    // 顯示升級模式彈窗
+    showLevelUpModal() {
+        // 獲取技能選項（支持升級系統）
+        const skillOptions = SkillSystem.getRandomSkillOptions(this.playerSkills, 2);
+        
+        // 暫停遊戲
+        this.isAnimating = true;
+        
+        // 重置免費重抽標誌
+        this.hasUsedFreeReroll = false;
+        
+        // 創建升級彈窗
+        try {
+            if (typeof UIManager !== 'undefined' && UIManager.showLevelUpModal) {
+                UIManager.showLevelUpModal({
+                    level: this.level,
+                    skillOptions: skillOptions,
+                    playerGold: this.gold,
+                    playerSkills: this.playerSkills,
+                    hasUsedFreeReroll: this.hasUsedFreeReroll,
+                    onSkillPurchase: (skillId) => this.purchaseSkill(skillId),
+                    onSkipUpgrade: () => this.skipUpgrade(),
+                    onRerollOptions: (isFree) => this.handleRerollOptions(isFree)
+                });
+            } else if (typeof UI !== 'undefined' && UI.showLevelUpModal) {
+                UI.showLevelUpModal({
+                    level: this.level,
+                    skillOptions: skillOptions,
+                    playerGold: this.gold,
+                    playerSkills: this.playerSkills,
+                    hasUsedFreeReroll: this.hasUsedFreeReroll,
+                    onSkillPurchase: (skillId) => this.purchaseSkill(skillId),
+                    onSkipUpgrade: () => this.skipUpgrade(),
+                    onRerollOptions: (isFree) => this.handleRerollOptions(isFree)
+                });
+            } else {
+                console.error('UI管理器未找到，無法顯示升級彈窗');
+                // 直接跳過升級
+                this.skipUpgrade();
+            }
+        } catch (error) {
+            console.error('顯示升級彈窗時出錯:', error);
+            // 直接跳過升級
+            this.skipUpgrade();
+        }
+    }
+    
+    // 購買技能
+    purchaseSkill(skillId) {
+        if (!this.config.hasRPGSystem || !skillId) {
+            this.resumeGame();
+            return;
+        }
+        
+        const currentLevel = this.playerSkills[skillId] || 0;
+        const nextLevel = currentLevel + 1;
+        const skillData = SkillSystem.getSkillData(skillId, nextLevel);
+        
+        if (!skillData || this.gold < skillData.currentLevel.cost) {
+            console.log('金幣不足或技能無效');
+            this.resumeGame();
+            return;
+        }
+        
+        // 扣除金幣
+        this.gold -= skillData.currentLevel.cost;
+        
+        // 更新技能等級
+        this.playerSkills[skillId] = nextLevel;
+        
+        // 應用即時效果技能
+        SkillSystem.applyInstantSkillEffect(skillId, nextLevel, this);
+        
+        const isUpgrade = currentLevel > 0;
+        console.log(`${isUpgrade ? '升級' : '獲得'}技能: ${skillData.name} (等級 ${nextLevel}), 花費: ${skillData.currentLevel.cost} 金幣`);
+        console.log('🎯 當前技能狀態:', this.playerSkills);
+        
+        // 重置免費重抽標誌
+        this.hasUsedFreeReroll = false;
+        
+        // 立即更新UI顯示新獲得的技能
+        try {
+            if (typeof UIManager !== 'undefined' && UIManager.updateSkillsDisplay) {
+                UIManager.updateSkillsDisplay(this.playerSkills);
+                console.log('✅ 技能UI已手動更新');
+            }
+        } catch (error) {
+            console.error('手動更新技能UI失敗:', error);
+        }
+        
+        this.resumeGame();
+    }
+    
+    // 處理重抽選項
+    handleRerollOptions(isFree = false) {
+        if (!isFree && this.hasUsedFreeReroll) {
+            const rerollCost = 50;
+            if (this.gold < rerollCost) {
+                console.log('金幣不足，無法重抽！');
+                return;
+            }
+            this.gold -= rerollCost;
+        } else if (isFree) {
+            this.hasUsedFreeReroll = true;
+        }
+        
+        // 獲取新的技能選項
+        const newOptions = SkillSystem.getRandomSkillOptions(this.playerSkills, 2);
+        
+        // 更新彈窗顯示
+        try {
+            if (typeof UIManager !== 'undefined' && UIManager.updateLevelUpModal) {
+                UIManager.updateLevelUpModal({
+                    skillOptions: newOptions,
+                    playerGold: this.gold,
+                    hasUsedFreeReroll: this.hasUsedFreeReroll
+                });
+            }
+        } catch (error) {
+            console.error('更新升級彈窗時出錯:', error);
+        }
+        
+        console.log('重抽技能選項:', newOptions);
+    }
+    
+    // 跳過升級（不購買技能）
+    skipUpgrade() {
+        console.log('跳過升級，不購買技能');
+        this.resumeGame();
+    }
+    
+    // 恢復遊戲
+    resumeGame() {
+        console.log('開始恢復遊戲...');
+        
+        this.isLevelUpInProgress = false;
+        this.isAnimating = false;
+        
+        // 如果是RPG模式，恢復計時並重置計時器
+        if (this.config.hasRPGSystem) {
+            this.isPaused = false;
+            this.resetTimer();
+            console.log('RPG計時器已恢復並重置');
+        }
+        
+        // 關閉升級彈窗
+        try {
+            if (typeof UIManager !== 'undefined' && UIManager.closeLevelUpModal) {
+                UIManager.closeLevelUpModal();
+            } else if (typeof UI !== 'undefined' && UI.closeLevelUpModal) {
+                UI.closeLevelUpModal();
+            } else {
+                // 手動關閉彈窗
+                const modal = document.getElementById('levelUpModal');
+                if (modal && modal.parentNode) {
+                    modal.parentNode.removeChild(modal);
+                }
+            }
+        } catch (error) {
+            console.error('關閉升級彈窗時出錯:', error);
+            // 手動關閉彈窗
+            const modal = document.getElementById('levelUpModal');
+            if (modal && modal.parentNode) {
+                modal.parentNode.removeChild(modal);
+            }
+        }
+        
+        // 更新UI
+        this.updateUI();
+        
+        console.log('遊戲恢復完成');
+    }
+
+    // ===== 存活模式方法 =====
+    
+    // 更新存活時間（一直計算，直到遊戲結束）
+    updateSurvivalTime(deltaTime) {
+        if (!this.config.isSurvivalMode) return;
+        
+        // 存活時間一直累積，不依賴8秒計時器狀態
+        if (!this.isPaused && !this.isLevelUpInProgress && !this.gameOver) {
+            this.survivalTime += deltaTime;
+            this.totalGameTime += deltaTime;
+            
+            // 效能優化：減少日誌輸出頻率（每10秒打印一次）
+            if (Math.floor(this.survivalTime / 10000) > Math.floor((this.survivalTime - deltaTime) / 10000)) {
+                console.log(`⏰ 存活時間更新: ${Math.floor(this.survivalTime / 1000)} 秒`);
+            }
+        }
+    }
+    
+    // 檢查存活里程碑
+    checkSurvivalMilestones() {
+        if (!this.config.isSurvivalMode || !this.config.survivalConfig) {
+            console.log('❌ 存活里程碑檢查失敗:', {
+                isSurvivalMode: this.config.isSurvivalMode,
+                hasSurvivalConfig: !!this.config.survivalConfig
+            });
+            return;
+        }
+        
+        const milestones = this.config.survivalConfig.challengeMilestones;
+        const challenges = this.config.survivalConfig.challengeTypes;
+        
+        console.log('🔍 檢查存活里程碑:', {
+            survivalTime: this.survivalTime,
+            milestones: milestones,
+            challengesTriggered: this.challengesTriggered
+        });
+        
+        for (let i = 0; i < milestones.length; i++) {
+            const milestone = milestones[i];
+            if (this.survivalTime >= milestone && !this.challengesTriggered.includes(milestone)) {
+                this.challengesTriggered.push(milestone);
+                console.log(`🎯 存活時間達到 ${milestone/1000} 秒！觸發挑戰`);
+                
+                // 根據里程碑選擇對應的黑色方塊挑戰
+                const selectedChallenge = challenges[i]; // 直接使用索引對應的挑戰
+                console.log('🔥 選擇的挑戰:', selectedChallenge);
+                
+                this.triggerChallenge(selectedChallenge);
+            }
+        }
+    }
+    
+    // 觸發挑戰
+    triggerChallenge(challenge) {
+        if (!challenge) {
+            console.log('❌ 觸發挑戰失敗: 挑戰為空');
+            return;
+        }
+        
+        console.log(`🚨 觸發挑戰: ${challenge.name}`, challenge);
+        this.activeChallenges.push(challenge);
+        
+        switch (challenge.type) {
+            case 'blackenBlocks':
+                console.log(`🎯 執行黑色方塊挑戰: ${challenge.blocksCount} 個方塊，${challenge.clearancesRequired} 次消除`);
+                this.blackenRandomBlocks(challenge.blocksCount, challenge.clearancesRequired);
+                break;
+            default:
+                console.log(`❌ 未知的挑戰類型: ${challenge.type}`);
+                break;
+        }
+        
+        // 顯示挑戰通知
+        this.showChallengeNotification(challenge);
+    }
+    
+    // 黑化隨機方塊
+    blackenRandomBlocks(count, clearancesRequired) {
+        console.log(`🎯 開始黑化方塊: 目標 ${count} 個，需要 ${clearancesRequired} 次消除`);
+        
+        const availableBlocks = [];
+        for (let col = 0; col < this.grid.length; col++) {
+            for (let row = 0; row < this.grid[col].length; row++) {
+                const block = this.grid[col][row];
+                if (block && !block.isBlackened) {
+                    availableBlocks.push({ block, col, row });
+                }
+            }
+        }
+        
+        console.log(`📋 可用方塊: ${availableBlocks.length} 個`);
+        
+        const shuffled = availableBlocks.sort(() => 0.5 - Math.random());
+        const actualCount = Math.min(count, shuffled.length);
+        
+        for (let i = 0; i < actualCount; i++) {
+            const { block, col, row } = shuffled[i];
+            
+            // 直接在方塊對象上存儲黑化信息
+            block.isBlackened = true;
+            block.originalColor = block.colorName;
+            block.originalColorHex = block.colorHex;
+            block.blackenedClearancesRequired = clearancesRequired; // 剩餘需要的消除次數
+            
+            console.log(`⚫ 方塊 [${col}][${row}] 已變黑，原色: ${block.originalColor}，需要 ${clearancesRequired} 次消除`);
+        }
+        
+        console.log(`✅ 成功黑化了 ${actualCount} 個方塊，需要 ${clearancesRequired} 次消除來解除`);
+    }
+    
+    // 顯示挑戰通知
+    showChallengeNotification(challenge) {
+        try {
+            if (typeof UIManager !== 'undefined' && UIManager.showToast) {
+                UIManager.showToast(`⚠️ 挑戰出現！${challenge.name}: ${challenge.description}`, 'warning', 4000);
+            }
+        } catch (error) {
+            console.error('顯示挑戰通知出錯:', error);
+        }
+    }
+    
+    // 檢查存活勝利條件
+    checkSurvivalWinCondition() {
+        if (!this.config.isSurvivalMode || !this.config.survivalConfig) return;
+        
+        const targetTime = this.config.survivalConfig.targetSurvivalTime; // 目標時間（毫秒）
+        const currentTimeInSeconds = Math.floor(this.survivalTime / 1000);
+        const targetTimeInSeconds = Math.floor(targetTime / 1000);
+        
+        console.log(`存活時間檢查: ${currentTimeInSeconds}秒 / ${targetTimeInSeconds}秒`);
+        
+        if (this.survivalTime >= targetTime) {
+            console.log(`🎉 存活模式勝利！達到目標時間 ${targetTimeInSeconds} 秒`);
+            this.gameOver = true;
+            this.gameLoopRunning = false;
+            if (this.gameLoopId) {
+                cancelAnimationFrame(this.gameLoopId);
+                this.gameLoopId = null;
+            }
+            
+            // 保存存活模式記錄
+            this.saveSurvivalRecord(true);
+            
+            setTimeout(() => {
+                this.showSurvivalVictoryModal();
+            }, 100);
+        }
+    }
+
+    // 觸發存活模式遊戲結束
+    triggerSurvivalGameOver() {
+        if (!this.config.isSurvivalMode || !this.config.survivalConfig) return;
+        
+        console.log('存活模式遊戲結束！');
+        this.gameOver = true;
+        this.gameLoopRunning = false;
+        if (this.gameLoopId) {
+            cancelAnimationFrame(this.gameLoopId);
+            this.gameLoopId = null;
+        }
+        
+        // 檢查是否達成目標
+        const targetTime = this.config.survivalConfig.targetSurvivalTime;
+        const isSuccess = this.survivalTime >= targetTime;
+        
+        // 保存存活模式記錄（無論成功或失敗）
+        this.saveSurvivalRecord(isSuccess);
+        
+        setTimeout(() => {
+            if (isSuccess) {
+                this.showSurvivalVictoryModal();
+            } else {
+                this.showSurvivalFailureModal();
+            }
+        }, 100);
+    }
+    
+    // 保存存活模式記錄
+    async saveSurvivalRecord(isSuccess) {
+        if (!window.supabaseAuth || !window.supabaseAuth.isAuthenticated()) {
+            console.log("用戶未登入，不儲存存活模式記錄。");
+            return;
+        }
+
+        const survivalTimeInSeconds = Math.round(this.survivalTime / 1000);
+        const targetTimeInSeconds = Math.round(this.config.survivalConfig.targetSurvivalTime / 1000);
+
+        console.log(`存活模式記錄: 存活時間 ${survivalTimeInSeconds} 秒 / 目標時間 ${targetTimeInSeconds} 秒`);
+
+        const gameData = {
+            mode: 'survival', // 存活模式
+            score: this.score,
+            moves: this.actionCount,
+            time: survivalTimeInSeconds, // time_taken 欄位存入存活時間（秒）
+            level: this.level || 1,
+            isCompleted: isSuccess, // 是否成功通關
+            challengesSurvived: this.challengesTriggered.length, // 存活的挑戰數
+            maxCombo: this.maxCombo
+        };
+
+        try {
+            console.log("正在儲存存活模式記錄:", gameData);
+            const savedRecord = await window.supabaseAuth.saveGameRecord(gameData);
+            console.log("存活模式記錄儲存成功:", savedRecord);
+        } catch (error) {
+            console.error("儲存存活模式記錄失敗:", error);
+        }
+    }
+    
+    // 顯示存活勝利彈窗
+    showSurvivalVictoryModal() {
+        const survivalMinutes = Math.floor(this.survivalTime / 60000);
+        const survivalSeconds = Math.floor((this.survivalTime % 60000) / 1000);
+        
+        // 觸發慶祝效果
+        this.triggerCelebrationEffect();
+        
+        try {
+            if (typeof UIManager !== 'undefined' && UIManager.showGameOverModal) {
+                UIManager.showGameOverModal(
+                    this.score, 
+                    this.maxCombo, 
+                    this.actionCount, 
+                    'survival_victory',
+                    {
+                        survivalTime: `${survivalMinutes}:${survivalSeconds.toString().padStart(2, '0')}`,
+                        challengesSurvived: this.challengesTriggered.length,
+                        level: this.level,
+                        skillsObtained: Object.keys(this.playerSkills).length
+                    }
+                );
+            }
+        } catch (error) {
+            console.error('顯示勝利彈窗出錯:', error);
+        }
+    }
+
+    // 顯示存活失敗彈窗
+    showSurvivalFailureModal() {
+        const survivalMinutes = Math.floor(this.survivalTime / 60000);
+        const survivalSeconds = Math.floor((this.survivalTime % 60000) / 1000);
+        
+        try {
+            if (typeof UIManager !== 'undefined' && UIManager.showGameOverModal) {
+                UIManager.showGameOverModal(
+                    this.score, 
+                    this.maxCombo, 
+                    this.actionCount, 
+                    'survival_failure',
+                    {
+                        survivalTime: `${survivalMinutes}:${survivalSeconds.toString().padStart(2, '0')}`,
+                        challengesSurvived: this.challengesTriggered.length,
+                        level: this.level,
+                        skillsObtained: Object.keys(this.playerSkills).length
+                    }
+                );
+            }
+        } catch (error) {
+            console.error('顯示失敗彈窗出錯:', error);
+        }
+    }
+
+    // 觸發慶祝效果
+    triggerCelebrationEffect() {
+        // 創建慶祝粒子效果
+        const centerX = this.canvas.width / 2;
+        const centerY = this.canvas.height / 2;
+        
+        for (let i = 0; i < 50; i++) {
+            const angle = (Math.PI * 2 * i) / 50;
+            const speed = Math.random() * 6 + 4;
+            const vx = Math.cos(angle) * speed;
+            const vy = Math.sin(angle) * speed;
+            
+            this.particles.push({
+                x: centerX,
+                y: centerY,
+                vx: vx,
+                vy: vy,
+                life: 2000,
+                maxLife: 2000,
+                color: ['#FFD700', '#FF6B6B', '#4ECDC4', '#45B7D1', '#FFA07A'][Math.floor(Math.random() * 5)],
+                size: Math.random() * 6 + 4,
+                isCelebration: true
+            });
+        }
+        
+        // 顯示慶祝文字
+        try {
+            if (typeof UIManager !== 'undefined' && UIManager.showToast) {
+                UIManager.showToast('🎉 挑戰成功！存活3分鐘達成！', 'success', 3000);
+            }
+        } catch (error) {
+            console.error('顯示慶祝提示出錯:', error);
+        }
+    }
+    
+    // 更新黑色方塊狀態（消除次數達標時解除）
+    updateBlackenedBlocks() {
+        if (!this.config.isSurvivalMode) return;
+        
+        let removedCount = 0;
+        let processedBlocks = 0;
+        
+        // 效能優化：遍歷所有方塊，檢查黑色方塊狀態
+        for (let col = 0; col < this.grid.length; col++) {
+            for (let row = 0; row < this.grid[col].length; row++) {
+                const block = this.grid[col][row];
+                if (!block || !block.isBlackened) continue;
+                
+                processedBlocks++;
+                
+                // 遞減剩餘需要的消除次數
+                if (block.blackenedClearancesRequired > 0) {
+                    block.blackenedClearancesRequired--;
+                    
+                    // 效能優化：只在解除時才輸出日誌
+                    if (block.blackenedClearancesRequired <= 0) {
+                        // 恢復方塊的原始顏色
+                        block.isBlackened = false;
+                        block.colorName = block.originalColor || this.getRandomColorName();
+                        block.colorHex = block.originalColorHex || this.config.colors[block.colorName].hex;
+                        
+                        // 清理黑化相關屬性
+                        delete block.originalColor;
+                        delete block.originalColorHex;
+                        delete block.blackenedClearancesRequired;
+                        
+                        removedCount++;
+                        console.log(`🔓 方塊 [${col}][${row}] 已解除，恢復為 ${block.colorName}`);
+                    }
+                }
+            }
+        }
+        
+        // 顯示解除提示
+        if (removedCount > 0) {
+            try {
+                if (typeof UIManager !== 'undefined' && UIManager.showToast) {
+                    UIManager.showToast(`🔓 ${removedCount} 個黑色方塊已解除！`, 'success', 2000);
+                }
+            } catch (error) {
+                console.error('顯示黑色方塊解除提示出錯:', error);
+            }
+        }
+        
+        // 效能優化：批量處理日誌（避免過多的日誌輸出）
+        if (processedBlocks > 0 && Math.random() < 0.1) {
+            console.log(`⚫ 處理了 ${processedBlocks} 個黑色方塊`);
+        }
+    }
+
+    // 重抽技能選項
+    rerollSkillOptions(isFree = false) {
+        if (!isFree) {
+            const rerollCost = 50; // 重抽費用
+            if (this.gold < rerollCost) {
+                console.log('金幣不足，無法重抽！');
+                return null;
+            }
+            this.gold -= rerollCost;
+        }
+        
+        // 獲取新的技能選項
+        const newOptions = SkillSystem.getRandomSkillOptions(this.playerSkills, 2);
+        console.log('重抽技能選項:', newOptions);
+        
+        return newOptions;
+    }
+    
+    // 效能優化：動態調整節流設定
+    adjustPerformanceSettings() {
+        if (!this.config.isSurvivalMode) return;
+        
+        // 計算當前FPS
+        const currentFPS = 1000 / this.avgFrameTime;
+        const targetFPS = 60;
+        const performanceRatio = currentFPS / targetFPS;
+        
+        // 根據效能調整節流間隔
+        if (performanceRatio < 0.5) {
+            // 低效能設備：增加節流間隔
+            this.survivalCheckInterval = Math.min(1000, this.survivalCheckInterval * 1.2);
+            this.winCheckInterval = Math.min(2000, this.winCheckInterval * 1.2);
+            this.blackenedCheckInterval = Math.min(500, this.blackenedCheckInterval * 1.2);
+            console.log('🐌 效能較低，調整為低頻率檢查');
+        } else if (performanceRatio > 0.8) {
+            // 高效能設備：減少節流間隔
+            this.survivalCheckInterval = Math.max(300, this.survivalCheckInterval * 0.9);
+            this.winCheckInterval = Math.max(600, this.winCheckInterval * 0.9);
+            this.blackenedCheckInterval = Math.max(100, this.blackenedCheckInterval * 0.9);
+            console.log('⚡ 效能良好，調整為高頻率檢查');
+        }
+        
+        // 每30秒輸出一次效能報告
+        if (this.frameCount % 1800 === 0) {
+            console.log(`📊 效能報告: 平均FPS=${currentFPS.toFixed(1)}, 存活檢查間隔=${this.survivalCheckInterval}ms, 勝利檢查間隔=${this.winCheckInterval}ms`);
+        }
     }
 }
 

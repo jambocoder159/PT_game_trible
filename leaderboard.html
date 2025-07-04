@@ -47,6 +47,17 @@
             transform: translateX(5px);
         }
         
+        .leaderboard-item.current-user {
+            background: rgba(255, 215, 0, 0.15);
+            border: 2px solid rgba(255, 215, 0, 0.3);
+            box-shadow: 0 0 20px rgba(255, 215, 0, 0.1);
+        }
+        
+        .leaderboard-item.current-user:hover {
+            background: rgba(255, 215, 0, 0.2);
+            border-color: rgba(255, 215, 0, 0.5);
+        }
+        
         .rank-medal {
             width: 40px;
             height: 40px;
@@ -128,6 +139,9 @@
                 </button>
                 <button onclick="switchMode('quest')" class="tab-button px-6 py-3 text-white font-medium" data-mode="quest">
                     🏰 闖關模式
+                </button>
+                <button onclick="switchMode('survival')" class="tab-button px-6 py-3 text-white font-medium" data-mode="survival">
+                    🛡️ 存活模式
                 </button>
             </div>
         </div>
@@ -310,6 +324,17 @@
                     <p>• 擊敗各種敵人</p>
                     <p>• 排名依最高關卡</p>
                     <p>• 同關卡比步數和時間</p>
+                `
+            },
+            survival: {
+                icon: '🛡️',
+                title: '存活模式',
+                description: `
+                    <p><strong>🛡️ 存活模式：</strong></p>
+                    <p>• 在三分鐘內存活</p>
+                    <p>• 面對黑色方塊挑戰</p>
+                    <p>• 排名依存活時間</p>
+                    <p>• 同時間比總分數</p>
                 `
             }
         };
@@ -510,6 +535,15 @@
                     if (currentBestElement) {
                         if (currentMode === 'quest') {
                             currentBestElement.textContent = userRank ? `關卡 ${userRank.score}` : '關卡 0';
+                        } else if (currentMode === 'survival') {
+                            // 存活模式：顯示存活時間
+                            if (userRank && userRank.time > 0) {
+                                const survivalMinutes = Math.floor(userRank.time / 60);
+                                const survivalSeconds = userRank.time % 60;
+                                currentBestElement.textContent = `${survivalMinutes}:${survivalSeconds.toString().padStart(2, '0')}`;
+                            } else {
+                                currentBestElement.textContent = '0:00';
+                            }
                         } else {
                             currentBestElement.textContent = userRank ? userRank.score.toLocaleString() : '0';
                         }
@@ -531,7 +565,13 @@
                 const totalGamesElement = document.getElementById('totalGames');
                 
                 if (currentBestElement) {
-                    currentBestElement.textContent = currentMode === 'quest' ? '關卡 0' : '-';
+                    if (currentMode === 'quest') {
+                        currentBestElement.textContent = '關卡 0';
+                    } else if (currentMode === 'survival') {
+                        currentBestElement.textContent = '0:00';
+                    } else {
+                        currentBestElement.textContent = '-';
+                    }
                 }
                 if (currentRankElement) currentRankElement.textContent = '-';
                 if (totalGamesElement) totalGamesElement.textContent = '-';
