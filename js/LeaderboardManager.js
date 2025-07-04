@@ -6,6 +6,70 @@ class LeaderboardManager {
         this.cache = new Map();
         this.cacheTimeout = 5 * 60 * 1000; // 5分鐘快取
         this.currentUser = null; // 添加當前用戶屬性
+        
+        // 遊戲模式配置
+        this.modeConfigs = {
+            survival: {
+                name: '存活模式',
+                primaryMetric: 'survival_time',
+                secondaryMetric: 'score',
+                sortFields: [
+                    { column: 'best_time', ascending: false },    // 存活時間降序（越長越好）
+                    { column: 'best_score', ascending: false }     // 分數降序
+                ],
+                displayFormat: {
+                    primary: (value) => this.formatSurvivalTime(value),
+                    secondary: (value) => value.toLocaleString(),
+                    primaryLabel: '存活時間',
+                    secondaryLabel: '分數'
+                },
+                description: '存活時間越長排行越高，相同時間下分數越高排行越高',
+                metrics: {
+                    time: { label: '存活時間', direction: 'higher_better' },
+                    score: { label: '分數', direction: 'higher_better' },
+                    moves: { label: '總移動', direction: 'neutral' }
+                }
+            },
+            quest: {
+                name: '任務模式',
+                primaryMetric: 'highest_level',
+                secondaryMetric: 'moves_efficiency',
+                sortFields: [
+                    { column: 'best_score', ascending: false },    // 關卡數降序
+                    { column: 'best_moves', ascending: true },     // 步數升序（越少越好）
+                    { column: 'best_time', ascending: true }       // 時間升序（越短越好）
+                ],
+                displayFormat: {
+                    primary: (value) => `關卡 ${value}`,
+                    secondary: (value) => `${value} 步`,
+                    primaryLabel: '最高關卡',
+                    secondaryLabel: '使用步數'
+                },
+                description: '關卡數越高排行越高，相同關卡下步數越少排行越高',
+                metrics: {
+                    level: { label: '關卡', direction: 'higher_better' },
+                    moves: { label: '步數', direction: 'lower_better' },
+                    time: { label: '用時', direction: 'lower_better' }
+                }
+            },
+            classic: {
+                name: '經典模式',
+                primaryMetric: 'score',
+                sortFields: [
+                    { column: 'best_score', ascending: false }
+                ],
+                displayFormat: {
+                    primary: (value) => value.toLocaleString(),
+                    primaryLabel: '分數'
+                },
+                description: '分數越高排行越高',
+                metrics: {
+                    score: { label: '分數', direction: 'higher_better' },
+                    moves: { label: '移動次數', direction: 'neutral' },
+                    time: { label: '遊戲時間', direction: 'neutral' }
+                }
+            }
+        };
     }
     
     // 設置當前用戶
@@ -147,6 +211,35 @@ class LeaderboardManager {
         }
     }
     
+    // 獲取遊戲模式配置
+    getModeConfig(gameMode) {
+        return this.modeConfigs[gameMode] || this.modeConfigs.classic;
+    }
+    
+    // 格式化存活時間
+    formatSurvivalTime(seconds) {
+        const minutes = Math.floor(seconds / 60);
+        const remainingSeconds = seconds % 60;
+        return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
+    }
+    
+    // 獲取模式特定的排行榜數據
+    async getLeaderboardData(gameMode, limit = 50) {
+        const modeConfig = this.getModeConfig(gameMode);
+        
+        // 對於特殊模式，使用現有的特殊方法
+        if (gameMode === 'quest') {
+            return await this.getQuestLeaderboard(limit);
+        }
+        
+        if (gameMode === 'survival') {
+            return await this.getSurvivalLeaderboard(limit);
+        }
+        
+        // 對於其他模式，使用通用方法
+        return await this.getGlobalLeaderboard(gameMode, 'all', limit);
+    }
+    
     // 獲取 quest 模式排行榜
     async getQuestLeaderboard(limit = 50) {
         const cacheKey = `quest_leaderboard_${limit}`;
@@ -162,7 +255,7 @@ class LeaderboardManager {
         try {
             const questLeaderboard = await this.supabaseAuth.getQuestLeaderboard(limit);
             
-            // 轉換為統一的排行榜格式
+            // 轉換為統一的排行榜格式，增加模式特定的顯示信息
             const formattedLeaderboard = questLeaderboard.map(player => ({
                 rank: player.rank,
                 id: player.player_id,
@@ -176,7 +269,14 @@ class LeaderboardManager {
                 date: new Date(player.achieved_at).toLocaleDateString('zh-TW'),
                 highest_level: player.highest_level,  // 保留原始欄位
                 moves_remaining: player.moves_remaining,
-                achieved_at: player.achieved_at
+                achieved_at: player.achieved_at,
+                // 新增模式特定的顯示信息
+                display: {
+                    primary: `關卡 ${player.highest_level || 0}`,
+                    secondary: `${player.moves_used || 0} 步`,
+                    primaryLabel: '最高關卡',
+                    secondaryLabel: '使用步數'
+                }
             }));
             
             // 更新快取
@@ -207,7 +307,7 @@ class LeaderboardManager {
         try {
             const survivalLeaderboard = await this.supabaseAuth.getSurvivalLeaderboard(limit);
             
-            // 轉換為統一的排行榜格式
+            // 轉換為統一的排行榜格式，增加模式特定的顯示信息
             const formattedLeaderboard = survivalLeaderboard.map(player => ({
                 rank: player.rank,
                 id: player.player_id,
@@ -220,7 +320,14 @@ class LeaderboardManager {
                 time_taken: player.time_taken, // 存活時間
                 level: player.level,
                 date: player.date,
-                created_at: player.created_at
+                created_at: player.created_at,
+                // 新增模式特定的顯示信息
+                display: {
+                    primary: this.formatSurvivalTime(player.time_taken || 0),
+                    secondary: (player.score || 0).toLocaleString(),
+                    primaryLabel: '存活時間',
+                    secondaryLabel: '分數'
+                }
             }));
             
             // 更新快取
@@ -749,10 +856,12 @@ class LeaderboardManager {
             `;
         } else if (gameMode === 'survival') {
             // Survival 模式顯示存活時間和分數
-            const survivalTime = player.time || player.time_taken || 0;
+            const survivalTime = player.time_taken || player.time || 0; // 優先使用 time_taken
             const survivalMinutes = Math.floor(survivalTime / 60);
             const survivalSeconds = survivalTime % 60;
             const timeDisplay = `${survivalMinutes}:${survivalSeconds.toString().padStart(2, '0')}`;
+            
+            console.log(`排行榜顯示: 玩家 ${player.username} 存活時間 ${survivalTime} 秒 (${timeDisplay})`);
             
             scoreDisplay = `
                 <div class="flex flex-col items-end">
@@ -765,7 +874,7 @@ class LeaderboardManager {
                 <div class="text-xs text-white/60 mt-1 space-y-1">
                     <div class="flex justify-between">
                         <span>行動次數：${player.moves || player.moves_used || 0} | </span>
-                        <span>遊玩次數：${player.level || 1}</span>
+                        <span>等級：${player.level || 1}</span>
                     </div>
                     <div class="text-xs text-white/50">
                         ${this.formatDateTime(player.created_at)}
@@ -849,6 +958,103 @@ class LeaderboardManager {
                 day: 'numeric'
             });
         }
+    }
+
+    // 獲取排行榜說明信息
+    getLeaderboardDescription(gameMode) {
+        const config = this.getModeConfig(gameMode);
+        return {
+            title: config.name,
+            description: config.description,
+            metrics: config.metrics
+        };
+    }
+
+    // 驗證並修正排行榜數據
+    validateLeaderboardData(data, gameMode) {
+        const config = this.getModeConfig(gameMode);
+        
+        return data.map(item => {
+            const validated = { ...item };
+            
+            // 根據模式驗證和修正數據
+            if (gameMode === 'survival') {
+                // 確保存活時間數據的完整性
+                if (!validated.time_taken || validated.time_taken < 0) {
+                    validated.time_taken = 0;
+                }
+                validated.display = {
+                    primary: this.formatSurvivalTime(validated.time_taken),
+                    secondary: (validated.score || 0).toLocaleString(),
+                    primaryLabel: '存活時間',
+                    secondaryLabel: '分數'
+                };
+            } else if (gameMode === 'quest') {
+                // 確保關卡數據的完整性
+                if (!validated.highest_level || validated.highest_level < 0) {
+                    validated.highest_level = 0;
+                }
+                validated.display = {
+                    primary: `關卡 ${validated.highest_level}`,
+                    secondary: `${validated.moves_used || 0} 步`,
+                    primaryLabel: '最高關卡',
+                    secondaryLabel: '使用步數'
+                };
+            } else {
+                // 其他模式
+                validated.display = {
+                    primary: (validated.score || 0).toLocaleString(),
+                    primaryLabel: '分數'
+                };
+            }
+            
+            return validated;
+        });
+    }
+
+    // 獲取用戶的排行統計
+    async getUserRankingStats(gameMode, userId = null) {
+        const targetUserId = userId || this.supabaseAuth.getCurrentUser()?.id;
+        if (!targetUserId) return null;
+        
+        const config = this.getModeConfig(gameMode);
+        const userRank = await this.getUserRank(gameMode, targetUserId);
+        
+        if (!userRank) return null;
+        
+        return {
+            rank: userRank.rank,
+            total_players: userRank.total_players,
+            percentile: userRank.rank ? Math.round((1 - userRank.rank / userRank.total_players) * 100) : 0,
+            primary_metric: {
+                label: config.displayFormat.primaryLabel,
+                value: gameMode === 'survival' ? 
+                    this.formatSurvivalTime(userRank.time || 0) : 
+                    (gameMode === 'quest' ? `關卡 ${userRank.score || 0}` : (userRank.score || 0).toLocaleString())
+            },
+            improvement_tips: this.getImprovementTips(gameMode, userRank)
+        };
+    }
+
+    // 獲取改進建議
+    getImprovementTips(gameMode, userRank) {
+        const tips = [];
+        
+        if (gameMode === 'survival') {
+            if (userRank.time < 60) {
+                tips.push('嘗試更保守的策略，專注於延長存活時間');
+            }
+            if (userRank.score < 1000) {
+                tips.push('在保持存活的同時，尋找更多連擊機會');
+            }
+        } else if (gameMode === 'quest') {
+            if (userRank.score < 10) {
+                tips.push('練習基本的三消技巧，逐步挑戰更高關卡');
+            }
+            tips.push('計劃你的移動，嘗試用更少的步數完成關卡');
+        }
+        
+        return tips;
     }
 }
 

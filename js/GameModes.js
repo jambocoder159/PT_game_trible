@@ -140,7 +140,7 @@ window.GameModes = {
         actionPointsStart: 5, // RPG模式也有行動點，計時結束時扣除
         enableHorizontalMatches: true,
         title: '三排生存RPG',
-        description: '存活3分鐘！在階段性挑戰中生存並成長，獲得更強大的技能！',
+        description: '存活3分鐘！在階段性挑戰中生存並成長，獲得更強大的技能！（最大上限：3分鐘）',
         // RPG模式分數系統
         scoring: {
             baseScore: 15,              // 中等基礎分數
@@ -164,8 +164,8 @@ window.GameModes = {
         },
         // 存活模式配置
         survivalConfig: {
-            targetSurvivalTime: 180000, // 3分鐘 = 180秒
-            challengeMilestones: [60000, 120000, 150000], // 1分鐘、2分鐘、2分半
+            targetSurvivalTime: 180000, // 3分鐘 = 180,000毫秒 = 180秒
+            challengeMilestones: [60000, 120000, 150000], // 1分鐘、2分鐘、2.5分鐘
             challengeTypes: [
                 {
                     type: 'blackenBlocks',
