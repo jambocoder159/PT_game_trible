@@ -430,7 +430,8 @@ class TutorialSystem {
             for (let r = 0; r < this.gameEngine.config.numRows; r++) {
                 const testBlock = this.gameEngine.grid[col] && this.gameEngine.grid[col][r];
                 if (testBlock) {
-                    console.log(`找到方塊在 [${col}][${r}]:`, testBlock.color, `位置: x=${testBlock.x}, y=${testBlock.y}`);
+                    const testBlockColor = testBlock.colorName || testBlock.color;
+                    console.log(`找到方塊在 [${col}][${r}]:`, testBlockColor, `位置: x=${testBlock.x}, y=${testBlock.y}`);
                 }
             }
             return;
@@ -466,7 +467,8 @@ class TutorialSystem {
         }
         
         // 特殊處理：如果是主要教學場景的第四個紅色方塊
-        if (col === 0 && row === 3 && block.color === 'red') {
+        const blockColor = block.colorName || block.color;
+        if (col === 0 && row === 3 && blockColor === 'red') {
             // 添加特殊的方塊標識
             const labelDiv = document.createElement('div');
             labelDiv.className = 'tutorial-block-message';
