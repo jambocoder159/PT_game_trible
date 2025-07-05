@@ -3329,6 +3329,32 @@ class GameEngine {
             this.survivalTime += deltaTime;
             this.totalGameTime += deltaTime;
             
+            // 即時檢查：如果存活時間達到目標時間，立即停止累積並觸發勝利
+            const targetTime = this.config.survivalConfig?.targetSurvivalTime || 180000;
+            if (this.survivalTime >= targetTime) {
+                // 將存活時間限制在目標時間，不允許超過
+                this.survivalTime = targetTime;
+                
+                console.log(`🎉 存活時間達到目標！立即觸發勝利 (${Math.floor(targetTime / 1000)} 秒)`);
+                
+                // 立即觸發勝利，不等待下次檢查
+                this.gameOver = true;
+                this.gameLoopRunning = false;
+                if (this.gameLoopId) {
+                    cancelAnimationFrame(this.gameLoopId);
+                    this.gameLoopId = null;
+                }
+                
+                // 保存存活模式記錄
+                this.saveSurvivalRecord(true);
+                
+                setTimeout(() => {
+                    this.showSurvivalVictoryModal();
+                }, 100);
+                
+                return; // 停止後續處理
+            }
+            
             // 效能優化：減少日誌輸出頻率（每10秒打印一次）
             if (Math.floor(this.survivalTime / 10000) > Math.floor((this.survivalTime - deltaTime) / 10000)) {
                 console.log(`⏰ 存活時間更新: ${Math.floor(this.survivalTime / 1000)} 秒`);
