@@ -462,11 +462,13 @@ class UIManager {
                 titleEl.textContent = '勝利！';
                 titleEl.className = 'text-2xl font-bold text-green-500 mb-3';
                 messageEl.textContent = '你擊敗了敵人！準備好挑戰下一關。';
+                this.updateQuestModalButtons('win');
                 break;
             case 'quest_loss':
                 titleEl.textContent = '失敗';
                 titleEl.className = 'text-2xl font-bold text-red-500 mb-3';
                 messageEl.textContent = '步數用盡，再試一次吧！';
+                this.updateQuestModalButtons('loss');
                 break;
             case 'survival_victory':
                 titleEl.textContent = '挑戰成功！';
@@ -491,6 +493,63 @@ class UIManager {
 
         const finalActionCount = document.getElementById('finalActionCount');
         if (finalActionCount) finalActionCount.textContent = actionCount;
+    }
+
+    static updateQuestModalButtons(result) {
+        const modal = document.getElementById('gameOverModal');
+        const buttonContainer = modal.querySelector('.flex.gap-2, .flex.gap-3');
+        if (!buttonContainer) return;
+
+        // 獲取當前關卡號碼
+        const urlParams = new URLSearchParams(window.location.search);
+        const currentLevel = parseInt(urlParams.get('level')) || 1;
+        
+        if (result === 'win') {
+            // 勝利：[返回關卡][下一關]
+            const nextLevel = currentLevel + 1;
+            buttonContainer.innerHTML = `
+                <button id="modalBackToQuestButton" class="flex-1 bg-blue-500 hover:bg-blue-600 text-white font-medium py-2 px-3 text-sm rounded action-button">返回關卡</button>
+                <button id="modalNextLevelButton" class="flex-1 bg-green-500 hover:bg-green-600 text-white font-semibold py-2.5 px-4 rounded action-button">下一關</button>
+            `;
+            
+            // 為新按鈕添加事件監聽器
+            const backToQuestBtn = modal.querySelector('#modalBackToQuestButton');
+            const nextLevelBtn = modal.querySelector('#modalNextLevelButton');
+            
+            if (backToQuestBtn) {
+                backToQuestBtn.addEventListener('click', () => {
+                    window.location.href = 'quest-mode.html';
+                });
+            }
+            
+            if (nextLevelBtn) {
+                nextLevelBtn.addEventListener('click', () => {
+                    window.location.href = `game.html?mode=quest&level=${nextLevel}`;
+                });
+            }
+        } else if (result === 'loss') {
+            // 失敗：[返回關卡][再次挑戰]
+            buttonContainer.innerHTML = `
+                <button id="modalBackToQuestButton" class="flex-1 bg-blue-500 hover:bg-blue-600 text-white font-medium py-2 px-3 text-sm rounded action-button">返回關卡</button>
+                <button id="modalRestartButton" class="flex-1 bg-orange-500 hover:bg-orange-600 text-white font-semibold py-2.5 px-4 rounded action-button">再次挑戰</button>
+            `;
+            
+            // 為新按鈕添加事件監聽器
+            const backToQuestBtn = modal.querySelector('#modalBackToQuestButton');
+            const restartBtn = modal.querySelector('#modalRestartButton');
+            
+            if (backToQuestBtn) {
+                backToQuestBtn.addEventListener('click', () => {
+                    window.location.href = 'quest-mode.html';
+                });
+            }
+            
+            if (restartBtn) {
+                restartBtn.addEventListener('click', () => {
+                    window.location.reload();
+                });
+            }
+        }
     }
 
     // 新增：Toast 系統
