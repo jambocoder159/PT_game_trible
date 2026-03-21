@@ -9,6 +9,8 @@ class TutorialStep {
   final bool showSkip;
   /// 手指動畫方向：null=無, 'up'=向上拖曳, 'down'=向下拖曳, 'tap'=點擊
   final String? gestureHint;
+  /// 等待操作時的自定義提示文字
+  final String? waitingHint;
 
   const TutorialStep({
     required this.title,
@@ -16,6 +18,7 @@ class TutorialStep {
     this.buttonText = '下一步',
     this.showSkip = true,
     this.gestureHint,
+    this.waitingHint,
   });
 }
 
@@ -174,7 +177,7 @@ class _TutorialOverlayState extends State<TutorialOverlay>
           else
             Center(
               child: Text(
-                '👆 請在棋盤上操作',
+                widget.step.waitingHint ?? '👆 請在棋盤上操作',
                 style: TextStyle(
                   color: AppTheme.accentPrimary.withAlpha(200),
                   fontSize: 13,

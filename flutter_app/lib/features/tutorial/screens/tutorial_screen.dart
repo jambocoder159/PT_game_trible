@@ -9,7 +9,7 @@ import '../../menu/screens/main_menu_screen.dart';
 import '../widgets/tutorial_overlay.dart';
 
 /// 新手引導畫面
-/// 在 classic 模式（1x10 單排）上疊加步驟式教學 overlay
+/// 在 triple 模式（3x10 三排）上疊加步驟式教學 overlay
 class TutorialScreen extends StatefulWidget {
   const TutorialScreen({super.key});
 
@@ -21,13 +21,15 @@ class _TutorialScreenState extends State<TutorialScreen> {
   int _currentStep = 0;
   bool _waitingForAction = false;
   int _lastActionCount = 0;
+  int _lastCombo = 0;
 
   static const _steps = [
     // Step 0: 歡迎
     TutorialStep(
       title: '歡迎來到貓咪特工！',
       description: '這是一個充滿策略性的三消遊戲。\n\n'
-          '您需要消除方塊、製造連鎖來擊敗敵人。\n'
+          '在 3×10 的棋盤上消除方塊、'
+          '製造連鎖來擊敗敵人。\n'
           '讓我們花一分鐘學習基本操作！',
       buttonText: '開始學習',
     ),
@@ -44,7 +46,7 @@ class _TutorialScreenState extends State<TutorialScreen> {
     TutorialStep(
       title: '進階操作：長按 + 上移',
       description: '長按方塊並向上拖曳，\n'
-          '可以將它移動到最頂部。\n\n'
+          '可以將它移動到該列的最頂部。\n\n'
           '這是製造三消的關鍵技巧！\n\n'
           '試試看，長按一個方塊往上拖！',
       gestureHint: 'up',
@@ -53,19 +55,20 @@ class _TutorialScreenState extends State<TutorialScreen> {
     TutorialStep(
       title: '進階操作：長按 + 下移',
       description: '長按方塊並向下拖曳，\n'
-          '可以將它移動到最底部。\n\n'
+          '可以將它移動到該列的最底部。\n\n'
           '搭配上移使用，能更靈活地排列方塊。\n\n'
           '試試看，長按一個方塊往下拖！',
       gestureHint: 'down',
     ),
-    // Step 4: 三消體驗
+    // Step 4: 三消體驗（自由操作直到觸發真正的三消）
     TutorialStep(
       title: '目標：三消連鎖！',
-      description: '當三個或更多相同顏色的方塊\n'
-          '連續排列時，就會觸發「三消」！\n\n'
-          '三消會帶來大量分數和連鎖效果。\n'
-          '繼續操作，嘗試製造一次三消吧！',
+      description: '當同一列有三個或更多相同顏色的方塊'
+          '連續排列，就會觸發「三消」！\n\n'
+          '同一橫排三個相同顏色也能消除。\n\n'
+          '自由操作棋盤，製造一次三消吧！',
       gestureHint: 'tap',
+      waitingHint: '🎯 嘗試讓三個相同顏色排成一列！',
     ),
     // Step 5: 完成
     TutorialStep(
@@ -84,7 +87,6 @@ class _TutorialScreenState extends State<TutorialScreen> {
   @override
   void initState() {
     super.initState();
-    // 用 postFrameCallback 確保 Provider 已建立
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _startTutorialGame();
     });
@@ -92,8 +94,9 @@ class _TutorialScreenState extends State<TutorialScreen> {
 
   void _startTutorialGame() {
     final game = context.read<GameProvider>();
-    game.startGame(GameModes.classic);
+    game.startGame(GameModes.triple);
     _lastActionCount = 0;
+    _lastCombo = 0;
   }
 
   void _nextStep() {
@@ -102,12 +105,17 @@ class _TutorialScreenState extends State<TutorialScreen> {
       return;
     }
 
+    final game = context.read<GameProvider>();
     setState(() {
       _currentStep++;
       // 步驟 1-4 需要等待玩家操作
       _waitingForAction = _currentStep >= 1 && _currentStep <= 4;
       if (_waitingForAction) {
-        _lastActionCount = context.read<GameProvider>().state?.actionCount ?? 0;
+        _lastActionCount = game.state?.actionCount ?? 0;
+        // 步驟 4 記錄 combo 用於偵測三消
+        if (_currentStep == 4) {
+          _lastCombo = game.state?.combo ?? 0;
+        }
       }
     });
   }
@@ -153,21 +161,32 @@ class _TutorialScreenState extends State<TutorialScreen> {
       body: SafeArea(
         child: Consumer<GameProvider>(
           builder: (context, game, _) {
-            // 監聽玩家操作 → 自動推進教學步驟
+            // 監聽玩家操作 → 推進教學步驟
             if (_waitingForAction && game.state != null) {
-              final currentActions = game.state!.actionCount;
-              if (currentActions > _lastActionCount) {
-                // 玩家有操作了 → 延遲推進（讓動畫播完）
-                WidgetsBinding.instance.addPostFrameCallback((_) {
-                  if (!mounted) return;
-                  setState(() {
-                    _waitingForAction = false;
+              if (_currentStep == 4) {
+                // 步驟 4：等待真正觸發三消（combo 增加）
+                final currentCombo = game.state!.combo;
+                if (currentCombo > _lastCombo) {
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    if (!mounted) return;
+                    setState(() => _waitingForAction = false);
+                    Future.delayed(const Duration(milliseconds: 800), () {
+                      if (mounted) _nextStep();
+                    });
                   });
-                  // 延遲一下讓玩家看到效果
-                  Future.delayed(const Duration(milliseconds: 600), () {
-                    if (mounted) _nextStep();
+                }
+              } else {
+                // 步驟 1-3：任意操作即推進
+                final currentActions = game.state!.actionCount;
+                if (currentActions > _lastActionCount) {
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    if (!mounted) return;
+                    setState(() => _waitingForAction = false);
+                    Future.delayed(const Duration(milliseconds: 600), () {
+                      if (mounted) _nextStep();
+                    });
                   });
-                });
+                }
               }
             }
 
@@ -189,13 +208,13 @@ class _TutorialScreenState extends State<TutorialScreen> {
                   ),
                 ),
 
-                // 遊戲棋盤（居中）
+                // 遊戲棋盤（三排自適應寬度）
                 Positioned.fill(
                   top: 30,
                   bottom: 200,
-                  child: Center(
-                    child: SizedBox(
-                      width: 120,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: Center(
                       child: AbsorbPointer(
                         absorbing: !_waitingForAction,
                         child: const GameBoard(),
