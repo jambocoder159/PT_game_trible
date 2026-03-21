@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../config/theme.dart';
+import '../../../core/models/block.dart';
 import '../providers/game_provider.dart';
 import 'block_widget.dart';
 
-/// 遊戲棋盤 — 顯示所有方塊並處理觸控輸入
+/// 遊戲棋盤 — 使用 Stack + AnimatedPositioned 實現流暢動畫
 class GameBoard extends StatelessWidget {
   const GameBoard({super.key});
 
@@ -32,75 +33,91 @@ class GameBoard extends StatelessWidget {
             // 根據高度計算方塊大小
             final boardPadding = 16.0;
             final availableHeight = constraints.maxHeight - boardPadding;
-            final blockByHeight = (availableHeight / numRows) - AppTheme.blockGap;
+            final blockByHeight =
+                (availableHeight / numRows) - AppTheme.blockGap;
 
             // 取較小值確保不溢出
-            final blockSize = blockByWidth.clamp(36.0, AppTheme.blockSize)
+            final blockSize = blockByWidth
+                .clamp(36.0, AppTheme.blockSize)
                 .clamp(36.0, blockByHeight.clamp(36.0, AppTheme.blockSize));
 
+            final cellSize = blockSize + AppTheme.blockGap;
+            final boardWidth =
+                numCols * cellSize + AppTheme.blockGap;
+            final boardHeight = numRows * cellSize + AppTheme.blockGap;
+
+            // 收集所有方塊
+            final List<Widget> blockWidgets = [];
+            for (int col = 0; col < numCols; col++) {
+              for (int row = 0; row < numRows; row++) {
+                final block = state.grid[col][row];
+                if (block == null) continue;
+
+                final left = AppTheme.blockGap + col * cellSize;
+                final top = AppTheme.blockGap + row * cellSize;
+
+                blockWidgets.add(
+                  AnimatedPositioned(
+                    key: ValueKey(block.id),
+                    duration: AppTheme.animDrop,
+                    curve: Curves.easeOutCubic,
+                    left: left,
+                    top: top,
+                    width: blockSize,
+                    height: blockSize,
+                    child: _BlockGestureHandler(
+                      col: col,
+                      row: row,
+                      blockSize: blockSize,
+                      game: game,
+                      child: BlockWidget(block: block, size: blockSize),
+                    ),
+                  ),
+                );
+              }
+            }
+
             return Container(
-              padding: const EdgeInsets.all(8),
+              width: boardWidth,
+              height: boardHeight,
               decoration: BoxDecoration(
                 color: AppTheme.bgSecondary.withAlpha(180),
-                borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
+                borderRadius:
+                    BorderRadius.circular(AppTheme.radiusLarge),
                 border: Border.all(
                   color: AppTheme.accentPrimary.withAlpha(100),
                   width: 1.5,
                 ),
               ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: List.generate(numCols, (col) {
-                  return Padding(
-                    padding: EdgeInsets.only(
-                      left: col > 0 ? AppTheme.blockGap : 0,
-                    ),
-                    child: _buildColumn(
-                      state.grid[col],
-                      numRows,
-                      blockSize,
-                      col,
-                      game,
-                    ),
-                  );
-                }),
+              child: Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  // 背景格子（淡色參考線）
+                  ...List.generate(numCols * numRows, (i) {
+                    final col = i ~/ numRows;
+                    final row = i % numRows;
+                    return Positioned(
+                      left: AppTheme.blockGap + col * cellSize,
+                      top: AppTheme.blockGap + row * cellSize,
+                      child: Container(
+                        width: blockSize,
+                        height: blockSize,
+                        decoration: BoxDecoration(
+                          color: Colors.white.withAlpha(8),
+                          borderRadius: BorderRadius.circular(
+                              AppTheme.radiusBlock),
+                        ),
+                      ),
+                    );
+                  }),
+                  // 方塊層
+                  ...blockWidgets,
+                ],
               ),
             );
           },
         );
       },
-    );
-  }
-
-  Widget _buildColumn(
-    List<dynamic> column,
-    int numRows,
-    double blockSize,
-    int col,
-    GameProvider game,
-  ) {
-    return SizedBox(
-      width: blockSize,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: List.generate(numRows, (row) {
-          final block = column[row];
-
-          return Padding(
-            padding: const EdgeInsets.only(bottom: AppTheme.blockGap),
-            child: _BlockGestureHandler(
-              col: col,
-              row: row,
-              blockSize: blockSize,
-              game: game,
-              child: block != null
-                  ? BlockWidget(block: block, size: blockSize)
-                  : SizedBox(width: blockSize, height: blockSize),
-            ),
-          );
-        }),
-      ),
     );
   }
 }
@@ -127,29 +144,40 @@ class _BlockGestureHandler extends StatefulWidget {
 
 class _BlockGestureHandlerState extends State<_BlockGestureHandler> {
   Offset? _dragStart;
+  bool _isDragging = false;
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: () {
-        // 點擊 → 直接消除
-        widget.game.tapBlock(widget.col, widget.row);
+        if (!_isDragging) {
+          widget.game.tapBlock(widget.col, widget.row);
+        }
       },
       onVerticalDragStart: (details) {
         _dragStart = details.globalPosition;
+        _isDragging = false;
+      },
+      onVerticalDragUpdate: (details) {
+        if (_dragStart == null) return;
+        final dy = details.globalPosition.dy - _dragStart!.dy;
+        if (dy.abs() > 15) {
+          _isDragging = true;
+        }
       },
       onVerticalDragEnd: (details) {
         if (_dragStart == null) return;
         final velocity = details.primaryVelocity ?? 0;
 
-        if (velocity < -100) {
-          // 上滑 → 移到最頂部
-          widget.game.moveBlockToTop(widget.col, widget.row);
-        } else if (velocity > 100) {
-          // 下滑 → 移到最底部
-          widget.game.moveBlockToBottom(widget.col, widget.row);
+        if (_isDragging || velocity.abs() > 100) {
+          if (velocity < -80) {
+            widget.game.moveBlockToTop(widget.col, widget.row);
+          } else if (velocity > 80) {
+            widget.game.moveBlockToBottom(widget.col, widget.row);
+          }
         }
         _dragStart = null;
+        _isDragging = false;
       },
       child: widget.child,
     );

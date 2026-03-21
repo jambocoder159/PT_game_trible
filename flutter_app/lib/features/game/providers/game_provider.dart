@@ -53,25 +53,20 @@ class GameProvider extends ChangeNotifier {
 
   // ─── 玩家操作 ───
 
-  /// 點擊方塊 → 直接消除（消耗 1 行動點）
+  /// 點擊方塊 → 直接消除（若無產生連鎖才扣行動點）
   Future<void> tapBlock(int col, int row) async {
     final s = _state;
     if (s == null || s.status != GameStatus.playing || _isProcessing) return;
     if (s.grid[col][row] == null) return;
 
     _isProcessing = true;
-
-    // 扣行動點
-    if (s.mode.actionPointsStart > 0) {
-      s.actionPoints--;
-    }
     s.actionCount++;
 
     // 標記消除
     s.grid[col][row] = s.grid[col][row]!.copyWith(isEliminating: true);
     notifyListeners();
 
-    await Future.delayed(const Duration(milliseconds: 250));
+    await Future.delayed(const Duration(milliseconds: 300));
 
     // 移除方塊
     s.grid[col][row] = null;
@@ -81,16 +76,29 @@ class GameProvider extends ChangeNotifier {
     _refillGrid();
     notifyListeners();
 
-    await Future.delayed(const Duration(milliseconds: 300));
+    await Future.delayed(const Duration(milliseconds: 350));
 
     // 檢查是否產生連鎖消除
-    await _processMatches();
+    final matchesBefore = MatchDetector.findMatches(
+      s.grid,
+      numCols: s.mode.numCols,
+      numRows: s.mode.numRows,
+      enableHorizontalMatches: s.mode.enableHorizontalMatches,
+    );
 
-    // 檢查行動點
-    if (s.mode.actionPointsStart > 0 && s.actionPoints <= 0) {
-      _isProcessing = false;
-      endGame();
-      return;
+    if (matchesBefore.isEmpty) {
+      // 沒有產生連鎖 → 扣行動點
+      s.combo = 0;
+      if (s.mode.actionPointsStart > 0) {
+        s.actionPoints--;
+        if (s.actionPoints <= 0) {
+          _isProcessing = false;
+          endGame();
+          return;
+        }
+      }
+    } else {
+      await _processMatches();
     }
 
     _isProcessing = false;
