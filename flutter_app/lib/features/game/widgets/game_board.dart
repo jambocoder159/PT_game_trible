@@ -20,59 +20,74 @@ class GameBoard extends StatelessWidget {
         final numCols = state.mode.numCols;
         final numRows = state.mode.numRows;
 
-        // 計算方塊大小以適配螢幕寬度
-        final screenWidth = MediaQuery.of(context).size.width;
-        final totalGaps = (numCols + 1) * AppTheme.blockGap;
-        final availableWidth = screenWidth * 0.85 - totalGaps;
-        final blockSize = (availableWidth / numCols).clamp(36.0, AppTheme.blockSize);
+        return LayoutBuilder(
+          builder: (context, constraints) {
+            final screenWidth = MediaQuery.of(context).size.width;
 
-        return Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // 下一個方塊預覽
-            _NextBlockPreview(
-              nextColors: state.nextBlockColors,
-              blockSize: blockSize * 0.6,
-            ),
-            const SizedBox(height: 12),
+            // 根據寬度計算方塊大小
+            final totalGapsW = (numCols + 1) * AppTheme.blockGap;
+            final availableWidth = screenWidth * 0.85 - totalGapsW;
+            final blockByWidth = availableWidth / numCols;
 
-            // 棋盤
-            GestureDetector(
-              onTapUp: (details) {
-                // 計算點擊了哪一列
-                final boardWidth = numCols * (blockSize + AppTheme.blockGap) - AppTheme.blockGap;
-                final boardLeft = (screenWidth - boardWidth) / 2;
-                final localX = details.globalPosition.dx - boardLeft;
-                final col = (localX / (blockSize + AppTheme.blockGap)).floor();
-                if (col >= 0 && col < numCols) {
-                  game.placeBlock(col);
-                }
-              },
-              child: Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: AppTheme.bgSecondary.withAlpha(180),
-                  borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
-                  border: Border.all(
-                    color: AppTheme.accentPrimary.withAlpha(100),
-                    width: 1.5,
+            // 根據高度計算方塊大小（預留預覽列 + 間距）
+            final previewHeight = 40.0;
+            final boardPadding = 16.0; // padding * 2
+            final availableHeight = constraints.maxHeight - previewHeight - 12 - boardPadding;
+            final blockByHeight = (availableHeight / numRows) - AppTheme.blockGap;
+
+            // 取較小值確保不溢出
+            final blockSize = blockByWidth.clamp(36.0, AppTheme.blockSize)
+                .clamp(36.0, blockByHeight.clamp(36.0, AppTheme.blockSize));
+
+            return Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // 下一個方塊預覽
+                _NextBlockPreview(
+                  nextColors: state.nextBlockColors,
+                  blockSize: blockSize * 0.6,
+                ),
+                const SizedBox(height: 12),
+
+                // 棋盤
+                GestureDetector(
+                  onTapUp: (details) {
+                    // 計算點擊了哪一列
+                    final boardWidth = numCols * (blockSize + AppTheme.blockGap) - AppTheme.blockGap;
+                    final boardLeft = (screenWidth - boardWidth) / 2;
+                    final localX = details.globalPosition.dx - boardLeft;
+                    final col = (localX / (blockSize + AppTheme.blockGap)).floor();
+                    if (col >= 0 && col < numCols) {
+                      game.placeBlock(col);
+                    }
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: AppTheme.bgSecondary.withAlpha(180),
+                      borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
+                      border: Border.all(
+                        color: AppTheme.accentPrimary.withAlpha(100),
+                        width: 1.5,
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: List.generate(numCols, (col) {
+                        return Padding(
+                          padding: EdgeInsets.only(
+                            left: col > 0 ? AppTheme.blockGap : 0,
+                          ),
+                          child: _buildColumn(state.grid[col], numRows, blockSize),
+                        );
+                      }),
+                    ),
                   ),
                 ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: List.generate(numCols, (col) {
-                    return Padding(
-                      padding: EdgeInsets.only(
-                        left: col > 0 ? AppTheme.blockGap : 0,
-                      ),
-                      child: _buildColumn(state.grid[col], numRows, blockSize),
-                    );
-                  }),
-                ),
-              ),
-            ),
-          ],
+              ],
+            );
+          },
         );
       },
     );

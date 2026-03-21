@@ -60,8 +60,8 @@ class GameScreen extends StatelessWidget {
                       ),
                     ),
 
-                    // 底部技能/道具列（預留空間）
-                    const SizedBox(height: 80),
+                    // 底部間距
+                    const SizedBox(height: 16),
                   ],
                 ),
 
