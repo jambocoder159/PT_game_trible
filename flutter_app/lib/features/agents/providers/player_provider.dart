@@ -250,6 +250,41 @@ class PlayerProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  // ─── 每日任務 ───
+
+  /// 領取每日登入獎勵
+  Future<void> claimDailyLogin() async {
+    if (_data.dailyQuests.needsReset) {
+      _data.dailyQuests.reset();
+    }
+    if (!_data.dailyQuests.hasLoggedIn) {
+      _data.dailyQuests.hasLoggedIn = true;
+      _data.gold += 50;
+      await _save();
+      notifyListeners();
+    }
+  }
+
+  /// 領取每日全完成獎勵
+  Future<void> claimDailyReward() async {
+    if (_data.dailyQuests.allCompleted && !_data.dailyQuests.rewardsClaimed) {
+      _data.dailyQuests.rewardsClaimed = true;
+      _data.diamonds += 10;
+      await _save();
+      notifyListeners();
+    }
+  }
+
+  /// 記錄消除方塊數（每日任務用）
+  Future<void> addBlocksEliminated(int count) async {
+    if (_data.dailyQuests.needsReset) {
+      _data.dailyQuests.reset();
+    }
+    _data.dailyQuests.blocksEliminated += count;
+    await _save();
+    notifyListeners();
+  }
+
   // ─── 體力操作 ───
 
   bool get hasEnoughStamina => _data.stamina > 0;
