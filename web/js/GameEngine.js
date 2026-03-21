@@ -159,7 +159,10 @@ class GameEngine {
 
     setupEventListeners() {
         this.canvas.addEventListener('click', (e) => this.handleCanvasClick(e));
-        
+
+        // 手機觸控滑動手勢支援
+        this.setupTouchGestures();
+
         // 技能系統已整合到道具系統中，不再需要單獨的技能按鈕事件
 
         // 重啟按鈕
@@ -1989,7 +1992,142 @@ class GameEngine {
         }
     }
 
+    setupTouchGestures() {
+        // 觸控手勢狀態
+        this.touchState = null;
+
+        this.canvas.addEventListener('touchstart', (e) => {
+            if (this.gameOver || this.isAnimating) return;
+
+            const touch = e.touches[0];
+            const rect = this.canvas.getBoundingClientRect();
+            const scaleX = this.canvas.width / rect.width;
+            const scaleY = this.canvas.height / rect.height;
+            const touchX = (touch.clientX - rect.left) * scaleX;
+            const touchY = (touch.clientY - rect.top) * scaleY;
+
+            // 找到觸碰的方塊
+            const hitResult = this.findBlockAtPosition(touchX, touchY);
+            if (!hitResult) return;
+
+            this.touchState = {
+                startX: touch.clientX,
+                startY: touch.clientY,
+                startTime: Date.now(),
+                block: hitResult
+            };
+        }, { passive: true });
+
+        this.canvas.addEventListener('touchmove', (e) => {
+            if (!this.touchState) return;
+            // 有滑動意圖時，阻止頁面滾動
+            const touch = e.touches[0];
+            const dx = touch.clientX - this.touchState.startX;
+            const dy = touch.clientY - this.touchState.startY;
+            if (Math.abs(dy) > 10) {
+                e.preventDefault();
+            }
+        }, { passive: false });
+
+        this.canvas.addEventListener('touchend', (e) => {
+            if (!this.touchState) return;
+            if (this.gameOver || this.isAnimating) {
+                this.touchState = null;
+                return;
+            }
+
+            const touch = e.changedTouches[0];
+            const dx = touch.clientX - this.touchState.startX;
+            const dy = touch.clientY - this.touchState.startY;
+            const elapsed = Date.now() - this.touchState.startTime;
+            const hitResult = this.touchState.block;
+
+            const SWIPE_THRESHOLD = 30;  // 最小滑動距離（px）
+            const LONG_PRESS_MS = 500;   // 長按判定時間（ms）
+
+            // 長按不觸發動作
+            if (elapsed >= LONG_PRESS_MS && Math.abs(dy) < SWIPE_THRESHOLD) {
+                this.touchState = null;
+                return;
+            }
+
+            // 垂直滑動判定：距離夠且垂直方向為主
+            if (Math.abs(dy) >= SWIPE_THRESHOLD && Math.abs(dy) > Math.abs(dx)) {
+                e.preventDefault();
+                // 阻止後續 click 事件
+                this._suppressNextClick = true;
+                setTimeout(() => { this._suppressNextClick = false; }, 300);
+
+                const block = hitResult.block;
+
+                // 黑色方塊不能操作
+                if (block.isBlackened) {
+                    try {
+                        if (typeof UIManager !== 'undefined' && UIManager.showToast) {
+                            UIManager.showToast('🔒 黑色方塊無法操作！', 'warning', 2000);
+                        }
+                    } catch (error) {
+                        console.error('顯示黑色方塊提示出錯:', error);
+                    }
+                    this.touchState = null;
+                    return;
+                }
+
+                // RPG模式重置計時器
+                if (this.config.hasRPGSystem && !this.isLevelUpInProgress) {
+                    this.resetTimerAndPause();
+                }
+
+                const location = { colIndex: hitResult.colIndex, rowIndex: hitResult.rowIndex };
+
+                if (this.activeSkill) {
+                    this.processActiveSkillOnBlock(location);
+                } else if (this.activeItem) {
+                    this.processActiveItemOnBlock(location);
+                } else {
+                    const actionType = dy < 0 ? "move_to_top" : "insert_at_bottom";
+                    this.performPlayerAction(location, actionType);
+                }
+
+                this.touchState = null;
+                return;
+            }
+
+            // 非滑動（輕觸）：讓 click 事件正常處理
+            this.touchState = null;
+        });
+    }
+
+    // 根據座標找到方塊
+    findBlockAtPosition(x, y) {
+        if (this.config.numCols === 1) {
+            for (let i = 0; i < this.grid[0].length; i++) {
+                const block = this.grid[0][i];
+                if (!block || block.isEliminating || block.isExploding) continue;
+                if (x >= block.x && x <= block.x + block.width &&
+                    y >= block.y && y <= block.y + block.height) {
+                    return { block, colIndex: 0, rowIndex: i };
+                }
+            }
+        } else {
+            for (let c = 0; c < this.grid.length; c++) {
+                if (!this.grid[c]) continue;
+                for (let r = 0; r < this.grid[c].length; r++) {
+                    const block = this.grid[c][r];
+                    if (!block || block.isEliminating || block.isExploding) continue;
+                    if (x >= block.x && x <= block.x + block.width &&
+                        y >= block.y && y <= block.y + block.height) {
+                        return { block, colIndex: c, rowIndex: r };
+                    }
+                }
+            }
+        }
+        return null;
+    }
+
     async handleCanvasClick(event) {
+        // 如果是滑動手勢觸發的 click，忽略
+        if (this._suppressNextClick) return;
         if (this.gameOver || this.isAnimating) {
             console.log('遊戲已結束或正在執行動畫，忽略點擊');
             return;

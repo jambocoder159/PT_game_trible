@@ -5,6 +5,8 @@ import '../../../config/theme.dart';
 import '../../../core/models/block.dart';
 import '../providers/game_provider.dart';
 import 'block_widget.dart';
+import 'chain_ripple.dart';
+import 'score_popup.dart';
 
 /// 遊戲棋盤 — Stack + AnimatedPositioned + 長按拖曳引導
 class GameBoard extends StatefulWidget {
@@ -16,6 +18,14 @@ class GameBoard extends StatefulWidget {
 
 class _GameBoardState extends State<GameBoard>
     with SingleTickerProviderStateMixin {
+  // 分數彈出
+  final List<_ScorePopupData> _activePopups = [];
+  int _popupIdCounter = 0;
+
+  // 連鎖波紋
+  final List<_RippleData> _activeRipples = [];
+  int _rippleIdCounter = 0;
+
   // 拖曳狀態
   bool _isDragging = false;
   int _dragCol = 0;
@@ -153,6 +163,39 @@ class _GameBoardState extends State<GameBoard>
           builder: (context, constraints) {
             final layout = _calcLayout(constraints, numCols, numRows);
 
+            // ── 消費分數彈出事件 ──
+            final popups = game.consumeScorePopups();
+            for (final popup in popups) {
+              final pos = _cellTopLeft(layout, popup.col, popup.row);
+              final id = _popupIdCounter++;
+              _activePopups.add(_ScorePopupData(
+                id: id,
+                points: popup.points,
+                combo: popup.combo,
+                position: Offset(
+                  pos.dx + layout.blockSize / 2 - 30,
+                  pos.dy,
+                ),
+              ));
+            }
+
+            // ── 消費連鎖波紋事件 ──
+            final ripples = game.consumeChainRipples();
+            for (final ripple in ripples) {
+              final pos = _cellTopLeft(layout, ripple.col, ripple.row);
+              final id = _rippleIdCounter++;
+              final block = state.grid[ripple.col][ripple.row];
+              _activeRipples.add(_RippleData(
+                id: id,
+                center: Offset(
+                  pos.dx + layout.blockSize / 2,
+                  pos.dy + layout.blockSize / 2,
+                ),
+                color: block?.color.color ?? Colors.white,
+                maxRadius: layout.blockSize * (1.5 + ripple.chainCount * 0.3),
+              ));
+            }
+
             // ── 收集方塊 Widget ──
             final List<Widget> blockWidgets = [];
             for (int col = 0; col < numCols; col++) {
@@ -167,17 +210,21 @@ class _GameBoardState extends State<GameBoard>
                 blockWidgets.add(
                   AnimatedPositioned(
                     key: ValueKey(block.id),
-                    duration: AppTheme.animDrop,
-                    curve: Curves.easeOutCubic,
+                    duration: const Duration(milliseconds: 500),
+                    curve: Curves.bounceOut,
                     left: pos.dx,
                     top: pos.dy,
                     width: layout.blockSize,
                     height: layout.blockSize,
-                    child: AnimatedOpacity(
-                      opacity: isBeingDragged ? 0.25 : 1.0,
-                      duration: const Duration(milliseconds: 150),
-                      child: BlockWidget(
-                          block: block, size: layout.blockSize),
+                    child: OverflowBox(
+                      maxWidth: layout.blockSize * 2.5,
+                      maxHeight: layout.blockSize * 2.5,
+                      child: AnimatedOpacity(
+                        opacity: isBeingDragged ? 0.25 : 1.0,
+                        duration: const Duration(milliseconds: 150),
+                        child: BlockWidget(
+                            block: block, size: layout.blockSize),
+                      ),
                     ),
                   ),
                 );
@@ -296,14 +343,6 @@ class _GameBoardState extends State<GameBoard>
                   onDragEnd: () {
                     _endDrag(game, layout);
                   },
-                  onSwipeMove: (col, row, direction) {
-                    if (_isDragging) return;
-                    if (direction == -1) {
-                      game.moveBlockToTop(col, row);
-                    } else if (direction == 1) {
-                      game.moveBlockToBottom(col, row);
-                    }
-                  },
                   child: Stack(
                     clipBehavior: Clip.none,
                     children: [
@@ -332,6 +371,32 @@ class _GameBoardState extends State<GameBoard>
                       ...arrowWidgets,
                       // 浮動拖曳方塊
                       ...floatingWidgets,
+                      // 連鎖波紋
+                      ..._activeRipples.map((data) => ChainRipple(
+                            key: ValueKey('ripple_${data.id}'),
+                            position: data.center,
+                            color: data.color,
+                            maxRadius: data.maxRadius,
+                            onComplete: () {
+                              setState(() {
+                                _activeRipples
+                                    .removeWhere((r) => r.id == data.id);
+                              });
+                            },
+                          )),
+                      // 分數彈出
+                      ..._activePopups.map((data) => ScorePopup(
+                            key: ValueKey('popup_${data.id}'),
+                            points: data.points,
+                            combo: data.combo,
+                            position: data.position,
+                            onComplete: () {
+                              setState(() {
+                                _activePopups
+                                    .removeWhere((p) => p.id == data.id);
+                              });
+                            },
+                          )),
                     ],
                   ),
                 ),
@@ -346,7 +411,7 @@ class _GameBoardState extends State<GameBoard>
 
 /// 處理棋盤觸控事件的透明層
 /// 使用 Listener 處理原始指標事件，同時支援：
-/// - 快速滑動：直接執行上/下移動
+/// - 滑動：進入拖曳模式（與長按相同，放開才執行）
 /// - 長按：進入拖曳模式（顯示箭頭引導）
 /// - 點擊：消除方塊
 class _BoardInteractionLayer extends StatefulWidget {
@@ -360,8 +425,6 @@ class _BoardInteractionLayer extends StatefulWidget {
       onLongPressStart;
   final void Function(Offset localPos) onDragUpdate;
   final void Function() onDragEnd;
-  /// 快速滑動直接移動方塊
-  final void Function(int col, int row, int direction) onSwipeMove;
   final Widget child;
 
   const _BoardInteractionLayer({
@@ -374,7 +437,6 @@ class _BoardInteractionLayer extends StatefulWidget {
     required this.onLongPressStart,
     required this.onDragUpdate,
     required this.onDragEnd,
-    required this.onSwipeMove,
     required this.child,
   });
 
@@ -446,13 +508,13 @@ class _BoardInteractionLayerState extends State<_BoardInteractionLayer> {
   void _onPointerMove(PointerMoveEvent event) {
     if (_downPos == null) return;
 
-    // 已進入長按拖曳模式 → 委託給現有拖曳邏輯
-    if (_longPressActivated && widget.isDragging) {
+    // 已進入拖曳模式（長按或滑動觸發）→ 委託給現有拖曳邏輯
+    if ((_longPressActivated || _isSwipeDetected) && widget.isDragging) {
       widget.onDragUpdate(event.localPosition);
       return;
     }
 
-    // 尚未進入任何模式 → 偵測快速滑動
+    // 尚未進入任何模式 → 偵測滑動，進入拖曳模式
     if (!_longPressActivated && !_isSwipeDetected) {
       final dy = event.localPosition.dy - _downPos!.dy;
       final dx = (event.localPosition.dx - _downPos!.dx).abs();
@@ -461,11 +523,10 @@ class _BoardInteractionLayerState extends State<_BoardInteractionLayer> {
       // 垂直滑動距離超過門檻，且垂直 > 水平（確認是上下滑）
       if (dy.abs() > swipeThreshold && dy.abs() > dx) {
         _isSwipeDetected = true;
-        final direction = dy < 0 ? -1 : 1; // -1=上, 1=下
         HapticFeedback.lightImpact();
-        widget.onSwipeMove(_downCol!, _downRow!, direction);
-        // 清除狀態，避免重複觸發
-        _downPos = null;
+        // 進入拖曳模式（與長按相同），放開才執行
+        widget.onLongPressStart(
+            _downCol!, _downRow!, _downBlock!, event.localPosition);
       }
     }
   }
@@ -473,8 +534,8 @@ class _BoardInteractionLayerState extends State<_BoardInteractionLayer> {
   void _onPointerUp(PointerUpEvent event) {
     if (_downPos == null && !widget.isDragging) return;
 
-    // 長按拖曳模式結束
-    if (_longPressActivated && widget.isDragging) {
+    // 拖曳模式結束（長按或滑動觸發的）
+    if ((_longPressActivated || _isSwipeDetected) && widget.isDragging) {
       widget.onDragEnd();
       _resetState();
       return;
@@ -491,7 +552,7 @@ class _BoardInteractionLayerState extends State<_BoardInteractionLayer> {
   }
 
   void _onPointerCancel(PointerCancelEvent event) {
-    if (_longPressActivated && widget.isDragging) {
+    if ((_longPressActivated || _isSwipeDetected) && widget.isDragging) {
       widget.onDragEnd();
     }
     _resetState();
@@ -568,6 +629,36 @@ class _ArrowIcon extends StatelessWidget {
       child: Icon(icon, size: size * 0.7, color: color.withAlpha(80)),
     );
   }
+}
+
+/// 連鎖波紋資料
+class _RippleData {
+  final int id;
+  final Offset center;
+  final Color color;
+  final double maxRadius;
+
+  const _RippleData({
+    required this.id,
+    required this.center,
+    required this.color,
+    required this.maxRadius,
+  });
+}
+
+/// 分數彈出資料
+class _ScorePopupData {
+  final int id;
+  final int points;
+  final int combo;
+  final Offset position;
+
+  const _ScorePopupData({
+    required this.id,
+    required this.points,
+    required this.combo,
+    required this.position,
+  });
 }
 
 /// 棋盤佈局參數
