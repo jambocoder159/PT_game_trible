@@ -212,7 +212,7 @@ class _TopBar extends StatelessWidget {
                   const Icon(Icons.favorite, size: 16, color: AppTheme.blockCoral),
                   const SizedBox(width: 4),
                   Text(
-                    '${gameState.actionPoints}',
+                    '${gameState?.actionPoints ?? 0}',
                     style: const TextStyle(
                       color: AppTheme.blockCoral,
                       fontWeight: FontWeight.bold,
