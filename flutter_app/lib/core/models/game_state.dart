@@ -16,6 +16,10 @@ class GameState {
   int actionCount;
   int timeLeftMs;
 
+  // 選擇狀態（交換用）
+  int? selectedCol;
+  int? selectedRow;
+
   GameStatus status;
 
   GameState({

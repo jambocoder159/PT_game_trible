@@ -6,11 +6,13 @@ import '../../../core/models/block.dart';
 class BlockWidget extends StatelessWidget {
   final Block block;
   final double size;
+  final bool isSelected;
 
   const BlockWidget({
     super.key,
     required this.block,
     this.size = AppTheme.blockSize,
+    this.isSelected = false,
   });
 
   @override
@@ -22,7 +24,7 @@ class BlockWidget extends StatelessWidget {
       opacity: block.isEliminating ? 0.0 : 1.0,
       duration: AppTheme.animEliminate,
       child: AnimatedScale(
-        scale: block.isEliminating ? 0.3 : 1.0,
+        scale: block.isEliminating ? 0.3 : (isSelected ? 1.1 : 1.0),
         duration: AppTheme.animEliminate,
         curve: Curves.easeInBack,
         child: Container(
@@ -35,10 +37,15 @@ class BlockWidget extends StatelessWidget {
               colors: [color, darkerColor],
             ),
             borderRadius: BorderRadius.circular(AppTheme.radiusBlock),
+            border: isSelected
+                ? Border.all(color: Colors.white, width: 2.5)
+                : null,
             boxShadow: [
               BoxShadow(
-                color: color.withAlpha(80),
-                blurRadius: 8,
+                color: isSelected
+                    ? Colors.white.withAlpha(150)
+                    : color.withAlpha(80),
+                blurRadius: isSelected ? 12 : 8,
                 offset: const Offset(0, 3),
               ),
             ],
