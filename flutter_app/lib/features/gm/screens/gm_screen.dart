@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../../../config/app_version.dart';
 import '../../../config/theme.dart';
 import '../../agents/providers/player_provider.dart';
+import '../../tutorial/screens/tutorial_screen.dart';
 
 class GmScreen extends StatelessWidget {
   const GmScreen({super.key});
@@ -54,6 +55,7 @@ class GmScreen extends StatelessWidget {
               _StatusRow('體力', '⚡ ${data.stamina}/${data.maxStamina}'),
               _StatusRow('已解鎖角色', '${data.agents.values.where((a) => a.isUnlocked).length}/5'),
               _StatusRow('已通關', '${data.stageProgress.values.where((s) => s.cleared).length} 關'),
+              _StatusRow('教學', data.tutorialCompleted ? '已完成' : '未完成'),
               _StatusRow('版本', AppVersion.displayVersion),
               const SizedBox(height: 20),
 
@@ -156,6 +158,21 @@ class GmScreen extends StatelessWidget {
                     _showDone(context, '關卡進度已重置');
                   },
                 ),
+              ),
+              const SizedBox(height: 8),
+              _GmButton(
+                icon: Icons.school,
+                label: '重新體驗教學',
+                color: Colors.cyan,
+                onTap: () {
+                  provider.gmResetTutorial();
+                  Navigator.of(context).pushAndRemoveUntil(
+                    MaterialPageRoute(
+                      builder: (_) => const TutorialScreen(),
+                    ),
+                    (route) => false,
+                  );
+                },
               ),
               const SizedBox(height: 20),
 

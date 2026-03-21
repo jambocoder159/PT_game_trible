@@ -367,6 +367,22 @@ class PlayerProvider extends ChangeNotifier {
     await _save();
     notifyListeners();
   }
+
+  // ─── 教學相關 ───
+
+  /// 完成教學
+  Future<void> completeTutorial() async {
+    _data.tutorialCompleted = true;
+    await _save();
+    notifyListeners();
+  }
+
+  /// 重置教學（GM 用）
+  Future<void> gmResetTutorial() async {
+    _data.tutorialCompleted = false;
+    await _save();
+    notifyListeners();
+  }
 }
 
 /// 角色資訊（定義 + 實例的組合）

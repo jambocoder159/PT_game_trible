@@ -26,6 +26,9 @@ class PlayerData {
   // 每日任務
   DailyQuestData dailyQuests;
 
+  // 新手引導
+  bool tutorialCompleted;
+
   PlayerData({
     this.playerLevel = 1,
     this.playerExp = 0,
@@ -33,6 +36,7 @@ class PlayerData {
     this.diamonds = 0,
     this.stamina = 60,
     this.maxStamina = 60,
+    this.tutorialCompleted = false,
     DateTime? lastStaminaRecover,
     Map<String, CatAgentInstance>? agents,
     List<String>? team,
@@ -82,6 +86,7 @@ class PlayerData {
       diamonds: json['diamonds'] as int? ?? 0,
       stamina: json['stamina'] as int? ?? 60,
       maxStamina: json['maxStamina'] as int? ?? 60,
+      tutorialCompleted: json['tutorialCompleted'] as bool? ?? false,
       lastStaminaRecover: json['lastStaminaRecover'] != null
           ? DateTime.parse(json['lastStaminaRecover'] as String)
           : DateTime.now(),
@@ -103,6 +108,7 @@ class PlayerData {
       'diamonds': diamonds,
       'stamina': stamina,
       'maxStamina': maxStamina,
+      'tutorialCompleted': tutorialCompleted,
       'lastStaminaRecover': lastStaminaRecover.toIso8601String(),
       'agents': agents.map((k, v) => MapEntry(k, v.toJson())),
       'team': team,

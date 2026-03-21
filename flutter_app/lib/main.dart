@@ -8,6 +8,7 @@ import 'features/game/providers/game_provider.dart';
 import 'features/game/providers/battle_provider.dart';
 import 'features/agents/providers/player_provider.dart';
 import 'features/menu/screens/main_menu_screen.dart';
+import 'features/tutorial/screens/tutorial_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -51,7 +52,19 @@ class Match3App extends StatelessWidget {
         title: '貓咪特工',
         debugShowCheckedModeBanner: false,
         theme: AppTheme.darkTheme,
-        home: const MainMenuScreen(),
+        home: Consumer<PlayerProvider>(
+          builder: (context, player, _) {
+            if (!player.isInitialized) {
+              return const Scaffold(
+                body: Center(child: CircularProgressIndicator()),
+              );
+            }
+            if (!player.data.tutorialCompleted) {
+              return const TutorialScreen();
+            }
+            return const MainMenuScreen();
+          },
+        ),
       ),
     );
   }
