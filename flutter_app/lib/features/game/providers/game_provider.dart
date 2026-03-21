@@ -23,6 +23,19 @@ class ScorePopupEvent {
   });
 }
 
+/// 連鎖波紋事件
+class ChainRippleEvent {
+  final int col;
+  final int row;
+  final int chainCount; // 第幾次連鎖
+
+  const ChainRippleEvent({
+    required this.col,
+    required this.row,
+    required this.chainCount,
+  });
+}
+
 /// 遊戲核心 Provider — 管理整個遊戲流程
 class GameProvider extends ChangeNotifier {
   static const _uuid = Uuid();
@@ -40,6 +53,14 @@ class GameProvider extends ChangeNotifier {
     final popups = List<ScorePopupEvent>.from(_scorePopups);
     _scorePopups.clear();
     return popups;
+  }
+
+  // 連鎖波紋事件佇列
+  final List<ChainRippleEvent> _chainRipples = [];
+  List<ChainRippleEvent> consumeChainRipples() {
+    final ripples = List<ChainRippleEvent>.from(_chainRipples);
+    _chainRipples.clear();
+    return ripples;
   }
 
   // ─── 遊戲生命週期 ───
@@ -267,6 +288,15 @@ class GameProvider extends ChangeNotifier {
         row: midBlock.row,
         combo: s.combo,
       ));
+
+      // 連鎖 >= 2 時發送波紋事件
+      if (chainCount >= 2) {
+        _chainRipples.add(ChainRippleEvent(
+          col: midBlock.col,
+          row: midBlock.row,
+          chainCount: chainCount,
+        ));
+      }
 
       // 標記消除（閃爍動畫）
       final idsToRemove = MatchDetector.getBlockIdsToEliminate(matches);

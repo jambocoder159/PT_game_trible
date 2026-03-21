@@ -5,6 +5,7 @@ import '../../../config/theme.dart';
 import '../../../core/models/block.dart';
 import '../providers/game_provider.dart';
 import 'block_widget.dart';
+import 'chain_ripple.dart';
 import 'score_popup.dart';
 
 /// 遊戲棋盤 — Stack + AnimatedPositioned + 長按拖曳引導
@@ -20,6 +21,10 @@ class _GameBoardState extends State<GameBoard>
   // 分數彈出
   final List<_ScorePopupData> _activePopups = [];
   int _popupIdCounter = 0;
+
+  // 連鎖波紋
+  final List<_RippleData> _activeRipples = [];
+  int _rippleIdCounter = 0;
 
   // 拖曳狀態
   bool _isDragging = false;
@@ -174,6 +179,23 @@ class _GameBoardState extends State<GameBoard>
               ));
             }
 
+            // ── 消費連鎖波紋事件 ──
+            final ripples = game.consumeChainRipples();
+            for (final ripple in ripples) {
+              final pos = _cellTopLeft(layout, ripple.col, ripple.row);
+              final id = _rippleIdCounter++;
+              final block = state.grid[ripple.col][ripple.row];
+              _activeRipples.add(_RippleData(
+                id: id,
+                center: Offset(
+                  pos.dx + layout.blockSize / 2,
+                  pos.dy + layout.blockSize / 2,
+                ),
+                color: block?.color.color ?? Colors.white,
+                maxRadius: layout.blockSize * (1.5 + ripple.chainCount * 0.3),
+              ));
+            }
+
             // ── 收集方塊 Widget ──
             final List<Widget> blockWidgets = [];
             for (int col = 0; col < numCols; col++) {
@@ -184,24 +206,25 @@ class _GameBoardState extends State<GameBoard>
                 final pos = _cellTopLeft(layout, col, row);
                 final isBeingDragged =
                     _isDragging && col == _dragCol && row == _dragRow;
-                final isElim = block.isEliminating;
-                // 消除中的方塊需要更大的空間來顯示粒子
-                final overflow = isElim ? layout.blockSize * 0.75 : 0.0;
 
                 blockWidgets.add(
                   AnimatedPositioned(
                     key: ValueKey(block.id),
                     duration: const Duration(milliseconds: 500),
                     curve: Curves.bounceOut,
-                    left: pos.dx - overflow,
-                    top: pos.dy - overflow,
-                    width: layout.blockSize + overflow * 2,
-                    height: layout.blockSize + overflow * 2,
-                    child: AnimatedOpacity(
-                      opacity: isBeingDragged ? 0.25 : 1.0,
-                      duration: const Duration(milliseconds: 150),
-                      child: BlockWidget(
-                          block: block, size: layout.blockSize),
+                    left: pos.dx,
+                    top: pos.dy,
+                    width: layout.blockSize,
+                    height: layout.blockSize,
+                    child: OverflowBox(
+                      maxWidth: layout.blockSize * 2.5,
+                      maxHeight: layout.blockSize * 2.5,
+                      child: AnimatedOpacity(
+                        opacity: isBeingDragged ? 0.25 : 1.0,
+                        duration: const Duration(milliseconds: 150),
+                        child: BlockWidget(
+                            block: block, size: layout.blockSize),
+                      ),
                     ),
                   ),
                 );
@@ -348,6 +371,19 @@ class _GameBoardState extends State<GameBoard>
                       ...arrowWidgets,
                       // 浮動拖曳方塊
                       ...floatingWidgets,
+                      // 連鎖波紋
+                      ..._activeRipples.map((data) => ChainRipple(
+                            key: ValueKey('ripple_${data.id}'),
+                            position: data.center,
+                            color: data.color,
+                            maxRadius: data.maxRadius,
+                            onComplete: () {
+                              setState(() {
+                                _activeRipples
+                                    .removeWhere((r) => r.id == data.id);
+                              });
+                            },
+                          )),
                       // 分數彈出
                       ..._activePopups.map((data) => ScorePopup(
                             key: ValueKey('popup_${data.id}'),
@@ -593,6 +629,21 @@ class _ArrowIcon extends StatelessWidget {
       child: Icon(icon, size: size * 0.7, color: color.withAlpha(80)),
     );
   }
+}
+
+/// 連鎖波紋資料
+class _RippleData {
+  final int id;
+  final Offset center;
+  final Color color;
+  final double maxRadius;
+
+  const _RippleData({
+    required this.id,
+    required this.center,
+    required this.color,
+    required this.maxRadius,
+  });
 }
 
 /// 分數彈出資料

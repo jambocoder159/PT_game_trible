@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../config/theme.dart';
 import '../../../core/models/block.dart';
 
-/// 單一方塊的視覺元件 — 含消除動畫（膨脹碎裂 + 粒子四散）
+/// 單一方塊的視覺元件 — 含消除動畫（膨脹 pop + CustomPainter 粒子）
 class BlockWidget extends StatefulWidget {
   final Block block;
   final double size;
@@ -26,7 +26,7 @@ class _BlockWidgetState extends State<BlockWidget>
 
   bool _wasEliminating = false;
 
-  // 粒子資料（消除時產生）
+  // 粒子資料（消除時產生）— 預計算好避免動畫中 alloc
   late List<_Particle> _particles;
 
   @override
@@ -63,11 +63,18 @@ class _BlockWidgetState extends State<BlockWidget>
 
   List<_Particle> _generateParticles() {
     final rng = Random();
-    return List.generate(8, (i) {
-      final angle = (i / 8) * 2 * pi + rng.nextDouble() * 0.5;
-      final speed = 1.5 + rng.nextDouble() * 1.5;
-      final size = 0.12 + rng.nextDouble() * 0.15;
-      return _Particle(angle: angle, speed: speed, sizeFactor: size);
+    return List.generate(6, (i) {
+      final angle = (i / 6) * 2 * pi + rng.nextDouble() * 0.6;
+      final speed = 1.2 + rng.nextDouble() * 1.3;
+      final radius = 2.0 + rng.nextDouble() * 3.0;
+      return _Particle(
+        angle: angle,
+        speed: speed,
+        radius: radius,
+        // 預計算 cos/sin 避免每幀計算
+        cosA: cos(angle),
+        sinA: sin(angle),
+      );
     });
   }
 
@@ -98,65 +105,25 @@ class _BlockWidgetState extends State<BlockWidget>
       return AnimatedBuilder(
         animation: _elimController,
         builder: (context, child) {
-          final progress = _elimController.value;
-          return LayoutBuilder(
-            builder: (context, constraints) {
-              final cx = constraints.maxWidth / 2;
-              final cy = constraints.maxHeight / 2;
-              return Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  // 粒子碎片（方塊顏色的小方塊四散）
-                  if (progress > 0.15)
-                    ..._particles.map((p) {
-                      final t =
-                          ((progress - 0.15) / 0.85).clamp(0.0, 1.0);
-                      final dx = cos(p.angle) * p.speed * size * t;
-                      final dy = sin(p.angle) * p.speed * size * t;
-                      final pOpacity = (1.0 - t).clamp(0.0, 1.0);
-                      final pScale = (1.0 - t * 0.6).clamp(0.0, 1.0);
-                      final pSize = size * p.sizeFactor * pScale;
-
-                      return Positioned(
-                        left: cx - pSize / 2 + dx,
-                        top: cy - pSize / 2 + dy,
-                        child: Opacity(
-                          opacity: pOpacity,
-                          child: Container(
-                            width: pSize,
-                            height: pSize,
-                            decoration: BoxDecoration(
-                              color: color,
-                              borderRadius: BorderRadius.circular(2),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: color.withAlpha(
-                                      (120 * pOpacity).round()),
-                                  blurRadius: 4,
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      );
-                    }),
-                  // 主方塊（膨脹後消失）
-                  Positioned(
-                    left: cx - size / 2,
-                    top: cy - size / 2,
-                    child: Opacity(
-                      opacity: _opacityAnim.value,
-                      child: Transform.scale(
-                        scale: _scaleAnim.value,
-                        child: _buildBlockContainer(color, darkerColor, size),
-                      ),
-                    ),
-                  ),
-                ],
-              );
-            },
+          return CustomPaint(
+            painter: _ParticlePainter(
+              progress: _elimController.value,
+              particles: _particles,
+              color: color,
+              blockSize: size,
+            ),
+            child: Center(
+              child: Opacity(
+                opacity: _opacityAnim.value,
+                child: Transform.scale(
+                  scale: _scaleAnim.value,
+                  child: child!,
+                ),
+              ),
+            ),
           );
         },
+        child: _buildBlockContainer(color, darkerColor, size),
       );
     }
 
@@ -196,15 +163,65 @@ class _BlockWidgetState extends State<BlockWidget>
   }
 }
 
-/// 粒子碎片資料
+/// 用 CustomPainter 繪製粒子 — 比 Stack<Positioned<Container>> 快很多
+class _ParticlePainter extends CustomPainter {
+  final double progress;
+  final List<_Particle> particles;
+  final Color color;
+  final double blockSize;
+
+  _ParticlePainter({
+    required this.progress,
+    required this.particles,
+    required this.color,
+    required this.blockSize,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (progress <= 0.15) return;
+
+    final cx = size.width / 2;
+    final cy = size.height / 2;
+    final t = ((progress - 0.15) / 0.85).clamp(0.0, 1.0);
+    final dist = blockSize * t;
+    final alpha = ((1.0 - t) * 255).round();
+
+    if (alpha <= 0) return;
+
+    final paint = Paint()..color = color.withAlpha(alpha);
+
+    for (final p in particles) {
+      final px = cx + p.cosA * p.speed * dist;
+      final py = cy + p.sinA * p.speed * dist;
+      final r = p.radius * (1.0 - t * 0.5);
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(
+          Rect.fromCenter(center: Offset(px, py), width: r * 2, height: r * 2),
+          const Radius.circular(1.5),
+        ),
+        paint,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(_ParticlePainter old) => old.progress != progress;
+}
+
+/// 粒子碎片資料 — 含預計算的三角函數值
 class _Particle {
   final double angle;
   final double speed;
-  final double sizeFactor;
+  final double radius;
+  final double cosA;
+  final double sinA;
 
   const _Particle({
     required this.angle,
     required this.speed,
-    required this.sizeFactor,
+    required this.radius,
+    required this.cosA,
+    required this.sinA,
   });
 }
