@@ -849,3 +849,69 @@ canvas {
 .shake-effect {
     animation: shake-effect 0.5s ease-in-out;
 }
+
+/* ===========================================
+   元素系統樣式
+=========================================== */
+
+/* 元素受擊閃光（根據攻擊元素變色） */
+.enemy-hit-element {
+    animation: enemy-hit-element-anim 0.3s ease-in-out;
+}
+
+@keyframes enemy-hit-element-anim {
+    0% { transform: scale(1); filter: brightness(1) drop-shadow(0 0 0px transparent); }
+    30% { transform: scale(1.08) translateX(-3px) rotate(-2deg); filter: brightness(1.6) drop-shadow(0 0 12px var(--hit-color, #fff)); }
+    60% { transform: scale(1.03) translateX(2px) rotate(1deg); filter: brightness(1.3) drop-shadow(0 0 6px var(--hit-color, #fff)); }
+    100% { transform: scale(1); filter: brightness(1) drop-shadow(0 0 0px transparent); }
+}
+
+/* 弱點元素標記呼吸光暈 */
+.element-weakness-glow {
+    animation: weakness-glow 1.5s ease-in-out infinite;
+}
+
+@keyframes weakness-glow {
+    0%, 100% { box-shadow: 0 0 2px rgba(74, 222, 128, 0.3); }
+    50% { box-shadow: 0 0 6px rgba(74, 222, 128, 0.6); }
+}
+
+/* 戰鬥開始提示浮層 */
+#battle-start-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.75);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+    animation: battle-overlay-in 0.4s ease-out;
+}
+
+.battle-start-content {
+    background: linear-gradient(135deg, rgba(30, 41, 59, 0.95), rgba(15, 23, 42, 0.98));
+    border: 1px solid rgba(148, 163, 184, 0.2);
+    border-radius: 16px;
+    padding: 20px 28px;
+    text-align: center;
+    max-width: 280px;
+    width: 85%;
+    box-shadow: 0 0 30px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+@keyframes battle-overlay-in {
+    0% { opacity: 0; }
+    100% { opacity: 1; }
+}
+
+.battle-start-fade-out {
+    animation: battle-overlay-out 0.5s ease-in forwards;
+}
+
+@keyframes battle-overlay-out {
+    0% { opacity: 1; }
+    100% { opacity: 0; }
+}

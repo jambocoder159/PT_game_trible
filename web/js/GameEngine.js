@@ -39,7 +39,76 @@ class GameEngine {
         this.resetGame();
         // 確保初始化後方塊位置正確
         this.updateBlockPositions();
+
+        // 闘關模式：顯示戰鬥開始元素提示浮層
+        if (this.config.mode === 'quest' && this.config.levelData) {
+            this.showBattleStartOverlay();
+        }
+
         this.startGameLoop();
+    }
+
+    showBattleStartOverlay() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const levelNumber = parseInt(urlParams.get('level')) || 1;
+        const levelDetails = GameModes.quest.levelDetails[levelNumber];
+        if (!levelDetails) return;
+
+        const enemy = this.config.levelData.enemy;
+        const restrictions = levelDetails.restrictions || {};
+        const enemyElement = levelDetails.element;
+        const E = window.ELEMENTS || {};
+
+        // 找到敵人的元素圖標
+        const elementEntry = enemyElement ? Object.values(E).find(e => e.type === enemyElement) : null;
+        const elementIcon = elementEntry ? elementEntry.icon : '⚔️';
+        const elementName = elementEntry ? elementEntry.name : '';
+
+        // 生成限制提示（元素語言）
+        const restrictionTexts = window.getElementRestrictionText ? window.getElementRestrictionText(restrictions) : [];
+        let restrictionHTML = '';
+        if (restrictionTexts.length > 0) {
+            restrictionHTML = restrictionTexts.map(r => {
+                const colorClass = r.type === 'weakness' ? 'color: #4ADE80' : r.type === 'resist' ? 'color: #F87171' : 'color: #FACC15';
+                return `<div style="font-size: 13px; ${colorClass}; margin: 2px 0;">${r.text}</div>`;
+            }).join('');
+        }
+
+        // 生成戰鬥策略提示
+        let strategyTip = '';
+        if (restrictions.damageOnlyColors) {
+            const tipElements = restrictions.damageOnlyColors.map(c => E[c] ? `${E[c].icon}${E[c].name}` : c).join('、');
+            strategyTip = `多消除 ${tipElements} 符文來發動攻擊！`;
+        } else if (restrictions.noDamageColors) {
+            const avoidElements = restrictions.noDamageColors.map(c => E[c] ? `${E[c].icon}${E[c].name}` : c).join('、');
+            strategyTip = `避開 ${avoidElements} 符文，選擇其他元素攻擊！`;
+        } else if (restrictions.minComboForDamage) {
+            strategyTip = `連續消除 ${restrictions.minComboForDamage} 次以上才能突破護盾！`;
+        } else {
+            strategyTip = '消除元素符文來發動攻擊吧！';
+        }
+
+        // 建立浮層 DOM
+        const overlay = document.createElement('div');
+        overlay.id = 'battle-start-overlay';
+        overlay.innerHTML = `
+            <div class="battle-start-content">
+                <div style="font-size: 36px; margin-bottom: 4px;">${elementIcon}</div>
+                <div style="font-size: 18px; font-weight: bold; color: #FACC15;">${enemy.name}</div>
+                ${elementName ? `<div style="font-size: 12px; color: #94A3B8; margin-top: 2px;">屬性：${elementIcon} ${elementName}</div>` : ''}
+                <div style="margin: 8px 0;">${restrictionHTML}</div>
+                <div style="font-size: 12px; color: #CBD5E1; font-style: italic; margin-top: 4px; padding: 0 12px;">「${strategyTip}」</div>
+            </div>
+        `;
+        document.body.appendChild(overlay);
+
+        // 2秒後自動消失
+        setTimeout(() => {
+            overlay.classList.add('battle-start-fade-out');
+            setTimeout(() => {
+                overlay.remove();
+            }, 500);
+        }, 2000);
     }
 
     setupCanvas() {
@@ -628,21 +697,23 @@ class GameEngine {
         
         const blocksEliminated = validBlocks.length;
         if (blocksEliminated === 0) {
-            // 顯示顏色限制提示
+            // 顯示元素限制提示
             if (blockedColors.length > 0) {
                 const blockedColorNames = blockedColors.map(c => colorMap[c] || c).join('');
                 if (restrictions.noDamageColors) {
                     UIManager.showActionResultToast({
                         isBlocked: true,
                         reason: 'colorBlocked',
-                        blockedColors: blockedColorNames
+                        blockedColors: blockedColorNames,
+                        blockedColorKeys: blockedColors
                     });
                 } else if (restrictions.damageOnlyColors) {
                     const allowedColorNames = restrictions.damageOnlyColors.map(c => colorMap[c] || c).join('');
                     UIManager.showActionResultToast({
                         isBlocked: true,
                         reason: 'colorOnly',
-                        allowedColors: allowedColorNames
+                        allowedColors: allowedColorNames,
+                        allowedColorKeys: restrictions.damageOnlyColors
                     });
                 }
             }
@@ -686,13 +757,24 @@ class GameEngine {
             this.pendingDamage += finalScore;
         }
 
-        // 顯示成功的Toast
+        // 顯示成功的Toast（含元素攻擊名稱）
         if (finalScore > 0) {
+            // 找出主要攻擊元素（消除最多的顏色）
+            let attackElement = null;
+            if (this.config.mode === 'quest' && validBlocks.length > 0) {
+                const colorCounts = {};
+                validBlocks.forEach(b => {
+                    const c = b.colorName || b.color;
+                    colorCounts[c] = (colorCounts[c] || 0) + 1;
+                });
+                attackElement = Object.keys(colorCounts).sort((a, b) => colorCounts[b] - colorCounts[a])[0];
+            }
             const result = {
                 isBlocked: false,
                 combo: this.consecutiveSuccessfulActions,
                 damage: this.config.mode === 'quest' ? finalScore : 0,
-                score: this.config.mode !== 'quest' ? finalScore : 0
+                score: this.config.mode !== 'quest' ? finalScore : 0,
+                attackElement: attackElement
             };
             UIManager.showActionResultToast(result);
         }
@@ -1394,6 +1476,23 @@ class GameEngine {
         this.ctx.lineWidth = 1.5 / scale;
         this.ctx.stroke();
 
+        // 繪製元素符文圖標（半透明底紋，只在非黑化方塊上顯示）
+        if (!block.isBlackened && window.ELEMENTS) {
+            const colorName = block.colorName || block.color;
+            const elementInfo = window.ELEMENTS[colorName];
+            if (elementInfo) {
+                this.ctx.globalAlpha = opacity * 0.35;
+                const emojiSize = Math.min(blockDrawWidth, blockDrawHeight) * 0.45;
+                this.ctx.font = `${emojiSize}px serif`;
+                this.ctx.textAlign = 'center';
+                this.ctx.textBaseline = 'middle';
+                const iconX = blockDrawX + blockDrawWidth / 2;
+                const iconY = blockDrawRenderY + blockDrawHeight * 0.38;
+                this.ctx.fillText(elementInfo.icon, iconX, iconY);
+                this.ctx.globalAlpha = opacity;
+            }
+        }
+
         this.ctx.restore();
 
         // 繪製操作提示（黑色方塊不顯示操作提示）
@@ -1432,7 +1531,7 @@ class GameEngine {
         }
     }
 
-    createParticleExplosion(x, y, width, height, colorHex) {
+    createParticleExplosion(x, y, width, height, colorHex, colorName) {
         const particleCount = this.config.particleCount;
         const isQuestMode = this.config.mode === 'quest';
 
@@ -1440,20 +1539,17 @@ class GameEngine {
             let vx, vy;
             if (isQuestMode) {
                 // 向上攻擊的粒子，目標是敵人位置
-                const enemyX = this.canvas.width / 2; // 敵人在畫面中央
-                const enemyY = 50; // 敵人在頂部
-                
-                // 計算從爆炸點到敵人的方向
+                const enemyX = this.canvas.width / 2;
+                const enemyY = 50;
+
                 const dx = enemyX - (x + width / 2);
                 const dy = enemyY - (y + height / 2);
                 const distance = Math.sqrt(dx * dx + dy * dy);
-                
-                // 標準化方向向量並加上隨機偏移
+
                 const speed = 8 + Math.random() * 4;
                 vx = (dx / distance) * speed + (Math.random() - 0.5) * 2;
                 vy = (dy / distance) * speed + (Math.random() - 0.5) * 2;
             } else {
-                // 預設的爆炸效果
                 vx = (Math.random() - 0.5) * 8;
                 vy = (Math.random() - 0.5) * 8 - 2;
             }
@@ -1466,8 +1562,9 @@ class GameEngine {
                 life: this.config.particleLifespan,
                 maxLife: this.config.particleLifespan,
                 color: colorHex,
+                colorName: colorName || null,
                 size: Math.random() * 4 + 2,
-                isQuestAttack: isQuestMode // 標記為攻擊粒子
+                isQuestAttack: isQuestMode
             });
         }
     }
@@ -1501,10 +1598,9 @@ class GameEngine {
                 // 如果粒子接近敵人，觸發攻擊效果
                 if (distanceToEnemy < 30 && !particle.hitEnemy) {
                     particle.hitEnemy = true;
-                    // 觸發敵人受擊動畫和UI更新
+                    // 觸發敵人受擊動畫和UI更新（帶元素色彩）
                     if (this.config.mode === 'quest') {
-                        UIManager.triggerEnemyHitAnimation();
-                        // 更新UI顯示最新的血量
+                        UIManager.triggerEnemyHitAnimation(particle.colorName);
                         this.updateUI();
                     }
                 }
@@ -2287,7 +2383,7 @@ class GameEngine {
             const targetGrid = this.config.numCols === 1 ? this.grid[0] : this.grid[colIndex];
             const block = targetGrid[rowIndex];
             
-            this.createParticleExplosion(block.x, block.drawY, block.width, block.height, block.colorHex);
+            this.createParticleExplosion(block.x, block.drawY, block.width, block.height, block.colorHex, block.colorName);
             block.isExploding = true;
             await new Promise(resolve => setTimeout(resolve, 50));
             targetGrid.splice(rowIndex, 1);
@@ -2411,7 +2507,7 @@ class GameEngine {
                     const targetGrid = this.config.numCols === 1 ? this.grid[0] : this.grid[colIndex];
                     const block = targetGrid?.[rowIndex];
                     if (block) {
-                        this.createParticleExplosion(block.x, block.drawY, block.width, block.height, block.colorHex);
+                        this.createParticleExplosion(block.x, block.drawY, block.width, block.height, block.colorHex, block.colorName);
                         block.isEliminating = true;
                         block.eliminationStartTime = Date.now();
                     }
@@ -2749,7 +2845,7 @@ class GameEngine {
         if (skillUsed === 'removeSingle' && this.skillUses.removeSingle > 0) {
             this.skillUses.removeSingle--;
             const block = targetGrid[rowIndex];
-            this.createParticleExplosion(block.x, block.drawY, block.width, block.height, block.colorHex);
+            this.createParticleExplosion(block.x, block.drawY, block.width, block.height, block.colorHex, block.colorName);
             block.isExploding = true;
             await new Promise(resolve => setTimeout(resolve, 50));
             targetGrid.splice(rowIndex, 1);

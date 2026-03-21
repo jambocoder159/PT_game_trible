@@ -61,19 +61,26 @@ class UIManager {
 
     static createQuestHeaderHTML(config) {
         const enemy = config.levelData.enemy;
-        
+
         // 從 URL 參數獲取關卡編號，預設為 1
         const urlParams = new URLSearchParams(window.location.search);
         const levelNumber = parseInt(urlParams.get('level')) || 1;
-        
+
         // 構建對應的敵人圖片路徑
         const enemyImageSrc = `images/monster/ch1-${levelNumber}.png`;
-        
+
         // 獲取關卡限制資訊
         const levelDetails = GameModes.quest.levelDetails[levelNumber];
         const restrictions = levelDetails?.restrictions || {};
         const restrictionsDisplay = this.createQuestRestrictionsDisplay(restrictions, 0);
-        
+
+        // 取得敵人元素資訊
+        const enemyElement = levelDetails?.element;
+        const elementInfo = enemyElement && window.ELEMENTS ? window.ELEMENTS[
+            Object.keys(window.ELEMENTS).find(k => window.ELEMENTS[k].type === enemyElement)
+        ] : null;
+        const elementBadge = elementInfo ? `<span class="ml-1 text-xs opacity-80">${elementInfo.icon} ${elementInfo.name}</span>` : '';
+
         return `
         <div id="quest-header" class="relative flex-shrink-0 bg-slate-800/70 rounded-t-xl text-white">
             <!-- 上半部：關卡資訊和步數 -->
@@ -85,14 +92,14 @@ class UIManager {
                 </div>
                 <div class="text-center">
                     <div class="text-xs text-slate-300">關卡 ${levelNumber}</div>
-                    <div class="text-sm font-bold text-yellow-300">${enemy.name}</div>
+                    <div class="text-sm font-bold text-yellow-300">${enemy.name}${elementBadge}</div>
                 </div>
                 <div class="text-center">
                     <div class="text-xs text-slate-300">步數</div>
                     <div id="moves-left" class="text-xl font-black text-amber-400">${config.levelData.moves}</div>
                 </div>
             </div>
-            
+
             <!-- 中間部：敵人圖片與血條/限制條件對齊 -->
             <div class="px-3 pb-3">
                 <div class="flex items-start gap-3">
@@ -100,7 +107,7 @@ class UIManager {
                     <div class="w-16 h-16 flex-shrink-0">
                         <img id="enemy-image" src="${enemyImageSrc}" alt="${enemy.name}" class="w-full h-full object-contain transition-transform duration-100">
                     </div>
-                    
+
                     <!-- 右側：血條和限制條件垂直排列 -->
                     <div class="flex-1 h-16 flex flex-col justify-between">
                         <!-- 血條區域 -->
@@ -109,7 +116,7 @@ class UIManager {
                                 <span id="enemy-hp-text" class="text-xs font-bold text-white text-shadow">${enemy.maxHP}/${enemy.maxHP}</span>
                             </div>
                         </div>
-                        
+
                         <!-- 限制條件區域 -->
                         ${restrictionsDisplay ? `
                         <div id="quest-restrictions-display" class="bg-slate-900/50 rounded-md px-2 py-1 flex-1 flex items-center">
@@ -122,28 +129,25 @@ class UIManager {
         </div>`;
     }
 
-    // 新增方法：獲取限制條件的簡短顯示文字
+    // 獲取限制條件的簡短顯示文字（使用元素語言）
     static getRestrictionsDisplayText(restrictions) {
         if (!restrictions || Object.keys(restrictions).length === 0) return '';
-        
-        const colorMap = {
-            red: '紅', blue: '藍', green: '綠',
-            yellow: '黃', purple: '紫'
-        };
-        
-        if (restrictions.minComboForDamage) {
-            return `需連擊${restrictions.minComboForDamage}以上`;
-        }
-        if (restrictions.minChainForDamage) {
-            return `需連鎖${restrictions.minChainForDamage}以上`;
+
+        const E = window.ELEMENTS || {};
+
+        if (restrictions.damageOnlyColors) {
+            const names = restrictions.damageOnlyColors.map(c => E[c] ? `${E[c].icon}${E[c].name}` : c).join(' ');
+            return `弱點：${names}`;
         }
         if (restrictions.noDamageColors) {
-            const colors = restrictions.noDamageColors.map(c => colorMap[c] || c).join('');
-            return `${colors}色無效`;
+            const names = restrictions.noDamageColors.map(c => E[c] ? `${E[c].icon}${E[c].name}` : c).join(' ');
+            return `抗性：${names}`;
         }
-        if (restrictions.damageOnlyColors) {
-            const colors = restrictions.damageOnlyColors.map(c => colorMap[c] || c).join('');
-            return `僅${colors}色有效`;
+        if (restrictions.minComboForDamage) {
+            return `🛡️ 需${restrictions.minComboForDamage}連擊破防`;
+        }
+        if (restrictions.minChainForDamage) {
+            return `🔗 需${restrictions.minChainForDamage}連鎖破防`;
         }
         if (restrictions.requireHorizontalMatch) {
             return '僅橫向消除';
@@ -151,7 +155,7 @@ class UIManager {
         if (restrictions.requireVerticalMatch) {
             return '僅縱向消除';
         }
-        
+
         return '特殊限制';
     }
 
@@ -442,11 +446,23 @@ class UIManager {
         }
     }
 
-    static triggerEnemyHitAnimation() {
+    static triggerEnemyHitAnimation(attackColorName) {
         const enemyImage = document.getElementById('enemy-image');
         if (enemyImage) {
-            enemyImage.classList.add('enemy-hit');
-            setTimeout(() => enemyImage.classList.remove('enemy-hit'), 200);
+            // 根據攻擊元素設定受擊閃光顏色
+            const elementColors = {
+                red: '#F87171',
+                blue: '#60A5FA',
+                green: '#4ADE80',
+                yellow: '#FACC15',
+                purple: '#A78BFA'
+            };
+            const hitColor = (attackColorName && elementColors[attackColorName]) || '#FFFFFF';
+            enemyImage.style.setProperty('--hit-color', hitColor);
+            enemyImage.classList.add('enemy-hit-element');
+            setTimeout(() => {
+                enemyImage.classList.remove('enemy-hit-element');
+            }, 300);
         }
     }
 
@@ -616,14 +632,24 @@ class UIManager {
     static showActionResultToast(result) {
         let message = '';
         let type = 'info';
+        const E = window.ELEMENTS || {};
 
         if (result.isBlocked) {
             if (result.reason === 'minCombo') {
-                message = `🚫 需要${result.required}連擊 (目前${result.current})`;
+                message = `🛡️ 護盾未破！需${result.required}連擊破防 (${result.current}/${result.required})`;
+            } else if (result.reason === 'minChain') {
+                message = `🔗 連鎖護盾！需${result.required}連鎖破防 (${result.current}/${result.required})`;
             } else if (result.reason === 'colorBlocked') {
-                message = `🚫 ${result.blockedColors}方塊無效`;
+                // 將被擋的顏色名稱轉為元素名稱
+                const elementNames = result.blockedColorKeys
+                    ? result.blockedColorKeys.map(c => E[c] ? `${E[c].icon}${E[c].name}` : c).join(' ')
+                    : result.blockedColors;
+                message = `🚫 ${elementNames} 屬性免疫！`;
             } else if (result.reason === 'colorOnly') {
-                message = `🚫 僅${result.allowedColors}方塊有效`;
+                const elementNames = result.allowedColorKeys
+                    ? result.allowedColorKeys.map(c => E[c] ? `${E[c].icon}${E[c].name}` : c).join(' ')
+                    : result.allowedColors;
+                message = `🚫 僅 ${elementNames} 可造成傷害`;
             } else {
                 message = '🚫 攻擊被阻擋';
             }
@@ -631,7 +657,12 @@ class UIManager {
         } else {
             if (result.damage > 0) {
                 const comboText = result.combo > 1 ? ` (${result.combo}連擊)` : '';
-                message = `⚔️ 造成 ${result.damage} 傷害${comboText}`;
+                // 顯示元素攻擊名稱
+                const elementIcon = result.attackElement && E[result.attackElement]
+                    ? `${E[result.attackElement].icon} ` : '⚔️ ';
+                const elementName = result.attackElement && E[result.attackElement]
+                    ? `${E[result.attackElement].name}攻擊！` : '';
+                message = `${elementIcon}${elementName}造成 ${result.damage} 傷害${comboText}`;
                 type = 'damage';
             } else if (result.score > 0) {
                 const comboText = result.combo > 1 ? ` (${result.combo}連擊)` : '';
@@ -651,40 +682,45 @@ class UIManager {
             return '';
         }
 
-        const colorMap = {
-            red: { name: '紅', hex: '#EF4444' },
-            blue: { name: '藍', hex: '#3B82F6' },
-            green: { name: '綠', hex: '#10B981' },
-            yellow: { name: '黃', hex: '#F59E0B' },
-            purple: { name: '紫', hex: '#8B5CF6' }
-        };
+        const E = window.ELEMENTS || {};
+        let restrictionsHTML = '<div class="flex flex-wrap gap-1.5 items-center justify-start">';
 
-        let restrictionsHTML = '<div class="flex flex-wrap gap-2 items-center justify-center mt-2">';
-
-        // 連擊限制
+        // 連擊護盾限制
         if (restrictions.minComboForDamage) {
             const isComboMet = currentCombo >= restrictions.minComboForDamage;
-            const statusClass = isComboMet ? 'bg-green-600' : 'bg-red-600';
-            const statusText = isComboMet ? `✓ ${currentCombo}` : `${currentCombo}/${restrictions.minComboForDamage}`;
-            
+            const statusClass = isComboMet ? 'bg-green-600/80' : 'bg-amber-700/80';
+            const statusIcon = isComboMet ? '✓' : '🛡️';
+            const statusText = isComboMet ? `已破防` : `${currentCombo}/${restrictions.minComboForDamage}`;
+
             restrictionsHTML += `
-                <div class="flex items-center gap-1 px-2 py-1 rounded-md ${statusClass} text-white text-xs">
-                    <span>連擊</span>
+                <div class="flex items-center gap-1 px-1.5 py-0.5 rounded ${statusClass} text-white text-xs">
+                    <span>${statusIcon}</span>
                     <span class="font-bold">${statusText}</span>
                 </div>
             `;
         }
 
-        // 無效顏色 (色塊 + 叉叉)
+        // 連鎖護盾限制
+        if (restrictions.minChainForDamage) {
+            restrictionsHTML += `
+                <div class="flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-700/80 text-white text-xs">
+                    <span>🔗</span>
+                    <span class="font-bold">${restrictions.minChainForDamage}連鎖</span>
+                </div>
+            `;
+        }
+
+        // 抗性（無效元素）- 用元素圖標 + 斜線表示免疫
         if (restrictions.noDamageColors && restrictions.noDamageColors.length > 0) {
-            restrictionsHTML += '<div class="flex items-center gap-1">';
+            restrictionsHTML += '<div class="flex items-center gap-0.5">';
+            restrictionsHTML += '<span class="text-xs text-red-300 mr-0.5">抗性</span>';
             restrictions.noDamageColors.forEach(color => {
-                const colorInfo = colorMap[color];
-                if (colorInfo) {
+                const el = E[color];
+                if (el) {
                     restrictionsHTML += `
-                        <div class="relative">
-                            <div class="w-6 h-6 rounded-sm border border-gray-300" style="background-color: ${colorInfo.hex}"></div>
-                            <div class="absolute inset-0 flex items-center justify-center text-white font-bold text-lg">✕</div>
+                        <div class="relative w-6 h-6 rounded-sm border border-red-400/50 flex items-center justify-center" style="background-color: ${el.color}33">
+                            <span class="text-sm">${el.icon}</span>
+                            <div class="absolute inset-0 flex items-center justify-center text-red-400 font-bold text-lg opacity-80">✕</div>
                         </div>
                     `;
                 }
@@ -692,16 +728,16 @@ class UIManager {
             restrictionsHTML += '</div>';
         }
 
-        // 有效顏色 (色塊 + 圈圈)
+        // 弱點（僅有效元素）- 用元素圖標 + 高亮表示弱點
         if (restrictions.damageOnlyColors && restrictions.damageOnlyColors.length > 0) {
-            restrictionsHTML += '<div class="flex items-center gap-1">';
+            restrictionsHTML += '<div class="flex items-center gap-0.5">';
+            restrictionsHTML += '<span class="text-xs text-green-300 mr-0.5">弱點</span>';
             restrictions.damageOnlyColors.forEach(color => {
-                const colorInfo = colorMap[color];
-                if (colorInfo) {
+                const el = E[color];
+                if (el) {
                     restrictionsHTML += `
-                        <div class="relative">
-                            <div class="w-6 h-6 rounded-sm border border-gray-300" style="background-color: ${colorInfo.hex}"></div>
-                            <div class="absolute inset-0 flex items-center justify-center text-white font-bold text-lg">○</div>
+                        <div class="w-6 h-6 rounded-sm border border-green-400/60 flex items-center justify-center element-weakness-glow" style="background-color: ${el.color}44">
+                            <span class="text-sm">${el.icon}</span>
                         </div>
                     `;
                 }
@@ -712,8 +748,8 @@ class UIManager {
         // 橫向消除限制
         if (restrictions.requireHorizontalMatch) {
             restrictionsHTML += `
-                <div class="px-2 py-1 bg-yellow-600 text-white text-xs rounded-md">
-                    僅橫向
+                <div class="px-1.5 py-0.5 bg-yellow-600/80 text-white text-xs rounded">
+                    ➡️ 僅橫向
                 </div>
             `;
         }
