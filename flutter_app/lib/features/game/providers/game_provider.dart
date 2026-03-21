@@ -65,6 +65,10 @@ class GameProvider extends ChangeNotifier {
   Timer? _timer;
   bool _isProcessing = false;
 
+  /// 遊戲世代計數器 — 每次 startGame 遞增，
+  /// 讓舊的 _processMatchLoop async 操作能偵測到並提前終止
+  int _gameGeneration = 0;
+
   /// 消除回合完成的回呼（BattleProvider 監聽用）
   OnMatchTurnComplete? onMatchTurnComplete;
 
@@ -91,6 +95,11 @@ class GameProvider extends ChangeNotifier {
 
   void startGame(GameModeConfig mode) {
     _timer?.cancel();
+    _gameGeneration++; // 讓舊的 async 操作偵測到世代變更並終止
+    _isProcessing = false;
+    _scorePopups.clear();
+    _chainRipples.clear();
+
     _state = GameState.initial(mode);
     _state!.status = GameStatus.playing;
 
@@ -128,30 +137,36 @@ class GameProvider extends ChangeNotifier {
     if (s.grid[col][row] == null) return;
 
     _isProcessing = true;
+    final gen = _gameGeneration;
     s.actionCount++;
 
     // 標記消除動畫
     s.grid[col][row] = s.grid[col][row]!.copyWith(isEliminating: true);
     notifyListeners();
     await Future.delayed(const Duration(milliseconds: 350));
+    if (_gameGeneration != gen) return;
 
     // 移除方塊
     s.grid[col][row] = null;
     notifyListeners();
     await Future.delayed(const Duration(milliseconds: 100));
+    if (_gameGeneration != gen) return;
 
     // 重力掉落（不補充，先讓玩家看到掉落效果）
     _applyGravity();
     notifyListeners();
     await Future.delayed(const Duration(milliseconds: 400));
+    if (_gameGeneration != gen) return;
 
     // 補充新方塊
     _refillGrid();
     notifyListeners();
     await Future.delayed(const Duration(milliseconds: 300));
+    if (_gameGeneration != gen) return;
 
     // 連鎖消除處理
     final hadMatches = await _processMatchLoop();
+    if (_gameGeneration != gen) return;
 
     if (!hadMatches) {
       // 沒有產生連鎖 → 扣行動點
@@ -179,6 +194,7 @@ class GameProvider extends ChangeNotifier {
     if (row == 0) return;
 
     _isProcessing = true;
+    final gen = _gameGeneration;
     s.actionCount++;
 
     // 取出方塊
@@ -200,9 +216,11 @@ class GameProvider extends ChangeNotifier {
 
     notifyListeners();
     await Future.delayed(const Duration(milliseconds: 350));
+    if (_gameGeneration != gen) return;
 
     // 連鎖消除處理
     final hadMatches = await _processMatchLoop();
+    if (_gameGeneration != gen) return;
 
     if (!hadMatches) {
       s.combo = 0;
@@ -229,6 +247,7 @@ class GameProvider extends ChangeNotifier {
     if (row == s.mode.numRows - 1) return;
 
     _isProcessing = true;
+    final gen = _gameGeneration;
     s.actionCount++;
 
     // 取出方塊
@@ -251,9 +270,11 @@ class GameProvider extends ChangeNotifier {
 
     notifyListeners();
     await Future.delayed(const Duration(milliseconds: 350));
+    if (_gameGeneration != gen) return;
 
     // 連鎖消除處理
     final hadMatches = await _processMatchLoop();
+    if (_gameGeneration != gen) return;
 
     if (!hadMatches) {
       s.combo = 0;
@@ -276,6 +297,7 @@ class GameProvider extends ChangeNotifier {
 
   Future<bool> _processMatchLoop() async {
     final s = _state!;
+    final gen = _gameGeneration; // 記住啟動時的世代
     int chainCount = 0;
     bool everHadMatch = false;
 
@@ -284,6 +306,9 @@ class GameProvider extends ChangeNotifier {
     int turnTotalBlocks = 0;
 
     while (true) {
+      // 世代檢查：若已開始新遊戲，立即終止
+      if (_gameGeneration != gen) return false;
+
       final matches = MatchDetector.findMatches(
         s.grid,
         numCols: s.mode.numCols,
@@ -340,11 +365,13 @@ class GameProvider extends ChangeNotifier {
       _markBlocksForElimination(idsToRemove);
       notifyListeners();
       await Future.delayed(const Duration(milliseconds: 350));
+      if (_gameGeneration != gen) return false;
 
       // 移除方塊
       _removeEliminatedBlocks();
       notifyListeners();
       await Future.delayed(const Duration(milliseconds: 100));
+      if (_gameGeneration != gen) return false;
 
       // 每次連鎖消除後，通知戰鬥系統（即時造成傷害）
       if (onMatchTurnComplete != null) {
@@ -368,15 +395,17 @@ class GameProvider extends ChangeNotifier {
       _applyGravity();
       notifyListeners();
       await Future.delayed(const Duration(milliseconds: 400));
+      if (_gameGeneration != gen) return false;
 
       // 補充新方塊
       _refillGrid();
       notifyListeners();
       await Future.delayed(const Duration(milliseconds: 300));
+      if (_gameGeneration != gen) return false;
     }
 
-    // 整個回合結束後，通知敵人回擊
-    if (everHadMatch) {
+    // 整個回合結束後，通知敵人回擊（只在同一世代有效）
+    if (everHadMatch && _gameGeneration == gen) {
       onTurnEnd?.call();
     }
 
