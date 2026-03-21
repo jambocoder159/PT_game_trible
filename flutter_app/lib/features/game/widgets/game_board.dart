@@ -5,6 +5,7 @@ import '../../../config/theme.dart';
 import '../../../core/models/block.dart';
 import '../providers/game_provider.dart';
 import 'block_widget.dart';
+import 'score_popup.dart';
 
 /// 遊戲棋盤 — Stack + AnimatedPositioned + 長按拖曳引導
 class GameBoard extends StatefulWidget {
@@ -16,6 +17,10 @@ class GameBoard extends StatefulWidget {
 
 class _GameBoardState extends State<GameBoard>
     with SingleTickerProviderStateMixin {
+  // 分數彈出
+  final List<_ScorePopupData> _activePopups = [];
+  int _popupIdCounter = 0;
+
   // 拖曳狀態
   bool _isDragging = false;
   int _dragCol = 0;
@@ -153,6 +158,22 @@ class _GameBoardState extends State<GameBoard>
           builder: (context, constraints) {
             final layout = _calcLayout(constraints, numCols, numRows);
 
+            // ── 消費分數彈出事件 ──
+            final popups = game.consumeScorePopups();
+            for (final popup in popups) {
+              final pos = _cellTopLeft(layout, popup.col, popup.row);
+              final id = _popupIdCounter++;
+              _activePopups.add(_ScorePopupData(
+                id: id,
+                points: popup.points,
+                combo: popup.combo,
+                position: Offset(
+                  pos.dx + layout.blockSize / 2 - 30,
+                  pos.dy,
+                ),
+              ));
+            }
+
             // ── 收集方塊 Widget ──
             final List<Widget> blockWidgets = [];
             for (int col = 0; col < numCols; col++) {
@@ -167,8 +188,8 @@ class _GameBoardState extends State<GameBoard>
                 blockWidgets.add(
                   AnimatedPositioned(
                     key: ValueKey(block.id),
-                    duration: AppTheme.animDrop,
-                    curve: Curves.easeOutCubic,
+                    duration: const Duration(milliseconds: 500),
+                    curve: Curves.bounceOut,
                     left: pos.dx,
                     top: pos.dy,
                     width: layout.blockSize,
@@ -332,6 +353,19 @@ class _GameBoardState extends State<GameBoard>
                       ...arrowWidgets,
                       // 浮動拖曳方塊
                       ...floatingWidgets,
+                      // 分數彈出
+                      ..._activePopups.map((data) => ScorePopup(
+                            key: ValueKey('popup_${data.id}'),
+                            points: data.points,
+                            combo: data.combo,
+                            position: data.position,
+                            onComplete: () {
+                              setState(() {
+                                _activePopups
+                                    .removeWhere((p) => p.id == data.id);
+                              });
+                            },
+                          )),
                     ],
                   ),
                 ),
@@ -568,6 +602,21 @@ class _ArrowIcon extends StatelessWidget {
       child: Icon(icon, size: size * 0.7, color: color.withAlpha(80)),
     );
   }
+}
+
+/// 分數彈出資料
+class _ScorePopupData {
+  final int id;
+  final int points;
+  final int combo;
+  final Offset position;
+
+  const _ScorePopupData({
+    required this.id,
+    required this.points,
+    required this.combo,
+    required this.position,
+  });
 }
 
 /// 棋盤佈局參數

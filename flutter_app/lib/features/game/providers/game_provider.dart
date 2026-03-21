@@ -8,6 +8,21 @@ import '../../../core/models/game_state.dart';
 import '../../../core/engine/match_detector.dart';
 import '../../../core/engine/score_calculator.dart';
 
+/// 分數彈出事件
+class ScorePopupEvent {
+  final int points;
+  final int col;
+  final int row;
+  final int combo;
+
+  const ScorePopupEvent({
+    required this.points,
+    required this.col,
+    required this.row,
+    required this.combo,
+  });
+}
+
 /// 遊戲核心 Provider — 管理整個遊戲流程
 class GameProvider extends ChangeNotifier {
   static const _uuid = Uuid();
@@ -18,6 +33,14 @@ class GameProvider extends ChangeNotifier {
 
   Timer? _timer;
   bool _isProcessing = false;
+
+  // 分數彈出事件佇列
+  final List<ScorePopupEvent> _scorePopups = [];
+  List<ScorePopupEvent> consumeScorePopups() {
+    final popups = List<ScorePopupEvent>.from(_scorePopups);
+    _scorePopups.clear();
+    return popups;
+  }
 
   // ─── 遊戲生命週期 ───
 
@@ -234,6 +257,16 @@ class GameProvider extends ChangeNotifier {
         scoring: s.mode.scoring,
       );
       s.score += scoreResult.totalPoints;
+
+      // 發送分數彈出事件（取第一個 match 的中間方塊位置）
+      final firstMatch = matches.first;
+      final midBlock = firstMatch.blocks[firstMatch.blocks.length ~/ 2];
+      _scorePopups.add(ScorePopupEvent(
+        points: scoreResult.totalPoints,
+        col: midBlock.col,
+        row: midBlock.row,
+        combo: s.combo,
+      ));
 
       // 標記消除（閃爍動畫）
       final idsToRemove = MatchDetector.getBlockIdsToEliminate(matches);
