@@ -2,7 +2,7 @@ name: Deploy Flutter Web to GitHub Pages
 
 on:
   push:
-    branches: [claude/mobile-game-analysis-ALy0A, main]
+    branches: [claude/mobile-game-analysis-ALy0A, claude/fix-chessboard-colors-F9ZnD, claude/fix-web-build-MIpfi, main]
     paths:
       - 'flutter_app/**'
       - '.github/workflows/flutter-web.yml'

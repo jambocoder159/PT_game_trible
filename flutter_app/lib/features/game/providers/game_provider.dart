@@ -21,19 +21,13 @@ class GameProvider extends ChangeNotifier {
 
   // ─── 遊戲生命週期 ───
 
-  /// 以指定模式開始新遊戲
   void startGame(GameModeConfig mode) {
     _timer?.cancel();
     _state = GameState.initial(mode);
     _state!.status = GameStatus.playing;
 
-    // 填滿棋盤（確保初始沒有匹配）
     _fillGrid();
 
-    // 預備下一個方塊
-    _generateNextBlocks();
-
-    // 限時模式啟動計時器
     if (mode.hasTimer && mode.gameDuration > 0) {
       _startTimer();
     }
@@ -41,16 +35,16 @@ class GameProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// 結束遊戲
   void endGame() {
     _timer?.cancel();
     if (_state != null) {
       _state!.status = GameStatus.gameOver;
+      _state!.selectedCol = null;
+      _state!.selectedRow = null;
       notifyListeners();
     }
   }
 
-  /// 清理資源
   @override
   void dispose() {
     _timer?.cancel();
@@ -59,40 +53,165 @@ class GameProvider extends ChangeNotifier {
 
   // ─── 玩家操作 ───
 
-  /// 玩家選擇某一列放置方塊
-  Future<void> placeBlock(int col) async {
+  /// 點擊方塊 → 直接消除（若無產生連鎖才扣行動點）
+  Future<void> tapBlock(int col, int row) async {
     final s = _state;
     if (s == null || s.status != GameStatus.playing || _isProcessing) return;
-
-    // 找到該列最高的空位
-    final targetRow = _findTopEmptyRow(col);
-    if (targetRow < 0) return; // 該列已滿
+    if (s.grid[col][row] == null) return;
 
     _isProcessing = true;
-
-    // 放置方塊
-    final color = s.nextBlockColors.isNotEmpty
-        ? s.nextBlockColors.first
-        : BlockColor.values[_random.nextInt(BlockColor.values.length)];
-
-    final block = Block(
-      id: _uuid.v4(),
-      color: color,
-      col: col,
-      row: targetRow,
-    );
-    s.grid[col][targetRow] = block;
     s.actionCount++;
 
-    // 生成下一個方塊
-    _generateNextBlocks();
+    // 標記消除動畫
+    s.grid[col][row] = s.grid[col][row]!.copyWith(isEliminating: true);
     notifyListeners();
+    await Future.delayed(const Duration(milliseconds: 350));
 
-    // 偵測匹配並處理消除
+    // 移除方塊
+    s.grid[col][row] = null;
+    notifyListeners();
+    await Future.delayed(const Duration(milliseconds: 100));
+
+    // 重力掉落（不補充，先讓玩家看到掉落效果）
+    _applyGravity();
+    notifyListeners();
+    await Future.delayed(const Duration(milliseconds: 400));
+
+    // 補充新方塊
+    _refillGrid();
+    notifyListeners();
+    await Future.delayed(const Duration(milliseconds: 300));
+
+    // 連鎖消除處理
+    final hadMatches = await _processMatchLoop();
+
+    if (!hadMatches) {
+      // 沒有產生連鎖 → 扣行動點
+      s.combo = 0;
+      if (s.mode.actionPointsStart > 0) {
+        s.actionPoints--;
+        notifyListeners();
+        if (s.actionPoints <= 0) {
+          _isProcessing = false;
+          endGame();
+          return;
+        }
+      }
+    }
+
+    _isProcessing = false;
+    notifyListeners();
+  }
+
+  /// 上滑方塊 → 移到同列最頂部
+  Future<void> moveBlockToTop(int col, int row) async {
+    final s = _state;
+    if (s == null || s.status != GameStatus.playing || _isProcessing) return;
+    if (s.grid[col][row] == null) return;
+    if (row == 0) return;
+
+    _isProcessing = true;
+    s.actionCount++;
+
+    // 取出方塊
+    final block = s.grid[col][row]!;
+    s.grid[col][row] = null;
+
+    // 把該列方塊往下移一格（從 row-1 到 0）
+    for (int r = row; r > 0; r--) {
+      s.grid[col][r] = s.grid[col][r - 1];
+      if (s.grid[col][r] != null) {
+        s.grid[col][r]!.row = r;
+      }
+    }
+
+    // 放到最頂部
+    s.grid[col][0] = block;
+    block.row = 0;
+    block.col = col;
+
+    notifyListeners();
+    await Future.delayed(const Duration(milliseconds: 350));
+
+    // 連鎖消除處理
+    final hadMatches = await _processMatchLoop();
+
+    if (!hadMatches) {
+      s.combo = 0;
+      if (s.mode.actionPointsStart > 0) {
+        s.actionPoints--;
+        notifyListeners();
+        if (s.actionPoints <= 0) {
+          _isProcessing = false;
+          endGame();
+          return;
+        }
+      }
+    }
+
+    _isProcessing = false;
+    notifyListeners();
+  }
+
+  /// 下滑方塊 → 移到同列最底部
+  Future<void> moveBlockToBottom(int col, int row) async {
+    final s = _state;
+    if (s == null || s.status != GameStatus.playing || _isProcessing) return;
+    if (s.grid[col][row] == null) return;
+    if (row == s.mode.numRows - 1) return;
+
+    _isProcessing = true;
+    s.actionCount++;
+
+    // 取出方塊
+    final block = s.grid[col][row]!;
+    s.grid[col][row] = null;
+
+    // 把該列方塊往上移一格（從 row+1 到 numRows-1）
+    for (int r = row; r < s.mode.numRows - 1; r++) {
+      s.grid[col][r] = s.grid[col][r + 1];
+      if (s.grid[col][r] != null) {
+        s.grid[col][r]!.row = r;
+      }
+    }
+
+    // 放到最底部
+    final lastRow = s.mode.numRows - 1;
+    s.grid[col][lastRow] = block;
+    block.row = lastRow;
+    block.col = col;
+
+    notifyListeners();
+    await Future.delayed(const Duration(milliseconds: 350));
+
+    // 連鎖消除處理
+    final hadMatches = await _processMatchLoop();
+
+    if (!hadMatches) {
+      s.combo = 0;
+      if (s.mode.actionPointsStart > 0) {
+        s.actionPoints--;
+        notifyListeners();
+        if (s.actionPoints <= 0) {
+          _isProcessing = false;
+          endGame();
+          return;
+        }
+      }
+    }
+
+    _isProcessing = false;
+    notifyListeners();
+  }
+
+  // ─── 連鎖消除處理（回傳是否有任何消除） ───
+
+  Future<bool> _processMatchLoop() async {
+    final s = _state!;
     int chainCount = 0;
-    bool hasMatch = true;
+    bool everHadMatch = false;
 
-    while (hasMatch) {
+    while (true) {
       final matches = MatchDetector.findMatches(
         s.grid,
         numCols: s.mode.numCols,
@@ -100,17 +219,14 @@ class GameProvider extends ChangeNotifier {
         enableHorizontalMatches: s.mode.enableHorizontalMatches,
       );
 
-      if (matches.isEmpty) {
-        hasMatch = false;
-        break;
-      }
+      if (matches.isEmpty) break;
 
+      everHadMatch = true;
       chainCount++;
-
-      // 計分
       s.combo++;
       if (s.combo > s.maxCombo) s.maxCombo = s.combo;
 
+      // 計分
       final scoreResult = ScoreCalculator.calculate(
         matches: matches,
         currentCombo: s.combo,
@@ -119,41 +235,29 @@ class GameProvider extends ChangeNotifier {
       );
       s.score += scoreResult.totalPoints;
 
-      // 標記消除
+      // 標記消除（閃爍動畫）
       final idsToRemove = MatchDetector.getBlockIdsToEliminate(matches);
       _markBlocksForElimination(idsToRemove);
       notifyListeners();
-
-      // 等待消除動畫
-      await Future.delayed(const Duration(milliseconds: 250));
+      await Future.delayed(const Duration(milliseconds: 350));
 
       // 移除方塊
       _removeEliminatedBlocks();
+      notifyListeners();
+      await Future.delayed(const Duration(milliseconds: 100));
 
-      // 方塊掉落填補空隙
+      // 重力掉落
       _applyGravity();
       notifyListeners();
+      await Future.delayed(const Duration(milliseconds: 400));
 
-      // 等待掉落動畫
+      // 補充新方塊
+      _refillGrid();
+      notifyListeners();
       await Future.delayed(const Duration(milliseconds: 300));
     }
 
-    // 沒有匹配 → 重置 combo，扣行動點
-    if (chainCount == 0) {
-      s.combo = 0;
-      if (s.mode.actionPointsStart > 0) {
-        s.actionPoints--;
-        if (s.actionPoints <= 0) {
-          endGame();
-        }
-      }
-    }
-
-    _isProcessing = false;
-    notifyListeners();
-
-    // 檢查是否棋盤滿了（所有列的頂部都有方塊）
-    _checkBoardFull();
+    return everHadMatch;
   }
 
   // ─── 內部邏輯 ───
@@ -161,7 +265,7 @@ class GameProvider extends ChangeNotifier {
   void _fillGrid() {
     final s = _state!;
     for (int col = 0; col < s.mode.numCols; col++) {
-      for (int row = s.mode.numRows - 1; row >= s.mode.numRows - 3; row--) {
+      for (int row = 0; row < s.mode.numRows; row++) {
         s.grid[col][row] = Block(
           id: _uuid.v4(),
           color: _randomColor(),
@@ -170,7 +274,6 @@ class GameProvider extends ChangeNotifier {
         );
       }
     }
-    // 確保初始狀態沒有三消匹配，簡單重試
     _resolveInitialMatches();
   }
 
@@ -178,7 +281,7 @@ class GameProvider extends ChangeNotifier {
     final s = _state!;
     bool hasMatches = true;
     int attempts = 0;
-    while (hasMatches && attempts < 100) {
+    while (hasMatches && attempts < 200) {
       final matches = MatchDetector.findMatches(
         s.grid,
         numCols: s.mode.numCols,
@@ -188,7 +291,6 @@ class GameProvider extends ChangeNotifier {
       if (matches.isEmpty) {
         hasMatches = false;
       } else {
-        // 替換匹配中的第一個方塊顏色
         for (final match in matches) {
           final block = match.blocks.first;
           final currentColor = block.color;
@@ -203,20 +305,20 @@ class GameProvider extends ChangeNotifier {
     }
   }
 
-  int _findTopEmptyRow(int col) {
+  void _refillGrid() {
     final s = _state!;
-    for (int row = 0; row < s.mode.numRows; row++) {
-      if (s.grid[col][row] != null) {
-        return row - 1; // 上面那格是空的
+    for (int col = 0; col < s.mode.numCols; col++) {
+      for (int row = 0; row < s.mode.numRows; row++) {
+        if (s.grid[col][row] == null) {
+          s.grid[col][row] = Block(
+            id: _uuid.v4(),
+            color: _randomColor(),
+            col: col,
+            row: row,
+          );
+        }
       }
     }
-    return s.mode.numRows - 1; // 整列都是空的
-  }
-
-  void _generateNextBlocks() {
-    final s = _state!;
-    s.nextBlockColors.clear();
-    s.nextBlockColors.add(_randomColor());
   }
 
   void _markBlocksForElimination(Set<String> ids) {
@@ -245,7 +347,6 @@ class GameProvider extends ChangeNotifier {
   void _applyGravity() {
     final s = _state!;
     for (int col = 0; col < s.mode.numCols; col++) {
-      // 從底部往上，把空位填上
       int writeRow = s.mode.numRows - 1;
       for (int readRow = s.mode.numRows - 1; readRow >= 0; readRow--) {
         if (s.grid[col][readRow] != null) {
@@ -258,15 +359,6 @@ class GameProvider extends ChangeNotifier {
         }
       }
     }
-  }
-
-  void _checkBoardFull() {
-    final s = _state;
-    if (s == null) return;
-    for (int col = 0; col < s.mode.numCols; col++) {
-      if (s.grid[col][0] == null) return; // 有空位
-    }
-    endGame(); // 全滿，遊戲結束
   }
 
   void _startTimer() {
