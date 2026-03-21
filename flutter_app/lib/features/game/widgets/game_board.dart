@@ -1,4 +1,3 @@
-import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -297,6 +296,14 @@ class _GameBoardState extends State<GameBoard>
                   onDragEnd: () {
                     _endDrag(game, layout);
                   },
+                  onSwipeMove: (col, row, direction) {
+                    if (_isDragging) return;
+                    if (direction == -1) {
+                      game.moveBlockToTop(col, row);
+                    } else if (direction == 1) {
+                      game.moveBlockToBottom(col, row);
+                    }
+                  },
                   child: Stack(
                     clipBehavior: Clip.none,
                     children: [
@@ -338,6 +345,10 @@ class _GameBoardState extends State<GameBoard>
 }
 
 /// 處理棋盤觸控事件的透明層
+/// 使用 Listener 處理原始指標事件，同時支援：
+/// - 快速滑動：直接執行上/下移動
+/// - 長按：進入拖曳模式（顯示箭頭引導）
+/// - 點擊：消除方塊
 class _BoardInteractionLayer extends StatefulWidget {
   final _BoardLayout layout;
   final int numCols;
@@ -349,6 +360,8 @@ class _BoardInteractionLayer extends StatefulWidget {
       onLongPressStart;
   final void Function(Offset localPos) onDragUpdate;
   final void Function() onDragEnd;
+  /// 快速滑動直接移動方塊
+  final void Function(int col, int row, int direction) onSwipeMove;
   final Widget child;
 
   const _BoardInteractionLayer({
@@ -361,6 +374,7 @@ class _BoardInteractionLayer extends StatefulWidget {
     required this.onLongPressStart,
     required this.onDragUpdate,
     required this.onDragEnd,
+    required this.onSwipeMove,
     required this.child,
   });
 
@@ -370,6 +384,17 @@ class _BoardInteractionLayer extends StatefulWidget {
 }
 
 class _BoardInteractionLayerState extends State<_BoardInteractionLayer> {
+  // 指標追蹤
+  Offset? _downPos;
+  int? _downCol;
+  int? _downRow;
+  Block? _downBlock;
+  bool _isSwipeDetected = false;
+  bool _longPressActivated = false;
+
+  // 長按計時器
+  static const _longPressDuration = Duration(milliseconds: 150);
+
   /// 由 local position 找到對應的 col, row
   (int col, int row)? _hitTest(Offset localPos) {
     final l = widget.layout;
@@ -388,57 +413,107 @@ class _BoardInteractionLayerState extends State<_BoardInteractionLayer> {
     return null;
   }
 
+  void _onPointerDown(PointerDownEvent event) {
+    if (widget.isDragging) return;
+    final hit = _hitTest(event.localPosition);
+    if (hit == null) {
+      _downPos = null;
+      return;
+    }
+    final (col, row) = hit;
+    final state = widget.game.state;
+    if (state == null) return;
+    final block = state.grid[col][row];
+    if (block == null) return;
+
+    _downPos = event.localPosition;
+    _downCol = col;
+    _downRow = row;
+    _downBlock = block;
+    _isSwipeDetected = false;
+    _longPressActivated = false;
+
+    // 啟動長按計時
+    Future.delayed(_longPressDuration, () {
+      if (_downPos != null && !_isSwipeDetected && !_longPressActivated) {
+        _longPressActivated = true;
+        widget.onLongPressStart(
+            _downCol!, _downRow!, _downBlock!, _downPos!);
+      }
+    });
+  }
+
+  void _onPointerMove(PointerMoveEvent event) {
+    if (_downPos == null) return;
+
+    // 已進入長按拖曳模式 → 委託給現有拖曳邏輯
+    if (_longPressActivated && widget.isDragging) {
+      widget.onDragUpdate(event.localPosition);
+      return;
+    }
+
+    // 尚未進入任何模式 → 偵測快速滑動
+    if (!_longPressActivated && !_isSwipeDetected) {
+      final dy = event.localPosition.dy - _downPos!.dy;
+      final dx = (event.localPosition.dx - _downPos!.dx).abs();
+      final swipeThreshold = widget.layout.blockSize * 0.35;
+
+      // 垂直滑動距離超過門檻，且垂直 > 水平（確認是上下滑）
+      if (dy.abs() > swipeThreshold && dy.abs() > dx) {
+        _isSwipeDetected = true;
+        final direction = dy < 0 ? -1 : 1; // -1=上, 1=下
+        HapticFeedback.lightImpact();
+        widget.onSwipeMove(_downCol!, _downRow!, direction);
+        // 清除狀態，避免重複觸發
+        _downPos = null;
+      }
+    }
+  }
+
+  void _onPointerUp(PointerUpEvent event) {
+    if (_downPos == null && !widget.isDragging) return;
+
+    // 長按拖曳模式結束
+    if (_longPressActivated && widget.isDragging) {
+      widget.onDragEnd();
+      _resetState();
+      return;
+    }
+
+    // 沒有滑動也沒有長按 → 視為點擊
+    if (!_isSwipeDetected && !_longPressActivated) {
+      if (_downCol != null && _downRow != null && _downBlock != null) {
+        widget.onTapBlock(_downCol!, _downRow!, _downBlock!);
+      }
+    }
+
+    _resetState();
+  }
+
+  void _onPointerCancel(PointerCancelEvent event) {
+    if (_longPressActivated && widget.isDragging) {
+      widget.onDragEnd();
+    }
+    _resetState();
+  }
+
+  void _resetState() {
+    _downPos = null;
+    _downCol = null;
+    _downRow = null;
+    _downBlock = null;
+    _isSwipeDetected = false;
+    _longPressActivated = false;
+  }
+
   @override
   Widget build(BuildContext context) {
-    return RawGestureDetector(
-      gestures: <Type, GestureRecognizerFactory>{
-        LongPressGestureRecognizer:
-            GestureRecognizerFactoryWithHandlers<LongPressGestureRecognizer>(
-          () => LongPressGestureRecognizer(
-            duration: const Duration(milliseconds: 150),
-          ),
-          (instance) {
-            instance
-              ..onLongPressStart = (details) {
-                if (widget.isDragging) return;
-                final hit = _hitTest(details.localPosition);
-                if (hit == null) return;
-                final (col, row) = hit;
-                final state = widget.game.state;
-                if (state == null) return;
-                final block = state.grid[col][row];
-                if (block == null) return;
-                widget.onLongPressStart(
-                    col, row, block, details.localPosition);
-              }
-              ..onLongPressMoveUpdate = (details) {
-                if (!widget.isDragging) return;
-                widget.onDragUpdate(details.localPosition);
-              }
-              ..onLongPressEnd = (details) {
-                if (!widget.isDragging) return;
-                widget.onDragEnd();
-              };
-          },
-        ),
-        TapGestureRecognizer:
-            GestureRecognizerFactoryWithHandlers<TapGestureRecognizer>(
-          () => TapGestureRecognizer(),
-          (instance) {
-            instance.onTapUp = (details) {
-        final hit = _hitTest(details.localPosition);
-        if (hit == null) return;
-        final (col, row) = hit;
-        final state = widget.game.state;
-        if (state == null) return;
-        final block = state.grid[col][row];
-        if (block == null) return;
-        widget.onTapBlock(col, row, block);
-            };
-          },
-        ),
-      },
+    return Listener(
       behavior: HitTestBehavior.opaque,
+      onPointerDown: _onPointerDown,
+      onPointerMove: _onPointerMove,
+      onPointerUp: _onPointerUp,
+      onPointerCancel: _onPointerCancel,
       child: widget.child,
     );
   }
