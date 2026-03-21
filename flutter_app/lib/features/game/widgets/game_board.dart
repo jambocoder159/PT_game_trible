@@ -184,16 +184,19 @@ class _GameBoardState extends State<GameBoard>
                 final pos = _cellTopLeft(layout, col, row);
                 final isBeingDragged =
                     _isDragging && col == _dragCol && row == _dragRow;
+                final isElim = block.isEliminating;
+                // 消除中的方塊需要更大的空間來顯示粒子
+                final overflow = isElim ? layout.blockSize * 0.75 : 0.0;
 
                 blockWidgets.add(
                   AnimatedPositioned(
                     key: ValueKey(block.id),
                     duration: const Duration(milliseconds: 500),
                     curve: Curves.bounceOut,
-                    left: pos.dx,
-                    top: pos.dy,
-                    width: layout.blockSize,
-                    height: layout.blockSize,
+                    left: pos.dx - overflow,
+                    top: pos.dy - overflow,
+                    width: layout.blockSize + overflow * 2,
+                    height: layout.blockSize + overflow * 2,
                     child: AnimatedOpacity(
                       opacity: isBeingDragged ? 0.25 : 1.0,
                       duration: const Duration(milliseconds: 150),
@@ -317,14 +320,6 @@ class _GameBoardState extends State<GameBoard>
                   onDragEnd: () {
                     _endDrag(game, layout);
                   },
-                  onSwipeMove: (col, row, direction) {
-                    if (_isDragging) return;
-                    if (direction == -1) {
-                      game.moveBlockToTop(col, row);
-                    } else if (direction == 1) {
-                      game.moveBlockToBottom(col, row);
-                    }
-                  },
                   child: Stack(
                     clipBehavior: Clip.none,
                     children: [
@@ -380,7 +375,7 @@ class _GameBoardState extends State<GameBoard>
 
 /// 處理棋盤觸控事件的透明層
 /// 使用 Listener 處理原始指標事件，同時支援：
-/// - 快速滑動：直接執行上/下移動
+/// - 滑動：進入拖曳模式（與長按相同，放開才執行）
 /// - 長按：進入拖曳模式（顯示箭頭引導）
 /// - 點擊：消除方塊
 class _BoardInteractionLayer extends StatefulWidget {
@@ -394,8 +389,6 @@ class _BoardInteractionLayer extends StatefulWidget {
       onLongPressStart;
   final void Function(Offset localPos) onDragUpdate;
   final void Function() onDragEnd;
-  /// 快速滑動直接移動方塊
-  final void Function(int col, int row, int direction) onSwipeMove;
   final Widget child;
 
   const _BoardInteractionLayer({
@@ -408,7 +401,6 @@ class _BoardInteractionLayer extends StatefulWidget {
     required this.onLongPressStart,
     required this.onDragUpdate,
     required this.onDragEnd,
-    required this.onSwipeMove,
     required this.child,
   });
 
@@ -480,13 +472,13 @@ class _BoardInteractionLayerState extends State<_BoardInteractionLayer> {
   void _onPointerMove(PointerMoveEvent event) {
     if (_downPos == null) return;
 
-    // 已進入長按拖曳模式 → 委託給現有拖曳邏輯
-    if (_longPressActivated && widget.isDragging) {
+    // 已進入拖曳模式（長按或滑動觸發）→ 委託給現有拖曳邏輯
+    if ((_longPressActivated || _isSwipeDetected) && widget.isDragging) {
       widget.onDragUpdate(event.localPosition);
       return;
     }
 
-    // 尚未進入任何模式 → 偵測快速滑動
+    // 尚未進入任何模式 → 偵測滑動，進入拖曳模式
     if (!_longPressActivated && !_isSwipeDetected) {
       final dy = event.localPosition.dy - _downPos!.dy;
       final dx = (event.localPosition.dx - _downPos!.dx).abs();
@@ -495,11 +487,10 @@ class _BoardInteractionLayerState extends State<_BoardInteractionLayer> {
       // 垂直滑動距離超過門檻，且垂直 > 水平（確認是上下滑）
       if (dy.abs() > swipeThreshold && dy.abs() > dx) {
         _isSwipeDetected = true;
-        final direction = dy < 0 ? -1 : 1; // -1=上, 1=下
         HapticFeedback.lightImpact();
-        widget.onSwipeMove(_downCol!, _downRow!, direction);
-        // 清除狀態，避免重複觸發
-        _downPos = null;
+        // 進入拖曳模式（與長按相同），放開才執行
+        widget.onLongPressStart(
+            _downCol!, _downRow!, _downBlock!, event.localPosition);
       }
     }
   }
@@ -507,8 +498,8 @@ class _BoardInteractionLayerState extends State<_BoardInteractionLayer> {
   void _onPointerUp(PointerUpEvent event) {
     if (_downPos == null && !widget.isDragging) return;
 
-    // 長按拖曳模式結束
-    if (_longPressActivated && widget.isDragging) {
+    // 拖曳模式結束（長按或滑動觸發的）
+    if ((_longPressActivated || _isSwipeDetected) && widget.isDragging) {
       widget.onDragEnd();
       _resetState();
       return;
@@ -525,7 +516,7 @@ class _BoardInteractionLayerState extends State<_BoardInteractionLayer> {
   }
 
   void _onPointerCancel(PointerCancelEvent event) {
-    if (_longPressActivated && widget.isDragging) {
+    if ((_longPressActivated || _isSwipeDetected) && widget.isDragging) {
       widget.onDragEnd();
     }
     _resetState();

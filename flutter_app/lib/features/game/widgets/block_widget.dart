@@ -1,8 +1,9 @@
+import 'dart:math';
 import 'package:flutter/material.dart';
 import '../../../config/theme.dart';
 import '../../../core/models/block.dart';
 
-/// 單一方塊的視覺元件 — 含消除動畫（縮放 + 閃白 + 色彩光暈）
+/// 單一方塊的視覺元件 — 含消除動畫（膨脹碎裂 + 粒子四散）
 class BlockWidget extends StatefulWidget {
   final Block block;
   final double size;
@@ -22,49 +23,37 @@ class _BlockWidgetState extends State<BlockWidget>
   late AnimationController _elimController;
   late Animation<double> _scaleAnim;
   late Animation<double> _opacityAnim;
-  late Animation<double> _flashAnim;
-  late Animation<double> _glowAnim;
 
   bool _wasEliminating = false;
+
+  // 粒子資料（消除時產生）
+  late List<_Particle> _particles;
 
   @override
   void initState() {
     super.initState();
     _elimController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 400),
+      duration: const Duration(milliseconds: 350),
     );
 
-    // 先膨脹再縮小消失
+    // 快速膨脹然後消失（Candy Crush 風格 pop）
     _scaleAnim = TweenSequence<double>([
-      TweenSequenceItem(tween: Tween(begin: 1.0, end: 1.25), weight: 20),
-      TweenSequenceItem(tween: Tween(begin: 1.25, end: 0.0), weight: 80),
+      TweenSequenceItem(tween: Tween(begin: 1.0, end: 1.3), weight: 25),
+      TweenSequenceItem(tween: Tween(begin: 1.3, end: 0.0), weight: 75),
     ]).animate(CurvedAnimation(
       parent: _elimController,
-      curve: Curves.easeInBack,
+      curve: Curves.easeOutCubic,
     ));
 
-    // 整體淡出
     _opacityAnim = Tween<double>(begin: 1.0, end: 0.0).animate(
       CurvedAnimation(
         parent: _elimController,
-        curve: const Interval(0.4, 1.0, curve: Curves.easeOut),
+        curve: const Interval(0.3, 1.0, curve: Curves.easeIn),
       ),
     );
 
-    // 閃白：快速亮起再消退（疊加在方塊上的白色遮罩）
-    _flashAnim = TweenSequence<double>([
-      TweenSequenceItem(tween: Tween(begin: 0.0, end: 0.8), weight: 15),
-      TweenSequenceItem(tween: Tween(begin: 0.8, end: 0.0), weight: 35),
-      TweenSequenceItem(tween: Tween(begin: 0.0, end: 0.0), weight: 50),
-    ]).animate(_elimController);
-
-    // 方塊自身顏色的外發光
-    _glowAnim = TweenSequence<double>([
-      TweenSequenceItem(tween: Tween(begin: 0.0, end: 1.0), weight: 20),
-      TweenSequenceItem(tween: Tween(begin: 1.0, end: 0.0), weight: 50),
-      TweenSequenceItem(tween: Tween(begin: 0.0, end: 0.0), weight: 30),
-    ]).animate(_elimController);
+    _particles = _generateParticles();
 
     if (widget.block.isEliminating) {
       _wasEliminating = true;
@@ -72,11 +61,22 @@ class _BlockWidgetState extends State<BlockWidget>
     }
   }
 
+  List<_Particle> _generateParticles() {
+    final rng = Random();
+    return List.generate(8, (i) {
+      final angle = (i / 8) * 2 * pi + rng.nextDouble() * 0.5;
+      final speed = 1.5 + rng.nextDouble() * 1.5;
+      final size = 0.12 + rng.nextDouble() * 0.15;
+      return _Particle(angle: angle, speed: speed, sizeFactor: size);
+    });
+  }
+
   @override
   void didUpdateWidget(covariant BlockWidget oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (widget.block.isEliminating && !_wasEliminating) {
       _wasEliminating = true;
+      _particles = _generateParticles();
       _elimController.forward(from: 0);
     }
   }
@@ -92,36 +92,78 @@ class _BlockWidgetState extends State<BlockWidget>
     final color =
         widget.block.isBlackened ? Colors.grey.shade800 : widget.block.color.color;
     final darkerColor = Color.lerp(color, Colors.black, 0.3)!;
-    final lighterColor = Color.lerp(color, Colors.white, 0.3)!;
     final size = widget.size;
 
     if (_wasEliminating) {
       return AnimatedBuilder(
         animation: _elimController,
         builder: (context, child) {
-          return Opacity(
-            opacity: _opacityAnim.value,
-            child: Transform.scale(
-              scale: _scaleAnim.value,
-              child: _buildBlockContainer(
-                color, darkerColor, lighterColor, size,
-                glowIntensity: _glowAnim.value,
-                flashIntensity: _flashAnim.value,
-              ),
-            ),
+          final progress = _elimController.value;
+          return LayoutBuilder(
+            builder: (context, constraints) {
+              final cx = constraints.maxWidth / 2;
+              final cy = constraints.maxHeight / 2;
+              return Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  // 粒子碎片（方塊顏色的小方塊四散）
+                  if (progress > 0.15)
+                    ..._particles.map((p) {
+                      final t =
+                          ((progress - 0.15) / 0.85).clamp(0.0, 1.0);
+                      final dx = cos(p.angle) * p.speed * size * t;
+                      final dy = sin(p.angle) * p.speed * size * t;
+                      final pOpacity = (1.0 - t).clamp(0.0, 1.0);
+                      final pScale = (1.0 - t * 0.6).clamp(0.0, 1.0);
+                      final pSize = size * p.sizeFactor * pScale;
+
+                      return Positioned(
+                        left: cx - pSize / 2 + dx,
+                        top: cy - pSize / 2 + dy,
+                        child: Opacity(
+                          opacity: pOpacity,
+                          child: Container(
+                            width: pSize,
+                            height: pSize,
+                            decoration: BoxDecoration(
+                              color: color,
+                              borderRadius: BorderRadius.circular(2),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: color.withAlpha(
+                                      (120 * pOpacity).round()),
+                                  blurRadius: 4,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      );
+                    }),
+                  // 主方塊（膨脹後消失）
+                  Positioned(
+                    left: cx - size / 2,
+                    top: cy - size / 2,
+                    child: Opacity(
+                      opacity: _opacityAnim.value,
+                      child: Transform.scale(
+                        scale: _scaleAnim.value,
+                        child: _buildBlockContainer(color, darkerColor, size),
+                      ),
+                    ),
+                  ),
+                ],
+              );
+            },
           );
         },
       );
     }
 
-    return _buildBlockContainer(color, darkerColor, lighterColor, size);
+    return _buildBlockContainer(color, darkerColor, size);
   }
 
-  Widget _buildBlockContainer(
-    Color color, Color darkerColor, Color lighterColor, double size, {
-    double glowIntensity = 0,
-    double flashIntensity = 0,
-  }) {
+  Widget _buildBlockContainer(Color color, Color darkerColor, double size) {
     return Container(
       width: size,
       height: size,
@@ -129,10 +171,7 @@ class _BlockWidgetState extends State<BlockWidget>
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [
-            Color.lerp(color, Colors.white, flashIntensity * 0.6)!,
-            Color.lerp(darkerColor, Colors.white, flashIntensity * 0.4)!,
-          ],
+          colors: [color, darkerColor],
         ),
         borderRadius: BorderRadius.circular(AppTheme.radiusBlock),
         boxShadow: [
@@ -141,13 +180,6 @@ class _BlockWidgetState extends State<BlockWidget>
             blurRadius: 8,
             offset: const Offset(0, 3),
           ),
-          // 用方塊自身顏色發光，而非白色
-          if (glowIntensity > 0)
-            BoxShadow(
-              color: lighterColor.withAlpha((200 * glowIntensity).round()),
-              blurRadius: 24 * glowIntensity,
-              spreadRadius: 6 * glowIntensity,
-            ),
         ],
       ),
       child: Center(
@@ -162,4 +194,17 @@ class _BlockWidgetState extends State<BlockWidget>
       ),
     );
   }
+}
+
+/// 粒子碎片資料
+class _Particle {
+  final double angle;
+  final double speed;
+  final double sizeFactor;
+
+  const _Particle({
+    required this.angle,
+    required this.speed,
+    required this.sizeFactor,
+  });
 }
