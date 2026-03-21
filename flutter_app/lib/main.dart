@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import 'config/theme.dart';
 import 'core/services/local_storage.dart';
 import 'features/game/providers/game_provider.dart';
+import 'features/game/providers/battle_provider.dart';
 import 'features/agents/providers/player_provider.dart';
 import 'features/menu/screens/main_menu_screen.dart';
 
@@ -39,6 +40,7 @@ class Match3App extends StatelessWidget {
     return MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => GameProvider()),
+        ChangeNotifierProvider(create: (_) => BattleProvider()),
         ChangeNotifierProvider(create: (_) {
           final provider = PlayerProvider();
           provider.init();

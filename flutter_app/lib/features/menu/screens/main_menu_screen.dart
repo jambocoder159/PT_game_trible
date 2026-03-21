@@ -6,6 +6,7 @@ import '../../game/providers/game_provider.dart';
 import '../../game/screens/game_screen.dart';
 import '../../agents/screens/agent_list_screen.dart';
 import '../../agents/providers/player_provider.dart';
+import '../../quest/screens/stage_select_screen.dart';
 
 /// 主選單畫面
 class MainMenuScreen extends StatelessWidget {
@@ -99,6 +100,38 @@ class MainMenuScreen extends StatelessWidget {
                     style: ElevatedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(vertical: 16),
                       backgroundColor: AppTheme.accentSecondary,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(
+                          AppTheme.radiusMedium,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+
+                // 任務闖關按鈕
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    onPressed: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => const StageSelectScreen(),
+                        ),
+                      );
+                    },
+                    icon: const Text('⚔️', style: TextStyle(fontSize: 20)),
+                    label: const Text(
+                      '任務闖關',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      backgroundColor: AppTheme.accentPrimary,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(
                           AppTheme.radiusMedium,

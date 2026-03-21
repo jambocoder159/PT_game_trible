@@ -36,6 +36,24 @@ class ChainRippleEvent {
   });
 }
 
+/// 消除回合結果（給 BattleProvider 用）
+class MatchTurnResult {
+  final Map<BlockColor, int> matchedBlockCounts;
+  final int totalBlocksEliminated;
+  final int combo;
+  final bool hadMatches;
+
+  const MatchTurnResult({
+    required this.matchedBlockCounts,
+    required this.totalBlocksEliminated,
+    required this.combo,
+    required this.hadMatches,
+  });
+}
+
+/// 消除回合結果回呼
+typedef OnMatchTurnComplete = void Function(MatchTurnResult result);
+
 /// 遊戲核心 Provider — 管理整個遊戲流程
 class GameProvider extends ChangeNotifier {
   static const _uuid = Uuid();
@@ -46,6 +64,12 @@ class GameProvider extends ChangeNotifier {
 
   Timer? _timer;
   bool _isProcessing = false;
+
+  /// 消除回合完成的回呼（BattleProvider 監聽用）
+  OnMatchTurnComplete? onMatchTurnComplete;
+
+  /// 回合結束的回呼（敵人回擊用）
+  VoidCallback? onTurnEnd;
 
   // 分數彈出事件佇列
   final List<ScorePopupEvent> _scorePopups = [];
@@ -255,6 +279,10 @@ class GameProvider extends ChangeNotifier {
     int chainCount = 0;
     bool everHadMatch = false;
 
+    // 追蹤整個回合消除的方塊顏色統計
+    final turnMatchedBlocks = <BlockColor, int>{};
+    int turnTotalBlocks = 0;
+
     while (true) {
       final matches = MatchDetector.findMatches(
         s.grid,
@@ -269,6 +297,15 @@ class GameProvider extends ChangeNotifier {
       chainCount++;
       s.combo++;
       if (s.combo > s.maxCombo) s.maxCombo = s.combo;
+
+      // 統計消除的方塊顏色
+      for (final match in matches) {
+        for (final block in match.blocks) {
+          turnMatchedBlocks[block.color] =
+              (turnMatchedBlocks[block.color] ?? 0) + 1;
+          turnTotalBlocks++;
+        }
+      }
 
       // 計分
       final scoreResult = ScoreCalculator.calculate(
@@ -309,6 +346,24 @@ class GameProvider extends ChangeNotifier {
       notifyListeners();
       await Future.delayed(const Duration(milliseconds: 100));
 
+      // 每次連鎖消除後，通知戰鬥系統（即時造成傷害）
+      if (onMatchTurnComplete != null) {
+        // 傳送這次連鎖的方塊統計
+        final chainBlocks = <BlockColor, int>{};
+        for (final match in matches) {
+          for (final block in match.blocks) {
+            chainBlocks[block.color] =
+                (chainBlocks[block.color] ?? 0) + 1;
+          }
+        }
+        onMatchTurnComplete!(MatchTurnResult(
+          matchedBlockCounts: chainBlocks,
+          totalBlocksEliminated: turnTotalBlocks,
+          combo: s.combo,
+          hadMatches: true,
+        ));
+      }
+
       // 重力掉落
       _applyGravity();
       notifyListeners();
@@ -318,6 +373,11 @@ class GameProvider extends ChangeNotifier {
       _refillGrid();
       notifyListeners();
       await Future.delayed(const Duration(milliseconds: 300));
+    }
+
+    // 整個回合結束後，通知敵人回擊
+    if (everHadMatch) {
+      onTurnEnd?.call();
     }
 
     return everHadMatch;
