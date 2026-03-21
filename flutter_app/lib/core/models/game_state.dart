@@ -21,7 +21,7 @@ class GameState {
   GameState({
     required this.mode,
     required this.grid,
-    this.nextBlockColors = const [],
+    List<BlockColor>? nextBlockColors,
     this.score = 0,
     this.actionPoints = 5,
     this.combo = 0,
@@ -29,7 +29,7 @@ class GameState {
     this.actionCount = 0,
     this.timeLeftMs = 0,
     this.status = GameStatus.ready,
-  });
+  }) : nextBlockColors = nextBlockColors ?? [];
 
   /// 建立初始空狀態
   factory GameState.initial(GameModeConfig mode) {
