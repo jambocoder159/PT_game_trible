@@ -1,0 +1,45 @@
+name: match3_puzzle
+description: 三消挑戰 - Match-3 Puzzle Mobile Game
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.6.0
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # State Management
+  provider: ^6.1.2
+
+  # Audio
+  audioplayers: ^6.1.0
+
+  # Backend
+  supabase_flutter: ^2.8.0
+
+  # Utils
+  shared_preferences: ^2.3.4
+  uuid: ^4.5.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+
+flutter:
+  uses-material-design: true
+
+  assets:
+    - assets/images/
+    - assets/audio/sfx/
+    - assets/audio/bgm/
+    - assets/fonts/
+
+  # fonts:
+  #   - family: NotoSansTC
+  #     fonts:
+  #       - asset: assets/fonts/NotoSansTC-Regular.ttf
+  #       - asset: assets/fonts/NotoSansTC-Bold.ttf
+  #         weight: 700
