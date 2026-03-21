@@ -61,8 +61,6 @@ class GameBoard extends StatelessWidget {
                       numRows,
                       blockSize,
                       col,
-                      state.selectedCol,
-                      state.selectedRow,
                       game,
                     ),
                   );
@@ -80,8 +78,6 @@ class GameBoard extends StatelessWidget {
     int numRows,
     double blockSize,
     int col,
-    int? selectedCol,
-    int? selectedRow,
     GameProvider game,
   ) {
     return SizedBox(
@@ -90,28 +86,72 @@ class GameBoard extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: List.generate(numRows, (row) {
           final block = column[row];
-          final isSelected = selectedCol == col && selectedRow == row;
 
           return Padding(
             padding: const EdgeInsets.only(bottom: AppTheme.blockGap),
-            child: GestureDetector(
-              onTap: () {
-                game.selectBlock(col, row);
-              },
+            child: _BlockGestureHandler(
+              col: col,
+              row: row,
+              blockSize: blockSize,
+              game: game,
               child: block != null
-                  ? BlockWidget(
-                      block: block,
-                      size: blockSize,
-                      isSelected: isSelected,
-                    )
-                  : SizedBox(
-                      width: blockSize,
-                      height: blockSize,
-                    ),
+                  ? BlockWidget(block: block, size: blockSize)
+                  : SizedBox(width: blockSize, height: blockSize),
             ),
           );
         }),
       ),
+    );
+  }
+}
+
+/// 處理方塊的滑動和點擊手勢
+class _BlockGestureHandler extends StatefulWidget {
+  final int col;
+  final int row;
+  final double blockSize;
+  final GameProvider game;
+  final Widget child;
+
+  const _BlockGestureHandler({
+    required this.col,
+    required this.row,
+    required this.blockSize,
+    required this.game,
+    required this.child,
+  });
+
+  @override
+  State<_BlockGestureHandler> createState() => _BlockGestureHandlerState();
+}
+
+class _BlockGestureHandlerState extends State<_BlockGestureHandler> {
+  Offset? _dragStart;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: () {
+        // 點擊 → 直接消除
+        widget.game.tapBlock(widget.col, widget.row);
+      },
+      onVerticalDragStart: (details) {
+        _dragStart = details.globalPosition;
+      },
+      onVerticalDragEnd: (details) {
+        if (_dragStart == null) return;
+        final velocity = details.primaryVelocity ?? 0;
+
+        if (velocity < -100) {
+          // 上滑 → 移到最頂部
+          widget.game.moveBlockToTop(widget.col, widget.row);
+        } else if (velocity > 100) {
+          // 下滑 → 移到最底部
+          widget.game.moveBlockToBottom(widget.col, widget.row);
+        }
+        _dragStart = null;
+      },
+      child: widget.child,
     );
   }
 }
