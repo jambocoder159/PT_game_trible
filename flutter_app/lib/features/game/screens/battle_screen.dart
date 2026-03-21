@@ -23,10 +23,12 @@ class BattleScreen extends StatefulWidget {
 }
 
 class _BattleScreenState extends State<BattleScreen> {
+  bool _resultSaved = false;
+  BattleRewardResult? _reward;
+
   @override
   void initState() {
     super.initState();
-    // 延遲初始化，確保 context 可用
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _initBattle();
     });
@@ -37,14 +39,12 @@ class _BattleScreenState extends State<BattleScreen> {
     final battleProvider = context.read<BattleProvider>();
     final playerProvider = context.read<PlayerProvider>();
 
-    // 開始戰鬥
     battleProvider.startBattle(
       stage: widget.stage,
       teamAgentIds: playerProvider.data.team,
       playerData: playerProvider.data,
     );
 
-    // 使用三排模式，帶行動上限
     final battleMode = GameModeConfig(
       id: 'battle_${widget.stage.id}',
       title: widget.stage.name,
@@ -55,7 +55,6 @@ class _BattleScreenState extends State<BattleScreen> {
       scoring: GameModes.triple.scoring,
     );
 
-    // 連接 GameProvider ↔ BattleProvider
     gameProvider.onMatchTurnComplete = (result) {
       battleProvider.onMatchesProcessed(
         result.matchedBlockCounts,
@@ -69,9 +68,39 @@ class _BattleScreenState extends State<BattleScreen> {
     gameProvider.startGame(battleMode);
   }
 
+  /// 儲存戰鬥結果（只執行一次）
+  Future<void> _saveResult(bool isVictory, int score) async {
+    if (_resultSaved) return;
+    _resultSaved = true;
+
+    final playerProvider = context.read<PlayerProvider>();
+    final reward = await playerProvider.completeBattle(
+      stageId: widget.stage.id,
+      isVictory: isVictory,
+      score: score,
+      twoStarScore: widget.stage.twoStarScore,
+      threeStarScore: widget.stage.threeStarScore,
+      goldReward: widget.stage.reward.gold,
+      expReward: widget.stage.reward.exp,
+      unlockAgentId: widget.stage.reward.unlockAgentId,
+    );
+
+    if (mounted) {
+      setState(() {
+        _reward = BattleRewardResult(
+          gold: reward.gold,
+          exp: reward.exp,
+          stars: reward.stars,
+          isFirstClear: reward.isFirstClear,
+          agentUnlocked: reward.agentUnlocked,
+          unlockedAgentId: reward.unlockedAgentId,
+        );
+      });
+    }
+  }
+
   @override
   void dispose() {
-    // 清除回呼
     final gameProvider = context.read<GameProvider>();
     gameProvider.onMatchTurnComplete = null;
     gameProvider.onTurnEnd = null;
@@ -128,29 +157,41 @@ class _BattleScreenState extends State<BattleScreen> {
                 ),
 
                 // 戰鬥結束覆蓋層
-                if (battle.isBattleOver)
+                if (battle.isBattleOver) ...[
+                  Builder(builder: (_) {
+                    _saveResult(battle.isVictory, gameState?.score ?? 0);
+                    return const SizedBox.shrink();
+                  }),
                   _BattleEndOverlay(
                     isVictory: battle.isVictory,
                     stage: widget.stage,
                     score: gameState?.score ?? 0,
+                    reward: _reward,
                     onExit: () {
                       battle.endBattle();
                       Navigator.of(context).pop();
                     },
                   ),
+                ],
 
                 // 遊戲結束（行動點用完）但敵人還在
                 if (gameState?.status == GameStatus.gameOver &&
-                    !battle.isBattleOver)
+                    !battle.isBattleOver) ...[
+                  Builder(builder: (_) {
+                    _saveResult(false, gameState?.score ?? 0);
+                    return const SizedBox.shrink();
+                  }),
                   _BattleEndOverlay(
                     isVictory: false,
                     stage: widget.stage,
                     score: gameState?.score ?? 0,
+                    reward: _reward,
                     onExit: () {
                       battle.endBattle();
                       Navigator.of(context).pop();
                     },
                   ),
+                ],
               ],
             );
           },
@@ -620,25 +661,41 @@ class _StatDisplay extends StatelessWidget {
 
 // ─── 戰鬥結束覆蓋層 ───
 
+/// 戰鬥獎勵結果
+class BattleRewardResult {
+  final int gold;
+  final int exp;
+  final int stars;
+  final bool isFirstClear;
+  final bool agentUnlocked;
+  final String? unlockedAgentId;
+
+  const BattleRewardResult({
+    this.gold = 0,
+    this.exp = 0,
+    this.stars = 0,
+    this.isFirstClear = false,
+    this.agentUnlocked = false,
+    this.unlockedAgentId,
+  });
+}
+
 class _BattleEndOverlay extends StatelessWidget {
   final bool isVictory;
   final StageDefinition stage;
   final int score;
+  final BattleRewardResult? reward;
   final VoidCallback onExit;
 
   const _BattleEndOverlay({
     required this.isVictory,
     required this.stage,
     required this.score,
+    this.reward,
     required this.onExit,
   });
 
-  int get _stars {
-    if (!isVictory) return 0;
-    if (score >= stage.threeStarScore) return 3;
-    if (score >= stage.twoStarScore) return 2;
-    return 1;
-  }
+  int get _stars => reward?.stars ?? (isVictory ? 1 : 0);
 
   @override
   Widget build(BuildContext context) {
@@ -684,14 +741,61 @@ class _BattleEndOverlay extends StatelessWidget {
                 const SizedBox(height: 16),
               ],
               // 獎勵
-              if (isVictory) ...[
-                Text(
-                  '🪙 ${stage.reward.gold}  ✨ ${stage.reward.exp} EXP',
-                  style: const TextStyle(
-                    color: AppTheme.textPrimary,
-                    fontSize: 16,
-                  ),
+              if (isVictory && reward != null) ...[
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      '🪙 +${reward!.gold}',
+                      style: const TextStyle(
+                        color: AppTheme.textPrimary,
+                        fontSize: 16,
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Text(
+                      '✨ +${reward!.exp} EXP',
+                      style: const TextStyle(
+                        color: AppTheme.textPrimary,
+                        fontSize: 16,
+                      ),
+                    ),
+                  ],
                 ),
+                if (!reward!.isFirstClear)
+                  const Padding(
+                    padding: EdgeInsets.only(top: 4),
+                    child: Text(
+                      '(重複通關 — 半額獎勵)',
+                      style: TextStyle(
+                        color: AppTheme.textSecondary,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ),
+                if (reward!.agentUnlocked && reward!.unlockedAgentId != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.amber.withAlpha(40),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.amber.withAlpha(100)),
+                      ),
+                      child: Text(
+                        '🎉 新特工加入！',
+                        style: TextStyle(
+                          color: Colors.amber.shade300,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                        ),
+                      ),
+                    ),
+                  ),
                 const SizedBox(height: 8),
               ],
               Text(

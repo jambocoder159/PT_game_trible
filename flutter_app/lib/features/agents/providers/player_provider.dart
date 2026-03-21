@@ -160,6 +160,82 @@ class PlayerProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  // ─── 戰鬥結算 ───
+
+  /// 完成戰鬥，儲存進度和發放獎勵
+  Future<BattleReward> completeBattle({
+    required String stageId,
+    required bool isVictory,
+    required int score,
+    required int twoStarScore,
+    required int threeStarScore,
+    required int goldReward,
+    required int expReward,
+    String? unlockAgentId,
+  }) async {
+    if (!isVictory) {
+      return const BattleReward();
+    }
+
+    // 計算星級
+    int stars = 1;
+    if (score >= threeStarScore) {
+      stars = 3;
+    } else if (score >= twoStarScore) {
+      stars = 2;
+    }
+
+    // 更新關卡進度（只保留最佳）
+    final existing = _data.stageProgress[stageId];
+    final isFirstClear = existing == null || !existing.cleared;
+    final newStars = (existing?.stars ?? 0) > stars ? existing!.stars : stars;
+    final newBest = (existing?.bestScore ?? 0) > score ? existing!.bestScore : score;
+
+    _data.stageProgress[stageId] = StageProgress(
+      cleared: true,
+      stars: newStars,
+      bestScore: newBest,
+    );
+
+    // 首次通關才發放全額獎勵，重複通關半額
+    final actualGold = isFirstClear ? goldReward : (goldReward * 0.5).round();
+    final actualExp = isFirstClear ? expReward : (expReward * 0.5).round();
+
+    _data.gold += actualGold;
+    _data.addPlayerExp(actualExp);
+
+    // 解鎖角色
+    bool agentUnlocked = false;
+    if (unlockAgentId != null && _data.agents[unlockAgentId]?.isUnlocked != true) {
+      _data.agents[unlockAgentId] = CatAgentInstance(
+        definitionId: unlockAgentId,
+        isUnlocked: true,
+      );
+      if (_data.team.length < 3) {
+        _data.team.add(unlockAgentId);
+      }
+      agentUnlocked = true;
+    }
+
+    // 更新每日任務
+    if (_data.dailyQuests.needsReset) {
+      _data.dailyQuests.reset();
+    }
+    _data.dailyQuests.stagesCompleted++;
+
+    await _save();
+    notifyListeners();
+
+    return BattleReward(
+      gold: actualGold,
+      exp: actualExp,
+      stars: stars,
+      isFirstClear: isFirstClear,
+      agentUnlocked: agentUnlocked,
+      unlockedAgentId: unlockAgentId,
+    );
+  }
+
   // ─── 貨幣操作 ───
 
   Future<void> addGold(int amount) async {
@@ -211,4 +287,23 @@ class AgentInfo {
   int get atk => definition.atkAtLevel(level);
   int get def => definition.defAtLevel(level);
   int get hp => definition.hpAtLevel(level);
+}
+
+/// 戰鬥結算獎勵
+class BattleReward {
+  final int gold;
+  final int exp;
+  final int stars;
+  final bool isFirstClear;
+  final bool agentUnlocked;
+  final String? unlockedAgentId;
+
+  const BattleReward({
+    this.gold = 0,
+    this.exp = 0,
+    this.stars = 0,
+    this.isFirstClear = false,
+    this.agentUnlocked = false,
+    this.unlockedAgentId,
+  });
 }

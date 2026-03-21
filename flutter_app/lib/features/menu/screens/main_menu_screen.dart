@@ -6,6 +6,7 @@ import '../../game/providers/game_provider.dart';
 import '../../game/screens/game_screen.dart';
 import '../../agents/screens/agent_list_screen.dart';
 import '../../agents/providers/player_provider.dart';
+import '../../game/widgets/energy_bar.dart';
 import '../../quest/screens/stage_select_screen.dart';
 
 /// 主選單畫面
@@ -76,7 +77,11 @@ class MainMenuScreen extends StatelessWidget {
                     );
                   },
                 ),
-                const SizedBox(height: 32),
+                const SizedBox(height: 12),
+
+                // 體力條
+                const EnergyBar(),
+                const SizedBox(height: 20),
 
                 // 特工名冊按鈕
                 SizedBox(
