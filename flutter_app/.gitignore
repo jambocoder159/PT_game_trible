@@ -1,0 +1,36 @@
+# Flutter
+.dart_tool/
+.packages
+build/
+.flutter-plugins
+.flutter-plugins-dependencies
+
+# IDE
+*.iml
+.idea/
+.vscode/
+
+# macOS
+.DS_Store
+*.swp
+
+# Android
+/android/app/debug
+/android/app/profile
+/android/app/release
+/android/.gradle
+/android/captures/
+/android/gradlew
+/android/gradlew.bat
+/android/local.properties
+/android/**/GeneratedPluginRegistrant.java
+
+# iOS
+/ios/Flutter/
+/ios/.symlinks/
+/ios/Pods/
+/ios/Runner.xcworkspace/
+
+# Env
+.env
+*.env

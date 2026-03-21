@@ -1,0 +1,116 @@
+/// 遊戲模式設定（從 web/js/GameModes.js 移植）
+/// 所有模式的參數集中管理
+
+class ScoringConfig {
+  final int baseScore;
+  final double comboMultiplier;
+  final double chainMultiplier;
+  final Map<int, int> comboMilestones;
+
+  const ScoringConfig({
+    required this.baseScore,
+    required this.comboMultiplier,
+    required this.chainMultiplier,
+    required this.comboMilestones,
+  });
+}
+
+class GameModeConfig {
+  final String id;
+  final String title;
+  final String description;
+  final int numCols;
+  final int numRows;
+  final int actionPointsStart;
+  final bool hasSkills;
+  final bool hasTimer;
+  final int gameDuration; // milliseconds
+  final bool enableHorizontalMatches;
+  final ScoringConfig scoring;
+
+  const GameModeConfig({
+    required this.id,
+    required this.title,
+    required this.description,
+    required this.numCols,
+    this.numRows = 10,
+    this.actionPointsStart = 5,
+    this.hasSkills = true,
+    this.hasTimer = false,
+    this.gameDuration = 0,
+    this.enableHorizontalMatches = false,
+    required this.scoring,
+  });
+}
+
+class GameModes {
+  GameModes._();
+
+  static const classic = GameModeConfig(
+    id: 'classic',
+    title: '三消挑戰',
+    description: '經典單排模式',
+    numCols: 1,
+    actionPointsStart: 5,
+    scoring: ScoringConfig(
+      baseScore: 10,
+      comboMultiplier: 0.5,
+      chainMultiplier: 2,
+      comboMilestones: {5: 100, 10: 300, 15: 500, 20: 1000, 30: 2000},
+    ),
+  );
+
+  static const double_ = GameModeConfig(
+    id: 'double',
+    title: '雙排挑戰',
+    description: '快速雙排模式',
+    numCols: 2,
+    actionPointsStart: 5,
+    scoring: ScoringConfig(
+      baseScore: 15,
+      comboMultiplier: 0.6,
+      chainMultiplier: 2.5,
+      comboMilestones: {5: 150, 10: 400, 15: 750, 20: 1500, 30: 3000},
+    ),
+  );
+
+  static const triple = GameModeConfig(
+    id: 'triple',
+    title: '三排挑戰',
+    description: '進階三排模式',
+    numCols: 3,
+    actionPointsStart: 5,
+    enableHorizontalMatches: true,
+    scoring: ScoringConfig(
+      baseScore: 20,
+      comboMultiplier: 0.7,
+      chainMultiplier: 3,
+      comboMilestones: {5: 200, 10: 500, 15: 1000, 20: 2000, 30: 4000},
+    ),
+  );
+
+  static const timeLimit = GameModeConfig(
+    id: 'timeLimit',
+    title: '45秒限時挑戰',
+    description: '限時挑戰模式',
+    numCols: 3,
+    actionPointsStart: 0,
+    hasSkills: false,
+    hasTimer: true,
+    gameDuration: 45000,
+    enableHorizontalMatches: true,
+    scoring: ScoringConfig(
+      baseScore: 25,
+      comboMultiplier: 1.0,
+      chainMultiplier: 4,
+      comboMilestones: {3: 200, 5: 500, 10: 1000, 15: 2500, 20: 5000},
+    ),
+  );
+
+  static const List<GameModeConfig> allModes = [
+    classic,
+    double_,
+    triple,
+    timeLimit,
+  ];
+}
