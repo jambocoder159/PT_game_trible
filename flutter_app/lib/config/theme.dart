@@ -9,7 +9,7 @@ class AppTheme {
   // 原始: ff6f59-254441-43aa8b-b2b09b-ef3054
   // 調整: 254441→3A7D6E（提亮暗青）、B2B09B→D4C96A（飽和卡其）
   static const Color blockCoral = Color(0xFFFF6F59);   // 珊瑚橘紅
-  static const Color blockTeal = Color(0xFF3A7D6E);    // 翡翠青（原 #254441 提亮）
+  static const Color blockTeal = Color(0xFF2B82D9);    // 天藍（原翡翠青改為藍色，避免與薄荷綠太相近）
   static const Color blockMint = Color(0xFF43AA8B);    // 薄荷綠
   static const Color blockGold = Color(0xFFD4C96A);    // 琥珀金（原 #B2B09B 飽和）
   static const Color blockRose = Color(0xFFEF3054);    // 玫瑰紅
