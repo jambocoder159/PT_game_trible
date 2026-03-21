@@ -16,7 +16,7 @@ void main() {
 
   // 全螢幕沉浸式
   SystemChrome.setSystemUIOverlayStyle(
-    const SystemUIOverlayStyle(
+    const SystemUiOverlayStyle(
       statusBarColor: Colors.transparent,
       statusBarIconBrightness: Brightness.light,
     ),
