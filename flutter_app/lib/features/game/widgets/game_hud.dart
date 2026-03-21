@@ -41,7 +41,7 @@ class GameHud extends StatelessWidget {
                       label: _formatTime(state.timeLeftMs),
                       color: state.timeLeftMs < 10000
                           ? AppTheme.accentSecondary
-                          : AppTheme.blockBlue,
+                          : AppTheme.blockTeal,
                     )
                   else if (state.mode.actionPointsStart > 0)
                     _InfoChip(
@@ -49,7 +49,7 @@ class GameHud extends StatelessWidget {
                       label: '${state.actionPoints}',
                       color: state.actionPoints <= 1
                           ? AppTheme.accentSecondary
-                          : AppTheme.blockRed,
+                          : AppTheme.blockCoral,
                     ),
 
                   // Combo
@@ -57,14 +57,14 @@ class GameHud extends StatelessWidget {
                     _InfoChip(
                       icon: Icons.local_fire_department,
                       label: '${state.combo} Combo',
-                      color: AppTheme.blockOrange,
+                      color: AppTheme.blockGold,
                     ),
 
                   // 操作次數
                   _InfoChip(
                     icon: Icons.touch_app,
                     label: '${state.actionCount}',
-                    color: AppTheme.blockPurple,
+                    color: AppTheme.blockRose,
                   ),
                 ],
               ),

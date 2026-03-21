@@ -5,20 +5,21 @@ import 'package:flutter/material.dart';
 class AppTheme {
   AppTheme._();
 
-  // ─── 方塊顏色（從原始 JS GameEngine 移植） ───
-  static const Color blockRed = Color(0xFFF87171);
-  static const Color blockBlue = Color(0xFF60A5FA);
-  static const Color blockGreen = Color(0xFF4ADE80);
-  static const Color blockYellow = Color(0xFFFACC15);
-  static const Color blockPurple = Color(0xFFA78BFA);
-  static const Color blockOrange = Color(0xFFFFA94D);
+  // ─── 方塊顏色（Coolors Palette 1 + 微調） ───
+  // 原始: ff6f59-254441-43aa8b-b2b09b-ef3054
+  // 調整: 254441→3A7D6E（提亮暗青）、B2B09B→D4C96A（飽和卡其）
+  static const Color blockCoral = Color(0xFFFF6F59);   // 珊瑚橘紅
+  static const Color blockTeal = Color(0xFF3A7D6E);    // 翡翠青（原 #254441 提亮）
+  static const Color blockMint = Color(0xFF43AA8B);    // 薄荷綠
+  static const Color blockGold = Color(0xFFD4C96A);    // 琥珀金（原 #B2B09B 飽和）
+  static const Color blockRose = Color(0xFFEF3054);    // 玫瑰紅
 
   static const List<Color> blockColors = [
-    blockRed,
-    blockBlue,
-    blockGreen,
-    blockYellow,
-    blockPurple,
+    blockCoral,
+    blockTeal,
+    blockMint,
+    blockGold,
+    blockRose,
   ];
 
   // 方塊內的輔助符號（色盲友善）
@@ -37,7 +38,7 @@ class AppTheme {
   static const double radiusSmall = 8.0;
   static const double radiusMedium = 12.0;
   static const double radiusLarge = 16.0;
-  static const double radiusBlock = 10.0;
+  static const double radiusBlock = 14.0;
 
   // ─── 方塊尺寸 ───
   static const double blockSize = 56.0;

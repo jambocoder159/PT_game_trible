@@ -3,15 +3,15 @@ import '../../config/theme.dart';
 
 /// 方塊顏色列舉
 enum BlockColor {
-  red,
-  blue,
-  green,
-  yellow,
-  purple;
+  coral,   // 珊瑚橘紅
+  teal,    // 翡翠青
+  mint,    // 薄荷綠
+  gold,    // 琥珀金
+  rose;    // 玫瑰紅
 
   Color get color => AppTheme.blockColors[index];
   String get symbol => AppTheme.blockSymbols[index];
-  String get label => ['紅', '藍', '綠', '黃', '紫'][index];
+  String get label => ['珊瑚', '翡翠', '薄荷', '琥珀', '玫瑰'][index];
 }
 
 /// 方塊資料模型
