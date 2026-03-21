@@ -11,10 +11,18 @@ import '../../game/widgets/energy_bar.dart';
 import '../../quest/screens/stage_select_screen.dart';
 import '../../daily/screens/daily_quest_screen.dart';
 import '../../shop/screens/shop_screen.dart';
+import '../../gm/screens/gm_screen.dart';
 
 /// 主選單畫面
-class MainMenuScreen extends StatelessWidget {
+class MainMenuScreen extends StatefulWidget {
   const MainMenuScreen({super.key});
+
+  @override
+  State<MainMenuScreen> createState() => _MainMenuScreenState();
+}
+
+class _MainMenuScreenState extends State<MainMenuScreen> {
+  int _versionTapCount = 0;
 
   @override
   Widget build(BuildContext context) {
@@ -170,12 +178,25 @@ class MainMenuScreen extends StatelessWidget {
 
                 const SizedBox(height: 32),
 
-                // 版本號
-                Text(
-                  AppVersion.displayVersion,
-                  style: TextStyle(
-                    color: AppTheme.textSecondary.withAlpha(100),
-                    fontSize: 12,
+                // 版本號（連點 5 次進入 GM 工具）
+                GestureDetector(
+                  onTap: () {
+                    _versionTapCount++;
+                    if (_versionTapCount >= 5) {
+                      _versionTapCount = 0;
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => const GmScreen(),
+                        ),
+                      );
+                    }
+                  },
+                  child: Text(
+                    AppVersion.displayVersion,
+                    style: TextStyle(
+                      color: AppTheme.textSecondary.withAlpha(100),
+                      fontSize: 12,
+                    ),
                   ),
                 ),
                 const SizedBox(height: 8),

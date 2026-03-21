@@ -159,7 +159,10 @@ class _BattleScreenState extends State<BattleScreen> {
                 // 戰鬥結束覆蓋層
                 if (battle.isBattleOver) ...[
                   Builder(builder: (_) {
-                    _saveResult(battle.isVictory, gameState?.score ?? 0);
+                    // 延遲到 frame 結束後再儲存（避免 build 中觸發 setState）
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      _saveResult(battle.isVictory, gameState?.score ?? 0);
+                    });
                     return const SizedBox.shrink();
                   }),
                   _BattleEndOverlay(
@@ -178,7 +181,9 @@ class _BattleScreenState extends State<BattleScreen> {
                 if (gameState?.status == GameStatus.gameOver &&
                     !battle.isBattleOver) ...[
                   Builder(builder: (_) {
-                    _saveResult(false, gameState?.score ?? 0);
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      _saveResult(false, gameState?.score ?? 0);
+                    });
                     return const SizedBox.shrink();
                   }),
                   _BattleEndOverlay(

@@ -303,6 +303,70 @@ class PlayerProvider extends ChangeNotifier {
     _data.recoverStamina();
     notifyListeners();
   }
+
+  // ─── GM 工具（開發用） ───
+
+  /// 體力補滿
+  Future<void> gmRefillStamina() async {
+    _data.stamina = _data.maxStamina;
+    _data.lastStaminaRecover = DateTime.now();
+    await _save();
+    notifyListeners();
+  }
+
+  /// 重置所有關卡進度
+  Future<void> gmResetStages() async {
+    _data.stageProgress.clear();
+    await _save();
+    notifyListeners();
+  }
+
+  /// 加金幣
+  Future<void> gmAddGold(int amount) async {
+    _data.gold += amount;
+    await _save();
+    notifyListeners();
+  }
+
+  /// 加鑽石
+  Future<void> gmAddDiamonds(int amount) async {
+    _data.diamonds += amount;
+    await _save();
+    notifyListeners();
+  }
+
+  /// 解鎖全角色
+  Future<void> gmUnlockAllAgents() async {
+    for (final def in CatAgentData.allAgents) {
+      if (_data.agents[def.id]?.isUnlocked != true) {
+        _data.agents[def.id] = CatAgentInstance(
+          definitionId: def.id,
+          isUnlocked: true,
+        );
+      }
+    }
+    await _save();
+    notifyListeners();
+  }
+
+  /// 全角色升到指定等級
+  Future<void> gmSetAllAgentLevel(int level) async {
+    for (final entry in _data.agents.entries) {
+      if (entry.value.isUnlocked) {
+        entry.value.level = level;
+        entry.value.currentExp = 0;
+      }
+    }
+    await _save();
+    notifyListeners();
+  }
+
+  /// 重置所有資料（回到新玩家狀態）
+  Future<void> gmResetAll() async {
+    _data = PlayerData.newPlayer();
+    await _save();
+    notifyListeners();
+  }
 }
 
 /// 角色資訊（定義 + 實例的組合）

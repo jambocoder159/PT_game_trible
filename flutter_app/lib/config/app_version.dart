@@ -3,8 +3,8 @@
 class AppVersion {
   AppVersion._();
 
-  static const String version = '0.4.0';
-  static const String buildName = 'Sprint 4';
+  static const String version = '0.5.0';
+  static const String buildName = 'Sprint 5';
 
   /// Git commit hash — 手動更新或由 CI 注入
   /// 若為空字串，顯示 version 即可
