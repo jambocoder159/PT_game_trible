@@ -118,13 +118,37 @@ class BattleProvider extends ChangeNotifier {
       combo,
     );
 
-    // 發送傷害事件
+    // 發送傷害事件（含元素名稱和屬性倍率提示）
     for (final entry in result.damageByColor.entries) {
+      final blockColor = entry.key;
+      // 找到對應屬性的元素名稱
+      final elementEmoji = blockColor.elementEmoji;
+      final elementLabel = blockColor.label;
+
+      // 計算屬性倍率提示
+      String multiplierHint = '';
+      final enemy = _battleState!.currentEnemy;
+      if (enemy != null) {
+        // 找對應顏色的隊員屬性
+        for (final agent in _battleState!.team) {
+          if (agent.definition.attribute.blockColor == blockColor) {
+            final mult = agent.definition.attribute
+                .damageMultiplierAgainst(enemy.definition.attribute);
+            if (mult > 1.0) {
+              multiplierHint = ' 剋制！×${mult.toStringAsFixed(1)}';
+            } else if (mult < 1.0) {
+              multiplierHint = ' 抵抗 ×${mult.toStringAsFixed(2)}';
+            }
+            break;
+          }
+        }
+      }
+
       _events.add(BattleEvent(
         type: BattleEventType.damage,
-        message: '-${entry.value}',
+        message: '$elementEmoji $elementLabel -${entry.value}$multiplierHint',
         value: entry.value,
-        color: entry.key,
+        color: blockColor,
       ));
     }
 

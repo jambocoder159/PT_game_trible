@@ -6,6 +6,7 @@ import '../../../config/game_modes.dart';
 import '../../../config/stage_data.dart';
 import '../../../config/theme.dart';
 import '../../../core/models/battle_state.dart';
+import '../../../core/models/block.dart';
 import '../../../core/models/game_state.dart';
 import '../../agents/providers/player_provider.dart';
 import '../providers/battle_provider.dart';
@@ -25,12 +26,17 @@ class BattleScreen extends StatefulWidget {
 class _BattleScreenState extends State<BattleScreen> {
   bool _resultSaved = false;
   BattleRewardResult? _reward;
+  bool _showBattleIntro = true;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _initBattle();
+      // 2秒後自動關閉戰鬥提示
+      Future.delayed(const Duration(seconds: 2), () {
+        if (mounted) setState(() => _showBattleIntro = false);
+      });
     });
   }
 
@@ -117,6 +123,9 @@ class _BattleScreenState extends State<BattleScreen> {
             final gameState = game.state;
             final battleState = battle.battleState;
 
+            // 消費戰鬥事件
+            final events = battle.consumeEvents();
+
             return Stack(
               children: [
                 Column(
@@ -127,6 +136,10 @@ class _BattleScreenState extends State<BattleScreen> {
                     // 敵人區
                     if (battleState != null)
                       _EnemyPanel(battleState: battleState),
+
+                    // 戰鬥事件提示列
+                    if (events.isNotEmpty)
+                      _BattleEventBar(events: events),
 
                     // 隊伍 HP
                     if (battleState != null) _TeamHpBar(battleState: battleState),
@@ -155,6 +168,15 @@ class _BattleScreenState extends State<BattleScreen> {
                     _BottomBar(gameState: gameState),
                   ],
                 ),
+
+                // 戰鬥開始元素提示浮層
+                if (_showBattleIntro && battleState != null)
+                  _BattleIntroOverlay(
+                    stage: widget.stage,
+                    battleState: battleState,
+                    onDismiss: () =>
+                        setState(() => _showBattleIntro = false),
+                  ),
 
                 // 戰鬥結束覆蓋層
                 if (battle.isBattleOver) ...[
@@ -330,14 +352,53 @@ class _EnemyPanel extends StatelessWidget {
                         fontSize: 14,
                       ),
                     ),
-                    const SizedBox(width: 8),
-                    Text(
-                      enemy.definition.attribute.emoji,
-                      style: const TextStyle(fontSize: 14),
+                    const SizedBox(width: 6),
+                    // 屬性標籤（元素名稱 + emoji）
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 5,
+                        vertical: 1,
+                      ),
+                      decoration: BoxDecoration(
+                        color: enemy.definition.attribute.blockColor.color
+                            .withAlpha(40),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        '${enemy.definition.attribute.emoji} ${enemy.definition.attribute.label}',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: enemy.definition.attribute.blockColor.color,
+                        ),
+                      ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: 2),
+                // 弱點提示
+                Row(
+                  children: [
+                    Text(
+                      '弱點：',
+                      style: TextStyle(
+                        color: Colors.green.shade300,
+                        fontSize: 10,
+                      ),
+                    ),
+                    ...enemy.definition.attribute.weakTo.map((w) => Padding(
+                          padding: const EdgeInsets.only(right: 2),
+                          child: Text(
+                            '${w.emoji}${w.label}',
+                            style: TextStyle(
+                              color: Colors.green.shade300,
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        )),
+                  ],
+                ),
+                const SizedBox(height: 2),
                 // HP 條
                 Row(
                   children: [
@@ -467,6 +528,73 @@ class _TeamHpBar extends StatelessWidget {
             ),
           ],
         ],
+      ),
+    );
+  }
+}
+
+// ─── 戰鬥事件提示列 ───
+
+class _BattleEventBar extends StatelessWidget {
+  final List<BattleEvent> events;
+
+  const _BattleEventBar({required this.events});
+
+  @override
+  Widget build(BuildContext context) {
+    // 只顯示傷害和技能事件
+    final displayEvents = events
+        .where((e) =>
+            e.type == BattleEventType.damage ||
+            e.type == BattleEventType.enemyAttack ||
+            e.type == BattleEventType.skillActivated ||
+            e.type == BattleEventType.enemyKilled)
+        .toList();
+    if (displayEvents.isEmpty) return const SizedBox.shrink();
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
+      child: Wrap(
+        spacing: 6,
+        runSpacing: 2,
+        alignment: WrapAlignment.center,
+        children: displayEvents.map((event) {
+          Color bgColor;
+          Color textColor;
+          switch (event.type) {
+            case BattleEventType.damage:
+              bgColor = (event.color?.color ?? Colors.white).withAlpha(30);
+              textColor = event.color?.color ?? Colors.white;
+              break;
+            case BattleEventType.enemyAttack:
+              bgColor = Colors.red.withAlpha(30);
+              textColor = Colors.red.shade300;
+              break;
+            case BattleEventType.enemyKilled:
+              bgColor = Colors.amber.withAlpha(30);
+              textColor = Colors.amber;
+              break;
+            default:
+              bgColor = Colors.blue.withAlpha(30);
+              textColor = Colors.blue.shade300;
+          }
+
+          return Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            decoration: BoxDecoration(
+              color: bgColor,
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: Text(
+              event.message,
+              style: TextStyle(
+                color: textColor,
+                fontSize: 11,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          );
+        }).toList(),
       ),
     );
   }
@@ -660,6 +788,145 @@ class _StatDisplay extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+// ─── 戰鬥開始元素提示浮層 ───
+
+class _BattleIntroOverlay extends StatelessWidget {
+  final StageDefinition stage;
+  final BattleState battleState;
+  final VoidCallback onDismiss;
+
+  const _BattleIntroOverlay({
+    required this.stage,
+    required this.battleState,
+    required this.onDismiss,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final enemy = battleState.currentEnemy;
+    if (enemy == null) return const SizedBox.shrink();
+
+    final attr = enemy.definition.attribute;
+    final weaknesses = attr.weakTo;
+
+    // 找出隊伍中有優勢的角色
+    final advantageAgents = battleState.team.where((a) {
+      final mult =
+          a.definition.attribute.damageMultiplierAgainst(attr);
+      return mult > 1.0;
+    }).toList();
+
+    return GestureDetector(
+      onTap: onDismiss,
+      child: AnimatedOpacity(
+        opacity: 1.0,
+        duration: const Duration(milliseconds: 300),
+        child: Container(
+          color: Colors.black.withAlpha(180),
+          child: Center(
+            child: Container(
+              margin: const EdgeInsets.all(40),
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: AppTheme.bgSecondary,
+                borderRadius:
+                    BorderRadius.circular(AppTheme.radiusLarge),
+                border: Border.all(
+                  color: attr.blockColor.color.withAlpha(100),
+                ),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // 敵人 emoji + 名稱
+                  Text(
+                    enemy.definition.emoji,
+                    style: const TextStyle(fontSize: 40),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    enemy.definition.name,
+                    style: const TextStyle(
+                      color: AppTheme.textPrimary,
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  // 屬性標籤
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 3,
+                    ),
+                    decoration: BoxDecoration(
+                      color: attr.blockColor.color.withAlpha(40),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      '${attr.emoji} ${attr.label}屬性',
+                      style: TextStyle(
+                        color: attr.blockColor.color,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  // 弱點
+                  if (weaknesses.isNotEmpty)
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          '弱點：',
+                          style: TextStyle(
+                            color: Colors.green.shade300,
+                            fontSize: 13,
+                          ),
+                        ),
+                        ...weaknesses.map((w) => Text(
+                              '${w.emoji} ${w.label} ',
+                              style: TextStyle(
+                                color: Colors.green.shade300,
+                                fontSize: 13,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            )),
+                      ],
+                    ),
+                  // 隊伍優勢角色提示
+                  if (advantageAgents.isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      '${advantageAgents.map((a) => '${a.definition.attribute.emoji}${a.definition.name}').join('、')} 有屬性優勢！',
+                      style: TextStyle(
+                        color: Colors.amber.shade300,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: 12),
+                  // 策略提示
+                  Text(
+                    advantageAgents.isNotEmpty
+                        ? '多消除 ${advantageAgents.map((a) => a.definition.attribute.emoji).join('')} 符文來發動強力攻擊！'
+                        : '消除元素符文來發動攻擊吧！',
+                    style: const TextStyle(
+                      color: AppTheme.textSecondary,
+                      fontSize: 11,
+                      fontStyle: FontStyle.italic,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

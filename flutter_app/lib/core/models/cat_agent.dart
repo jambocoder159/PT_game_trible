@@ -85,30 +85,46 @@ enum AgentAttribute {
   String get label {
     switch (this) {
       case AgentAttribute.attributeA:
-        return '屬性A';
+        return '烈焰';
       case AgentAttribute.attributeB:
-        return '屬性B';
+        return '叢林';
       case AgentAttribute.attributeC:
-        return '屬性C';
+        return '寒潮';
       case AgentAttribute.attributeD:
-        return '屬性D';
+        return '雷光';
       case AgentAttribute.attributeE:
-        return '屬性E';
+        return '暗影';
     }
   }
 
   String get emoji {
     switch (this) {
       case AgentAttribute.attributeA:
-        return '🔴';
+        return '🔥';
       case AgentAttribute.attributeB:
-        return '🟢';
+        return '🌿';
       case AgentAttribute.attributeC:
-        return '🔵';
+        return '💧';
       case AgentAttribute.attributeD:
-        return '🟡';
+        return '⚡';
       case AgentAttribute.attributeE:
-        return '🟣';
+        return '🔮';
+    }
+  }
+
+  /// 取得剋制此屬性的屬性列表（用於顯示弱點提示）
+  List<AgentAttribute> get weakTo {
+    switch (this) {
+      case AgentAttribute.attributeA:
+        return [AgentAttribute.attributeC]; // 烈焰怕寒潮
+      case AgentAttribute.attributeB:
+        return [AgentAttribute.attributeA]; // 叢林怕烈焰
+      case AgentAttribute.attributeC:
+        return [AgentAttribute.attributeB]; // 寒潮怕叢林
+      case AgentAttribute.attributeD:
+        return [AgentAttribute.attributeE]; // 雷光怕暗影
+      case AgentAttribute.attributeE:
+        return [AgentAttribute.attributeD]; // 暗影怕雷光
     }
   }
 }

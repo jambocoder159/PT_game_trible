@@ -151,11 +151,12 @@ class _BlockWidgetState extends State<BlockWidget>
       ),
       child: Center(
         child: Text(
-          widget.block.isBlackened ? '✕' : widget.block.color.symbol,
+          widget.block.isBlackened
+              ? '✕'
+              : widget.block.color.elementEmoji,
           style: TextStyle(
-            fontSize: size * 0.4,
-            color: Colors.white.withAlpha(200),
-            fontWeight: FontWeight.bold,
+            fontSize: size * 0.45,
+            color: Colors.white.withAlpha(220),
           ),
         ),
       ),

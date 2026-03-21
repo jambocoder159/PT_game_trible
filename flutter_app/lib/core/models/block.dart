@@ -11,7 +11,8 @@ enum BlockColor {
 
   Color get color => AppTheme.blockColors[index];
   String get symbol => AppTheme.blockSymbols[index];
-  String get label => ['珊瑚', '翡翠', '薄荷', '琥珀', '玫瑰'][index];
+  String get label => ['烈焰', '寒潮', '叢林', '雷光', '暗影'][index];
+  String get elementEmoji => ['🔥', '💧', '🌿', '⚡', '🔮'][index];
 }
 
 /// 方塊資料模型
