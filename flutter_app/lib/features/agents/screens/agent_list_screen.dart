@@ -96,10 +96,10 @@ class _TeamPreview extends StatelessWidget {
                 margin: const EdgeInsets.only(right: 8),
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 decoration: BoxDecoration(
-                  color: agent.definition.attribute.blockColor.withValues(alpha: 0.3),
+                  color: agent.definition.attribute.blockColor.color.withValues(alpha: 0.3),
                   borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
                   border: Border.all(
-                    color: agent.definition.attribute.blockColor.withValues(alpha: 0.6),
+                    color: agent.definition.attribute.blockColor.color.withValues(alpha: 0.6),
                   ),
                 ),
                 child: Text(
@@ -153,7 +153,7 @@ class _AgentCard extends StatelessWidget {
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
         side: isInTeam
-            ? BorderSide(color: def.attribute.blockColor, width: 2)
+            ? BorderSide(color: def.attribute.blockColor.color, width: 2)
             : BorderSide.none,
       ),
       child: InkWell(
@@ -447,12 +447,12 @@ class _AgentAvatar extends StatelessWidget {
       height: 56,
       decoration: BoxDecoration(
         color: isUnlocked
-            ? attribute.blockColor.withValues(alpha: 0.3)
+            ? attribute.blockColor.color.withValues(alpha: 0.3)
             : Colors.grey.withValues(alpha: 0.2),
         borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
         border: Border.all(
           color: isUnlocked
-              ? attribute.blockColor.withValues(alpha: 0.6)
+              ? attribute.blockColor.color.withValues(alpha: 0.6)
               : Colors.grey.withValues(alpha: 0.3),
           width: 2,
         ),
