@@ -137,10 +137,6 @@ class _BattleScreenState extends State<BattleScreen> {
                     if (battleState != null)
                       _EnemyPanel(battleState: battleState),
 
-                    // 戰鬥事件提示列
-                    if (events.isNotEmpty)
-                      _BattleEventBar(events: events),
-
                     // 隊伍 HP
                     if (battleState != null) _TeamHpBar(battleState: battleState),
 
@@ -168,6 +164,17 @@ class _BattleScreenState extends State<BattleScreen> {
                     _BottomBar(gameState: gameState),
                   ],
                 ),
+
+                // 戰鬥事件提示列（overlay，不佔 Column 空間）
+                if (events.isNotEmpty)
+                  Positioned(
+                    left: 0,
+                    right: 0,
+                    top: 0,
+                    child: SafeArea(
+                      child: _BattleEventBar(events: events),
+                    ),
+                  ),
 
                 // 戰鬥開始元素提示浮層
                 if (_showBattleIntro && battleState != null)
