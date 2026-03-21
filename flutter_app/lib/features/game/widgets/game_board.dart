@@ -40,8 +40,8 @@ class _GameBoardState extends State<GameBoard>
       duration: const Duration(milliseconds: 800),
     );
     _arrowOffset = TweenSequence<double>([
-      TweenSequenceItem(tween: Tween(begin: 0, end: -6), weight: 50),
-      TweenSequenceItem(tween: Tween(begin: -6, end: 0), weight: 50),
+      TweenSequenceItem(tween: Tween(begin: 0, end: -10), weight: 50),
+      TweenSequenceItem(tween: Tween(begin: -10, end: 0), weight: 50),
     ]).animate(CurvedAnimation(
       parent: _arrowBounce,
       curve: Curves.easeInOut,
@@ -190,7 +190,7 @@ class _GameBoardState extends State<GameBoard>
             if (_isDragging) {
               final dir = _dragDirection(layout);
               final originPos = _cellTopLeft(layout, _dragCol, _dragRow);
-              final arrowSize = layout.blockSize * 0.4;
+              final arrowSize = layout.blockSize * 0.65;
 
               arrowWidgets.addAll([
                 // 上箭頭
@@ -390,9 +390,42 @@ class _BoardInteractionLayerState extends State<_BoardInteractionLayer> {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTapUp: (details) {
+    return RawGestureDetector(
+      gestures: <Type, GestureRecognizerFactory>{
+        LongPressGestureRecognizer:
+            GestureRecognizerFactoryWithHandlers<LongPressGestureRecognizer>(
+          () => LongPressGestureRecognizer(
+            duration: const Duration(milliseconds: 150),
+          ),
+          (instance) {
+            instance
+              ..onLongPressStart = (details) {
+                if (widget.isDragging) return;
+                final hit = _hitTest(details.localPosition);
+                if (hit == null) return;
+                final (col, row) = hit;
+                final state = widget.game.state;
+                if (state == null) return;
+                final block = state.grid[col][row];
+                if (block == null) return;
+                widget.onLongPressStart(
+                    col, row, block, details.localPosition);
+              }
+              ..onLongPressMoveUpdate = (details) {
+                if (!widget.isDragging) return;
+                widget.onDragUpdate(details.localPosition);
+              }
+              ..onLongPressEnd = (details) {
+                if (!widget.isDragging) return;
+                widget.onDragEnd();
+              };
+          },
+        ),
+        TapGestureRecognizer:
+            GestureRecognizerFactoryWithHandlers<TapGestureRecognizer>(
+          () => TapGestureRecognizer(),
+          (instance) {
+            instance.onTapUp = (details) {
         final hit = _hitTest(details.localPosition);
         if (hit == null) return;
         final (col, row) = hit;
@@ -401,26 +434,11 @@ class _BoardInteractionLayerState extends State<_BoardInteractionLayer> {
         final block = state.grid[col][row];
         if (block == null) return;
         widget.onTapBlock(col, row, block);
+            };
+          },
+        ),
       },
-      onLongPressStart: (details) {
-        if (widget.isDragging) return;
-        final hit = _hitTest(details.localPosition);
-        if (hit == null) return;
-        final (col, row) = hit;
-        final state = widget.game.state;
-        if (state == null) return;
-        final block = state.grid[col][row];
-        if (block == null) return;
-        widget.onLongPressStart(col, row, block, details.localPosition);
-      },
-      onLongPressMoveUpdate: (details) {
-        if (!widget.isDragging) return;
-        widget.onDragUpdate(details.localPosition);
-      },
-      onLongPressEnd: (details) {
-        if (!widget.isDragging) return;
-        widget.onDragEnd();
-      },
+      behavior: HitTestBehavior.opaque,
       child: widget.child,
     );
   }
@@ -442,18 +460,26 @@ class _ArrowIcon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final icon =
-        direction == -1 ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down;
+    final icon = direction == -1
+        ? Icons.arrow_upward_rounded
+        : Icons.arrow_downward_rounded;
 
     if (isSolid) {
       return Container(
         width: size,
         height: size,
         decoration: BoxDecoration(
-          color: color.withAlpha(180),
+          color: color,
           shape: BoxShape.circle,
+          boxShadow: [
+            BoxShadow(
+              color: color.withAlpha(150),
+              blurRadius: 12,
+              spreadRadius: 2,
+            ),
+          ],
         ),
-        child: Icon(icon, size: size * 0.8, color: Colors.white),
+        child: Icon(icon, size: size * 0.7, color: Colors.white),
       );
     }
 
@@ -462,9 +488,9 @@ class _ArrowIcon extends StatelessWidget {
       height: size,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        border: Border.all(color: color.withAlpha(120), width: 1.5),
+        border: Border.all(color: color.withAlpha(80), width: 2),
       ),
-      child: Icon(icon, size: size * 0.8, color: color.withAlpha(120)),
+      child: Icon(icon, size: size * 0.7, color: color.withAlpha(80)),
     );
   }
 }
