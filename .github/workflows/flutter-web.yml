@@ -37,6 +37,12 @@ jobs:
         working-directory: flutter_app
         run: flutter pub get
 
+      - name: Inject commit hash into app version
+        working-directory: flutter_app
+        run: |
+          HASH=$(git rev-parse --short HEAD)
+          sed -i "s/static const String commitHash = '';/static const String commitHash = '$HASH';/" lib/config/app_version.dart
+
       - name: Build Flutter Web
         working-directory: flutter_app
         run: flutter build web --release --base-href "/PT_game_trible/"
