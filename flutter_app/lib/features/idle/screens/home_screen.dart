@@ -22,7 +22,6 @@ import '../widgets/bottom_nav_bar.dart';
 import '../widgets/idle_mini_game.dart';
 import '../widgets/cat_panel.dart';
 import '../widgets/energy_orb_overlay.dart';
-import '../widgets/idle_skill_bar.dart';
 
 /// 首頁 — 放置型遊戲大廳
 class HomeScreen extends StatefulWidget {
@@ -346,15 +345,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           ? [
                               Expanded(
                                 flex: 6,
-                                child: Column(
-                                  children: [
-                                    Expanded(child: IdleMiniGame(key: _gameAreaKey)),
-                                    const Padding(
-                                      padding: EdgeInsets.only(top: 4),
-                                      child: IdleSkillBar(),
-                                    ),
-                                  ],
-                                ),
+                                child: IdleMiniGame(key: _gameAreaKey),
                               ),
                               const SizedBox(width: 4),
                               Expanded(
@@ -370,15 +361,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               const SizedBox(width: 4),
                               Expanded(
                                 flex: 6,
-                                child: Column(
-                                  children: [
-                                    Expanded(child: IdleMiniGame(key: _gameAreaKey)),
-                                    const Padding(
-                                      padding: EdgeInsets.only(top: 4),
-                                      child: IdleSkillBar(),
-                                    ),
-                                  ],
-                                ),
+                                child: IdleMiniGame(key: _gameAreaKey),
                               ),
                             ],
                     ),
