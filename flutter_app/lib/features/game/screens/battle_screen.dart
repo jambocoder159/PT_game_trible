@@ -134,6 +134,34 @@ class _BattleScreenState extends State<BattleScreen> {
     }
   }
 
+  void _retryBattle(BuildContext context) {
+    final playerProvider = context.read<PlayerProvider>();
+
+    // 檢查體力
+    if (playerProvider.data.stamina < widget.stage.staminaCost) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('體力不足！需要 ${widget.stage.staminaCost} 體力'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    // 消耗體力
+    playerProvider.consumeStamina(widget.stage.staminaCost);
+
+    // 重置狀態並重新開始
+    setState(() {
+      _resultSaved = false;
+      _reward = null;
+    });
+
+    final battleProvider = context.read<BattleProvider>();
+    battleProvider.endBattle();
+    _initBattle();
+  }
+
   @override
   void dispose() {
     final gameProvider = context.read<GameProvider>();
@@ -250,6 +278,7 @@ class _BattleScreenState extends State<BattleScreen> {
                       battle.endBattle();
                       Navigator.of(context).pop();
                     },
+                    onRetry: () => _retryBattle(context),
                   ),
                 ],
 
@@ -270,6 +299,7 @@ class _BattleScreenState extends State<BattleScreen> {
                       battle.endBattle();
                       Navigator.of(context).pop();
                     },
+                    onRetry: () => _retryBattle(context),
                   ),
                 ],
               ],
@@ -1689,6 +1719,7 @@ class _BattleEndOverlay extends StatelessWidget {
   final int score;
   final BattleRewardResult? reward;
   final VoidCallback onExit;
+  final VoidCallback onRetry;
 
   const _BattleEndOverlay({
     required this.isVictory,
@@ -1696,139 +1727,348 @@ class _BattleEndOverlay extends StatelessWidget {
     required this.score,
     this.reward,
     required this.onExit,
+    required this.onRetry,
   });
 
   int get _stars => reward?.stars ?? (isVictory ? 1 : 0);
 
   @override
   Widget build(BuildContext context) {
+    final borderColor =
+        isVictory ? Colors.amber.withAlpha(150) : Colors.red.withAlpha(150);
+    final titleColor = isVictory ? Colors.amber : Colors.red;
+
     return Container(
       color: Colors.black.withAlpha(180),
       child: Center(
         child: Container(
-          margin: const EdgeInsets.all(32),
-          padding: const EdgeInsets.all(24),
+          margin: const EdgeInsets.symmetric(horizontal: 28, vertical: 32),
+          constraints: const BoxConstraints(maxWidth: 360),
           decoration: BoxDecoration(
             color: AppTheme.bgSecondary,
             borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
-            border: Border.all(
-              color: isVictory
-                  ? Colors.amber.withAlpha(150)
-                  : Colors.red.withAlpha(150),
-            ),
+            border: Border.all(color: borderColor, width: 1.5),
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(
-                isVictory ? '任務完成！' : '任務失敗',
-                style: TextStyle(
-                  fontSize: 28,
-                  fontWeight: FontWeight.bold,
-                  color: isVictory ? Colors.amber : Colors.red,
+              // ── 標題區 ──
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: isVictory
+                        ? [Colors.amber.withAlpha(30), Colors.amber.withAlpha(10)]
+                        : [Colors.red.withAlpha(30), Colors.red.withAlpha(10)],
+                  ),
+                  borderRadius: BorderRadius.vertical(
+                    top: Radius.circular(AppTheme.radiusLarge),
+                  ),
                 ),
-              ),
-              const SizedBox(height: 16),
-              if (isVictory) ...[
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: List.generate(3, (i) {
-                    return Icon(
-                      i < _stars ? Icons.star : Icons.star_border,
-                      color: i < _stars ? Colors.amber : Colors.grey,
-                      size: 36,
-                    );
-                  }),
-                ),
-                const SizedBox(height: 16),
-              ],
-              if (isVictory && reward != null) ...[
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
+                child: Column(
                   children: [
-                    Text('🪙 +${reward!.gold}',
-                        style: const TextStyle(
-                            color: AppTheme.textPrimary, fontSize: 16)),
-                    const SizedBox(width: 16),
-                    Text('✨ +${reward!.exp} EXP',
-                        style: const TextStyle(
-                            color: AppTheme.textPrimary, fontSize: 16)),
-                  ],
-                ),
-                if (!reward!.isFirstClear)
-                  const Padding(
-                    padding: EdgeInsets.only(top: 4),
-                    child: Text(
-                      '(重複通關 — 半額獎勵)',
+                    Text(
+                      isVictory ? '任務完成！' : '任務失敗',
                       style: TextStyle(
-                        color: AppTheme.textSecondary, fontSize: 12,
+                        fontSize: 26,
+                        fontWeight: FontWeight.bold,
+                        color: titleColor,
                       ),
                     ),
-                  ),
-                if (reward!.agentUnlocked && reward!.unlockedAgentId != null)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 8),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: Colors.amber.withAlpha(40),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: Colors.amber.withAlpha(100)),
+                    if (isVictory) ...[
+                      const SizedBox(height: 10),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: List.generate(3, (i) {
+                          final filled = i < _stars;
+                          return Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 3),
+                            child: Icon(
+                              filled ? Icons.star_rounded : Icons.star_outline_rounded,
+                              color: filled ? Colors.amber : Colors.grey.shade600,
+                              size: 40,
+                            ),
+                          );
+                        }),
                       ),
-                      child: Text(
-                        '🎉 新特工加入！',
+                    ],
+                  ],
+                ),
+              ),
+
+              // ── 獎勵區 ──
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // 分數
+                    _RewardSection(
+                      icon: Icons.scoreboard_outlined,
+                      label: '分數',
+                      value: '$score',
+                    ),
+                    const SizedBox(height: 10),
+
+                    if (isVictory && reward != null) ...[
+                      // 金幣 + 經驗
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _RewardCard(
+                              emoji: '🪙',
+                              label: '金幣',
+                              value: '+${reward!.gold}',
+                              color: const Color(0xFFD4A017),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: _RewardCard(
+                              emoji: '✨',
+                              label: '經驗值',
+                              value: '+${reward!.exp}',
+                              color: const Color(0xFF7EC8E3),
+                            ),
+                          ),
+                        ],
+                      ),
+
+                      // 重複通關提示
+                      if (!reward!.isFirstClear)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 6),
+                          child: Text(
+                            '(重複通關 — 半額獎勵)',
+                            style: TextStyle(
+                              color: AppTheme.textSecondary.withAlpha(180),
+                              fontSize: 11,
+                            ),
+                          ),
+                        ),
+
+                      // 素材掉落
+                      if (reward!.materialDrops.isNotEmpty) ...[
+                        const SizedBox(height: 12),
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: Text(
+                            '素材掉落',
+                            style: TextStyle(
+                              color: AppTheme.textSecondary,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 6,
+                          children: reward!.materialDrops.entries.map((e) {
+                            return Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 10, vertical: 5),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withAlpha(15),
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(
+                                    color: Colors.white.withAlpha(30)),
+                              ),
+                              child: Text(
+                                '${e.key.emoji} x${e.value}',
+                                style: const TextStyle(
+                                  color: AppTheme.textPrimary,
+                                  fontSize: 13,
+                                ),
+                              ),
+                            );
+                          }).toList(),
+                        ),
+                      ],
+
+                      // 新特工解鎖
+                      if (reward!.agentUnlocked &&
+                          reward!.unlockedAgentId != null) ...[
+                        const SizedBox(height: 12),
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 14, vertical: 10),
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [
+                                Colors.amber.withAlpha(30),
+                                Colors.orange.withAlpha(20),
+                              ],
+                            ),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(
+                                color: Colors.amber.withAlpha(100)),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Text('🎉', style: TextStyle(fontSize: 20)),
+                              const SizedBox(width: 8),
+                              Text(
+                                '新特工加入！',
+                                style: TextStyle(
+                                  color: Colors.amber.shade300,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 15,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ],
+
+                    // 失敗時的鼓勵語
+                    if (!isVictory) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        '調整隊伍再挑戰一次吧！',
                         style: TextStyle(
-                          color: Colors.amber.shade300,
-                          fontWeight: FontWeight.bold,
+                          color: AppTheme.textSecondary,
                           fontSize: 14,
                         ),
                       ),
-                    ),
-                  ),
-                const SizedBox(height: 8),
-              ],
-              if (reward != null && reward!.materialDrops.isNotEmpty) ...[
-                const SizedBox(height: 8),
-                Wrap(
-                  spacing: 6,
-                  runSpacing: 4,
-                  alignment: WrapAlignment.center,
-                  children: reward!.materialDrops.entries.map((e) {
-                    return Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withAlpha(10),
-                        borderRadius: BorderRadius.circular(6),
-                        border: Border.all(color: Colors.white.withAlpha(20)),
-                      ),
-                      child: Text(
-                        '${e.key.emoji}x${e.value}',
-                        style: const TextStyle(
-                          color: AppTheme.textPrimary, fontSize: 12,
+                    ],
+
+                    const SizedBox(height: 20),
+
+                    // ── 按鈕區 ──
+                    Row(
+                      children: [
+                        // 返回地圖
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: onExit,
+                            icon: const Icon(Icons.map_outlined, size: 18),
+                            label: const Text('返回地圖'),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: AppTheme.textPrimary,
+                              side: BorderSide(
+                                  color: Colors.white.withAlpha(60)),
+                              padding:
+                                  const EdgeInsets.symmetric(vertical: 12),
+                            ),
+                          ),
                         ),
-                      ),
-                    );
-                  }).toList(),
+                        const SizedBox(width: 12),
+                        // 重試
+                        Expanded(
+                          child: ElevatedButton.icon(
+                            onPressed: onRetry,
+                            icon: const Icon(Icons.refresh, size: 18),
+                            label: Text(isVictory ? '再戰一次' : '重新挑戰'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: isVictory
+                                  ? AppTheme.accentPrimary
+                                  : AppTheme.accentSecondary,
+                              padding:
+                                  const EdgeInsets.symmetric(vertical: 12),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
-              ],
-              const SizedBox(height: 8),
-              Text(
-                '分數：$score',
-                style: const TextStyle(color: AppTheme.textSecondary, fontSize: 14),
-              ),
-              const SizedBox(height: 24),
-              ElevatedButton(
-                onPressed: onExit,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: isVictory
-                      ? AppTheme.accentPrimary
-                      : AppTheme.accentSecondary,
-                ),
-                child: const Text('返回'),
               ),
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// 獎勵資訊行
+class _RewardSection extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String value;
+
+  const _RewardSection({
+    required this.icon,
+    required this.label,
+    required this.value,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Icon(icon, size: 18, color: AppTheme.textSecondary),
+        const SizedBox(width: 6),
+        Text(
+          label,
+          style: const TextStyle(
+            color: AppTheme.textSecondary,
+            fontSize: 14,
+          ),
+        ),
+        const Spacer(),
+        Text(
+          value,
+          style: const TextStyle(
+            color: AppTheme.textPrimary,
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// 獎勵卡片（金幣/經驗）
+class _RewardCard extends StatelessWidget {
+  final String emoji;
+  final String label;
+  final String value;
+  final Color color;
+
+  const _RewardCard({
+    required this.emoji,
+    required this.label,
+    required this.value,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
+      decoration: BoxDecoration(
+        color: color.withAlpha(20),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: color.withAlpha(60)),
+      ),
+      child: Column(
+        children: [
+          Text(emoji, style: const TextStyle(fontSize: 22)),
+          const SizedBox(height: 4),
+          Text(
+            value,
+            style: TextStyle(
+              color: color,
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          Text(
+            label,
+            style: const TextStyle(
+              color: AppTheme.textSecondary,
+              fontSize: 11,
+            ),
+          ),
+        ],
       ),
     );
   }
