@@ -905,6 +905,16 @@ class _CatQuickViewSheet extends StatelessWidget {
                       fontSize: 12,
                     ),
                   ),
+                  if (agentDef.skill.boardEffect != null) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      '🧩 ${agentDef.skill.boardEffect!.description}',
+                      style: TextStyle(
+                        color: Colors.cyan.shade300,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),

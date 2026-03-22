@@ -40,9 +40,15 @@ enum BattleEventType {
   defeat, // 失敗
 }
 
+/// 放置效果回呼（由 GameProvider 執行棋盤操作）
+typedef OnBoardEffectRequested = Future<void> Function(SkillBoardEffect effect, BlockColor agentColor);
+
 class BattleProvider extends ChangeNotifier {
   BattleState? _battleState;
   BattleState? get battleState => _battleState;
+
+  /// 放置效果回呼（戰鬥畫面設定）
+  OnBoardEffectRequested? onBoardEffectRequested;
 
   StageDefinition? _currentStage;
   StageDefinition? get currentStage => _currentStage;
@@ -231,6 +237,11 @@ class BattleProvider extends ChangeNotifier {
     }
 
     notifyListeners();
+
+    // 執行放置效果（操作棋盤）
+    if (result.boardEffect != null && result.agentColor != null) {
+      onBoardEffectRequested?.call(result.boardEffect!, result.agentColor!);
+    }
   }
 
   /// 結束戰鬥

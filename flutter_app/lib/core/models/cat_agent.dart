@@ -160,6 +160,28 @@ enum SkillEffectType {
   delay, // 延遲敵人攻擊
 }
 
+/// 技能放置效果類型
+enum BoardEffectType {
+  convertColor,    // 轉化：將 N 個隨機方塊轉為角色屬性色
+  eliminateRandom, // 隨機消除：消除 N 個隨機方塊
+  eliminateRow,    // 整排消除：消除指定排（0=頂排, -1=底排）
+  eliminateColumn, // 整列消除：消除隨機一列
+  shuffleBoard,    // 洗牌：重新排列所有方塊
+}
+
+/// 技能的放置（棋盤）效果
+class SkillBoardEffect {
+  final BoardEffectType type;
+  final int value;         // 數量或目標（convertColor: 轉化數量, eliminateRandom: 消除數量, eliminateRow: 0=頂/‐1=底）
+  final String description;
+
+  const SkillBoardEffect({
+    required this.type,
+    required this.value,
+    required this.description,
+  });
+}
+
 /// 技能定義
 class AgentSkill {
   final String name;
@@ -168,6 +190,7 @@ class AgentSkill {
   final SkillEffectType effectType;
   final double baseMultiplier; // 基礎倍率（隨等級成長）
   final double levelScaling; // 每級增加的倍率
+  final SkillBoardEffect? boardEffect; // 放置效果（施放技能時操作棋盤）
 
   const AgentSkill({
     required this.name,
@@ -176,6 +199,7 @@ class AgentSkill {
     required this.effectType,
     required this.baseMultiplier,
     this.levelScaling = 0.05,
+    this.boardEffect,
   });
 
   /// 計算特定等級的倍率

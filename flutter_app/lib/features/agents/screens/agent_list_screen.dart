@@ -330,6 +330,16 @@ class _AgentCard extends StatelessWidget {
                       fontSize: 12,
                     ),
                   ),
+                  if (def.skill.boardEffect != null) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      '🧩 ${def.skill.boardEffect!.description}',
+                      style: TextStyle(
+                        color: Colors.cyan.shade300,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),

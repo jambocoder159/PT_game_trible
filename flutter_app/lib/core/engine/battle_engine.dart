@@ -16,6 +16,8 @@ class SkillResult {
   final int hpHealed;
   final int shieldTurns;
   final double shieldPercent;
+  final SkillBoardEffect? boardEffect; // 放置效果（需由 GameProvider 執行）
+  final BlockColor? agentColor;       // 角色屬性對應的方塊顏色
 
   const SkillResult({
     required this.description,
@@ -23,6 +25,8 @@ class SkillResult {
     this.hpHealed = 0,
     this.shieldTurns = 0,
     this.shieldPercent = 0,
+    this.boardEffect,
+    this.agentColor,
   });
 }
 
@@ -353,31 +357,59 @@ class BattleEngine {
       agent.skillTier,
     );
 
+    // 放置效果（所有技能共用）
+    final boardEffect = skill.boardEffect;
+    final agentColor = agent.definition.attribute.blockColor;
+
+    SkillResult result;
+
     switch (skill.effectType) {
       case SkillEffectType.damage:
-        return _processDamageSkill(battle, agent, multiplier, skillDmgUp, passiveSkillMult, activeMechanics);
+        result = _processDamageSkill(battle, agent, multiplier, skillDmgUp, passiveSkillMult, activeMechanics);
+        break;
 
       case SkillEffectType.heal:
-        return _processHealSkill(battle, agent, multiplier, activeMechanics);
+        result = _processHealSkill(battle, agent, multiplier, activeMechanics);
+        break;
 
       case SkillEffectType.shield:
-        return _processShieldSkill(battle, agent, multiplier, activeMechanics);
+        result = _processShieldSkill(battle, agent, multiplier, activeMechanics);
+        break;
 
       case SkillEffectType.aoe:
-        return _processAoeSkill(battle, agent, multiplier, skillDmgUp, passiveSkillMult, activeMechanics);
+        result = _processAoeSkill(battle, agent, multiplier, skillDmgUp, passiveSkillMult, activeMechanics);
+        break;
 
       case SkillEffectType.execute:
-        return _processExecuteSkill(battle, agent, multiplier, skillDmgUp, passiveSkillMult, activeMechanics);
+        result = _processExecuteSkill(battle, agent, multiplier, skillDmgUp, passiveSkillMult, activeMechanics);
+        break;
 
       case SkillEffectType.delay:
         final enemy = battle.currentEnemy;
         if (enemy != null) {
           enemy.attackCountdown += 2;
         }
-        return SkillResult(
+        result = SkillResult(
           description: '${skill.name}！敵人攻擊延遲 2 回合',
         );
+        break;
     }
+
+    // 附加放置效果資訊到結果
+    if (boardEffect != null) {
+      final boardDesc = '｜${boardEffect.description}';
+      return SkillResult(
+        description: '${result.description}$boardDesc',
+        damageDealt: result.damageDealt,
+        hpHealed: result.hpHealed,
+        shieldTurns: result.shieldTurns,
+        shieldPercent: result.shieldPercent,
+        boardEffect: boardEffect,
+        agentColor: agentColor,
+      );
+    }
+
+    return result;
   }
 
   static SkillResult _processDamageSkill(

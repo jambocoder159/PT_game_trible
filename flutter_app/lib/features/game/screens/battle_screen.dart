@@ -64,6 +64,9 @@ class _BattleScreenState extends State<BattleScreen> {
     gameProvider.onTurnEnd = () {
       battleProvider.onTurnEnd();
     };
+    battleProvider.onBoardEffectRequested = (effect, agentColor) {
+      return gameProvider.applyBoardEffect(effect, agentColor);
+    };
 
     gameProvider.startGame(battleMode);
   }
@@ -102,8 +105,10 @@ class _BattleScreenState extends State<BattleScreen> {
   @override
   void dispose() {
     final gameProvider = context.read<GameProvider>();
+    final battleProvider = context.read<BattleProvider>();
     gameProvider.onMatchTurnComplete = null;
     gameProvider.onTurnEnd = null;
+    battleProvider.onBoardEffectRequested = null;
     super.dispose();
   }
 
