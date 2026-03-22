@@ -536,7 +536,8 @@ class GameEngine {
             UIManager.updateQuestUI({
                 mode: this.config.mode,
                 enemy: this.enemy,
-                movesLeft: this.movesLeft
+                movesLeft: this.movesLeft,
+                score: this.score
             });
         }
 
@@ -843,7 +844,8 @@ class GameEngine {
             UIManager.updateQuestUI({
                 mode: this.config.mode,
                 enemy: this.enemy,
-                movesLeft: this.movesLeft
+                movesLeft: this.movesLeft,
+                score: this.score
             });
             
             // 重置限制顯示
@@ -983,7 +985,14 @@ class GameEngine {
     }
 
     resizeCanvas() {
-        const container = document.querySelector('.game-container');
+        // 手機版闖關模式：使用右側遊戲面板作為容器
+        const isMobileQuest = !!document.querySelector('.mobile-quest-container');
+        const container = isMobileQuest
+            ? document.querySelector('.game-panel')
+            : document.querySelector('.game-container');
+
+        if (!container) return;
+
         const canvasContainer = this.canvas.parentElement;
         const style = getComputedStyle(container);
         const containerClientWidth = container.clientWidth;
@@ -1127,7 +1136,8 @@ class GameEngine {
             UIManager.updateQuestUI({
                 mode: this.config.mode,
                 enemy: this.enemy,
-                movesLeft: this.movesLeft
+                movesLeft: this.movesLeft,
+                score: this.score
             });
 
             // 更新限制顯示
@@ -2406,6 +2416,9 @@ class GameEngine {
                     this.addGold(scoreInfo.finalScore);
                 }
             
+                // 收集被消除的顏色，用於通知貓咪動畫
+                const eliminatedColors = [];
+
                 matches.forEach(matchInfo => {
                     const { colIndex, rowIndex } = JSON.parse(matchInfo);
                     const targetGrid = this.config.numCols === 1 ? this.grid[0] : this.grid[colIndex];
@@ -2414,8 +2427,17 @@ class GameEngine {
                         this.createParticleExplosion(block.x, block.drawY, block.width, block.height, block.colorHex);
                         block.isEliminating = true;
                         block.eliminationStartTime = Date.now();
+                        if (block.colorName) eliminatedColors.push(block.colorName);
                     }
                 });
+
+                // 通知貓咪顯示系統（手機版闖關模式）
+                if (this.config.mode === 'quest' && window.catDisplay) {
+                    window.catDisplay.onBlocksEliminated(eliminatedColors);
+                    if (this.consecutiveSuccessfulActions >= 3) {
+                        window.catDisplay.onCombo(this.consecutiveSuccessfulActions);
+                    }
+                }
 
                 await new Promise(resolve => setTimeout(resolve, this.config.eliminationAnimationDuration + 30));
 
@@ -2936,7 +2958,7 @@ class GameEngine {
     
     // 添加震動效果（用於道具使用）
     addScreenShakeEffect() {
-        const gameContainer = document.querySelector('.game-container');
+        const gameContainer = document.querySelector('.game-container') || document.querySelector('.mobile-quest-container');
         if (gameContainer) {
             gameContainer.classList.add('screen-shake');
             setTimeout(() => {
@@ -2947,7 +2969,7 @@ class GameEngine {
 
     handlePenalty() {
         // 震動效果
-        const gameContainer = document.querySelector('.game-container');
+        const gameContainer = document.querySelector('.game-container') || document.querySelector('.mobile-quest-container');
         if (gameContainer) {
             gameContainer.classList.add('screen-shake');
             setTimeout(() => {
