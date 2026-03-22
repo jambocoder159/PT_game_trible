@@ -2,7 +2,11 @@
 /// 管理玩家資料的載入、儲存、角色操作
 import 'package:flutter/foundation.dart';
 import '../../../config/cat_agent_data.dart';
+import '../../../config/passive_skill_data.dart';
+import '../../../config/skill_tier_data.dart';
+import '../../../config/talent_tree_data.dart';
 import '../../../core/models/cat_agent.dart';
+import '../../../core/models/material.dart';
 import '../../../core/models/player_data.dart';
 import '../../../core/services/local_storage.dart';
 
@@ -304,6 +308,138 @@ class PlayerProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  // ─── 素材操作 ───
+
+  int getMaterialCount(MaterialType type) {
+    return _data.materials[type.name] ?? 0;
+  }
+
+  bool hasMaterials(Map<MaterialType, int> cost) {
+    for (final entry in cost.entries) {
+      if (getMaterialCount(entry.key) < entry.value) return false;
+    }
+    return true;
+  }
+
+  void _deductMaterials(Map<MaterialType, int> cost) {
+    for (final entry in cost.entries) {
+      final key = entry.key.name;
+      _data.materials[key] = (_data.materials[key] ?? 0) - entry.value;
+    }
+  }
+
+  // ─── 天賦樹操作 ───
+
+  /// 解鎖天賦節點
+  Future<bool> unlockTalentNode(String agentId, String nodeId) async {
+    final instance = _data.agents[agentId];
+    if (instance == null || !instance.isUnlocked) return false;
+    if (instance.unlockedTalentIds.contains(nodeId)) return false;
+
+    final node = TalentTreeData.getNodeById(nodeId);
+    if (node == null) return false;
+
+    // 檢查前置條件
+    if (node.prerequisiteNodeId != null &&
+        !instance.unlockedTalentIds.contains(node.prerequisiteNodeId)) {
+      return false;
+    }
+
+    // 檢查費用
+    if (_data.gold < node.goldCost) return false;
+    if (!hasMaterials(node.materialCost)) return false;
+
+    // 扣除
+    _data.gold -= node.goldCost;
+    _deductMaterials(node.materialCost);
+    instance.unlockedTalentIds.add(nodeId);
+
+    await _save();
+    notifyListeners();
+    return true;
+  }
+
+  // ─── 技能強化操作 ───
+
+  /// 升級技能階級
+  Future<bool> upgradeSkillTier(String agentId) async {
+    final instance = _data.agents[agentId];
+    if (instance == null || !instance.isUnlocked) return false;
+    if (instance.skillTier >= 5) return false;
+
+    final nextTier = SkillTierData.getTier(agentId, instance.skillTier + 1);
+    if (nextTier == null) return false;
+
+    // 檢查費用
+    if (_data.gold < nextTier.goldCost) return false;
+    if (!hasMaterials(nextTier.materialCost)) return false;
+
+    // 扣除
+    _data.gold -= nextTier.goldCost;
+    _deductMaterials(nextTier.materialCost);
+    instance.skillTier++;
+
+    await _save();
+    notifyListeners();
+    return true;
+  }
+
+  // ─── 被動技能操作 ───
+
+  /// 解鎖被動技能
+  Future<bool> unlockPassive(String agentId, String passiveId) async {
+    final instance = _data.agents[agentId];
+    if (instance == null || !instance.isUnlocked) return false;
+    if (instance.unlockedPassiveIds.contains(passiveId)) return false;
+
+    final passive = PassiveSkillData.getPassiveById(passiveId);
+    if (passive == null || passive.agentId != agentId) return false;
+
+    // 檢查等級門檻
+    if (instance.level < passive.unlockAtAgentLevel) return false;
+
+    // 檢查費用
+    if (_data.gold < passive.goldCost) return false;
+    if (!hasMaterials(passive.materialCost)) return false;
+
+    // 扣除
+    _data.gold -= passive.goldCost;
+    _deductMaterials(passive.materialCost);
+    instance.unlockedPassiveIds.add(passiveId);
+
+    await _save();
+    notifyListeners();
+    return true;
+  }
+
+  /// 裝備被動技能
+  Future<bool> equipPassive(String agentId, String passiveId) async {
+    final instance = _data.agents[agentId];
+    if (instance == null || !instance.isUnlocked) return false;
+    if (!instance.unlockedPassiveIds.contains(passiveId)) return false;
+    if (instance.equippedPassiveIds.contains(passiveId)) return false;
+    if (instance.equippedPassiveIds.length >= 2) return false;
+
+    instance.equippedPassiveIds.add(passiveId);
+
+    await _save();
+    notifyListeners();
+    return true;
+  }
+
+  /// 卸下被動技能
+  Future<bool> unequipPassive(String agentId, String passiveId) async {
+    final instance = _data.agents[agentId];
+    if (instance == null || !instance.isUnlocked) return false;
+    if (!instance.equippedPassiveIds.contains(passiveId)) return false;
+
+    instance.equippedPassiveIds.remove(passiveId);
+
+    await _save();
+    notifyListeners();
+    return true;
+  }
+
   // ─── GM 工具（開發用） ───
 
   /// 體力補滿
@@ -356,6 +492,23 @@ class PlayerProvider extends ChangeNotifier {
         entry.value.level = level;
         entry.value.currentExp = 0;
       }
+    }
+    await _save();
+    notifyListeners();
+  }
+
+  /// 發放素材
+  Future<void> gmAddMaterials(MaterialType type, int amount) async {
+    final key = type.name;
+    _data.materials[key] = (_data.materials[key] ?? 0) + amount;
+    await _save();
+    notifyListeners();
+  }
+
+  /// 發放全部素材（每種 50 個）
+  Future<void> gmAddAllMaterials() async {
+    for (final type in MaterialType.values) {
+      _data.materials[type.name] = (_data.materials[type.name] ?? 0) + 50;
     }
     await _save();
     notifyListeners();

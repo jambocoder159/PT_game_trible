@@ -103,6 +103,19 @@ class GmScreen extends StatelessWidget {
               ),
               const SizedBox(height: 10),
 
+              // 素材
+              _SectionTitle('素材'),
+              _GmButton(
+                icon: Icons.inventory_2,
+                label: '全素材 +50',
+                color: Colors.cyan,
+                onTap: () {
+                  provider.gmAddAllMaterials();
+                  _showDone(context, '全素材各 +50');
+                },
+              ),
+              const SizedBox(height: 10),
+
               // 角色
               _SectionTitle('角色'),
               _GmButton(

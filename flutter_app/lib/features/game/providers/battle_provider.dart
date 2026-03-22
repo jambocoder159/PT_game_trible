@@ -3,7 +3,9 @@
 /// GameProvider 負責三消核心，BattleProvider 負責戰鬥層
 import 'package:flutter/foundation.dart';
 import '../../../config/cat_agent_data.dart';
+import '../../../config/passive_skill_data.dart';
 import '../../../config/stage_data.dart';
+import '../../../config/talent_tree_data.dart';
 import '../../../core/engine/battle_engine.dart';
 import '../../../core/models/battle_state.dart';
 import '../../../core/models/block.dart';
@@ -70,9 +72,23 @@ class BattleProvider extends ChangeNotifier {
       final def = CatAgentData.getById(id);
       final instance = playerData.agents[id];
       if (def != null && instance != null && instance.isUnlocked) {
+        // 載入天賦數據
+        final talents = instance.unlockedTalentIds
+            .map((tid) => TalentTreeData.getNodeById(tid))
+            .nonNulls
+            .toList();
+        // 載入被動數據
+        final passives = instance.equippedPassiveIds
+            .map((pid) => PassiveSkillData.getPassiveById(pid))
+            .nonNulls
+            .toList();
+
         team.add(BattleAgent(
           definition: def,
           level: instance.level,
+          skillTier: instance.skillTier,
+          unlockedTalents: talents,
+          equippedPassives: passives,
         ));
       }
     }
@@ -145,11 +161,14 @@ class BattleProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// 處理回合結束（玩家操作後）— 敵人回擊
+  /// 處理回合結束（玩家操作後）— 回合開始效果 + 敵人回擊
   void onTurnEnd() {
     if (_battleState == null || _battleState!.isBattleOver) return;
 
     _battleState!.turnCount++;
+
+    // 處理回合開始效果（DoT、HoT、被動）
+    BattleEngine.processTurnStart(_battleState!);
 
     final result = BattleEngine.processEnemyTurn(_battleState!);
 

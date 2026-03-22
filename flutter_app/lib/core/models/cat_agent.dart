@@ -289,12 +289,24 @@ class CatAgentInstance {
   int currentExp;
   bool isUnlocked;
 
+  // 天賦/技能/被動養成系統
+  int skillTier;                    // 技能強化階級 1-5
+  List<String> unlockedTalentIds;   // 已解鎖的天賦節點 ID
+  List<String> unlockedPassiveIds;  // 已解鎖的被動技能 ID
+  List<String> equippedPassiveIds;  // 已裝備的被動技能 ID（最多 2）
+
   CatAgentInstance({
     required this.definitionId,
     this.level = 1,
     this.currentExp = 0,
     this.isUnlocked = false,
-  });
+    this.skillTier = 1,
+    List<String>? unlockedTalentIds,
+    List<String>? unlockedPassiveIds,
+    List<String>? equippedPassiveIds,
+  })  : unlockedTalentIds = unlockedTalentIds ?? [],
+        unlockedPassiveIds = unlockedPassiveIds ?? [],
+        equippedPassiveIds = equippedPassiveIds ?? [];
 
   /// 從 JSON 建立
   factory CatAgentInstance.fromJson(Map<String, dynamic> json) {
@@ -303,6 +315,10 @@ class CatAgentInstance {
       level: json['level'] as int? ?? 1,
       currentExp: json['currentExp'] as int? ?? 0,
       isUnlocked: json['isUnlocked'] as bool? ?? false,
+      skillTier: json['skillTier'] as int? ?? 1,
+      unlockedTalentIds: (json['unlockedTalentIds'] as List<dynamic>?)?.cast<String>(),
+      unlockedPassiveIds: (json['unlockedPassiveIds'] as List<dynamic>?)?.cast<String>(),
+      equippedPassiveIds: (json['equippedPassiveIds'] as List<dynamic>?)?.cast<String>(),
     );
   }
 
@@ -313,6 +329,10 @@ class CatAgentInstance {
       'level': level,
       'currentExp': currentExp,
       'isUnlocked': isUnlocked,
+      'skillTier': skillTier,
+      'unlockedTalentIds': unlockedTalentIds,
+      'unlockedPassiveIds': unlockedPassiveIds,
+      'equippedPassiveIds': equippedPassiveIds,
     };
   }
 }

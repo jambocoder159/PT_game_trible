@@ -2,6 +2,8 @@ import 'dart:math';
 import 'package:flutter/foundation.dart';
 import '../../../core/models/block.dart';
 import '../../../core/models/cat_data.dart';
+import '../../../core/models/material.dart';
+import '../../../core/models/player_data.dart';
 import '../../../core/services/local_storage.dart';
 
 /// 貓咪管理 Provider — 飼料累積、餵食、收穫
@@ -70,7 +72,7 @@ class CatProvider extends ChangeNotifier {
 
   /// 收穫所有累積的寶箱（批量開啟）
   /// 回傳 (獎勵列表, 寶箱數量)
-  (List<CatReward>, int)? collectAllRewards(String catId, int playerLevel) {
+  (List<CatReward>, int)? collectAllRewards(String catId, int playerLevel, {PlayerData? playerData}) {
     final cat = _cats[catId];
     if (cat == null || !cat.isFull(playerLevel)) return null;
 
@@ -80,7 +82,7 @@ class CatProvider extends ChangeNotifier {
     // 為每個寶箱生成獎勵
     final rewards = <CatReward>[];
     for (int i = 0; i < chestCount; i++) {
-      rewards.add(_generateReward(playerLevel));
+      rewards.add(_generateReward(playerLevel, playerData: playerData));
     }
 
     // 扣除已開的寶箱對應的飼料，保留剩餘
@@ -93,14 +95,13 @@ class CatProvider extends ChangeNotifier {
     return (rewards, chestCount);
   }
 
-  /// 根據玩家等級產生獎勵
-  CatReward _generateReward(int playerLevel) {
+  /// 根據玩家等級產生獎勵（同時產出素材到 PlayerData）
+  CatReward _generateReward(int playerLevel, {PlayerData? playerData}) {
     // 基礎金幣獎勵
     int goldAmount = 10 + playerLevel * 5;
     int rarity = 1;
 
     if (playerLevel >= 10) {
-      // 高等級有機率獲得更好獎勵
       final roll = _random.nextDouble();
       if (roll < 0.15) {
         rarity = 3;
@@ -117,6 +118,31 @@ class CatProvider extends ChangeNotifier {
       }
     }
 
+    // 產出實際素材到 PlayerData
+    if (playerData != null) {
+      switch (rarity) {
+        case 1:
+          _addMaterial(playerData, MaterialType.commonShard, 2 + _random.nextInt(2));
+          if (_random.nextDouble() < 0.15) {
+            _addMaterial(playerData, MaterialType.talentScroll, 1);
+          }
+          break;
+        case 2:
+          _addMaterial(playerData, MaterialType.advancedShard, 1 + _random.nextInt(2));
+          if (_random.nextDouble() < 0.2) {
+            _addMaterial(playerData, MaterialType.skillCore, 1);
+          }
+          break;
+        case 3:
+          _addMaterial(playerData, MaterialType.rareShard, 1);
+          _addMaterial(playerData, MaterialType.passiveGem, 1);
+          if (_random.nextDouble() < 0.3) {
+            _addMaterial(playerData, MaterialType.skillCore, 1);
+          }
+          break;
+      }
+    }
+
     final names = {
       1: '普通素材',
       2: '進階素材',
@@ -128,6 +154,11 @@ class CatProvider extends ChangeNotifier {
       quantity: goldAmount,
       rarity: rarity,
     );
+  }
+
+  void _addMaterial(PlayerData data, MaterialType type, int amount) {
+    final key = type.name;
+    data.materials[key] = (data.materials[key] ?? 0) + amount;
   }
 
   Future<void> _save() async {

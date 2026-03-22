@@ -99,14 +99,14 @@ class CatPanel extends StatelessWidget {
     CatDefinition def,
     int playerLevel,
   ) {
-    final result = catProvider.collectAllRewards(def.id, playerLevel);
+    final player = context.read<PlayerProvider>();
+    final result = catProvider.collectAllRewards(def.id, playerLevel, playerData: player.data);
     if (result == null) return;
 
     final (rewards, chestCount) = result;
 
     // 合計金幣
     final totalGold = rewards.fold<int>(0, (sum, r) => sum + r.quantity);
-    final player = context.read<PlayerProvider>();
     player.addGold(totalGold);
 
     // 最高稀有度
