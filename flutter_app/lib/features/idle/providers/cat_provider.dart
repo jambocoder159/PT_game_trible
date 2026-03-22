@@ -122,22 +122,22 @@ class CatProvider extends ChangeNotifier {
     if (playerData != null) {
       switch (rarity) {
         case 1:
-          _addMaterial(playerData, MaterialType.commonShard, 2 + _random.nextInt(2));
+          _addMaterial(playerData, GameMaterial.commonShard, 2 + _random.nextInt(2));
           if (_random.nextDouble() < 0.15) {
-            _addMaterial(playerData, MaterialType.talentScroll, 1);
+            _addMaterial(playerData, GameMaterial.talentScroll, 1);
           }
           break;
         case 2:
-          _addMaterial(playerData, MaterialType.advancedShard, 1 + _random.nextInt(2));
+          _addMaterial(playerData, GameMaterial.advancedShard, 1 + _random.nextInt(2));
           if (_random.nextDouble() < 0.2) {
-            _addMaterial(playerData, MaterialType.skillCore, 1);
+            _addMaterial(playerData, GameMaterial.skillCore, 1);
           }
           break;
         case 3:
-          _addMaterial(playerData, MaterialType.rareShard, 1);
-          _addMaterial(playerData, MaterialType.passiveGem, 1);
+          _addMaterial(playerData, GameMaterial.rareShard, 1);
+          _addMaterial(playerData, GameMaterial.passiveGem, 1);
           if (_random.nextDouble() < 0.3) {
-            _addMaterial(playerData, MaterialType.skillCore, 1);
+            _addMaterial(playerData, GameMaterial.skillCore, 1);
           }
           break;
       }
@@ -156,7 +156,7 @@ class CatProvider extends ChangeNotifier {
     );
   }
 
-  void _addMaterial(PlayerData data, MaterialType type, int amount) {
+  void _addMaterial(PlayerData data, GameMaterial type, int amount) {
     final key = type.name;
     data.materials[key] = (data.materials[key] ?? 0) + amount;
   }

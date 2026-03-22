@@ -22,7 +22,7 @@ class MaterialInventoryBar extends StatelessWidget {
           child: SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             child: Row(
-              children: MaterialType.values.map((type) {
+              children: GameMaterial.values.map((type) {
                 final count = provider.getMaterialCount(type);
                 return Padding(
                   padding: const EdgeInsets.only(right: 12),

@@ -44,7 +44,7 @@ class SkillTierDefinition {
   final SkillTierMechanic? newMechanic;
   final double mechanicValue;           // 機制參數值
   final int goldCost;
-  final Map<MaterialType, int> materialCost;
+  final Map<GameMaterial, int> materialCost;
 
   const SkillTierDefinition({
     required this.tier,

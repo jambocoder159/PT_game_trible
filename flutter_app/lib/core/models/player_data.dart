@@ -29,7 +29,7 @@ class PlayerData {
   // 新手引導
   bool tutorialCompleted;
 
-  // 素材庫存（MaterialType.name → 數量）
+  // 素材庫存（GameMaterial.name → 數量）
   Map<String, int> materials;
 
   PlayerData({

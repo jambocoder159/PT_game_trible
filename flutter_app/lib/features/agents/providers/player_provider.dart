@@ -310,18 +310,18 @@ class PlayerProvider extends ChangeNotifier {
 
   // ─── 素材操作 ───
 
-  int getMaterialCount(MaterialType type) {
+  int getMaterialCount(GameMaterial type) {
     return _data.materials[type.name] ?? 0;
   }
 
-  bool hasMaterials(Map<MaterialType, int> cost) {
+  bool hasMaterials(Map<GameMaterial, int> cost) {
     for (final entry in cost.entries) {
       if (getMaterialCount(entry.key) < entry.value) return false;
     }
     return true;
   }
 
-  void _deductMaterials(Map<MaterialType, int> cost) {
+  void _deductMaterials(Map<GameMaterial, int> cost) {
     for (final entry in cost.entries) {
       final key = entry.key.name;
       _data.materials[key] = (_data.materials[key] ?? 0) - entry.value;
@@ -498,7 +498,7 @@ class PlayerProvider extends ChangeNotifier {
   }
 
   /// 發放素材
-  Future<void> gmAddMaterials(MaterialType type, int amount) async {
+  Future<void> gmAddMaterials(GameMaterial type, int amount) async {
     final key = type.name;
     _data.materials[key] = (_data.materials[key] ?? 0) + amount;
     await _save();
@@ -507,7 +507,7 @@ class PlayerProvider extends ChangeNotifier {
 
   /// 發放全部素材（每種 50 個）
   Future<void> gmAddAllMaterials() async {
-    for (final type in MaterialType.values) {
+    for (final type in GameMaterial.values) {
       _data.materials[type.name] = (_data.materials[type.name] ?? 0) + 50;
     }
     await _save();

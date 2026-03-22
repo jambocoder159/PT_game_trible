@@ -86,7 +86,7 @@ class TalentNodeDefinition {
   final TalentEffectType effectType;
   final double effectValue; // 百分比值，例如 5 代表 5%
   final int goldCost;
-  final Map<MaterialType, int> materialCost;
+  final Map<GameMaterial, int> materialCost;
   final String? prerequisiteNodeId;
 
   const TalentNodeDefinition({

@@ -65,7 +65,7 @@ class PassiveSkillDefinition {
   final PassiveEffectType effectType;
   final double effectValue;
   final int goldCost;
-  final Map<MaterialType, int> materialCost;
+  final Map<GameMaterial, int> materialCost;
   final int unlockAtAgentLevel;
 
   const PassiveSkillDefinition({
