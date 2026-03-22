@@ -48,7 +48,7 @@ class AgentDetailScreen extends StatelessWidget {
                 child: _TabSection(
                   agentId: definition.id,
                   agentLevel: level,
-                  instance: instance,
+                  instance: agentInfo.instance,
                 ),
               ),
             ],

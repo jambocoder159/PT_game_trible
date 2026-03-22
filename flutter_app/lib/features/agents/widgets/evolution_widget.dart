@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../../../config/evolution_data.dart';
 import '../../../config/theme.dart';
 import '../../../core/models/cat_agent.dart';
+import '../../../core/models/evolution.dart';
 import '../../../core/models/material.dart';
 import '../providers/player_provider.dart';
 
