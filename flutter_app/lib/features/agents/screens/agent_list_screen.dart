@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../../../config/theme.dart';
 import '../../../core/models/cat_agent.dart';
 import '../providers/player_provider.dart';
+import 'agent_detail_screen.dart';
 
 class AgentListScreen extends StatelessWidget {
   const AgentListScreen({super.key});
@@ -179,7 +180,7 @@ class _AgentCard extends StatelessWidget {
                     Row(
                       children: [
                         Text(
-                          isUnlocked ? def.name : '???',
+                          isUnlocked ? agentInfo.displayName : '???',
                           style: TextStyle(
                             color: isUnlocked
                                 ? AppTheme.textPrimary
@@ -249,6 +250,18 @@ class _AgentCard extends StatelessWidget {
 
   void _showAgentDetail(BuildContext context) {
     final def = agentInfo.definition;
+
+    // 已解鎖角色：導航到詳情頁（含天賦/技能/被動 Tab）
+    if (agentInfo.isUnlocked) {
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => AgentDetailScreen(definition: def),
+        ),
+      );
+      return;
+    }
+
+    // 未解鎖角色：仍用底部彈窗
     showModalBottomSheet(
       context: context,
       backgroundColor: AppTheme.bgSecondary,
@@ -317,6 +330,16 @@ class _AgentCard extends StatelessWidget {
                       fontSize: 12,
                     ),
                   ),
+                  if (def.skill.boardEffect != null) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      '🧩 ${def.skill.boardEffect!.description}',
+                      style: TextStyle(
+                        color: Colors.cyan.shade300,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),

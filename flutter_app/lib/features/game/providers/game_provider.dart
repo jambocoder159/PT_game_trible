@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:uuid/uuid.dart';
 import '../../../config/game_modes.dart';
 import '../../../core/models/block.dart';
+import '../../../core/models/cat_agent.dart';
 import '../../../core/models/game_state.dart';
 import '../../../core/engine/match_detector.dart';
 import '../../../core/engine/score_calculator.dart';
@@ -291,6 +292,148 @@ class GameProvider extends ChangeNotifier {
 
     _isProcessing = false;
     notifyListeners();
+  }
+
+  // ─── 技能放置效果 ───
+
+  /// 施放技能時操作棋盤（由 BattleProvider 呼叫）
+  Future<void> applyBoardEffect(SkillBoardEffect effect, BlockColor agentColor) async {
+    final s = _state;
+    if (s == null || s.status != GameStatus.playing || _isProcessing) return;
+
+    _isProcessing = true;
+    final gen = _gameGeneration;
+
+    switch (effect.type) {
+      case BoardEffectType.convertColor:
+        _convertRandomBlocks(s, effect.value, agentColor);
+        break;
+      case BoardEffectType.eliminateRandom:
+        _eliminateRandomBlocks(s, effect.value);
+        break;
+      case BoardEffectType.eliminateRow:
+        final row = effect.value == -1 ? s.mode.numRows - 1 : effect.value;
+        _eliminateEntireRow(s, row);
+        break;
+      case BoardEffectType.eliminateColumn:
+        final col = _random.nextInt(s.mode.numCols);
+        _eliminateEntireColumn(s, col);
+        break;
+      case BoardEffectType.shuffleBoard:
+        _shuffleBoard(s);
+        break;
+    }
+
+    notifyListeners();
+    await Future.delayed(const Duration(milliseconds: 400));
+    if (_gameGeneration != gen) { _isProcessing = false; return; }
+
+    // 消除類效果需要重力 + 補充 + 連鎖處理
+    if (effect.type == BoardEffectType.eliminateRandom ||
+        effect.type == BoardEffectType.eliminateRow ||
+        effect.type == BoardEffectType.eliminateColumn) {
+      _applyGravity();
+      notifyListeners();
+      await Future.delayed(const Duration(milliseconds: 300));
+      if (_gameGeneration != gen) { _isProcessing = false; return; }
+
+      _refillGrid();
+      notifyListeners();
+      await Future.delayed(const Duration(milliseconds: 300));
+      if (_gameGeneration != gen) { _isProcessing = false; return; }
+
+      await _processMatchLoop();
+    }
+
+    // 轉色效果可能產生新連鎖
+    if (effect.type == BoardEffectType.convertColor) {
+      await _processMatchLoop();
+    }
+
+    _isProcessing = false;
+    notifyListeners();
+  }
+
+  /// 將 N 個隨機非同色方塊轉為指定顏色
+  void _convertRandomBlocks(GameState s, int count, BlockColor targetColor) {
+    final candidates = <Point<int>>[];
+    for (int col = 0; col < s.mode.numCols; col++) {
+      for (int row = 0; row < s.mode.numRows; row++) {
+        final block = s.grid[col][row];
+        if (block != null && block.color != targetColor && !block.isBlackened) {
+          candidates.add(Point(col, row));
+        }
+      }
+    }
+    candidates.shuffle(_random);
+    final toConvert = candidates.take(count);
+    for (final p in toConvert) {
+      final old = s.grid[p.x][p.y]!;
+      s.grid[p.x][p.y] = old.copyWith(color: targetColor);
+    }
+  }
+
+  /// 隨機消除 N 個方塊
+  void _eliminateRandomBlocks(GameState s, int count) {
+    final candidates = <Point<int>>[];
+    for (int col = 0; col < s.mode.numCols; col++) {
+      for (int row = 0; row < s.mode.numRows; row++) {
+        if (s.grid[col][row] != null && !s.grid[col][row]!.isBlackened) {
+          candidates.add(Point(col, row));
+        }
+      }
+    }
+    candidates.shuffle(_random);
+    for (final p in candidates.take(count)) {
+      s.grid[p.x][p.y] = null;
+    }
+  }
+
+  /// 消除一整排
+  void _eliminateEntireRow(GameState s, int row) {
+    if (row < 0 || row >= s.mode.numRows) return;
+    for (int col = 0; col < s.mode.numCols; col++) {
+      if (s.grid[col][row] != null && !s.grid[col][row]!.isBlackened) {
+        s.grid[col][row] = null;
+      }
+    }
+  }
+
+  /// 消除一整列
+  void _eliminateEntireColumn(GameState s, int col) {
+    if (col < 0 || col >= s.mode.numCols) return;
+    for (int row = 0; row < s.mode.numRows; row++) {
+      if (s.grid[col][row] != null && !s.grid[col][row]!.isBlackened) {
+        s.grid[col][row] = null;
+      }
+    }
+  }
+
+  /// 隨機洗牌棋盤（保留方塊數量和顏色，只打亂位置）
+  void _shuffleBoard(GameState s) {
+    final blocks = <Block>[];
+    for (int col = 0; col < s.mode.numCols; col++) {
+      for (int row = 0; row < s.mode.numRows; row++) {
+        if (s.grid[col][row] != null) {
+          blocks.add(s.grid[col][row]!);
+          s.grid[col][row] = null;
+        }
+      }
+    }
+    blocks.shuffle(_random);
+    int i = 0;
+    for (int col = 0; col < s.mode.numCols; col++) {
+      for (int row = 0; row < s.mode.numRows; row++) {
+        if (i < blocks.length) {
+          final b = blocks[i];
+          b.col = col;
+          b.row = row;
+          s.grid[col][row] = b;
+          i++;
+        }
+      }
+    }
+    _resolveInitialMatches();
   }
 
   // ─── 連鎖消除處理（回傳是否有任何消除） ───

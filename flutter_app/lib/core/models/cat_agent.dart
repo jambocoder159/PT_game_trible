@@ -160,6 +160,28 @@ enum SkillEffectType {
   delay, // 延遲敵人攻擊
 }
 
+/// 技能放置效果類型
+enum BoardEffectType {
+  convertColor,    // 轉化：將 N 個隨機方塊轉為角色屬性色
+  eliminateRandom, // 隨機消除：消除 N 個隨機方塊
+  eliminateRow,    // 整排消除：消除指定排（0=頂排, -1=底排）
+  eliminateColumn, // 整列消除：消除隨機一列
+  shuffleBoard,    // 洗牌：重新排列所有方塊
+}
+
+/// 技能的放置（棋盤）效果
+class SkillBoardEffect {
+  final BoardEffectType type;
+  final int value;         // 數量或目標（convertColor: 轉化數量, eliminateRandom: 消除數量, eliminateRow: 0=頂/‐1=底）
+  final String description;
+
+  const SkillBoardEffect({
+    required this.type,
+    required this.value,
+    required this.description,
+  });
+}
+
 /// 技能定義
 class AgentSkill {
   final String name;
@@ -168,6 +190,7 @@ class AgentSkill {
   final SkillEffectType effectType;
   final double baseMultiplier; // 基礎倍率（隨等級成長）
   final double levelScaling; // 每級增加的倍率
+  final SkillBoardEffect? boardEffect; // 放置效果（施放技能時操作棋盤）
 
   const AgentSkill({
     required this.name,
@@ -176,6 +199,7 @@ class AgentSkill {
     required this.effectType,
     required this.baseMultiplier,
     this.levelScaling = 0.05,
+    this.boardEffect,
   });
 
   /// 計算特定等級的倍率
@@ -289,12 +313,28 @@ class CatAgentInstance {
   int currentExp;
   bool isUnlocked;
 
+  // 進化系統
+  int evolutionStage;               // 進化階段 0=未進化, 1=一階, 2=二階
+
+  // 天賦/技能/被動養成系統
+  int skillTier;                    // 技能強化階級 1-5
+  List<String> unlockedTalentIds;   // 已解鎖的天賦節點 ID
+  List<String> unlockedPassiveIds;  // 已解鎖的被動技能 ID
+  List<String> equippedPassiveIds;  // 已裝備的被動技能 ID（最多 2）
+
   CatAgentInstance({
     required this.definitionId,
     this.level = 1,
     this.currentExp = 0,
     this.isUnlocked = false,
-  });
+    this.evolutionStage = 0,
+    this.skillTier = 1,
+    List<String>? unlockedTalentIds,
+    List<String>? unlockedPassiveIds,
+    List<String>? equippedPassiveIds,
+  })  : unlockedTalentIds = unlockedTalentIds ?? [],
+        unlockedPassiveIds = unlockedPassiveIds ?? [],
+        equippedPassiveIds = equippedPassiveIds ?? [];
 
   /// 從 JSON 建立
   factory CatAgentInstance.fromJson(Map<String, dynamic> json) {
@@ -303,6 +343,11 @@ class CatAgentInstance {
       level: json['level'] as int? ?? 1,
       currentExp: json['currentExp'] as int? ?? 0,
       isUnlocked: json['isUnlocked'] as bool? ?? false,
+      evolutionStage: json['evolutionStage'] as int? ?? 0,
+      skillTier: json['skillTier'] as int? ?? 1,
+      unlockedTalentIds: (json['unlockedTalentIds'] as List<dynamic>?)?.cast<String>(),
+      unlockedPassiveIds: (json['unlockedPassiveIds'] as List<dynamic>?)?.cast<String>(),
+      equippedPassiveIds: (json['equippedPassiveIds'] as List<dynamic>?)?.cast<String>(),
     );
   }
 
@@ -313,6 +358,11 @@ class CatAgentInstance {
       'level': level,
       'currentExp': currentExp,
       'isUnlocked': isUnlocked,
+      'evolutionStage': evolutionStage,
+      'skillTier': skillTier,
+      'unlockedTalentIds': unlockedTalentIds,
+      'unlockedPassiveIds': unlockedPassiveIds,
+      'equippedPassiveIds': equippedPassiveIds,
     };
   }
 }

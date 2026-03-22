@@ -41,6 +41,11 @@ class _GameBoardState extends State<GameBoard>
   // 長按計時
   bool _longPressActivated = false;
 
+  // 快取棋盤佈局（第一次計算後鎖定，防止動態 UI 變化導致棋盤大小跳動）
+  _BoardLayout? _cachedLayout;
+  int _cachedCols = 0;
+  int _cachedRows = 0;
+
   @override
   void initState() {
     super.initState();
@@ -63,9 +68,14 @@ class _GameBoardState extends State<GameBoard>
     super.dispose();
   }
 
-  /// 計算方塊佈局參數
+  /// 計算方塊佈局參數（第一次計算後快取，避免動態 UI 造成棋盤抖動）
   _BoardLayout _calcLayout(
       BoxConstraints constraints, int numCols, int numRows) {
+    // 如果行列不變，直接返回快取
+    if (_cachedLayout != null && _cachedCols == numCols && _cachedRows == numRows) {
+      return _cachedLayout!;
+    }
+
     final screenWidth = MediaQuery.of(context).size.width;
     final totalGapsW = (numCols + 1) * AppTheme.blockGap;
     final availableWidth = screenWidth * 0.85 - totalGapsW;
@@ -77,12 +87,17 @@ class _GameBoardState extends State<GameBoard>
         .clamp(36.0, AppTheme.blockSize)
         .clamp(36.0, blockByHeight.clamp(36.0, AppTheme.blockSize));
     final cellSize = blockSize + AppTheme.blockGap;
-    return _BoardLayout(
+    final layout = _BoardLayout(
       blockSize: blockSize,
       cellSize: cellSize,
       boardWidth: numCols * cellSize + AppTheme.blockGap,
       boardHeight: numRows * cellSize + AppTheme.blockGap,
     );
+
+    _cachedLayout = layout;
+    _cachedCols = numCols;
+    _cachedRows = numRows;
+    return layout;
   }
 
   /// 取得格子左上角座標

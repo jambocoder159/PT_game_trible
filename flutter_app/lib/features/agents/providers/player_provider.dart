@@ -1,8 +1,14 @@
 /// 玩家資料 Provider
 /// 管理玩家資料的載入、儲存、角色操作
+import 'dart:math';
 import 'package:flutter/foundation.dart';
 import '../../../config/cat_agent_data.dart';
+import '../../../config/evolution_data.dart';
+import '../../../config/passive_skill_data.dart';
+import '../../../config/skill_tier_data.dart';
+import '../../../config/talent_tree_data.dart';
 import '../../../core/models/cat_agent.dart';
+import '../../../core/models/material.dart';
 import '../../../core/models/player_data.dart';
 import '../../../core/services/local_storage.dart';
 
@@ -24,6 +30,12 @@ class PlayerProvider extends ChangeNotifier {
   /// 儲存資料
   Future<void> _save() async {
     await LocalStorageService.instance.savePlayerData(_data);
+  }
+
+  /// 通知 UI 並儲存（外部直接修改 data 後呼叫）
+  void notifyAndSave() {
+    notifyListeners();
+    _save();
   }
 
   // ─── 角色操作 ───
@@ -110,12 +122,13 @@ class PlayerProvider extends ChangeNotifier {
     final def = CatAgentData.getById(agentId);
     if (def == null) return false;
 
-    if (instance.level >= def.maxLevel) return false;
+    final maxLevel = getAgentMaxLevel(agentId);
+    if (instance.level >= maxLevel) return false;
 
     instance.currentExp += expToAdd;
 
     // 檢查升級
-    while (instance.level < def.maxLevel) {
+    while (instance.level < maxLevel) {
       final required = def.expRequiredForLevel(instance.level + 1) -
           def.expRequiredForLevel(instance.level);
       if (instance.currentExp >= required) {
@@ -217,6 +230,13 @@ class PlayerProvider extends ChangeNotifier {
       agentUnlocked = true;
     }
 
+    // 素材掉落（根據章節和星級）
+    final drops = _generateBattleMaterialDrops(stageId, stars);
+    for (final entry in drops.entries) {
+      final key = entry.key.name;
+      _data.materials[key] = (_data.materials[key] ?? 0) + entry.value;
+    }
+
     // 更新每日任務
     if (_data.dailyQuests.needsReset) {
       _data.dailyQuests.reset();
@@ -233,7 +253,54 @@ class PlayerProvider extends ChangeNotifier {
       isFirstClear: isFirstClear,
       agentUnlocked: agentUnlocked,
       unlockedAgentId: unlockAgentId,
+      materialDrops: drops,
     );
+  }
+
+  static final _rng = Random();
+
+  /// 根據關卡 ID 和星級生成素材掉落
+  Map<GameMaterial, int> _generateBattleMaterialDrops(String stageId, int stars) {
+    final drops = <GameMaterial, int>{};
+    // 從 stageId 解析章節 (e.g. "1-3" → chapter 1)
+    final chapter = int.tryParse(stageId.split('-').first) ?? 1;
+
+    // 基礎掉落：水晶粉塵
+    drops[GameMaterial.crystalDust] = 1 + _rng.nextInt(2) + (stars - 1);
+
+    // 碎片掉落（章節越高越好）
+    if (chapter >= 1) {
+      drops[GameMaterial.commonShard] = 1 + _rng.nextInt(2);
+    }
+    if (chapter >= 2 && _rng.nextDouble() < 0.5) {
+      drops[GameMaterial.advancedShard] = 1;
+    }
+    if (chapter >= 3 && _rng.nextDouble() < 0.25) {
+      drops[GameMaterial.rareShard] = 1;
+    }
+
+    // 屬性精華掉落（隨機一種）
+    if (_rng.nextDouble() < 0.3 + stars * 0.1) {
+      final essences = [
+        GameMaterial.essenceA,
+        GameMaterial.essenceB,
+        GameMaterial.essenceC,
+        GameMaterial.essenceD,
+        GameMaterial.essenceE,
+      ];
+      drops[essences[_rng.nextInt(essences.length)]] = 1;
+    }
+
+    // 星級獎勵
+    if (stars >= 2 && _rng.nextDouble() < 0.3) {
+      drops[GameMaterial.talentScroll] = 1;
+    }
+    if (stars >= 3 && _rng.nextDouble() < 0.2) {
+      final rare = [GameMaterial.skillCore, GameMaterial.passiveGem];
+      drops[rare[_rng.nextInt(rare.length)]] = 1;
+    }
+
+    return drops;
   }
 
   // ─── 貨幣操作 ───
@@ -304,6 +371,185 @@ class PlayerProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  // ─── 素材操作 ───
+
+  int getMaterialCount(GameMaterial type) {
+    return _data.materials[type.name] ?? 0;
+  }
+
+  bool hasMaterials(Map<GameMaterial, int> cost) {
+    for (final entry in cost.entries) {
+      if (getMaterialCount(entry.key) < entry.value) return false;
+    }
+    return true;
+  }
+
+  void _deductMaterials(Map<GameMaterial, int> cost) {
+    for (final entry in cost.entries) {
+      final key = entry.key.name;
+      _data.materials[key] = (_data.materials[key] ?? 0) - entry.value;
+    }
+  }
+
+  // ─── 進化操作 ───
+
+  /// 進化角色
+  Future<bool> evolveAgent(String agentId) async {
+    final instance = _data.agents[agentId];
+    if (instance == null || !instance.isUnlocked) return false;
+    if (instance.evolutionStage >= 2) return false;
+
+    final def = CatAgentData.getById(agentId);
+    if (def == null) return false;
+
+    final nextStage = instance.evolutionStage + 1;
+    final evo = EvolutionData.getEvolution(def.rarity.name, nextStage);
+    if (evo == null) return false;
+
+    // 檢查等級需求
+    if (instance.level < evo.requiredLevel) return false;
+
+    // 檢查費用
+    if (_data.gold < evo.goldCost) return false;
+    if (!hasMaterials(evo.materialCost)) return false;
+
+    // 扣除
+    _data.gold -= evo.goldCost;
+    _deductMaterials(evo.materialCost);
+    instance.evolutionStage = nextStage;
+
+    await _save();
+    notifyListeners();
+    return true;
+  }
+
+  /// 取得角色進化後的等級上限
+  int getAgentMaxLevel(String agentId) {
+    final def = CatAgentData.getById(agentId);
+    if (def == null) return 30;
+    final instance = _data.agents[agentId];
+    var maxLevel = def.maxLevel;
+    if (instance != null) {
+      final evolutions = EvolutionData.getEvolutionsForRarity(def.rarity.name);
+      for (int i = 0; i < instance.evolutionStage && i < evolutions.length; i++) {
+        maxLevel += evolutions[i].maxLevelIncrease;
+      }
+    }
+    return maxLevel;
+  }
+
+  // ─── 天賦樹操作 ───
+
+  /// 解鎖天賦節點
+  Future<bool> unlockTalentNode(String agentId, String nodeId) async {
+    final instance = _data.agents[agentId];
+    if (instance == null || !instance.isUnlocked) return false;
+    if (instance.unlockedTalentIds.contains(nodeId)) return false;
+
+    final node = TalentTreeData.getNodeById(nodeId);
+    if (node == null) return false;
+
+    // 檢查前置條件
+    if (node.prerequisiteNodeId != null &&
+        !instance.unlockedTalentIds.contains(node.prerequisiteNodeId)) {
+      return false;
+    }
+
+    // 檢查費用
+    if (_data.gold < node.goldCost) return false;
+    if (!hasMaterials(node.materialCost)) return false;
+
+    // 扣除
+    _data.gold -= node.goldCost;
+    _deductMaterials(node.materialCost);
+    instance.unlockedTalentIds.add(nodeId);
+
+    await _save();
+    notifyListeners();
+    return true;
+  }
+
+  // ─── 技能強化操作 ───
+
+  /// 升級技能階級
+  Future<bool> upgradeSkillTier(String agentId) async {
+    final instance = _data.agents[agentId];
+    if (instance == null || !instance.isUnlocked) return false;
+    if (instance.skillTier >= 5) return false;
+
+    final nextTier = SkillTierData.getTier(agentId, instance.skillTier + 1);
+    if (nextTier == null) return false;
+
+    // 檢查費用
+    if (_data.gold < nextTier.goldCost) return false;
+    if (!hasMaterials(nextTier.materialCost)) return false;
+
+    // 扣除
+    _data.gold -= nextTier.goldCost;
+    _deductMaterials(nextTier.materialCost);
+    instance.skillTier++;
+
+    await _save();
+    notifyListeners();
+    return true;
+  }
+
+  // ─── 被動技能操作 ───
+
+  /// 解鎖被動技能
+  Future<bool> unlockPassive(String agentId, String passiveId) async {
+    final instance = _data.agents[agentId];
+    if (instance == null || !instance.isUnlocked) return false;
+    if (instance.unlockedPassiveIds.contains(passiveId)) return false;
+
+    final passive = PassiveSkillData.getPassiveById(passiveId);
+    if (passive == null || passive.agentId != agentId) return false;
+
+    // 檢查等級門檻
+    if (instance.level < passive.unlockAtAgentLevel) return false;
+
+    // 檢查費用
+    if (_data.gold < passive.goldCost) return false;
+    if (!hasMaterials(passive.materialCost)) return false;
+
+    // 扣除
+    _data.gold -= passive.goldCost;
+    _deductMaterials(passive.materialCost);
+    instance.unlockedPassiveIds.add(passiveId);
+
+    await _save();
+    notifyListeners();
+    return true;
+  }
+
+  /// 裝備被動技能
+  Future<bool> equipPassive(String agentId, String passiveId) async {
+    final instance = _data.agents[agentId];
+    if (instance == null || !instance.isUnlocked) return false;
+    if (!instance.unlockedPassiveIds.contains(passiveId)) return false;
+    if (instance.equippedPassiveIds.contains(passiveId)) return false;
+    if (instance.equippedPassiveIds.length >= 2) return false;
+
+    instance.equippedPassiveIds.add(passiveId);
+
+    await _save();
+    notifyListeners();
+    return true;
+  }
+
+  /// 卸下被動技能
+  Future<bool> unequipPassive(String agentId, String passiveId) async {
+    final instance = _data.agents[agentId];
+    if (instance == null || !instance.isUnlocked) return false;
+    if (!instance.equippedPassiveIds.contains(passiveId)) return false;
+
+    instance.equippedPassiveIds.remove(passiveId);
+
+    await _save();
+    notifyListeners();
+    return true;
+  }
+
   // ─── GM 工具（開發用） ───
 
   /// 體力補滿
@@ -361,6 +607,23 @@ class PlayerProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// 發放素材
+  Future<void> gmAddMaterials(GameMaterial type, int amount) async {
+    final key = type.name;
+    _data.materials[key] = (_data.materials[key] ?? 0) + amount;
+    await _save();
+    notifyListeners();
+  }
+
+  /// 發放全部素材（每種 50 個）
+  Future<void> gmAddAllMaterials() async {
+    for (final type in GameMaterial.values) {
+      _data.materials[type.name] = (_data.materials[type.name] ?? 0) + 50;
+    }
+    await _save();
+    notifyListeners();
+  }
+
   /// 重置所有資料（回到新玩家狀態）
   Future<void> gmResetAll() async {
     _data = PlayerData.newPlayer();
@@ -398,10 +661,38 @@ class AgentInfo {
   bool get isUnlocked => instance?.isUnlocked == true;
   int get level => instance?.level ?? 1;
   int get currentExp => instance?.currentExp ?? 0;
+  int get evolutionStage => instance?.evolutionStage ?? 0;
 
-  int get atk => definition.atkAtLevel(level);
-  int get def => definition.defAtLevel(level);
-  int get hp => definition.hpAtLevel(level);
+  /// 進化名稱（加後綴）
+  String get displayName {
+    if (evolutionStage == 0) return definition.name;
+    final evolutions = EvolutionData.getEvolutionsForRarity(definition.rarity.name);
+    if (evolutionStage <= evolutions.length) {
+      return '${definition.name}${evolutions[evolutionStage - 1].nameSuffix}';
+    }
+    return definition.name;
+  }
+
+  /// 進化倍率
+  double get _evoAtkMult {
+    if (evolutionStage == 0) return 1.0;
+    final evo = EvolutionData.getEvolution(definition.rarity.name, evolutionStage);
+    return evo?.atkMultiplier ?? 1.0;
+  }
+  double get _evoDefMult {
+    if (evolutionStage == 0) return 1.0;
+    final evo = EvolutionData.getEvolution(definition.rarity.name, evolutionStage);
+    return evo?.defMultiplier ?? 1.0;
+  }
+  double get _evoHpMult {
+    if (evolutionStage == 0) return 1.0;
+    final evo = EvolutionData.getEvolution(definition.rarity.name, evolutionStage);
+    return evo?.hpMultiplier ?? 1.0;
+  }
+
+  int get atk => (definition.atkAtLevel(level) * _evoAtkMult).round();
+  int get def => (definition.defAtLevel(level) * _evoDefMult).round();
+  int get hp => (definition.hpAtLevel(level) * _evoHpMult).round();
 }
 
 /// 戰鬥結算獎勵
@@ -412,6 +703,7 @@ class BattleReward {
   final bool isFirstClear;
   final bool agentUnlocked;
   final String? unlockedAgentId;
+  final Map<GameMaterial, int> materialDrops; // 素材掉落
 
   const BattleReward({
     this.gold = 0,
@@ -420,5 +712,6 @@ class BattleReward {
     this.isFirstClear = false,
     this.agentUnlocked = false,
     this.unlockedAgentId,
+    this.materialDrops = const {},
   });
 }

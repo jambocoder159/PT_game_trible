@@ -3,7 +3,10 @@
 /// GameProvider 負責三消核心，BattleProvider 負責戰鬥層
 import 'package:flutter/foundation.dart';
 import '../../../config/cat_agent_data.dart';
+import '../../../config/evolution_data.dart';
+import '../../../config/passive_skill_data.dart';
 import '../../../config/stage_data.dart';
+import '../../../config/talent_tree_data.dart';
 import '../../../core/engine/battle_engine.dart';
 import '../../../core/models/battle_state.dart';
 import '../../../core/models/block.dart';
@@ -37,9 +40,15 @@ enum BattleEventType {
   defeat, // 失敗
 }
 
+/// 放置效果回呼（由 GameProvider 執行棋盤操作）
+typedef OnBoardEffectRequested = Future<void> Function(SkillBoardEffect effect, BlockColor agentColor);
+
 class BattleProvider extends ChangeNotifier {
   BattleState? _battleState;
   BattleState? get battleState => _battleState;
+
+  /// 放置效果回呼（戰鬥畫面設定）
+  OnBoardEffectRequested? onBoardEffectRequested;
 
   StageDefinition? _currentStage;
   StageDefinition? get currentStage => _currentStage;
@@ -70,9 +79,39 @@ class BattleProvider extends ChangeNotifier {
       final def = CatAgentData.getById(id);
       final instance = playerData.agents[id];
       if (def != null && instance != null && instance.isUnlocked) {
+        // 載入天賦數據
+        final talents = instance.unlockedTalentIds
+            .map((tid) => TalentTreeData.getNodeById(tid))
+            .nonNulls
+            .toList();
+        // 載入被動數據
+        final passives = instance.equippedPassiveIds
+            .map((pid) => PassiveSkillData.getPassiveById(pid))
+            .nonNulls
+            .toList();
+
+        // 計算進化倍率
+        double evoAtk = 1.0, evoDef = 1.0, evoHp = 1.0;
+        if (instance.evolutionStage > 0) {
+          final evo = EvolutionData.getEvolution(
+            def.rarity.name, instance.evolutionStage);
+          if (evo != null) {
+            evoAtk = evo.atkMultiplier;
+            evoDef = evo.defMultiplier;
+            evoHp = evo.hpMultiplier;
+          }
+        }
+
         team.add(BattleAgent(
           definition: def,
           level: instance.level,
+          skillTier: instance.skillTier,
+          evolutionStage: instance.evolutionStage,
+          evoAtkMult: evoAtk,
+          evoDefMult: evoDef,
+          evoHpMult: evoHp,
+          unlockedTalents: talents,
+          equippedPassives: passives,
         ));
       }
     }
@@ -145,11 +184,14 @@ class BattleProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// 處理回合結束（玩家操作後）— 敵人回擊
+  /// 處理回合結束（玩家操作後）— 回合開始效果 + 敵人回擊
   void onTurnEnd() {
     if (_battleState == null || _battleState!.isBattleOver) return;
 
     _battleState!.turnCount++;
+
+    // 處理回合開始效果（DoT、HoT、被動）
+    BattleEngine.processTurnStart(_battleState!);
 
     final result = BattleEngine.processEnemyTurn(_battleState!);
 
@@ -181,8 +223,18 @@ class BattleProvider extends ChangeNotifier {
 
     final result = BattleEngine.activateSkill(_battleState!, agent);
 
+    // 根據技能類型選擇事件類型
+    BattleEventType eventType;
+    if (result.hpHealed > 0 && result.damageDealt == 0) {
+      eventType = BattleEventType.heal;
+    } else if (result.shieldTurns > 0 && result.damageDealt == 0) {
+      eventType = BattleEventType.shield;
+    } else {
+      eventType = BattleEventType.skillActivated;
+    }
+
     _events.add(BattleEvent(
-      type: BattleEventType.skillActivated,
+      type: eventType,
       message: result.description,
       value: result.damageDealt + result.hpHealed,
     ));
@@ -195,6 +247,11 @@ class BattleProvider extends ChangeNotifier {
     }
 
     notifyListeners();
+
+    // 執行放置效果（操作棋盤）
+    if (result.boardEffect != null && result.agentColor != null) {
+      onBoardEffectRequested?.call(result.boardEffect!, result.agentColor!);
+    }
   }
 
   /// 結束戰鬥

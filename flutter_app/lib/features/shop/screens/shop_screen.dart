@@ -1,8 +1,9 @@
 /// 商城畫面
-/// MVP：月卡 + 鑽石包（展示用，IAP 尚未接入）
+/// MVP：月卡 + 鑽石包 + 素材兌換
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../config/theme.dart';
+import '../../../core/models/material.dart';
 import '../../agents/providers/player_provider.dart';
 
 class ShopScreen extends StatelessWidget {
@@ -156,6 +157,80 @@ class ShopScreen extends StatelessWidget {
               },
             ),
           ),
+
+          const SizedBox(height: 24),
+
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 8),
+            child: Text(
+              '素材兌換（水晶粉塵）',
+              style: TextStyle(
+                color: AppTheme.textSecondary,
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+
+          // 素材兌換列表
+          Consumer<PlayerProvider>(
+            builder: (context, provider, _) {
+              final dustCount = provider.getMaterialCount(GameMaterial.crystalDust);
+              return Column(
+                children: [
+                  _MaterialExchangeItem(
+                    material: GameMaterial.commonShard,
+                    amount: 5,
+                    dustCost: 3,
+                    currentDust: dustCount,
+                    provider: provider,
+                  ),
+                  _MaterialExchangeItem(
+                    material: GameMaterial.advancedShard,
+                    amount: 2,
+                    dustCost: 5,
+                    currentDust: dustCount,
+                    provider: provider,
+                  ),
+                  _MaterialExchangeItem(
+                    material: GameMaterial.talentScroll,
+                    amount: 1,
+                    dustCost: 8,
+                    currentDust: dustCount,
+                    provider: provider,
+                  ),
+                  _MaterialExchangeItem(
+                    material: GameMaterial.skillCore,
+                    amount: 1,
+                    dustCost: 10,
+                    currentDust: dustCount,
+                    provider: provider,
+                  ),
+                  _MaterialExchangeItem(
+                    material: GameMaterial.passiveGem,
+                    amount: 1,
+                    dustCost: 10,
+                    currentDust: dustCount,
+                    provider: provider,
+                  ),
+                  _MaterialExchangeItem(
+                    material: GameMaterial.expPotion,
+                    amount: 1,
+                    dustCost: 6,
+                    currentDust: dustCount,
+                    provider: provider,
+                  ),
+                  _MaterialExchangeItem(
+                    material: GameMaterial.sweepTicket,
+                    amount: 1,
+                    dustCost: 8,
+                    currentDust: dustCount,
+                    provider: provider,
+                  ),
+                ],
+              );
+            },
+          ),
         ],
       ),
     );
@@ -288,6 +363,114 @@ class _ShopItem extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// 素材兌換項目
+class _MaterialExchangeItem extends StatelessWidget {
+  final GameMaterial material;
+  final int amount;
+  final int dustCost;
+  final int currentDust;
+  final PlayerProvider provider;
+
+  const _MaterialExchangeItem({
+    required this.material,
+    required this.amount,
+    required this.dustCost,
+    required this.currentDust,
+    required this.provider,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final canAfford = currentDust >= dustCost;
+
+    return Card(
+      color: AppTheme.bgCard,
+      margin: const EdgeInsets.only(bottom: 6),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+      ),
+      child: InkWell(
+        onTap: canAfford ? () => _exchange(context) : null,
+        borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          child: Row(
+            children: [
+              Text(material.emoji, style: const TextStyle(fontSize: 22)),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '${material.label} x$amount',
+                      style: const TextStyle(
+                        color: AppTheme.textPrimary,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                      ),
+                    ),
+                    Text(
+                      material.description,
+                      style: const TextStyle(
+                        color: AppTheme.textSecondary,
+                        fontSize: 11,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                decoration: BoxDecoration(
+                  color: canAfford
+                      ? Colors.cyan.withAlpha(30)
+                      : Colors.grey.withAlpha(20),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: canAfford
+                        ? Colors.cyan.withAlpha(100)
+                        : Colors.grey.withAlpha(40),
+                  ),
+                ),
+                child: Text(
+                  '✨ $dustCost',
+                  style: TextStyle(
+                    color: canAfford ? Colors.cyan : Colors.grey,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _exchange(BuildContext context) {
+    // 扣除水晶粉塵
+    final dustKey = GameMaterial.crystalDust.name;
+    final matKey = material.name;
+    provider.data.materials[dustKey] =
+        (provider.data.materials[dustKey] ?? 0) - dustCost;
+    // 增加素材
+    provider.data.materials[matKey] =
+        (provider.data.materials[matKey] ?? 0) + amount;
+    provider.notifyAndSave();
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('兌換成功！${material.emoji} ${material.label} x$amount'),
+        backgroundColor: Colors.green,
       ),
     );
   }

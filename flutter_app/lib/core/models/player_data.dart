@@ -29,6 +29,9 @@ class PlayerData {
   // 新手引導
   bool tutorialCompleted;
 
+  // 素材庫存（GameMaterial.name → 數量）
+  Map<String, int> materials;
+
   PlayerData({
     this.playerLevel = 1,
     this.playerExp = 0,
@@ -42,11 +45,13 @@ class PlayerData {
     List<String>? team,
     Map<String, StageProgress>? stageProgress,
     DailyQuestData? dailyQuests,
+    Map<String, int>? materials,
   })  : lastStaminaRecover = lastStaminaRecover ?? DateTime.now(),
         agents = agents ?? {},
         team = team ?? [],
         stageProgress = stageProgress ?? {},
-        dailyQuests = dailyQuests ?? DailyQuestData();
+        dailyQuests = dailyQuests ?? DailyQuestData(),
+        materials = materials ?? {};
 
   /// 建立新玩家的初始資料
   factory PlayerData.newPlayer() {
@@ -79,6 +84,11 @@ class PlayerData {
       (k, v) => MapEntry(k, StageProgress.fromJson(v as Map<String, dynamic>)),
     );
 
+    final materialsJson = json['materials'] as Map<String, dynamic>? ?? {};
+    final materials = materialsJson.map(
+      (k, v) => MapEntry(k, v as int),
+    );
+
     return PlayerData(
       playerLevel: json['playerLevel'] as int? ?? 1,
       playerExp: json['playerExp'] as int? ?? 0,
@@ -96,6 +106,7 @@ class PlayerData {
       dailyQuests: json['dailyQuests'] != null
           ? DailyQuestData.fromJson(json['dailyQuests'] as Map<String, dynamic>)
           : DailyQuestData(),
+      materials: materials,
     );
   }
 
@@ -114,6 +125,7 @@ class PlayerData {
       'team': team,
       'stageProgress': stageProgress.map((k, v) => MapEntry(k, v.toJson())),
       'dailyQuests': dailyQuests.toJson(),
+      'materials': materials,
     };
   }
 

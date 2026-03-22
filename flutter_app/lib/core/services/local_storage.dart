@@ -49,6 +49,22 @@ class LocalStorageService {
     }
   }
 
+  /// 取得 JSON 物件
+  dynamic getJson(String key) {
+    final jsonStr = _prefs?.getString(key);
+    if (jsonStr == null) return null;
+    try {
+      return jsonDecode(jsonStr);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// 儲存 JSON 物件
+  Future<void> setJson(String key, dynamic value) async {
+    await _prefs?.setString(key, jsonEncode(value));
+  }
+
   /// 清除所有存檔（用於重置）
   Future<void> clearAll() async {
     await _prefs?.remove(_playerDataKey);
