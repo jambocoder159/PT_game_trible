@@ -223,8 +223,18 @@ class BattleProvider extends ChangeNotifier {
 
     final result = BattleEngine.activateSkill(_battleState!, agent);
 
+    // 根據技能類型選擇事件類型
+    BattleEventType eventType;
+    if (result.hpHealed > 0 && result.damageDealt == 0) {
+      eventType = BattleEventType.heal;
+    } else if (result.shieldTurns > 0 && result.damageDealt == 0) {
+      eventType = BattleEventType.shield;
+    } else {
+      eventType = BattleEventType.skillActivated;
+    }
+
     _events.add(BattleEvent(
-      type: BattleEventType.skillActivated,
+      type: eventType,
       message: result.description,
       value: result.damageDealt + result.hpHealed,
     ));

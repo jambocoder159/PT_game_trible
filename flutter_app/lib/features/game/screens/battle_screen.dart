@@ -136,6 +136,10 @@ class _BattleScreenState extends State<BattleScreen> {
                     // 隊伍 HP
                     if (battleState != null) _TeamHpBar(battleState: battleState),
 
+                    // Combo 顯示（棋盤外部）
+                    if (gameState != null && gameState.combo > 0)
+                      _ComboBar(combo: gameState.combo),
+
                     // 遊戲區：左側角色 + 中央棋盤
                     Expanded(
                       child: Row(
@@ -155,6 +159,10 @@ class _BattleScreenState extends State<BattleScreen> {
                         ],
                       ),
                     ),
+
+                    // 技能效果提示
+                    if (battleState != null)
+                      _SkillEffectBar(battleProvider: battle),
 
                     // 底部：分數 + 回合
                     _BottomBar(gameState: gameState),
@@ -621,12 +629,6 @@ class _BottomBar extends StatelessWidget {
             value: '${gameState!.score}',
             color: AppTheme.blockGold,
           ),
-          if (gameState!.combo > 0)
-            _StatDisplay(
-              icon: Icons.local_fire_department,
-              value: '${gameState!.combo}x',
-              color: Colors.orange,
-            ),
           _StatDisplay(
             icon: Icons.touch_app,
             value: '${gameState!.actionCount}',
@@ -666,6 +668,120 @@ class _StatDisplay extends StatelessWidget {
         ),
       ],
     );
+  }
+}
+
+// ─── Combo 顯示條（棋盤上方） ───
+
+class _ComboBar extends StatelessWidget {
+  final int combo;
+
+  const _ComboBar({required this.combo});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [
+              Colors.orange.withAlpha(180),
+              AppTheme.blockGold.withAlpha(180),
+            ],
+          ),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.local_fire_department, size: 16, color: Colors.white),
+            const SizedBox(width: 4),
+            Text(
+              '${combo}x Combo!',
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─── 技能效果提示條 ───
+
+class _SkillEffectBar extends StatelessWidget {
+  final BattleProvider battleProvider;
+
+  const _SkillEffectBar({required this.battleProvider});
+
+  @override
+  Widget build(BuildContext context) {
+    final events = battleProvider.consumeEvents();
+    if (events.isEmpty) return const SizedBox.shrink();
+
+    // 取最新的事件顯示
+    final event = events.last;
+    final (icon, color) = _eventStyle(event.type);
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+        decoration: BoxDecoration(
+          color: color.withAlpha(40),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: color.withAlpha(100)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, size: 14, color: color),
+            const SizedBox(width: 6),
+            Flexible(
+              child: Text(
+                event.message,
+                style: TextStyle(
+                  color: color,
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  (IconData, Color) _eventStyle(BattleEventType type) {
+    switch (type) {
+      case BattleEventType.damage:
+        return (Icons.flash_on, Colors.orange);
+      case BattleEventType.enemyAttack:
+        return (Icons.warning, Colors.red);
+      case BattleEventType.skillActivated:
+        return (Icons.auto_awesome, Colors.amber);
+      case BattleEventType.enemyKilled:
+        return (Icons.check_circle, Colors.green);
+      case BattleEventType.heal:
+        return (Icons.favorite, Colors.green);
+      case BattleEventType.shield:
+        return (Icons.shield, Colors.blue);
+      case BattleEventType.victory:
+        return (Icons.emoji_events, Colors.amber);
+      case BattleEventType.defeat:
+        return (Icons.close, Colors.red);
+    }
   }
 }
 

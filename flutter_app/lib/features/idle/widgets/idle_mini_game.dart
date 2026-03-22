@@ -222,31 +222,53 @@ class _IdleMiniGameState extends State<IdleMiniGame>
               );
             }
 
-            // Combo 顯示
-            final comboWidget = state.combo > 1
-                ? Positioned(
-                    top: 4,
-                    right: 4,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: AppTheme.accentSecondary.withAlpha(200),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Text(
-                        '${state.combo}x',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 11,
-                          fontWeight: FontWeight.bold,
+            return Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // 操作提示
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 3),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.touch_app, size: 10, color: AppTheme.textSecondary.withAlpha(120)),
+                        const SizedBox(width: 3),
+                        Text(
+                          '點擊消除',
+                          style: TextStyle(color: AppTheme.textSecondary.withAlpha(120), fontSize: 9),
+                        ),
+                        const SizedBox(width: 8),
+                        Icon(Icons.swap_vert, size: 10, color: AppTheme.textSecondary.withAlpha(120)),
+                        const SizedBox(width: 3),
+                        Text(
+                          '滑動放置',
+                          style: TextStyle(color: AppTheme.textSecondary.withAlpha(120), fontSize: 9),
+                        ),
+                      ],
+                    ),
+                  ),
+                  // Combo 顯示（棋盤外部）
+                  if (state.combo > 1)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 4),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: AppTheme.accentSecondary.withAlpha(200),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Text(
+                          '${state.combo}x Combo',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       ),
                     ),
-                  )
-                : null;
-
-            return Center(
-              child: _IdleInteractionLayer(
+                  _IdleInteractionLayer(
                 layout: layout,
                 numCols: numCols,
                 numRows: numRows,
@@ -304,10 +326,11 @@ class _IdleMiniGameState extends State<IdleMiniGame>
                       ...blockWidgets,
                       ...arrowWidgets,
                       ...floatingWidgets,
-                      if (comboWidget != null) comboWidget,
                     ],
                   ),
                 ),
+              ),
+                ],
               ),
             );
           },

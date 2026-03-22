@@ -26,27 +26,76 @@ class CatPanel extends StatelessWidget {
 
         final playerLevel = playerProvider.data.playerLevel;
 
+        // 計算所有可收集的寶箱總數
+        int totalChests = 0;
+        for (final def in CatDefinitions.all) {
+          final cat = catProvider.cats[def.id];
+          if (cat != null && cat.isFull(playerLevel)) {
+            totalChests += cat.chestCount(playerLevel);
+          }
+        }
+
         return Column(
-          children: CatDefinitions.all.map((def) {
-            final cat = catProvider.cats[def.id];
-            if (cat == null) return const SizedBox.shrink();
-
-            // 確保 GlobalKey 存在
-            catKeys.putIfAbsent(def.id, () => GlobalKey());
-
-            return Expanded(
-              child: _CatCard(
-                key: catKeys[def.id],
-                definition: def,
-                status: cat,
-                playerLevel: playerLevel,
-                onCollect: cat.isFull(playerLevel)
-                    ? () => _collectReward(context, catProvider, def, playerLevel)
-                    : null,
-                onTapDetail: () => _showCatQuickView(context, def, cat, playerLevel),
+          children: [
+            // 一鍵收集按鈕
+            if (totalChests > 0)
+              GestureDetector(
+                onTap: () => _collectAllRewards(context, catProvider, playerLevel),
+                child: Container(
+                  width: double.infinity,
+                  margin: const EdgeInsets.only(bottom: 4),
+                  padding: const EdgeInsets.symmetric(vertical: 6),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [Colors.amber.shade600, Colors.orange.shade400],
+                    ),
+                    borderRadius: BorderRadius.circular(8),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.amber.withAlpha(80),
+                        blurRadius: 8,
+                        spreadRadius: 1,
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Text('🎁', style: TextStyle(fontSize: 14)),
+                      const SizedBox(width: 4),
+                      Text(
+                        '收集全部 x$totalChests',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ),
-            );
-          }).toList(),
+            // 貓咪列表
+            ...CatDefinitions.all.map((def) {
+              final cat = catProvider.cats[def.id];
+              if (cat == null) return const SizedBox.shrink();
+
+              catKeys.putIfAbsent(def.id, () => GlobalKey());
+
+              return Expanded(
+                child: _CatCard(
+                  key: catKeys[def.id],
+                  definition: def,
+                  status: cat,
+                  playerLevel: playerLevel,
+                  onCollect: cat.isFull(playerLevel)
+                      ? () => _collectReward(context, catProvider, def, playerLevel)
+                      : null,
+                  onTapDetail: () => _showCatQuickView(context, def, cat, playerLevel),
+                ),
+              );
+            }),
+          ],
         );
       },
     );
@@ -89,6 +138,51 @@ class CatPanel extends StatelessWidget {
         playerLevel: playerLevel,
         agentDef: agentDef,
         agentInfo: agentInfo,
+      ),
+    );
+  }
+
+  /// 一鍵收集所有貓咪的寶箱
+  void _collectAllRewards(
+    BuildContext context,
+    CatProvider catProvider,
+    int playerLevel,
+  ) {
+    final player = context.read<PlayerProvider>();
+    final allRewards = <CatReward>[];
+    int totalChests = 0;
+    int totalGold = 0;
+    int maxRarity = 1;
+
+    for (final def in CatDefinitions.all) {
+      final result = catProvider.collectAllRewards(def.id, playerLevel, playerData: player.data);
+      if (result == null) continue;
+      final (rewards, chestCount) = result;
+      allRewards.addAll(rewards);
+      totalChests += chestCount;
+    }
+
+    if (allRewards.isEmpty) return;
+
+    totalGold = allRewards.fold<int>(0, (sum, r) => sum + r.quantity);
+    maxRarity = allRewards.fold<int>(1, (m, r) => r.rarity > m ? r.rarity : m);
+    player.addGold(totalGold);
+
+    HapticFeedback.heavyImpact();
+
+    // 用第一隻有寶箱的貓當代表
+    final firstCatDef = CatDefinitions.all.first;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      barrierColor: Colors.black54,
+      builder: (_) => _RewardDialog(
+        catDef: firstCatDef,
+        rewards: allRewards,
+        chestCount: totalChests,
+        totalGold: totalGold,
+        maxRarity: maxRarity,
       ),
     );
   }

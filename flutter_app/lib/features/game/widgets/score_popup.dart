@@ -102,9 +102,7 @@ class _ScorePopupState extends State<ScorePopup>
     final isCombo = widget.combo > 1;
     final color = isCombo ? AppTheme.blockGold : Colors.white;
     final fontSize = isCombo ? (20.0 + (widget.combo - 1).clamp(0, 5) * 2) : 18.0;
-    final text = isCombo
-        ? '+${widget.points}\n${widget.combo}x Combo!'
-        : '+${widget.points}';
+    final text = '+${widget.points}';
 
     return Positioned(
       left: widget.position.dx,

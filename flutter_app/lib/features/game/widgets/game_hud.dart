@@ -52,14 +52,6 @@ class GameHud extends StatelessWidget {
                           : AppTheme.blockCoral,
                     ),
 
-                  // Combo
-                  if (state.combo > 0)
-                    _InfoChip(
-                      icon: Icons.local_fire_department,
-                      label: '${state.combo} Combo',
-                      color: AppTheme.blockGold,
-                    ),
-
                   // 操作次數
                   _InfoChip(
                     icon: Icons.touch_app,

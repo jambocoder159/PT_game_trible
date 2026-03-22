@@ -53,6 +53,39 @@ class GameScreen extends StatelessWidget {
                     // HUD
                     const GameHud(),
 
+                    // Combo 顯示（棋盤外部）
+                    if (state != null && state.combo > 0)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 4),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [
+                                Colors.orange.withAlpha(180),
+                                const Color(0xFFE6A817).withAlpha(180),
+                              ],
+                            ),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.local_fire_department, size: 16, color: Colors.white),
+                              const SizedBox(width: 4),
+                              Text(
+                                '${state.combo}x Combo!',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+
                     // 遊戲棋盤
                     const Expanded(
                       child: Center(
