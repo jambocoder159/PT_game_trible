@@ -17,6 +17,7 @@ import '../providers/battle_provider.dart';
 import '../providers/game_provider.dart';
 import '../widgets/game_board.dart';
 import '../widgets/cat_placeholder.dart';
+import '../widgets/pause_menu.dart';
 
 // ─── 木質風格配色 ───
 const _woodLight = Color(0xFFC4A24E);
@@ -166,6 +167,7 @@ class _BattleScreenState extends State<BattleScreen> {
                         Navigator.of(context).pop();
                       },
                       onToggle: _toggleBoardPosition,
+                      onPause: () => game.pauseGame(),
                     ),
 
                     // ── 主體分屏區域 ──
@@ -220,6 +222,16 @@ class _BattleScreenState extends State<BattleScreen> {
                     ),
                   ],
                 ),
+
+                // 暫停選單覆蓋層
+                if (gameState?.status == GameStatus.paused)
+                  PauseMenu(
+                    onResume: () => game.resumeGame(),
+                    onExitToMenu: () {
+                      battle.endBattle();
+                      Navigator.of(context).pop();
+                    },
+                  ),
 
                 // 戰鬥結束
                 if (battle.isBattleOver) ...[
@@ -278,12 +290,14 @@ class _WoodTopBar extends StatelessWidget {
   final GameState? gameState;
   final VoidCallback onBack;
   final VoidCallback onToggle;
+  final VoidCallback onPause;
 
   const _WoodTopBar({
     required this.stage,
     required this.gameState,
     required this.onBack,
     required this.onToggle,
+    required this.onPause,
   });
 
   @override
@@ -366,6 +380,12 @@ class _WoodTopBar extends StatelessWidget {
           _WoodButton(
             onTap: onToggle,
             child: const Icon(Icons.swap_horiz, size: 16, color: Colors.white),
+          ),
+          const SizedBox(width: 4),
+          // 設定/暫停按鈕
+          _WoodButton(
+            onTap: onPause,
+            child: const Icon(Icons.settings, size: 16, color: Colors.white),
           ),
         ],
       ),

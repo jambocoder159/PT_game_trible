@@ -12,7 +12,6 @@ import '../../quest/screens/stage_select_screen.dart';
 import '../../daily/screens/daily_quest_screen.dart';
 import '../../shop/screens/shop_screen.dart';
 import '../../gm/screens/gm_screen.dart';
-import '../../game/widgets/pause_menu.dart';
 
 /// 主選單畫面
 class MainMenuScreen extends StatefulWidget {
@@ -177,54 +176,7 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                   ],
                 ),
 
-                const SizedBox(height: 12),
-
-                // 設定按鈕
-                _SmallButton(
-                  icon: '⚙️',
-                  label: '設定',
-                  onTap: () {
-                    showDialog(
-                      context: context,
-                      builder: (_) => Dialog(
-                        backgroundColor: AppTheme.bgSecondary,
-                        shape: RoundedRectangleBorder(
-                          borderRadius:
-                              BorderRadius.circular(AppTheme.radiusLarge),
-                          side: BorderSide(
-                              color: AppTheme.accentPrimary.withAlpha(150)),
-                        ),
-                        child: Padding(
-                          padding: const EdgeInsets.all(24),
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Text(
-                                '設定',
-                                style: TextStyle(
-                                    fontSize: 22,
-                                    fontWeight: FontWeight.bold),
-                              ),
-                              const SizedBox(height: 20),
-                              const SettingsPanel(),
-                              const SizedBox(height: 16),
-                              SizedBox(
-                                width: double.infinity,
-                                child: ElevatedButton(
-                                  onPressed: () =>
-                                      Navigator.of(context).pop(),
-                                  child: const Text('關閉'),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    );
-                  },
-                ),
-
-                const SizedBox(height: 20),
+                const SizedBox(height: 32),
 
                 // 版本號（連點 5 次進入 GM 工具）
                 GestureDetector(

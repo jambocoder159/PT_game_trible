@@ -5,7 +5,6 @@ import '../../../core/models/game_state.dart';
 import '../providers/game_provider.dart';
 import '../widgets/game_board.dart';
 import '../widgets/game_hud.dart';
-import '../widgets/pause_menu.dart';
 
 /// 遊戲主畫面
 class GameScreen extends StatelessWidget {
@@ -41,12 +40,7 @@ class GameScreen extends StatelessWidget {
                             state?.mode.title ?? '',
                             style: Theme.of(context).textTheme.headlineMedium,
                           ),
-                          IconButton(
-                            onPressed: () {
-                              game.pauseGame();
-                            },
-                            icon: const Icon(Icons.settings),
-                          ),
+                          const SizedBox(width: 48),
                         ],
                       ),
                     ),
@@ -98,13 +92,6 @@ class GameScreen extends StatelessWidget {
                     const SizedBox(height: 16),
                   ],
                 ),
-
-                // 暫停選單覆蓋層
-                if (state?.status == GameStatus.paused)
-                  PauseMenu(
-                    onResume: () => game.resumeGame(),
-                    onExitToMenu: () => Navigator.of(context).pop(),
-                  ),
 
                 // 遊戲結束覆蓋層
                 if (state?.status == GameStatus.gameOver)
