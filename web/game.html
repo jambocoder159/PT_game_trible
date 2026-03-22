@@ -9,7 +9,6 @@
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="css/game.css">
     <link rel="stylesheet" href="css/responsive-fix.css">
-    <link rel="stylesheet" href="css/mobile-quest.css">
     <style>
         /* RPG模式專用樣式 - 視覺友好的背景 */
         .theme-rpg {
@@ -110,7 +109,6 @@
     <script src="js/ItemSystem.js"></script>
     <script src="js/ShopSystem.js"></script>
     <script src="js/InventorySystem.js"></script>
-    <script src="js/CatDisplay.js"></script>
     <script src="js/GameEngine.js"></script>
     <script src="js/GameModes.js?v=blackened_blocks_1"></script>
     <script src="js/UI.js"></script>
@@ -255,31 +253,6 @@
                 console.log('- 模式:', gameEngine.config.mode);
                 console.log('- 剩餘步數:', gameEngine.movesLeft);
                 console.log('- 敵人:', gameEngine.enemy);
-
-                // 手機版闖關模式：初始化貓咪顯示系統
-                const catPanel = document.getElementById('catPanelContainer');
-                if (catPanel && typeof CatDisplay !== 'undefined') {
-                    window.catDisplay = new CatDisplay(catPanel);
-                    // 根據關卡限制更新貓咪狀態
-                    window.catDisplay.updateFromRestrictions(gameConfig.levelData.restrictions);
-                    console.log('貓咪顯示系統已初始化');
-                }
-
-                // 手機版返回按鈕
-                const mobileBackBtn = document.getElementById('mobileQuestBackBtn');
-                if (mobileBackBtn) {
-                    mobileBackBtn.addEventListener('click', () => {
-                        window.location.href = 'quest-mode.html';
-                    });
-                }
-
-                // 手機版設定按鈕（顯示關卡限制資訊）
-                const mobileSettingsBtn = document.getElementById('mobileQuestSettingsBtn');
-                if (mobileSettingsBtn) {
-                    mobileSettingsBtn.addEventListener('click', () => {
-                        UIManager.showRestrictionsPopup(gameEngine.config.levelData.restrictions);
-                    });
-                }
             }
 
             // 為 info icon 添加點擊事件

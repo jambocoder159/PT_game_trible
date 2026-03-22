@@ -1,15 +1,5 @@
 class UIManager {
-    static isMobileDevice() {
-        return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
-            || window.innerWidth < 768;
-    }
-
     static createGameHTML(mode, config, gameState = null) {
-        // 手機版闖關模式使用分屏佈局
-        if (mode === 'quest' && this.isMobileDevice()) {
-            return this.createMobileQuestHTML(config, gameState);
-        }
-
         let headerHTML;
         if (mode === 'quest') {
             headerHTML = this.createQuestHeaderHTML(config);
@@ -130,151 +120,6 @@ class UIManager {
                 </div>
             </div>
         </div>`;
-    }
-
-    /**
-     * 手機版闖關模式 - 分屏佈局
-     * 左側：貓咪角色面板
-     * 右側：遊戲 Canvas + 資訊列
-     */
-    static createMobileQuestHTML(config, gameState = null) {
-        const enemy = config.levelData.enemy;
-        const urlParams = new URLSearchParams(window.location.search);
-        const levelNumber = parseInt(urlParams.get('level')) || 1;
-        const chapterNumber = Math.ceil(levelNumber / 10);
-        const stageInChapter = levelNumber - (chapterNumber - 1) * 10;
-
-        const levelDetails = GameModes.quest.levelDetails[levelNumber];
-        const restrictions = levelDetails?.restrictions || {};
-        const restrictionsHTML = this.createMobileRestrictionsHTML(restrictions);
-
-        const modalStats = this.createModalStatsHTML('quest');
-        const modalButtonLayout = this.createModalButtonsHTML('quest');
-
-        return `
-        <div class="mobile-quest-container">
-            <!-- 頂部木質風格標題欄 -->
-            <div class="quest-top-bar">
-                <button class="quest-back-btn" id="mobileQuestBackBtn" title="返回">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
-                        <polyline points="15 18 9 12 15 6"></polyline>
-                    </svg>
-                </button>
-                <div class="quest-score-display">
-                    <div class="quest-score-block">
-                        <div class="label">SCORE</div>
-                        <div class="value" id="mobile-quest-score">0</div>
-                    </div>
-                    <div class="quest-stage-block">
-                        <div class="label">STAGE</div>
-                        <div class="value">${chapterNumber}-${stageInChapter}</div>
-                    </div>
-                </div>
-                <button class="quest-settings-btn" id="mobileQuestSettingsBtn" title="設定">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <circle cx="12" cy="12" r="3"></circle>
-                        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
-                    </svg>
-                </button>
-            </div>
-
-            <!-- 分屏主體 -->
-            <div class="quest-split-area">
-                <!-- 左側貓咪面板 -->
-                <div class="cat-panel" id="catPanelContainer">
-                    <!-- CatDisplay.js 動態渲染 -->
-                </div>
-
-                <!-- 右側遊戲面板 -->
-                <div class="game-panel">
-                    <!-- 遊戲資訊列 -->
-                    <div class="quest-game-info">
-                        <div class="quest-moves-badge">
-                            <span class="moves-icon">👟</span>
-                            <span class="moves-value" id="moves-left">${config.levelData.moves}</span>
-                        </div>
-                        <div class="quest-hp-bar-container">
-                            <div class="quest-hp-label">
-                                <span class="quest-enemy-name">${enemy.name}</span>
-                                <span class="quest-hp-text" id="enemy-hp-text">${enemy.maxHP}/${enemy.maxHP}</span>
-                            </div>
-                            <div class="quest-hp-bar-bg">
-                                <div class="quest-hp-bar-fill" id="enemy-hp-bar" style="width: 100%"></div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- 限制條件 -->
-                    ${restrictionsHTML}
-
-                    <!-- Canvas 遊戲區域 -->
-                    <div class="quest-canvas-wrapper game-canvas-area">
-                        <canvas id="gameCanvas"></canvas>
-                        <div id="nextBlockPreviewContainer" class="hidden"></div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- 底部控制列 -->
-            <div class="quest-bottom-bar">
-                <div id="equippedItems">
-                    <!-- 道具按鈕動態生成 -->
-                </div>
-                <div id="itemStatus" class="text-center text-xs" style="color: rgba(255,255,255,0.7);"></div>
-            </div>
-
-            <!-- 遊戲結束 Modal -->
-            <div id="gameOverModal" class="modal">
-                <div class="modal-content">
-                    <h2 id="modal-title" class="text-2xl font-bold text-rose-500 mb-3">遊戲結束！</h2>
-                    ${modalStats}
-                    <p id="modal-message" class="text-slate-500 mb-4">再接再厲，挑戰更高分！</p>
-                    ${modalButtonLayout}
-                </div>
-            </div>
-        </div>`;
-    }
-
-    /**
-     * 手機版限制條件 HTML
-     */
-    static createMobileRestrictionsHTML(restrictions) {
-        if (!restrictions || Object.keys(restrictions).length === 0) {
-            return '';
-        }
-
-        const colorMap = {
-            red: { name: '紅', hex: '#EF4444' },
-            blue: { name: '藍', hex: '#3B82F6' },
-            green: { name: '綠', hex: '#10B981' },
-            yellow: { name: '黃', hex: '#F59E0B' },
-            purple: { name: '紫', hex: '#8B5CF6' }
-        };
-
-        let tags = '';
-
-        if (restrictions.minComboForDamage) {
-            tags += `<span class="restriction-tag" id="combo-restriction">連擊 ≥${restrictions.minComboForDamage}</span>`;
-        }
-        if (restrictions.noDamageColors) {
-            restrictions.noDamageColors.forEach(c => {
-                const info = colorMap[c];
-                if (info) {
-                    tags += `<span class="restriction-tag"><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:${info.hex};margin-right:2px;"></span>${info.name}色✕</span>`;
-                }
-            });
-        }
-        if (restrictions.damageOnlyColors) {
-            const names = restrictions.damageOnlyColors.map(c => {
-                const info = colorMap[c];
-                return info ? `<span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:${info.hex};margin-right:1px;"></span>${info.name}` : c;
-            }).join('');
-            tags += `<span class="restriction-tag">僅 ${names} 色有效</span>`;
-        }
-
-        if (!tags) return '';
-
-        return `<div class="quest-restrictions-bar" id="quest-restrictions-display">${tags}</div>`;
     }
 
     // 新增方法：獲取限制條件的簡短顯示文字
@@ -594,12 +439,6 @@ class UIManager {
 
         if (movesLeft) {
             movesLeft.textContent = gameState.movesLeft;
-        }
-
-        // 手機版分數同步
-        const mobileScore = document.getElementById('mobile-quest-score');
-        if (mobileScore) {
-            mobileScore.textContent = gameState.score || 0;
         }
     }
 
