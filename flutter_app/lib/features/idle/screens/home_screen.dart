@@ -5,6 +5,7 @@ import '../../agents/providers/player_provider.dart';
 import '../../agents/screens/agent_list_screen.dart';
 import '../../game/providers/game_provider.dart';
 import '../../game/screens/game_screen.dart';
+import '../../backpack/screens/backpack_screen.dart';
 import '../../quest/screens/stage_select_screen.dart';
 import '../../shop/screens/shop_screen.dart';
 import '../../daily/screens/daily_quest_screen.dart';
@@ -202,6 +203,18 @@ class _HomeScreenState extends State<HomeScreen> {
                   Navigator.of(context).push(
                     MaterialPageRoute(
                       builder: (_) => const AgentListScreen(),
+                    ),
+                  );
+                },
+              ),
+              _MoreMenuItem(
+                icon: Icons.inventory_2_rounded,
+                label: '素材背包',
+                onTap: () {
+                  Navigator.pop(ctx);
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => const BackpackScreen(),
                     ),
                   );
                 },

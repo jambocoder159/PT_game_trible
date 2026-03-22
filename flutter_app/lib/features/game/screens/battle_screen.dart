@@ -7,6 +7,7 @@ import '../../../config/stage_data.dart';
 import '../../../config/theme.dart';
 import '../../../core/models/battle_state.dart';
 import '../../../core/models/game_state.dart';
+import '../../../core/models/material.dart';
 import '../../agents/providers/player_provider.dart';
 import '../providers/battle_provider.dart';
 import '../providers/game_provider.dart';
@@ -97,6 +98,7 @@ class _BattleScreenState extends State<BattleScreen> {
           isFirstClear: reward.isFirstClear,
           agentUnlocked: reward.agentUnlocked,
           unlockedAgentId: reward.unlockedAgentId,
+          materialDrops: reward.materialDrops,
         );
       });
     }
@@ -795,6 +797,7 @@ class BattleRewardResult {
   final bool isFirstClear;
   final bool agentUnlocked;
   final String? unlockedAgentId;
+  final Map<GameMaterial, int> materialDrops;
 
   const BattleRewardResult({
     this.gold = 0,
@@ -803,6 +806,7 @@ class BattleRewardResult {
     this.isFirstClear = false,
     this.agentUnlocked = false,
     this.unlockedAgentId,
+    this.materialDrops = const {},
   });
 }
 
@@ -924,6 +928,33 @@ class _BattleEndOverlay extends StatelessWidget {
                   ),
                 const SizedBox(height: 8),
               ],
+              // 素材掉落
+              if (reward != null && reward!.materialDrops.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 4,
+                  alignment: WrapAlignment.center,
+                  children: reward!.materialDrops.entries.map((e) {
+                    return Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withAlpha(10),
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(color: Colors.white.withAlpha(20)),
+                      ),
+                      child: Text(
+                        '${e.key.emoji}x${e.value}',
+                        style: const TextStyle(
+                          color: AppTheme.textPrimary,
+                          fontSize: 12,
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ],
+              const SizedBox(height: 8),
               Text(
                 '分數：$score',
                 style: const TextStyle(

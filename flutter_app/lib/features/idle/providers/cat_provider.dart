@@ -120,6 +120,21 @@ class CatProvider extends ChangeNotifier {
 
     // 產出實際素材到 PlayerData
     if (playerData != null) {
+      // 所有寶箱都掉水晶粉塵
+      _addMaterial(playerData, GameMaterial.crystalDust, 1 + _random.nextInt(2));
+
+      // 隨機掉落屬性精華
+      if (_random.nextDouble() < 0.25) {
+        final essences = [
+          GameMaterial.essenceA,
+          GameMaterial.essenceB,
+          GameMaterial.essenceC,
+          GameMaterial.essenceD,
+          GameMaterial.essenceE,
+        ];
+        _addMaterial(playerData, essences[_random.nextInt(essences.length)], 1);
+      }
+
       switch (rarity) {
         case 1:
           _addMaterial(playerData, GameMaterial.commonShard, 2 + _random.nextInt(2));
@@ -132,12 +147,18 @@ class CatProvider extends ChangeNotifier {
           if (_random.nextDouble() < 0.2) {
             _addMaterial(playerData, GameMaterial.skillCore, 1);
           }
+          if (_random.nextDouble() < 0.15) {
+            _addMaterial(playerData, GameMaterial.expPotion, 1);
+          }
           break;
         case 3:
           _addMaterial(playerData, GameMaterial.rareShard, 1);
           _addMaterial(playerData, GameMaterial.passiveGem, 1);
           if (_random.nextDouble() < 0.3) {
             _addMaterial(playerData, GameMaterial.skillCore, 1);
+          }
+          if (_random.nextDouble() < 0.1) {
+            _addMaterial(playerData, GameMaterial.sweepTicket, 1);
           }
           break;
       }

@@ -1,5 +1,6 @@
 /// 玩家資料 Provider
 /// 管理玩家資料的載入、儲存、角色操作
+import 'dart:math';
 import 'package:flutter/foundation.dart';
 import '../../../config/cat_agent_data.dart';
 import '../../../config/evolution_data.dart';
@@ -29,6 +30,12 @@ class PlayerProvider extends ChangeNotifier {
   /// 儲存資料
   Future<void> _save() async {
     await LocalStorageService.instance.savePlayerData(_data);
+  }
+
+  /// 通知 UI 並儲存（外部直接修改 data 後呼叫）
+  void notifyAndSave() {
+    notifyListeners();
+    _save();
   }
 
   // ─── 角色操作 ───
@@ -223,6 +230,13 @@ class PlayerProvider extends ChangeNotifier {
       agentUnlocked = true;
     }
 
+    // 素材掉落（根據章節和星級）
+    final drops = _generateBattleMaterialDrops(stageId, stars);
+    for (final entry in drops.entries) {
+      final key = entry.key.name;
+      _data.materials[key] = (_data.materials[key] ?? 0) + entry.value;
+    }
+
     // 更新每日任務
     if (_data.dailyQuests.needsReset) {
       _data.dailyQuests.reset();
@@ -239,7 +253,54 @@ class PlayerProvider extends ChangeNotifier {
       isFirstClear: isFirstClear,
       agentUnlocked: agentUnlocked,
       unlockedAgentId: unlockAgentId,
+      materialDrops: drops,
     );
+  }
+
+  static final _rng = Random();
+
+  /// 根據關卡 ID 和星級生成素材掉落
+  Map<GameMaterial, int> _generateBattleMaterialDrops(String stageId, int stars) {
+    final drops = <GameMaterial, int>{};
+    // 從 stageId 解析章節 (e.g. "1-3" → chapter 1)
+    final chapter = int.tryParse(stageId.split('-').first) ?? 1;
+
+    // 基礎掉落：水晶粉塵
+    drops[GameMaterial.crystalDust] = 1 + _rng.nextInt(2) + (stars - 1);
+
+    // 碎片掉落（章節越高越好）
+    if (chapter >= 1) {
+      drops[GameMaterial.commonShard] = 1 + _rng.nextInt(2);
+    }
+    if (chapter >= 2 && _rng.nextDouble() < 0.5) {
+      drops[GameMaterial.advancedShard] = 1;
+    }
+    if (chapter >= 3 && _rng.nextDouble() < 0.25) {
+      drops[GameMaterial.rareShard] = 1;
+    }
+
+    // 屬性精華掉落（隨機一種）
+    if (_rng.nextDouble() < 0.3 + stars * 0.1) {
+      final essences = [
+        GameMaterial.essenceA,
+        GameMaterial.essenceB,
+        GameMaterial.essenceC,
+        GameMaterial.essenceD,
+        GameMaterial.essenceE,
+      ];
+      drops[essences[_rng.nextInt(essences.length)]] = 1;
+    }
+
+    // 星級獎勵
+    if (stars >= 2 && _rng.nextDouble() < 0.3) {
+      drops[GameMaterial.talentScroll] = 1;
+    }
+    if (stars >= 3 && _rng.nextDouble() < 0.2) {
+      final rare = [GameMaterial.skillCore, GameMaterial.passiveGem];
+      drops[rare[_rng.nextInt(rare.length)]] = 1;
+    }
+
+    return drops;
   }
 
   // ─── 貨幣操作 ───
@@ -642,6 +703,7 @@ class BattleReward {
   final bool isFirstClear;
   final bool agentUnlocked;
   final String? unlockedAgentId;
+  final Map<GameMaterial, int> materialDrops; // 素材掉落
 
   const BattleReward({
     this.gold = 0,
@@ -650,5 +712,6 @@ class BattleReward {
     this.isFirstClear = false,
     this.agentUnlocked = false,
     this.unlockedAgentId,
+    this.materialDrops = const {},
   });
 }
