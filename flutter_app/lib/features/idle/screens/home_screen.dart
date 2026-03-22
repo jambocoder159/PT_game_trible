@@ -248,7 +248,16 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      // ─── 固定底部導航列 ───
+      bottomNavigationBar: SafeArea(
+        top: false,
+        child: GameBottomNavBar(
+          currentIndex: _currentNavIndex,
+          onTap: _onNavTap,
+        ),
+      ),
       body: SafeArea(
+        bottom: false,
         child: Stack(
           children: [
             // 主要內容
@@ -335,12 +344,6 @@ class _HomeScreenState extends State<HomeScreen> {
                             ],
                     ),
                   ),
-                ),
-
-                // ─── 底部導航列 ───
-                GameBottomNavBar(
-                  currentIndex: _currentNavIndex,
-                  onTap: _onNavTap,
                 ),
               ],
             ),

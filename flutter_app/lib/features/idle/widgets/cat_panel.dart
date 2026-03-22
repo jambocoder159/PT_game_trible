@@ -3,7 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../../config/theme.dart';
+import '../../../config/cat_agent_data.dart';
 import '../../../core/models/cat_data.dart';
+import '../../../core/models/cat_agent.dart';
 import '../../agents/providers/player_provider.dart';
 import '../providers/cat_provider.dart';
 
@@ -41,11 +43,53 @@ class CatPanel extends StatelessWidget {
                 onCollect: cat.isFull(playerLevel)
                     ? () => _collectReward(context, catProvider, def, playerLevel)
                     : null,
+                onTapDetail: () => _showCatQuickView(context, def, cat, playerLevel),
               ),
             );
           }).toList(),
         );
       },
+    );
+  }
+
+  /// 找到對應的 AgentDefinition（透過 BlockColor 對應）
+  static CatAgentDefinition? _findAgentForCat(CatDefinition catDef) {
+    final targetColor = catDef.color;
+    for (final agent in CatAgentData.allAgents) {
+      if (agent.attribute.blockColor == targetColor) return agent;
+    }
+    return null;
+  }
+
+  void _showCatQuickView(
+    BuildContext context,
+    CatDefinition catDef,
+    CatStatus status,
+    int playerLevel,
+  ) {
+    final agentDef = _findAgentForCat(catDef);
+    if (agentDef == null) return;
+
+    final playerProvider = context.read<PlayerProvider>();
+    final agentInfo = playerProvider.allAgentInfos.firstWhere(
+      (a) => a.definition.id == agentDef.id,
+    );
+
+    HapticFeedback.lightImpact();
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppTheme.bgSecondary,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (_) => _CatQuickViewSheet(
+        catDef: catDef,
+        status: status,
+        playerLevel: playerLevel,
+        agentDef: agentDef,
+        agentInfo: agentInfo,
+      ),
     );
   }
 
@@ -644,6 +688,293 @@ class _SparklePainter extends CustomPainter {
 }
 
 // ═══════════════════════════════════════════
+// 首頁快速查看貓咪詳情
+// ═══════════════════════════════════════════
+
+class _CatQuickViewSheet extends StatelessWidget {
+  final CatDefinition catDef;
+  final CatStatus status;
+  final int playerLevel;
+  final CatAgentDefinition agentDef;
+  final AgentInfo agentInfo;
+
+  const _CatQuickViewSheet({
+    required this.catDef,
+    required this.status,
+    required this.playerLevel,
+    required this.agentDef,
+    required this.agentInfo,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final blockColor = catDef.color.color;
+    final isUnlocked = agentInfo.isUnlocked;
+    final progress = status.progress(playerLevel);
+    final chestCount = status.chestCount(playerLevel);
+
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // 頂部拉條
+            Container(
+              width: 36,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.white24,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // ─── 貓咪頭像 + 名稱 ───
+            Row(
+              children: [
+                Container(
+                  width: 48,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    color: blockColor.withAlpha(60),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: blockColor.withAlpha(150), width: 2),
+                  ),
+                  child: Center(
+                    child: Text(catDef.emoji, style: const TextStyle(fontSize: 24)),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Text(
+                            catDef.name,
+                            style: const TextStyle(
+                              color: AppTheme.textPrimary,
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          if (isUnlocked) ...[
+                            const SizedBox(width: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 6,
+                                vertical: 2,
+                              ),
+                              decoration: BoxDecoration(
+                                color: blockColor.withAlpha(40),
+                                borderRadius: BorderRadius.circular(4),
+                                border: Border.all(color: blockColor.withAlpha(120)),
+                              ),
+                              child: Text(
+                                'Lv.${agentInfo.level}',
+                                style: TextStyle(
+                                  color: blockColor,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        isUnlocked
+                            ? '${agentDef.breed} · ${agentDef.role.label}'
+                            : agentDef.role.label,
+                        style: const TextStyle(
+                          color: AppTheme.textSecondary,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                // 寶箱
+                if (chestCount > 0)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: blockColor.withAlpha(180),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      '🎁 x$chestCount',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 14),
+
+            // ─── 飽食度進度條 ───
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      '飽食度',
+                      style: TextStyle(color: AppTheme.textSecondary, fontSize: 11),
+                    ),
+                    Text(
+                      '${status.currentFood} / ${status.maxFood(playerLevel)}',
+                      style: const TextStyle(
+                        color: AppTheme.textSecondary,
+                        fontSize: 11,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(4),
+                  child: LinearProgressIndicator(
+                    value: progress,
+                    minHeight: 6,
+                    backgroundColor: Colors.white.withAlpha(20),
+                    valueColor: AlwaysStoppedAnimation(blockColor),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 14),
+
+            // ─── 屬性面板（已解鎖才顯示） ───
+            if (isUnlocked) ...[
+              Row(
+                children: [
+                  _QuickStatBox('ATK', agentInfo.atk, Colors.red.shade300),
+                  const SizedBox(width: 8),
+                  _QuickStatBox('DEF', agentInfo.def, Colors.blue.shade300),
+                  const SizedBox(width: 8),
+                  _QuickStatBox('HP', agentInfo.hp, Colors.green.shade300),
+                ],
+              ),
+              const SizedBox(height: 12),
+            ],
+
+            // ─── 技能 ───
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: AppTheme.bgCard,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Text(
+                        '🎯 ${agentDef.skill.name}',
+                        style: const TextStyle(
+                          color: AppTheme.textPrimary,
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const Spacer(),
+                      Text(
+                        '⚡${agentDef.skill.energyCost}',
+                        style: TextStyle(
+                          color: Colors.amber.shade300,
+                          fontSize: 11,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    agentDef.skill.description,
+                    style: const TextStyle(
+                      color: AppTheme.textSecondary,
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 8),
+
+            // ─── 被動 ───
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: AppTheme.bgCard.withAlpha(120),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                '💡 ${agentDef.passiveDescription}',
+                style: const TextStyle(
+                  color: AppTheme.textSecondary,
+                  fontSize: 12,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _QuickStatBox extends StatelessWidget {
+  final String label;
+  final int value;
+  final Color color;
+
+  const _QuickStatBox(this.label, this.value, this.color);
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        decoration: BoxDecoration(
+          color: color.withAlpha(20),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: color.withAlpha(60)),
+        ),
+        child: Column(
+          children: [
+            Text(
+              '$value',
+              style: TextStyle(
+                color: color,
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            Text(
+              label,
+              style: const TextStyle(
+                color: AppTheme.textSecondary,
+                fontSize: 10,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ═══════════════════════════════════════════
 // 貓咪卡片（含飽食脈衝動畫 + 寶箱數量徽章）
 // ═══════════════════════════════════════════
 
@@ -652,6 +983,7 @@ class _CatCard extends StatefulWidget {
   final CatStatus status;
   final int playerLevel;
   final VoidCallback? onCollect;
+  final VoidCallback? onTapDetail;
 
   const _CatCard({
     super.key,
@@ -659,6 +991,7 @@ class _CatCard extends StatefulWidget {
     required this.status,
     required this.playerLevel,
     this.onCollect,
+    this.onTapDetail,
   });
 
   @override
@@ -719,7 +1052,7 @@ class _CatCardState extends State<_CatCard>
         final emojiScale = isFull ? 1.0 + _pulseAnim.value * 0.15 : 1.0;
 
         return GestureDetector(
-          onTap: isFull ? widget.onCollect : null,
+          onTap: isFull ? widget.onCollect : widget.onTapDetail,
           child: Container(
             margin: const EdgeInsets.only(bottom: 4),
             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
