@@ -7,7 +7,9 @@ import 'core/services/local_storage.dart';
 import 'features/game/providers/game_provider.dart';
 import 'features/game/providers/battle_provider.dart';
 import 'features/agents/providers/player_provider.dart';
-import 'features/menu/screens/main_menu_screen.dart';
+import 'features/idle/providers/idle_provider.dart';
+import 'features/idle/providers/cat_provider.dart';
+import 'features/idle/screens/home_screen.dart';
 import 'features/tutorial/screens/tutorial_screen.dart';
 
 void main() async {
@@ -47,6 +49,12 @@ class Match3App extends StatelessWidget {
           provider.init();
           return provider;
         }),
+        ChangeNotifierProvider(create: (_) => IdleProvider()),
+        ChangeNotifierProvider(create: (_) {
+          final provider = CatProvider();
+          provider.init();
+          return provider;
+        }),
       ],
       child: MaterialApp(
         title: '貓咪特工',
@@ -62,7 +70,7 @@ class Match3App extends StatelessWidget {
             if (!player.data.tutorialCompleted) {
               return const TutorialScreen();
             }
-            return const MainMenuScreen();
+            return const HomeScreen();
           },
         ),
       ),
