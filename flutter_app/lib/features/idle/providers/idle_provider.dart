@@ -2,8 +2,10 @@ import 'dart:async';
 import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:uuid/uuid.dart';
+import '../../../config/cat_agent_data.dart';
 import '../../../config/game_modes.dart';
 import '../../../core/models/block.dart';
+import '../../../core/models/cat_agent.dart';
 import '../../../core/models/game_state.dart';
 import '../../../core/engine/match_detector.dart';
 
@@ -27,6 +29,9 @@ class IdleProvider extends ChangeNotifier {
   bool _isProcessing = false;
   bool get isProcessing => _isProcessing;
   int _gameGeneration = 0;
+
+  /// 每次消除方塊的回呼（用於每日任務計數）
+  void Function(int count)? onBlocksEliminated;
 
   // 飼料事件佇列
   final List<FoodEvent> _foodEvents = [];
@@ -74,10 +79,13 @@ class IdleProvider extends ChangeNotifier {
     if (_gameGeneration != gen) return;
 
     // 產出 1 份飼料（點擊消除的方塊）
+    final tapFood = {tappedColor: 1};
     _foodEvents.add(FoodEvent(
-      foodByColor: {tappedColor: 1},
+      foodByColor: tapFood,
       combo: 0,
     ));
+    onBlocksEliminated?.call(1);
+    _accumulateEnergy(tapFood);
 
     // 重力 + 補充
     _applyGravity();
@@ -211,9 +219,12 @@ class IdleProvider extends ChangeNotifier {
         foodByColor: boostedFood,
         combo: s.combo,
       ));
+      _accumulateEnergy(foodMap);
 
       // 分數（僅用於展示）
-      s.score += foodMap.values.fold(0, (a, b) => a + b);
+      final eliminatedCount = foodMap.values.fold(0, (a, b) => a + b);
+      s.score += eliminatedCount;
+      onBlocksEliminated?.call(eliminatedCount);
 
       // 消除動畫
       final idsToRemove = MatchDetector.getBlockIdsToEliminate(matches);
@@ -348,5 +359,203 @@ class IdleProvider extends ChangeNotifier {
 
   BlockColor _randomColor() {
     return BlockColor.values[_random.nextInt(BlockColor.values.length)];
+  }
+
+  // ─── 放置模式技能系統 ───
+
+  /// 隊伍角色 ID
+  List<String> _teamIds = [];
+  List<String> get teamIds => _teamIds;
+
+  /// 各角色能量（0 ~ energyCost）
+  Map<String, int> _energy = {};
+  int getEnergy(String agentId) => _energy[agentId] ?? 0;
+
+  /// 設定隊伍（由 HomeScreen 呼叫）
+  void setTeam(List<String> team) {
+    _teamIds = team;
+    for (final id in team) {
+      _energy.putIfAbsent(id, () => 0);
+    }
+    notifyListeners();
+  }
+
+  CatAgentDefinition? _findAgent(String id) {
+    for (final a in CatAgentData.allAgents) {
+      if (a.id == id) return a;
+    }
+    return null;
+  }
+
+  /// 消除方塊時累積能量
+  void _accumulateEnergy(Map<BlockColor, int> foodByColor) {
+    for (final agentId in _teamIds) {
+      final def = _findAgent(agentId);
+      if (def == null) continue;
+
+      final agentColor = def.attribute.blockColor;
+      final matched = foodByColor[agentColor] ?? 0;
+      // 每消除 1 個同色方塊 = +1 能量，其他色 = +0.5（取整）
+      final otherBlocks = foodByColor.entries
+          .where((e) => e.key != agentColor)
+          .fold(0, (sum, e) => sum + e.value);
+      final gain = matched + (otherBlocks * 0.5).round();
+
+      if (gain > 0) {
+        final cost = def.skill.energyCost;
+        _energy[agentId] = ((_energy[agentId] ?? 0) + gain).clamp(0, cost);
+      }
+    }
+  }
+
+  /// 角色技能是否可用
+  bool isSkillReady(String agentId) {
+    final def = _findAgent(agentId);
+    if (def == null) return false;
+    return (_energy[agentId] ?? 0) >= def.skill.energyCost;
+  }
+
+  /// 施放技能（只執行棋盤效果）
+  Future<void> activateSkill(String agentId) async {
+    final s = _state;
+    if (s == null || s.status != GameStatus.playing || _isProcessing) return;
+    if (!isSkillReady(agentId)) return;
+
+    final def = _findAgent(agentId);
+    if (def == null) return;
+
+    final effect = def.skill.boardEffect;
+    if (effect == null) return;
+
+    // 扣除能量
+    _energy[agentId] = 0;
+    _isProcessing = true;
+    final gen = _gameGeneration;
+    notifyListeners();
+
+    // 執行棋盤效果
+    final agentColor = def.attribute.blockColor;
+    switch (effect.type) {
+      case BoardEffectType.convertColor:
+        _convertRandomBlocks(effect.value, agentColor);
+        break;
+      case BoardEffectType.eliminateRandom:
+        _eliminateRandomBlocksByCount(effect.value);
+        break;
+      case BoardEffectType.eliminateRow:
+        final row = effect.value == -1 ? s.mode.numRows - 1 : effect.value;
+        _eliminateRow(row);
+        break;
+      case BoardEffectType.eliminateColumn:
+        final col = _random.nextInt(s.mode.numCols);
+        _eliminateColumn(col);
+        break;
+      case BoardEffectType.shuffleBoard:
+        _shuffleBoard();
+        break;
+    }
+
+    notifyListeners();
+    await Future.delayed(const Duration(milliseconds: 400));
+    if (_gameGeneration != gen) { _isProcessing = false; return; }
+
+    // 消除類效果需要重力 + 補充 + 連鎖
+    if (effect.type == BoardEffectType.eliminateRandom ||
+        effect.type == BoardEffectType.eliminateRow ||
+        effect.type == BoardEffectType.eliminateColumn) {
+      _removeEliminatedBlocks();
+      notifyListeners();
+      await Future.delayed(const Duration(milliseconds: 80));
+      if (_gameGeneration != gen) { _isProcessing = false; return; }
+
+      _applyGravity();
+      notifyListeners();
+      await Future.delayed(const Duration(milliseconds: 350));
+      if (_gameGeneration != gen) { _isProcessing = false; return; }
+
+      _refillGrid();
+      notifyListeners();
+      await Future.delayed(const Duration(milliseconds: 250));
+      if (_gameGeneration != gen) { _isProcessing = false; return; }
+
+      await _processMatchLoop();
+    }
+
+    if (effect.type == BoardEffectType.convertColor) {
+      await _processMatchLoop();
+    }
+
+    _isProcessing = false;
+    notifyListeners();
+  }
+
+  void _convertRandomBlocks(int count, BlockColor targetColor) {
+    final s = _state!;
+    final candidates = <Point<int>>[];
+    for (int col = 0; col < s.mode.numCols; col++) {
+      for (int row = 0; row < s.mode.numRows; row++) {
+        final block = s.grid[col][row];
+        if (block != null && block.color != targetColor) {
+          candidates.add(Point(col, row));
+        }
+      }
+    }
+    candidates.shuffle(_random);
+    for (final p in candidates.take(count)) {
+      final old = s.grid[p.x][p.y]!;
+      s.grid[p.x][p.y] = old.copyWith(color: targetColor);
+    }
+  }
+
+  void _eliminateRandomBlocksByCount(int count) {
+    final s = _state!;
+    final candidates = <Point<int>>[];
+    for (int col = 0; col < s.mode.numCols; col++) {
+      for (int row = 0; row < s.mode.numRows; row++) {
+        if (s.grid[col][row] != null) candidates.add(Point(col, row));
+      }
+    }
+    candidates.shuffle(_random);
+    for (final p in candidates.take(count)) {
+      s.grid[p.x][p.y] = s.grid[p.x][p.y]!.copyWith(isEliminating: true);
+    }
+  }
+
+  void _eliminateRow(int row) {
+    final s = _state!;
+    for (int col = 0; col < s.mode.numCols; col++) {
+      if (s.grid[col][row] != null) {
+        s.grid[col][row] = s.grid[col][row]!.copyWith(isEliminating: true);
+      }
+    }
+  }
+
+  void _eliminateColumn(int col) {
+    final s = _state!;
+    for (int row = 0; row < s.mode.numRows; row++) {
+      if (s.grid[col][row] != null) {
+        s.grid[col][row] = s.grid[col][row]!.copyWith(isEliminating: true);
+      }
+    }
+  }
+
+  void _shuffleBoard() {
+    final s = _state!;
+    final blocks = <Block>[];
+    for (int col = 0; col < s.mode.numCols; col++) {
+      for (int row = 0; row < s.mode.numRows; row++) {
+        if (s.grid[col][row] != null) blocks.add(s.grid[col][row]!);
+      }
+    }
+    blocks.shuffle(_random);
+    int idx = 0;
+    for (int col = 0; col < s.mode.numCols; col++) {
+      for (int row = 0; row < s.mode.numRows; row++) {
+        if (idx < blocks.length) {
+          s.grid[col][row] = blocks[idx].copyWith(col: col, row: row);
+          idx++;
+        }
+      }
+    }
   }
 }

@@ -22,6 +22,7 @@ import '../widgets/bottom_nav_bar.dart';
 import '../widgets/idle_mini_game.dart';
 import '../widgets/cat_panel.dart';
 import '../widgets/energy_orb_overlay.dart';
+import '../widgets/idle_skill_bar.dart';
 
 /// 首頁 — 放置型遊戲大廳
 class HomeScreen extends StatefulWidget {
@@ -73,6 +74,15 @@ class _HomeScreenState extends State<HomeScreen> {
     if (idle.state == null) {
       idle.startIdleGame();
     }
+    // 綁定每日任務消除計數
+    idle.onBlocksEliminated = (count) {
+      if (mounted) {
+        context.read<PlayerProvider>().addBlocksEliminated(count);
+      }
+    };
+    // 設定隊伍（技能系統用）
+    final team = context.read<PlayerProvider>().data.team;
+    idle.setTeam(team);
   }
 
   void _setupFoodListener() {
@@ -336,7 +346,15 @@ class _HomeScreenState extends State<HomeScreen> {
                           ? [
                               Expanded(
                                 flex: 6,
-                                child: IdleMiniGame(key: _gameAreaKey),
+                                child: Column(
+                                  children: [
+                                    Expanded(child: IdleMiniGame(key: _gameAreaKey)),
+                                    const Padding(
+                                      padding: EdgeInsets.only(top: 4),
+                                      child: IdleSkillBar(),
+                                    ),
+                                  ],
+                                ),
                               ),
                               const SizedBox(width: 4),
                               Expanded(
@@ -352,7 +370,15 @@ class _HomeScreenState extends State<HomeScreen> {
                               const SizedBox(width: 4),
                               Expanded(
                                 flex: 6,
-                                child: IdleMiniGame(key: _gameAreaKey),
+                                child: Column(
+                                  children: [
+                                    Expanded(child: IdleMiniGame(key: _gameAreaKey)),
+                                    const Padding(
+                                      padding: EdgeInsets.only(top: 4),
+                                      child: IdleSkillBar(),
+                                    ),
+                                  ],
+                                ),
                               ),
                             ],
                     ),

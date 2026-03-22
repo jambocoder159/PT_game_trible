@@ -61,6 +61,12 @@ class _BattleScreenState extends State<BattleScreen> {
         result.matchedBlockCounts,
         result.combo,
       );
+      // 記錄每日任務消除數
+      if (result.totalBlocksEliminated > 0) {
+        context.read<PlayerProvider>().addBlocksEliminated(
+          result.totalBlocksEliminated,
+        );
+      }
     };
     gameProvider.onTurnEnd = () {
       battleProvider.onTurnEnd();
