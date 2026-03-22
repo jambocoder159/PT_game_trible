@@ -116,6 +116,22 @@ class GmScreen extends StatelessWidget {
               ),
               const SizedBox(height: 10),
 
+              _GmButton(
+                icon: Icons.auto_awesome,
+                label: '全角色滿進化',
+                color: Colors.amber,
+                onTap: () {
+                  for (final entry in provider.data.agents.entries) {
+                    if (entry.value.isUnlocked) {
+                      entry.value.evolutionStage = 2;
+                    }
+                  }
+                  provider.gmAddGold(0); // trigger save + notify
+                  _showDone(context, '全角色已滿進化');
+                },
+              ),
+              const SizedBox(height: 10),
+
               // 角色
               _SectionTitle('角色'),
               _GmButton(

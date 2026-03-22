@@ -180,7 +180,7 @@ class _AgentCard extends StatelessWidget {
                     Row(
                       children: [
                         Text(
-                          isUnlocked ? def.name : '???',
+                          isUnlocked ? agentInfo.displayName : '???',
                           style: TextStyle(
                             color: isUnlocked
                                 ? AppTheme.textPrimary

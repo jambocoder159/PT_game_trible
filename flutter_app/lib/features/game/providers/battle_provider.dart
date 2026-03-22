@@ -3,6 +3,7 @@
 /// GameProvider 負責三消核心，BattleProvider 負責戰鬥層
 import 'package:flutter/foundation.dart';
 import '../../../config/cat_agent_data.dart';
+import '../../../config/evolution_data.dart';
 import '../../../config/passive_skill_data.dart';
 import '../../../config/stage_data.dart';
 import '../../../config/talent_tree_data.dart';
@@ -83,10 +84,26 @@ class BattleProvider extends ChangeNotifier {
             .nonNulls
             .toList();
 
+        // 計算進化倍率
+        double evoAtk = 1.0, evoDef = 1.0, evoHp = 1.0;
+        if (instance.evolutionStage > 0) {
+          final evo = EvolutionData.getEvolution(
+            def.rarity.name, instance.evolutionStage);
+          if (evo != null) {
+            evoAtk = evo.atkMultiplier;
+            evoDef = evo.defMultiplier;
+            evoHp = evo.hpMultiplier;
+          }
+        }
+
         team.add(BattleAgent(
           definition: def,
           level: instance.level,
           skillTier: instance.skillTier,
+          evolutionStage: instance.evolutionStage,
+          evoAtkMult: evoAtk,
+          evoDefMult: evoDef,
+          evoHpMult: evoHp,
           unlockedTalents: talents,
           equippedPassives: passives,
         ));

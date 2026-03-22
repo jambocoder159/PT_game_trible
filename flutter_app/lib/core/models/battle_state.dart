@@ -23,6 +23,10 @@ class BattleAgent {
 
   // 養成系統數據
   final int skillTier;
+  final int evolutionStage;
+  final double evoAtkMult;
+  final double evoDefMult;
+  final double evoHpMult;
   final List<TalentNodeDefinition> unlockedTalents;
   final List<PassiveSkillDefinition> equippedPassives;
 
@@ -36,6 +40,10 @@ class BattleAgent {
     required this.level,
     this.currentEnergy = 0,
     this.skillTier = 1,
+    this.evolutionStage = 0,
+    this.evoAtkMult = 1.0,
+    this.evoDefMult = 1.0,
+    this.evoHpMult = 1.0,
     List<TalentNodeDefinition>? unlockedTalents,
     List<PassiveSkillDefinition>? equippedPassives,
   })  : maxEnergy = definition.skill.energyCost,
@@ -72,17 +80,17 @@ class BattleAgent {
 
   int get atk {
     final base = definition.atkAtLevel(level);
-    return (base * (1 + _atkBonus / 100)).round();
+    return (base * evoAtkMult * (1 + _atkBonus / 100)).round();
   }
 
   int get def {
     final base = definition.defAtLevel(level);
-    return (base * (1 + _defBonus / 100)).round();
+    return (base * evoDefMult * (1 + _defBonus / 100)).round();
   }
 
   int get hp {
     final base = definition.hpAtLevel(level);
-    return (base * (1 + _hpBonus / 100)).round();
+    return (base * evoHpMult * (1 + _hpBonus / 100)).round();
   }
 
   bool get isSkillReady => currentEnergy >= maxEnergy;

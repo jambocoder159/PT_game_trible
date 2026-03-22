@@ -1,11 +1,14 @@
 /// 角色詳情頁
-/// 包含角色資訊 + 天賦樹/技能強化/被動技能三個 Tab
+/// 包含角色資訊 + 進化/天賦樹/技能強化/被動技能四個 Tab
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../../../config/cat_agent_data.dart';
+import '../../../config/evolution_data.dart';
 import '../../../config/theme.dart';
 import '../../../core/models/cat_agent.dart';
 import '../providers/player_provider.dart';
 import '../widgets/material_inventory.dart';
+import '../widgets/evolution_widget.dart';
 import '../widgets/talent_tree_widget.dart';
 import '../widgets/skill_enhance_widget.dart';
 import '../widgets/passive_skill_widget.dart';
@@ -19,13 +22,16 @@ class AgentDetailScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Consumer<PlayerProvider>(
       builder: (context, provider, _) {
-        final instance = provider.data.agents[definition.id];
-        final level = instance?.level ?? 1;
+        final agentInfo = AgentInfo(
+          definition: definition,
+          instance: provider.data.agents[definition.id],
+        );
+        final level = agentInfo.level;
 
         return Scaffold(
           backgroundColor: AppTheme.bgPrimary,
           appBar: AppBar(
-            title: Text('${definition.attribute.emoji} ${definition.name}'),
+            title: Text('${definition.attribute.emoji} ${agentInfo.displayName}'),
             backgroundColor: AppTheme.bgSecondary,
           ),
           body: Column(
@@ -36,7 +42,7 @@ class AgentDetailScreen extends StatelessWidget {
                 child: MaterialInventoryBar(),
               ),
               // 角色基本資訊
-              _AgentHeader(definition: definition, level: level, instance: instance),
+              _AgentHeader(definition: definition, level: level, instance: agentInfo.instance, displayName: agentInfo.displayName),
               // Tab 區域
               Expanded(
                 child: _TabSection(
@@ -57,12 +63,25 @@ class _AgentHeader extends StatelessWidget {
   final CatAgentDefinition definition;
   final int level;
   final CatAgentInstance? instance;
+  final String displayName;
 
   const _AgentHeader({
     required this.definition,
     required this.level,
     this.instance,
+    required this.displayName,
   });
+
+  double get _evoMult {
+    final stage = instance?.evolutionStage ?? 0;
+    if (stage == 0) return 1.0;
+    final evo = EvolutionData.getEvolution(definition.rarity.name, stage);
+    return evo?.atkMultiplier ?? 1.0;
+  }
+
+  int _getAdjustedAtk() => (definition.atkAtLevel(level) * _evoMult).round();
+  int _getAdjustedDef() => (definition.defAtLevel(level) * _evoMult).round();
+  int _getAdjustedHp() => (definition.hpAtLevel(level) * _evoMult).round();
 
   @override
   Widget build(BuildContext context) {
@@ -99,7 +118,7 @@ class _AgentHeader extends StatelessWidget {
                 Row(
                   children: [
                     Text(
-                      '${definition.name} Lv.$level',
+                      '$displayName Lv.$level',
                       style: const TextStyle(
                         color: AppTheme.textPrimary,
                         fontSize: 18,
@@ -124,11 +143,11 @@ class _AgentHeader extends StatelessWidget {
           // 數值
           Row(
             children: [
-              _StatChip('ATK', definition.atkAtLevel(level)),
+              _StatChip('ATK', _getAdjustedAtk()),
               const SizedBox(width: 4),
-              _StatChip('DEF', definition.defAtLevel(level)),
+              _StatChip('DEF', _getAdjustedDef()),
               const SizedBox(width: 4),
-              _StatChip('HP', definition.hpAtLevel(level)),
+              _StatChip('HP', _getAdjustedHp()),
             ],
           ),
         ],
@@ -159,7 +178,7 @@ class _TabSectionState extends State<_TabSection>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(length: 4, vsync: this);
   }
 
   @override
@@ -181,7 +200,9 @@ class _TabSectionState extends State<_TabSection>
               indicatorColor: Colors.amber,
               labelColor: Colors.amber,
               unselectedLabelColor: AppTheme.textSecondary,
+              isScrollable: true,
               tabs: const [
+                Tab(text: '進化'),
                 Tab(text: '天賦樹'),
                 Tab(text: '技能強化'),
                 Tab(text: '被動技能'),
@@ -191,6 +212,11 @@ class _TabSectionState extends State<_TabSection>
               child: TabBarView(
                 controller: _tabController,
                 children: [
+                  EvolutionWidget(
+                    definition: CatAgentData.getById(widget.agentId)!,
+                    currentStage: instance?.evolutionStage ?? 0,
+                    currentLevel: instance?.level ?? 1,
+                  ),
                   TalentTreeWidget(
                     agentId: widget.agentId,
                     unlockedTalentIds: instance?.unlockedTalentIds ?? [],

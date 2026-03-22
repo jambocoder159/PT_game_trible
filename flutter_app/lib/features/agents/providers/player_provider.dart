@@ -2,6 +2,7 @@
 /// 管理玩家資料的載入、儲存、角色操作
 import 'package:flutter/foundation.dart';
 import '../../../config/cat_agent_data.dart';
+import '../../../config/evolution_data.dart';
 import '../../../config/passive_skill_data.dart';
 import '../../../config/skill_tier_data.dart';
 import '../../../config/talent_tree_data.dart';
@@ -114,12 +115,13 @@ class PlayerProvider extends ChangeNotifier {
     final def = CatAgentData.getById(agentId);
     if (def == null) return false;
 
-    if (instance.level >= def.maxLevel) return false;
+    final maxLevel = getAgentMaxLevel(agentId);
+    if (instance.level >= maxLevel) return false;
 
     instance.currentExp += expToAdd;
 
     // 檢查升級
-    while (instance.level < def.maxLevel) {
+    while (instance.level < maxLevel) {
       final required = def.expRequiredForLevel(instance.level + 1) -
           def.expRequiredForLevel(instance.level);
       if (instance.currentExp >= required) {
@@ -326,6 +328,53 @@ class PlayerProvider extends ChangeNotifier {
       final key = entry.key.name;
       _data.materials[key] = (_data.materials[key] ?? 0) - entry.value;
     }
+  }
+
+  // ─── 進化操作 ───
+
+  /// 進化角色
+  Future<bool> evolveAgent(String agentId) async {
+    final instance = _data.agents[agentId];
+    if (instance == null || !instance.isUnlocked) return false;
+    if (instance.evolutionStage >= 2) return false;
+
+    final def = CatAgentData.getById(agentId);
+    if (def == null) return false;
+
+    final nextStage = instance.evolutionStage + 1;
+    final evo = EvolutionData.getEvolution(def.rarity.name, nextStage);
+    if (evo == null) return false;
+
+    // 檢查等級需求
+    if (instance.level < evo.requiredLevel) return false;
+
+    // 檢查費用
+    if (_data.gold < evo.goldCost) return false;
+    if (!hasMaterials(evo.materialCost)) return false;
+
+    // 扣除
+    _data.gold -= evo.goldCost;
+    _deductMaterials(evo.materialCost);
+    instance.evolutionStage = nextStage;
+
+    await _save();
+    notifyListeners();
+    return true;
+  }
+
+  /// 取得角色進化後的等級上限
+  int getAgentMaxLevel(String agentId) {
+    final def = CatAgentData.getById(agentId);
+    if (def == null) return 30;
+    final instance = _data.agents[agentId];
+    var maxLevel = def.maxLevel;
+    if (instance != null) {
+      final evolutions = EvolutionData.getEvolutionsForRarity(def.rarity.name);
+      for (int i = 0; i < instance.evolutionStage && i < evolutions.length; i++) {
+        maxLevel += evolutions[i].maxLevelIncrease;
+      }
+    }
+    return maxLevel;
   }
 
   // ─── 天賦樹操作 ───
@@ -551,10 +600,38 @@ class AgentInfo {
   bool get isUnlocked => instance?.isUnlocked == true;
   int get level => instance?.level ?? 1;
   int get currentExp => instance?.currentExp ?? 0;
+  int get evolutionStage => instance?.evolutionStage ?? 0;
 
-  int get atk => definition.atkAtLevel(level);
-  int get def => definition.defAtLevel(level);
-  int get hp => definition.hpAtLevel(level);
+  /// 進化名稱（加後綴）
+  String get displayName {
+    if (evolutionStage == 0) return definition.name;
+    final evolutions = EvolutionData.getEvolutionsForRarity(definition.rarity.name);
+    if (evolutionStage <= evolutions.length) {
+      return '${definition.name}${evolutions[evolutionStage - 1].nameSuffix}';
+    }
+    return definition.name;
+  }
+
+  /// 進化倍率
+  double get _evoAtkMult {
+    if (evolutionStage == 0) return 1.0;
+    final evo = EvolutionData.getEvolution(definition.rarity.name, evolutionStage);
+    return evo?.atkMultiplier ?? 1.0;
+  }
+  double get _evoDefMult {
+    if (evolutionStage == 0) return 1.0;
+    final evo = EvolutionData.getEvolution(definition.rarity.name, evolutionStage);
+    return evo?.defMultiplier ?? 1.0;
+  }
+  double get _evoHpMult {
+    if (evolutionStage == 0) return 1.0;
+    final evo = EvolutionData.getEvolution(definition.rarity.name, evolutionStage);
+    return evo?.hpMultiplier ?? 1.0;
+  }
+
+  int get atk => (definition.atkAtLevel(level) * _evoAtkMult).round();
+  int get def => (definition.defAtLevel(level) * _evoDefMult).round();
+  int get hp => (definition.hpAtLevel(level) * _evoHpMult).round();
 }
 
 /// 戰鬥結算獎勵
