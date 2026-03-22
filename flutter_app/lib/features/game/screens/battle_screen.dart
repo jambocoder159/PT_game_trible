@@ -1,5 +1,5 @@
-/// 戰鬥畫面
-/// 闖關模式：敵人資訊 + 棋盤←→角色面板（可切換左右）
+/// 戰鬥畫面（手機版優化）
+/// 闖關模式：左側角色面板 + 右側棋盤，木質風格 UI
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -14,6 +14,15 @@ import '../../agents/providers/player_provider.dart';
 import '../providers/battle_provider.dart';
 import '../providers/game_provider.dart';
 import '../widgets/game_board.dart';
+import '../widgets/cat_placeholder.dart';
+
+// ─── 木質風格配色 ───
+const _woodLight = Color(0xFFC4A24E);
+const _woodMid = Color(0xFFA0852B);
+const _woodDark = Color(0xFF8B6914);
+const _woodBorder = Color(0xFF6B4F0E);
+const _panelBg = Color(0xFF4A5568);
+const _gamePanelBg = Color(0xFF5BA8A0);
 
 /// 戰鬥畫面
 class BattleScreen extends StatefulWidget {
@@ -28,7 +37,7 @@ class BattleScreen extends StatefulWidget {
 class _BattleScreenState extends State<BattleScreen> {
   bool _resultSaved = false;
   BattleRewardResult? _reward;
-  bool _boardOnLeft = true;
+  bool _boardOnLeft = false; // 預設棋盤在右側（截圖佈局）
 
   @override
   void initState() {
@@ -135,7 +144,7 @@ class _BattleScreenState extends State<BattleScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppTheme.bgPrimary,
+      backgroundColor: const Color(0xFF2D3748),
       body: SafeArea(
         child: Consumer2<GameProvider, BattleProvider>(
           builder: (context, game, battle, _) {
@@ -146,71 +155,67 @@ class _BattleScreenState extends State<BattleScreen> {
               children: [
                 Column(
                   children: [
-                    // 頂部：關卡資訊
-                    _TopBar(
+                    // ── 頂部木質風格標題欄 ──
+                    _WoodTopBar(
                       stage: widget.stage,
                       gameState: gameState,
+                      onBack: () {
+                        battle.endBattle();
+                        Navigator.of(context).pop();
+                      },
                       onToggle: _toggleBoardPosition,
-                      boardOnLeft: _boardOnLeft,
                     ),
 
-                    // 敵人區
-                    if (battleState != null)
-                      _EnemyPanel(battleState: battleState),
-
-                    // 隊伍 HP
-                    if (battleState != null) _TeamHpBar(battleState: battleState),
-
-                    // Combo
-                    if (gameState != null && gameState.combo > 0)
-                      _ComboBar(combo: gameState.combo),
-
-                    // 主體：棋盤 ←→ 角色面板
+                    // ── 主體分屏區域 ──
                     Expanded(
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 4),
-                        child: Row(
-                          children: _boardOnLeft
-                              ? [
-                                  const Expanded(
-                                    flex: 6,
-                                    child: Center(child: GameBoard()),
+                      child: Row(
+                        children: _boardOnLeft
+                            ? [
+                                // 棋盤在左
+                                Expanded(
+                                  flex: 6,
+                                  child: _GamePanel(
+                                    battleState: battleState,
+                                    gameState: gameState,
                                   ),
-                                  const SizedBox(width: 4),
-                                  if (battleState != null)
-                                    Expanded(
-                                      flex: 4,
-                                      child: _BattleAgentPanel(
-                                        battleState: battleState,
-                                        battleProvider: battle,
-                                      ),
+                                ),
+                                // 角色在右
+                                if (battleState != null)
+                                  Expanded(
+                                    flex: 4,
+                                    child: _CatAgentPanel(
+                                      battleState: battleState,
+                                      battleProvider: battle,
                                     ),
-                                ]
-                              : [
-                                  if (battleState != null)
-                                    Expanded(
-                                      flex: 4,
-                                      child: _BattleAgentPanel(
-                                        battleState: battleState,
-                                        battleProvider: battle,
-                                      ),
-                                    ),
-                                  const SizedBox(width: 4),
-                                  const Expanded(
-                                    flex: 6,
-                                    child: Center(child: GameBoard()),
                                   ),
-                                ],
-                        ),
+                              ]
+                            : [
+                                // 角色在左（截圖預設佈局）
+                                if (battleState != null)
+                                  Expanded(
+                                    flex: 4,
+                                    child: _CatAgentPanel(
+                                      battleState: battleState,
+                                      battleProvider: battle,
+                                    ),
+                                  ),
+                                // 棋盤在右
+                                Expanded(
+                                  flex: 6,
+                                  child: _GamePanel(
+                                    battleState: battleState,
+                                    gameState: gameState,
+                                  ),
+                                ),
+                              ],
                       ),
                     ),
 
-                    // 技能效果提示
-                    if (battleState != null)
-                      _SkillEffectBar(battleProvider: battle),
-
-                    // 底部
-                    _BottomBar(gameState: gameState),
+                    // ── 底部控制列 ──
+                    _WoodBottomBar(
+                      gameState: gameState,
+                      battleProvider: battle,
+                    ),
                   ],
                 ),
 
@@ -263,37 +268,187 @@ class _BattleScreenState extends State<BattleScreen> {
 }
 
 // ═══════════════════════════════════════════
-// 戰鬥角色面板（參考首頁版型，橫向卡片）
+// 木質風格頂部欄
 // ═══════════════════════════════════════════
 
-class _BattleAgentPanel extends StatelessWidget {
+class _WoodTopBar extends StatelessWidget {
+  final StageDefinition stage;
+  final GameState? gameState;
+  final VoidCallback onBack;
+  final VoidCallback onToggle;
+
+  const _WoodTopBar({
+    required this.stage,
+    required this.gameState,
+    required this.onBack,
+    required this.onToggle,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [_woodLight, _woodMid, _woodDark],
+        ),
+        border: Border(
+          bottom: BorderSide(color: _woodBorder, width: 3),
+        ),
+        boxShadow: [
+          BoxShadow(color: Colors.black26, blurRadius: 6, offset: Offset(0, 2)),
+        ],
+      ),
+      child: Row(
+        children: [
+          // 返回按鈕
+          _WoodButton(
+            onTap: onBack,
+            child: const Icon(Icons.arrow_back_ios_new, size: 16, color: Colors.white),
+          ),
+          const SizedBox(width: 8),
+          // SCORE
+          Expanded(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text(
+                  'SCORE',
+                  style: TextStyle(
+                    fontSize: 9,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white70,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+                Text(
+                  '${gameState?.score ?? 0}',
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w900,
+                    color: Colors.white,
+                    shadows: [Shadow(color: Colors.black38, blurRadius: 2)],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          // STAGE
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                'STAGE',
+                style: TextStyle(
+                  fontSize: 9,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.white70,
+                  letterSpacing: 0.5,
+                ),
+              ),
+              Text(
+                stage.id,
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w800,
+                  color: Color(0xFFFFF3CD),
+                  shadows: [Shadow(color: Colors.black38, blurRadius: 2)],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(width: 8),
+          // 切換按鈕
+          _WoodButton(
+            onTap: onToggle,
+            child: const Icon(Icons.swap_horiz, size: 16, color: Colors.white),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// 木質風格小按鈕
+class _WoodButton extends StatelessWidget {
+  final VoidCallback onTap;
+  final Widget child;
+
+  const _WoodButton({required this.onTap, required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 34,
+        height: 34,
+        decoration: BoxDecoration(
+          color: Colors.black26,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: Colors.white30, width: 1.5),
+        ),
+        child: Center(child: child),
+      ),
+    );
+  }
+}
+
+// ═══════════════════════════════════════════
+// 左側貓咪角色面板
+// ═══════════════════════════════════════════
+
+class _CatAgentPanel extends StatelessWidget {
   final BattleState battleState;
   final BattleProvider battleProvider;
 
-  const _BattleAgentPanel({
+  const _CatAgentPanel({
     required this.battleState,
     required this.battleProvider,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        // 角色卡片
-        ...battleState.team.asMap().entries.map((entry) {
-          final index = entry.key;
-          final agent = entry.value;
-          return _BattleAgentCard(
-            agent: agent,
-            onTap: () {
-              if (agent.isSkillReady) {
-                _showSkillConfirm(context, agent, index);
-              }
-            },
-          );
-        }),
-        const Spacer(),
-      ],
+    return Container(
+      decoration: const BoxDecoration(
+        // 城市巷弄背景
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            Color(0xFF7BA0C4), // 天空
+            Color(0xFFA8C4D9),
+            Color(0xFFD4C5A9), // 地面色
+            Color(0xFF9E9E9E), // 地面
+          ],
+          stops: [0.0, 0.3, 0.75, 1.0],
+        ),
+      ),
+      child: Column(
+        children: [
+          const SizedBox(height: 4),
+          // 角色列表
+          Expanded(
+            child: ListView(
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+              children: battleState.team.asMap().entries.map((entry) {
+                final index = entry.key;
+                final agent = entry.value;
+                return _CatAgentCard(
+                  agent: agent,
+                  onTap: () {
+                    if (agent.isSkillReady) {
+                      _showSkillConfirm(context, agent, index);
+                    }
+                  },
+                );
+              }).toList(),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -316,18 +471,11 @@ class _BattleAgentPanel extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Container(
-                width: 48,
-                height: 48,
-                decoration: BoxDecoration(
-                  color: color.withAlpha(40),
-                  shape: BoxShape.circle,
-                  border: Border.all(color: color.withAlpha(150), width: 2),
-                ),
-                child: Center(
-                  child: Text(agent.definition.attribute.emoji,
-                      style: const TextStyle(fontSize: 22)),
-                ),
+              CatStatusRing(
+                ringColor: color,
+                isReady: true,
+                size: 56,
+                child: CatPlaceholder(color: color, size: 52),
               ),
               const SizedBox(height: 10),
               Text(
@@ -397,96 +545,84 @@ class _BattleAgentPanel extends StatelessWidget {
   }
 }
 
-class _BattleAgentCard extends StatelessWidget {
+/// 單一貓咪角色卡片（含狀態環圈）
+class _CatAgentCard extends StatelessWidget {
   final BattleAgent agent;
   final VoidCallback onTap;
 
-  const _BattleAgentCard({required this.agent, required this.onTap});
+  const _CatAgentCard({required this.agent, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
     final color = agent.definition.attribute.blockColor.color;
     final isReady = agent.isSkillReady;
 
+    // 狀態環圈顏色：技能就緒=金色，充能中=角色顏色
+    final ringColor = isReady ? Colors.amber : color;
+
     return GestureDetector(
       onTap: isReady ? onTap : null,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        margin: const EdgeInsets.only(bottom: 3),
-        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-        decoration: BoxDecoration(
-          color: AppTheme.bgCard.withAlpha(isReady ? 220 : 140),
-          borderRadius: BorderRadius.circular(8),
-          border: isReady
-              ? Border.all(color: color.withAlpha(180), width: 1.5)
-              : Border.all(color: Colors.white.withAlpha(10), width: 0.5),
-          boxShadow: isReady
-              ? [BoxShadow(color: color.withAlpha(60), blurRadius: 6)]
-              : null,
-        ),
-        child: Row(
+      child: Padding(
+        padding: const EdgeInsets.only(bottom: 6),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            // 屬性圖示
-            Text(
-              agent.definition.attribute.emoji,
-              style: const TextStyle(fontSize: 16),
+            // 貓咪 + 狀態環
+            CatStatusRing(
+              ringColor: ringColor,
+              isReady: isReady,
+              size: 52,
+              child: CatPlaceholder(color: color, size: 48),
             ),
-            const SizedBox(width: 5),
-            // 名稱 + 能量條
-            Expanded(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    agent.definition.name,
-                    style: const TextStyle(
-                      color: AppTheme.textPrimary,
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
-                    ),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 2),
-                  // 能量條
-                  ClipRRect(
+            const SizedBox(height: 2),
+            // 名稱
+            Text(
+              agent.definition.name,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 9,
+                fontWeight: FontWeight.bold,
+                shadows: [Shadow(color: Colors.black54, blurRadius: 3)],
+              ),
+              textAlign: TextAlign.center,
+              overflow: TextOverflow.ellipsis,
+            ),
+            // 能量條
+            Container(
+              width: 40,
+              height: 3,
+              margin: const EdgeInsets.only(top: 1),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(2),
+                color: Colors.black26,
+              ),
+              child: FractionallySizedBox(
+                alignment: Alignment.centerLeft,
+                widthFactor: agent.energyPercent,
+                child: Container(
+                  decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(2),
-                    child: LinearProgressIndicator(
-                      value: agent.energyPercent,
-                      minHeight: 4,
-                      backgroundColor: Colors.white.withAlpha(15),
-                      valueColor: AlwaysStoppedAnimation(
-                        isReady ? Colors.amber : color.withAlpha(120),
-                      ),
-                    ),
+                    color: isReady ? Colors.amber : color.withAlpha(180),
                   ),
-                ],
+                ),
               ),
             ),
-            const SizedBox(width: 4),
-            // 右側
+            // 施放提示
             if (isReady)
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                margin: const EdgeInsets.only(top: 2),
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
                 decoration: BoxDecoration(
                   color: Colors.amber,
-                  borderRadius: BorderRadius.circular(5),
+                  borderRadius: BorderRadius.circular(4),
                 ),
                 child: const Text(
                   '施放',
                   style: TextStyle(
                     color: Colors.white,
-                    fontSize: 8,
+                    fontSize: 7,
                     fontWeight: FontWeight.bold,
                   ),
-                ),
-              )
-            else
-              Text(
-                '${agent.currentEnergy}/${agent.definition.skill.energyCost}',
-                style: TextStyle(
-                  color: AppTheme.textSecondary.withAlpha(120),
-                  fontSize: 8,
                 ),
               ),
           ],
@@ -497,87 +633,47 @@ class _BattleAgentCard extends StatelessWidget {
 }
 
 // ═══════════════════════════════════════════
-// 頂部工具列
+// 右側遊戲面板（棋盤 + 敵人資訊）
 // ═══════════════════════════════════════════
 
-class _TopBar extends StatelessWidget {
-  final StageDefinition stage;
+class _GamePanel extends StatelessWidget {
+  final BattleState? battleState;
   final GameState? gameState;
-  final VoidCallback onToggle;
-  final bool boardOnLeft;
 
-  const _TopBar({
-    required this.stage,
-    required this.gameState,
-    required this.onToggle,
-    required this.boardOnLeft,
-  });
+  const _GamePanel({required this.battleState, required this.gameState});
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      child: Row(
+    return Container(
+      decoration: BoxDecoration(
+        color: _gamePanelBg,
+        border: const Border(
+          left: BorderSide(color: _woodDark, width: 3),
+        ),
+      ),
+      child: Column(
         children: [
-          IconButton(
-            onPressed: () {
-              context.read<BattleProvider>().endBattle();
-              Navigator.of(context).pop();
-            },
-            icon: const Icon(Icons.arrow_back, size: 22),
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-          ),
-          Text(
-            '${stage.id} ${stage.name}',
-            style: const TextStyle(
-              color: AppTheme.textPrimary,
-              fontSize: 14,
-              fontWeight: FontWeight.bold,
+          // 敵人資訊 + 步數（緊湊版）
+          if (battleState != null) _CompactEnemyBar(battleState: battleState!),
+
+          // Combo 顯示
+          if (gameState != null && gameState!.combo > 0)
+            _ComboBar(combo: gameState!.combo),
+
+          // 棋盤
+          const Expanded(
+            child: Padding(
+              padding: EdgeInsets.all(4),
+              child: Center(child: GameBoard()),
             ),
           ),
-          const Spacer(),
-          // 左右切換
-          GestureDetector(
-            onTap: onToggle,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-              decoration: BoxDecoration(
-                color: AppTheme.bgCard.withAlpha(120),
-                borderRadius: BorderRadius.circular(6),
-                border: Border.all(color: Colors.white.withAlpha(20)),
-              ),
-              child: Icon(
-                Icons.swap_horiz,
-                color: AppTheme.textSecondary,
-                size: 16,
-              ),
-            ),
-          ),
-          const SizedBox(width: 8),
-          // 行動點
-          if (gameState != null)
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-              decoration: BoxDecoration(
-                color: AppTheme.blockCoral.withAlpha(40),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(Icons.favorite, size: 14, color: AppTheme.blockCoral),
-                  const SizedBox(width: 3),
-                  Text(
-                    '${gameState!.actionPoints}',
-                    style: const TextStyle(
-                      color: AppTheme.blockCoral,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 13,
-                    ),
-                  ),
-                ],
-              ),
+
+          // 技能效果提示
+          if (battleState != null)
+            Consumer<BattleProvider>(
+              builder: (context, battle, _) {
+                return _SkillEffectBar(battleProvider: battle);
+              },
             ),
         ],
       ),
@@ -585,114 +681,99 @@ class _TopBar extends StatelessWidget {
   }
 }
 
-// ═══════════════════════════════════════════
-// 敵人面板
-// ═══════════════════════════════════════════
-
-class _EnemyPanel extends StatelessWidget {
+/// 緊湊版敵人資訊條
+class _CompactEnemyBar extends StatelessWidget {
   final BattleState battleState;
 
-  const _EnemyPanel({required this.battleState});
+  const _CompactEnemyBar({required this.battleState});
 
   @override
   Widget build(BuildContext context) {
     final enemy = battleState.currentEnemy;
-    if (enemy == null) return const SizedBox(height: 40);
+    if (enemy == null) return const SizedBox(height: 4);
 
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
-      padding: const EdgeInsets.all(8),
-      decoration: BoxDecoration(
-        color: AppTheme.bgCard.withAlpha(180),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(
-          color: enemy.definition.attribute.blockColor.color.withAlpha(80),
-        ),
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+      color: Colors.black26,
       child: Row(
         children: [
+          // 敵人 emoji
           Container(
-            width: 36,
-            height: 36,
+            width: 28,
+            height: 28,
             decoration: BoxDecoration(
-              color: enemy.definition.attribute.blockColor.color.withAlpha(40),
-              borderRadius: BorderRadius.circular(8),
+              color: enemy.definition.attribute.blockColor.color.withAlpha(50),
+              borderRadius: BorderRadius.circular(6),
             ),
             child: Center(
-              child: Text(enemy.definition.emoji, style: const TextStyle(fontSize: 20)),
+              child: Text(enemy.definition.emoji, style: const TextStyle(fontSize: 16)),
             ),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: 6),
+          // 名稱 + HP 條
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  '${enemy.definition.name} ${enemy.definition.attribute.emoji}',
+                  enemy.definition.name,
                   style: const TextStyle(
-                    color: AppTheme.textPrimary,
+                    color: Colors.white,
+                    fontSize: 10,
                     fontWeight: FontWeight.bold,
-                    fontSize: 12,
                   ),
+                  overflow: TextOverflow.ellipsis,
                 ),
                 const SizedBox(height: 2),
-                Row(
-                  children: [
-                    Expanded(
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(3),
-                        child: LinearProgressIndicator(
-                          value: enemy.hpPercent,
-                          minHeight: 8,
-                          backgroundColor: Colors.white10,
-                          valueColor: AlwaysStoppedAnimation<Color>(
-                            enemy.hpPercent > 0.5
-                                ? Colors.green
-                                : enemy.hpPercent > 0.25
-                                    ? Colors.orange
-                                    : Colors.red,
-                          ),
-                        ),
-                      ),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(3),
+                  child: LinearProgressIndicator(
+                    value: enemy.hpPercent,
+                    minHeight: 6,
+                    backgroundColor: Colors.black26,
+                    valueColor: AlwaysStoppedAnimation<Color>(
+                      enemy.hpPercent > 0.5
+                          ? Colors.green
+                          : enemy.hpPercent > 0.25
+                              ? Colors.orange
+                              : Colors.red,
                     ),
-                    const SizedBox(width: 6),
-                    Text(
-                      '${enemy.currentHp}/${enemy.maxHp}',
-                      style: const TextStyle(
-                        color: AppTheme.textSecondary, fontSize: 10,
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
               ],
             ),
           ),
+          const SizedBox(width: 4),
+          // HP 數字
+          Text(
+            '${enemy.currentHp}/${enemy.maxHp}',
+            style: const TextStyle(color: Colors.white70, fontSize: 8),
+          ),
           const SizedBox(width: 6),
+          // 攻擊倒數
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
             decoration: BoxDecoration(
               color: enemy.attackCountdown <= 1
-                  ? Colors.red.withAlpha(60)
+                  ? Colors.red.withAlpha(80)
                   : Colors.white10,
-              borderRadius: BorderRadius.circular(6),
+              borderRadius: BorderRadius.circular(4),
             ),
-            child: Column(
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
               children: [
                 Icon(
                   Icons.bolt,
-                  size: 14,
-                  color: enemy.attackCountdown <= 1
-                      ? Colors.red
-                      : AppTheme.textSecondary,
+                  size: 10,
+                  color: enemy.attackCountdown <= 1 ? Colors.red : Colors.white54,
                 ),
                 Text(
                   '${enemy.attackCountdown}',
                   style: TextStyle(
-                    color: enemy.attackCountdown <= 1
-                        ? Colors.red
-                        : AppTheme.textSecondary,
+                    color: enemy.attackCountdown <= 1 ? Colors.red : Colors.white54,
+                    fontSize: 10,
                     fontWeight: FontWeight.bold,
-                    fontSize: 12,
                   ),
                 ),
               ],
@@ -705,106 +786,77 @@ class _EnemyPanel extends StatelessWidget {
 }
 
 // ═══════════════════════════════════════════
-// 隊伍 HP 條
+// 木質風格底部欄
 // ═══════════════════════════════════════════
 
-class _TeamHpBar extends StatelessWidget {
-  final BattleState battleState;
-
-  const _TeamHpBar({required this.battleState});
-
-  @override
-  Widget build(BuildContext context) {
-    final hpPercent = battleState.teamMaxHp > 0
-        ? battleState.teamCurrentHp / battleState.teamMaxHp
-        : 0.0;
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
-      child: Row(
-        children: [
-          const Text('隊伍',
-              style: TextStyle(color: AppTheme.textSecondary, fontSize: 10)),
-          const SizedBox(width: 4),
-          Expanded(
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(3),
-              child: LinearProgressIndicator(
-                value: hpPercent,
-                minHeight: 5,
-                backgroundColor: Colors.white10,
-                valueColor: AlwaysStoppedAnimation<Color>(
-                  hpPercent > 0.5
-                      ? Colors.green.shade400
-                      : hpPercent > 0.25
-                          ? Colors.orange
-                          : Colors.red,
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(width: 4),
-          Text(
-            '${battleState.teamCurrentHp}/${battleState.teamMaxHp}',
-            style: const TextStyle(color: AppTheme.textSecondary, fontSize: 10),
-          ),
-          if (battleState.shieldTurnsLeft > 0) ...[
-            const SizedBox(width: 4),
-            Icon(Icons.shield, size: 12, color: Colors.blue.shade300),
-            Text(
-              '${battleState.shieldTurnsLeft}',
-              style: TextStyle(color: Colors.blue.shade300, fontSize: 10),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-}
-
-// ═══════════════════════════════════════════
-// 底部狀態列
-// ═══════════════════════════════════════════
-
-class _BottomBar extends StatelessWidget {
+class _WoodBottomBar extends StatelessWidget {
   final GameState? gameState;
+  final BattleProvider battleProvider;
 
-  const _BottomBar({required this.gameState});
+  const _WoodBottomBar({
+    required this.gameState,
+    required this.battleProvider,
+  });
 
   @override
   Widget build(BuildContext context) {
-    if (gameState == null) return const SizedBox.shrink();
-
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-      color: AppTheme.bgSecondary.withAlpha(100),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [_woodDark, _woodMid, _woodLight],
+        ),
+        border: Border(
+          top: BorderSide(color: _woodBorder, width: 3),
+        ),
+      ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
+          // 步數
           Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.star, size: 14, color: AppTheme.blockGold),
+              const Icon(Icons.directions_walk, size: 14, color: Colors.white70),
               const SizedBox(width: 3),
               Text(
-                '${gameState!.score}',
+                '${gameState?.actionPoints ?? 0}',
                 style: const TextStyle(
-                  color: AppTheme.blockGold,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 13,
+                  color: Color(0xFFFBBF24),
+                  fontWeight: FontWeight.w900,
+                  fontSize: 16,
                 ),
               ),
             ],
           ),
+          // 分數
           Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.touch_app, size: 14, color: AppTheme.textSecondary),
+              const Icon(Icons.star, size: 14, color: Colors.amber),
               const SizedBox(width: 3),
               Text(
-                '${gameState!.actionCount}',
+                '${gameState?.score ?? 0}',
                 style: const TextStyle(
-                  color: AppTheme.textSecondary,
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                ),
+              ),
+            ],
+          ),
+          // 操作次數
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.touch_app, size: 14, color: Colors.white54),
+              const SizedBox(width: 3),
+              Text(
+                '${gameState?.actionCount ?? 0}',
+                style: const TextStyle(
+                  color: Colors.white70,
                   fontWeight: FontWeight.bold,
                   fontSize: 13,
                 ),
@@ -828,32 +880,29 @@ class _ComboBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: [Colors.orange.withAlpha(180), AppTheme.blockGold.withAlpha(180)],
-          ),
-          borderRadius: BorderRadius.circular(10),
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(vertical: 3),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Colors.orange.withAlpha(200), AppTheme.blockGold.withAlpha(200)],
         ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.local_fire_department, size: 14, color: Colors.white),
-            const SizedBox(width: 4),
-            Text(
-              '${combo}x Combo!',
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 13,
-                fontWeight: FontWeight.bold,
-              ),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.local_fire_department, size: 14, color: Colors.white),
+          const SizedBox(width: 4),
+          Text(
+            '${combo}x Combo!',
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 12,
+              fontWeight: FontWeight.bold,
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -876,35 +925,29 @@ class _SkillEffectBar extends StatelessWidget {
     final event = events.last;
     final (icon, color) = _eventStyle(event.type);
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-        decoration: BoxDecoration(
-          color: color.withAlpha(40),
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: color.withAlpha(100)),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, size: 13, color: color),
-            const SizedBox(width: 5),
-            Flexible(
-              child: Text(
-                event.message,
-                style: TextStyle(
-                  color: color,
-                  fontSize: 11,
-                  fontWeight: FontWeight.bold,
-                ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      margin: const EdgeInsets.only(bottom: 2),
+      color: color.withAlpha(40),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 11, color: color),
+          const SizedBox(width: 4),
+          Flexible(
+            child: Text(
+              event.message,
+              style: TextStyle(
+                color: color,
+                fontSize: 10,
+                fontWeight: FontWeight.bold,
               ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
