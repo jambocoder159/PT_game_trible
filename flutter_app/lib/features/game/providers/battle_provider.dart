@@ -20,12 +20,20 @@ class BattleEvent {
   final String message;
   final int value; // 傷害值或回復值
   final BlockColor? color; // 對應的方塊顏色
+  final int? attackerIndex; // 攻擊者在 team/enemies 中的 index
+  final int? targetIndex; // 目標在 enemies/team 中的 index
+  final bool isPlayerAttack; // true=我方攻擊, false=敵方攻擊
+  final String? emoji; // 攻擊者 emoji（衝撞動畫用）
 
   const BattleEvent({
     required this.type,
     required this.message,
     this.value = 0,
     this.color,
+    this.attackerIndex,
+    this.targetIndex,
+    this.isPlayerAttack = false,
+    this.emoji,
   });
 }
 
@@ -60,9 +68,20 @@ class BattleProvider extends ChangeNotifier {
 
   // 事件佇列
   final List<BattleEvent> _events = [];
+  // 攻擊動畫事件佇列（供左側面板衝撞動畫使用）
+  final List<BattleEvent> _attackAnimEvents = [];
+
+  /// 消費一般事件（技能、回復、勝敗等，供 _SkillEffectBar 使用）
   List<BattleEvent> consumeEvents() {
     final events = List<BattleEvent>.from(_events);
     _events.clear();
+    return events;
+  }
+
+  /// 消費攻擊動畫事件（autoAttack/enemyAttack，供衝撞動畫使用）
+  List<BattleEvent> consumeAttackEvents() {
+    final events = List<BattleEvent>.from(_attackAnimEvents);
+    _attackAnimEvents.clear();
     return events;
   }
 
@@ -158,14 +177,26 @@ class BattleProvider extends ChangeNotifier {
       combo,
     );
 
-    // 發送自動攻擊事件
+    // 發送自動攻擊事件（含攻擊者/目標資訊供動畫使用）
     for (final attack in result.autoAttacks) {
       if (attack.isPlayerAttack) {
-        _events.add(BattleEvent(
+        final attackerIdx = _battleState!.team.indexWhere(
+            (a) => a.definition.id == attack.attackerId);
+        final targetIdx = _battleState!.currentEnemyIndex;
+        final emoji = attackerIdx >= 0
+            ? _battleState!.team[attackerIdx].definition.attribute.emoji
+            : '⚔';
+        final event = BattleEvent(
           type: BattleEventType.autoAttack,
           message: '-${attack.damage}',
           value: attack.damage,
-        ));
+          attackerIndex: attackerIdx,
+          targetIndex: targetIdx,
+          isPlayerAttack: true,
+          emoji: emoji,
+        );
+        _events.add(event);
+        _attackAnimEvents.add(event);
         if (attack.killed) {
           _events.add(const BattleEvent(
             type: BattleEventType.enemyKilled,
@@ -173,11 +204,21 @@ class BattleProvider extends ChangeNotifier {
           ));
         }
       } else {
-        _events.add(BattleEvent(
+        final attackerIdx = _battleState!.enemies.indexWhere(
+            (e) => e.definition.id == attack.attackerId);
+        final emoji = attackerIdx >= 0
+            ? _battleState!.enemies[attackerIdx].definition.emoji
+            : '👊';
+        final event = BattleEvent(
           type: BattleEventType.enemyAttack,
           message: '-${attack.damage}',
           value: attack.damage,
-        ));
+          attackerIndex: attackerIdx,
+          isPlayerAttack: false,
+          emoji: emoji,
+        );
+        _events.add(event);
+        _attackAnimEvents.add(event);
       }
     }
 
@@ -259,6 +300,7 @@ class BattleProvider extends ChangeNotifier {
     _battleState = null;
     _currentStage = null;
     _events.clear();
+    _attackAnimEvents.clear();
     notifyListeners();
   }
 }

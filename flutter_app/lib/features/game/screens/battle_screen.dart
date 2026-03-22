@@ -1,5 +1,6 @@
 /// 戰鬥畫面（手機版優化）
 /// 闖關模式：左側角色面板 + 右側棋盤，木質風格 UI
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -398,10 +399,46 @@ class _WoodButton extends StatelessWidget {
 }
 
 // ═══════════════════════════════════════════
-// 左側面板：敵人卡牌（上）+ 我方角色（下）
+// 左側面板：敵人卡牌（上）+ 我方角色（下）+ 攻擊動畫 overlay
 // ═══════════════════════════════════════════
 
-class _CatAgentPanel extends StatelessWidget {
+/// 衝撞動畫資料
+class _RushAnimData {
+  final Offset from;
+  final Offset to;
+  final String emoji;
+  final Color color;
+  final int damage;
+  final bool isPlayerAttack;
+  final int? targetIndex; // 目標卡牌 index（用於閃爍）
+  final UniqueKey key = UniqueKey();
+
+  _RushAnimData({
+    required this.from,
+    required this.to,
+    required this.emoji,
+    required this.color,
+    required this.damage,
+    required this.isPlayerAttack,
+    this.targetIndex,
+  });
+}
+
+/// 飄浮傷害數字資料
+class _DamagePopupData {
+  final Offset position;
+  final int damage;
+  final Color color;
+  final UniqueKey key = UniqueKey();
+
+  _DamagePopupData({
+    required this.position,
+    required this.damage,
+    required this.color,
+  });
+}
+
+class _CatAgentPanel extends StatefulWidget {
   final BattleState battleState;
   final BattleProvider battleProvider;
 
@@ -411,43 +448,530 @@ class _CatAgentPanel extends StatelessWidget {
   });
 
   @override
+  State<_CatAgentPanel> createState() => _CatAgentPanelState();
+}
+
+class _CatAgentPanelState extends State<_CatAgentPanel>
+    with TickerProviderStateMixin {
+  // GlobalKeys for card position tracking
+  final List<GlobalKey> _enemyKeys = [];
+  final List<GlobalKey> _playerKeys = [];
+  final GlobalKey _panelKey = GlobalKey();
+  final GlobalKey _playerSectionKey = GlobalKey();
+
+  // Active animations
+  final List<_RushAnimData> _activeRushAnims = [];
+  final List<_DamagePopupData> _activeDamagePopups = [];
+
+  // Enemy card hit flash states
+  final Map<int, bool> _enemyHitStates = {};
+  bool _playerSectionHit = false;
+
+  @override
+  void didUpdateWidget(covariant _CatAgentPanel oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // 確保 keys 數量匹配
+    _syncKeys();
+    // 消費戰鬥事件，觸發動畫
+    _processEvents();
+  }
+
+  void _syncKeys() {
+    while (_enemyKeys.length < widget.battleState.enemies.length) {
+      _enemyKeys.add(GlobalKey());
+    }
+    while (_playerKeys.length < widget.battleState.team.length) {
+      _playerKeys.add(GlobalKey());
+    }
+  }
+
+  Offset? _getCardCenter(GlobalKey key) {
+    final renderBox = key.currentContext?.findRenderObject() as RenderBox?;
+    final panelBox = _panelKey.currentContext?.findRenderObject() as RenderBox?;
+    if (renderBox == null || panelBox == null) return null;
+    final cardCenter = renderBox.localToGlobal(
+      Offset(renderBox.size.width / 2, renderBox.size.height / 2),
+    );
+    return panelBox.globalToLocal(cardCenter);
+  }
+
+  Offset? _getPlayerSectionCenter() {
+    final renderBox = _playerSectionKey.currentContext?.findRenderObject() as RenderBox?;
+    final panelBox = _panelKey.currentContext?.findRenderObject() as RenderBox?;
+    if (renderBox == null || panelBox == null) return null;
+    final center = renderBox.localToGlobal(
+      Offset(renderBox.size.width / 2, renderBox.size.height / 2),
+    );
+    return panelBox.globalToLocal(center);
+  }
+
+  void _processEvents() {
+    final events = widget.battleProvider.consumeAttackEvents();
+    for (final event in events) {
+      if (event.type == BattleEventType.autoAttack &&
+          event.attackerIndex != null &&
+          event.targetIndex != null) {
+        // 我方攻擊 → 從角色卡牌衝向敵人卡牌
+        final from = _getCardCenter(
+            event.attackerIndex! < _playerKeys.length
+                ? _playerKeys[event.attackerIndex!]
+                : _playerKeys.last);
+        final to = _getCardCenter(
+            event.targetIndex! < _enemyKeys.length
+                ? _enemyKeys[event.targetIndex!]
+                : _enemyKeys.last);
+        if (from != null && to != null) {
+          _activeRushAnims.add(_RushAnimData(
+            from: from,
+            to: to,
+            emoji: event.emoji ?? '⚔',
+            color: Colors.cyan,
+            damage: event.value,
+            isPlayerAttack: true,
+            targetIndex: event.targetIndex,
+          ));
+        }
+      } else if (event.type == BattleEventType.enemyAttack &&
+          event.attackerIndex != null) {
+        // 敵人攻擊 → 從敵人卡牌衝向我方區域
+        final from = _getCardCenter(
+            event.attackerIndex! < _enemyKeys.length
+                ? _enemyKeys[event.attackerIndex!]
+                : _enemyKeys.last);
+        final to = _getPlayerSectionCenter();
+        if (from != null && to != null) {
+          _activeRushAnims.add(_RushAnimData(
+            from: from,
+            to: to,
+            emoji: event.emoji ?? '👊',
+            color: Colors.red,
+            damage: event.value,
+            isPlayerAttack: false,
+          ));
+        }
+      }
+    }
+  }
+
+  void _onRushHit(_RushAnimData data) {
+    setState(() {
+      // 在目標位置加傷害數字
+      _activeDamagePopups.add(_DamagePopupData(
+        position: data.to + const Offset(-12, -20),
+        damage: data.damage,
+        color: data.isPlayerAttack ? Colors.white : Colors.red,
+      ));
+      // 觸發目標閃爍
+      if (data.isPlayerAttack && data.targetIndex != null) {
+        _enemyHitStates[data.targetIndex!] = true;
+        Future.delayed(const Duration(milliseconds: 150), () {
+          if (mounted) setState(() => _enemyHitStates[data.targetIndex!] = false);
+        });
+      } else if (!data.isPlayerAttack) {
+        _playerSectionHit = true;
+        Future.delayed(const Duration(milliseconds: 150), () {
+          if (mounted) setState(() => _playerSectionHit = false);
+        });
+      }
+    });
+  }
+
+  void _removeRush(_RushAnimData data) {
+    if (mounted) setState(() => _activeRushAnims.remove(data));
+  }
+
+  void _removePopup(_DamagePopupData data) {
+    if (mounted) setState(() => _activeDamagePopups.remove(data));
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            Color(0xFF7BA0C4),
-            Color(0xFFA8C4D9),
-            Color(0xFFD4C5A9),
-            Color(0xFF9E9E9E),
-          ],
-          stops: [0.0, 0.3, 0.75, 1.0],
-        ),
-      ),
-      child: Column(
-        children: [
-          // ── 上半：敵人卡牌 ──
-          Expanded(
-            flex: 5,
-            child: _EnemyCardsSection(battleState: battleState),
-          ),
-          // 分隔線
-          Container(
-            height: 2,
-            color: Colors.white24,
-            margin: const EdgeInsets.symmetric(horizontal: 6),
-          ),
-          // ── 下半：我方角色 ──
-          Expanded(
-            flex: 5,
-            child: _PlayerCardsSection(
-              battleState: battleState,
-              battleProvider: battleProvider,
+    _syncKeys();
+
+    return Stack(
+      key: _panelKey,
+      children: [
+        // 原有佈局
+        Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                Color(0xFF7BA0C4),
+                Color(0xFFA8C4D9),
+                Color(0xFFD4C5A9),
+                Color(0xFF9E9E9E),
+              ],
+              stops: [0.0, 0.3, 0.75, 1.0],
             ),
           ),
-        ],
+          child: Column(
+            children: [
+              // ── 上半：敵人卡牌 ──
+              Expanded(
+                flex: 5,
+                child: _EnemyCardsSection(
+                  battleState: widget.battleState,
+                  cardKeys: _enemyKeys,
+                  hitStates: _enemyHitStates,
+                ),
+              ),
+              // 分隔線
+              Container(
+                height: 2,
+                color: Colors.white24,
+                margin: const EdgeInsets.symmetric(horizontal: 6),
+              ),
+              // ── 下半：我方角色 ──
+              Expanded(
+                flex: 5,
+                child: _ShakeWrapper(
+                  key: _playerSectionKey,
+                  isShaking: _playerSectionHit,
+                  child: _PlayerCardsSection(
+                    battleState: widget.battleState,
+                    battleProvider: widget.battleProvider,
+                    cardKeys: _playerKeys,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        // 衝撞動畫層
+        ..._activeRushAnims.map((rush) => _RushAttackWidget(
+          key: rush.key,
+          data: rush,
+          onHit: () => _onRushHit(rush),
+          onComplete: () => _removeRush(rush),
+        )),
+        // 飄浮傷害數字層
+        ..._activeDamagePopups.map((popup) => _DamagePopup(
+          key: popup.key,
+          position: popup.position,
+          damage: popup.damage,
+          color: popup.color,
+          onComplete: () => _removePopup(popup),
+        )),
+      ],
+    );
+  }
+}
+
+// ═══════════════════════════════════════════
+// 晃動包裝器（敵人攻擊時我方區域晃動）
+// ═══════════════════════════════════════════
+
+class _ShakeWrapper extends StatefulWidget {
+  final bool isShaking;
+  final Widget child;
+
+  const _ShakeWrapper({
+    super.key,
+    required this.isShaking,
+    required this.child,
+  });
+
+  @override
+  State<_ShakeWrapper> createState() => _ShakeWrapperState();
+}
+
+class _ShakeWrapperState extends State<_ShakeWrapper>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 150),
+    );
+  }
+
+  @override
+  void didUpdateWidget(covariant _ShakeWrapper oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.isShaking && !oldWidget.isShaking) {
+      _controller.forward(from: 0);
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (_, child) {
+        final offset = sin(_controller.value * pi * 4) * 4.0 *
+            (1.0 - _controller.value);
+        return Transform.translate(
+          offset: Offset(offset, 0),
+          child: child,
+        );
+      },
+      child: widget.child,
+    );
+  }
+}
+
+// ═══════════════════════════════════════════
+// 角色衝撞動畫
+// ═══════════════════════════════════════════
+
+class _RushAttackWidget extends StatefulWidget {
+  final _RushAnimData data;
+  final VoidCallback onHit;
+  final VoidCallback onComplete;
+
+  const _RushAttackWidget({
+    super.key,
+    required this.data,
+    required this.onHit,
+    required this.onComplete,
+  });
+
+  @override
+  State<_RushAttackWidget> createState() => _RushAttackWidgetState();
+}
+
+class _RushAttackWidgetState extends State<_RushAttackWidget>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _positionAnim;
+  late Animation<double> _scaleXAnim;
+  late Animation<double> _scaleYAnim;
+  bool _hitFired = false;
+  bool _showImpact = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 400),
+    );
+
+    // 位置：0→1→0（衝出→撞擊→彈回）
+    _positionAnim = TweenSequence<double>([
+      TweenSequenceItem(
+        tween: Tween(begin: 0.0, end: 1.0)
+            .chain(CurveTween(curve: Curves.easeIn)),
+        weight: 50,
+      ),
+      TweenSequenceItem(
+        tween: Tween(begin: 1.0, end: 1.0), // 停頓
+        weight: 10,
+      ),
+      TweenSequenceItem(
+        tween: Tween(begin: 1.0, end: 0.0)
+            .chain(CurveTween(curve: Curves.easeOut)),
+        weight: 40,
+      ),
+    ]).animate(_controller);
+
+    // scaleX：撞擊時壓扁
+    _scaleXAnim = TweenSequence<double>([
+      TweenSequenceItem(tween: Tween(begin: 1.0, end: 1.0), weight: 45),
+      TweenSequenceItem(tween: Tween(begin: 1.0, end: 1.3), weight: 10),
+      TweenSequenceItem(tween: Tween(begin: 1.3, end: 1.0), weight: 10),
+      TweenSequenceItem(tween: Tween(begin: 1.0, end: 1.0), weight: 35),
+    ]).animate(_controller);
+
+    // scaleY：撞擊時壓扁
+    _scaleYAnim = TweenSequence<double>([
+      TweenSequenceItem(tween: Tween(begin: 1.0, end: 1.0), weight: 45),
+      TweenSequenceItem(tween: Tween(begin: 1.0, end: 0.7), weight: 10),
+      TweenSequenceItem(tween: Tween(begin: 0.7, end: 1.0), weight: 10),
+      TweenSequenceItem(tween: Tween(begin: 1.0, end: 1.0), weight: 35),
+    ]).animate(_controller);
+
+    _controller.addListener(_checkHit);
+    _controller.forward().then((_) => widget.onComplete());
+  }
+
+  void _checkHit() {
+    // 在 50% 時觸發撞擊（到達目標）
+    if (!_hitFired && _controller.value >= 0.50) {
+      _hitFired = true;
+      widget.onHit();
+      setState(() => _showImpact = true);
+      Future.delayed(const Duration(milliseconds: 150), () {
+        if (mounted) setState(() => _showImpact = false);
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.removeListener(_checkHit);
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (_, __) {
+        final t = _positionAnim.value;
+        final pos = Offset.lerp(widget.data.from, widget.data.to, t)!;
+
+        return Stack(
+          children: [
+            // 衝撞 emoji
+            Positioned(
+              left: pos.dx - 14,
+              top: pos.dy - 14,
+              child: Transform(
+                alignment: Alignment.center,
+                transform: Matrix4.identity()
+                  ..scale(_scaleXAnim.value, _scaleYAnim.value),
+                child: Text(
+                  widget.data.emoji,
+                  style: TextStyle(
+                    fontSize: 24,
+                    shadows: [
+                      Shadow(
+                        color: widget.data.color.withAlpha(180),
+                        blurRadius: 12,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            // 撞擊特效
+            if (_showImpact)
+              Positioned(
+                left: widget.data.to.dx - 14,
+                top: widget.data.to.dy - 14,
+                child: const Text(
+                  '💥',
+                  style: TextStyle(fontSize: 24),
+                ),
+              ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+// ═══════════════════════════════════════════
+// 飄浮傷害數字
+// ═══════════════════════════════════════════
+
+class _DamagePopup extends StatefulWidget {
+  final Offset position;
+  final int damage;
+  final Color color;
+  final VoidCallback onComplete;
+
+  const _DamagePopup({
+    super.key,
+    required this.position,
+    required this.damage,
+    required this.color,
+    required this.onComplete,
+  });
+
+  @override
+  State<_DamagePopup> createState() => _DamagePopupState();
+}
+
+class _DamagePopupState extends State<_DamagePopup>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<Offset> _slideAnim;
+  late Animation<double> _scaleAnim;
+  late Animation<double> _opacityAnim;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 600),
+    );
+
+    _slideAnim = Tween<Offset>(
+      begin: Offset.zero,
+      end: const Offset(0, -1.5),
+    ).animate(CurvedAnimation(
+      parent: _controller,
+      curve: Curves.easeOutCubic,
+    ));
+
+    _scaleAnim = TweenSequence<double>([
+      TweenSequenceItem(tween: Tween(begin: 0.0, end: 1.4), weight: 30),
+      TweenSequenceItem(tween: Tween(begin: 1.4, end: 1.0), weight: 20),
+      TweenSequenceItem(tween: Tween(begin: 1.0, end: 1.0), weight: 50),
+    ]).animate(CurvedAnimation(
+      parent: _controller,
+      curve: Curves.easeOut,
+    ));
+
+    _opacityAnim = Tween<double>(begin: 1.0, end: 0.0).animate(
+      CurvedAnimation(
+        parent: _controller,
+        curve: const Interval(0.6, 1.0, curve: Curves.easeIn),
+      ),
+    );
+
+    _controller.forward().then((_) => widget.onComplete());
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Positioned(
+      left: widget.position.dx,
+      top: widget.position.dy,
+      child: AnimatedBuilder(
+        animation: _controller,
+        builder: (_, child) {
+          return SlideTransition(
+            position: _slideAnim,
+            child: ScaleTransition(
+              scale: _scaleAnim,
+              child: FadeTransition(
+                opacity: _opacityAnim,
+                child: child,
+              ),
+            ),
+          );
+        },
+        child: Text(
+          '-${widget.damage}',
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+            color: widget.color,
+            shadows: [
+              Shadow(
+                color: widget.color.withAlpha(150),
+                blurRadius: 8,
+              ),
+              const Shadow(
+                color: Colors.black,
+                blurRadius: 4,
+                offset: Offset(1, 1),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -456,8 +980,14 @@ class _CatAgentPanel extends StatelessWidget {
 /// 敵人卡牌區域
 class _EnemyCardsSection extends StatelessWidget {
   final BattleState battleState;
+  final List<GlobalKey> cardKeys;
+  final Map<int, bool> hitStates;
 
-  const _EnemyCardsSection({required this.battleState});
+  const _EnemyCardsSection({
+    required this.battleState,
+    required this.cardKeys,
+    required this.hitStates,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -466,18 +996,30 @@ class _EnemyCardsSection extends StatelessWidget {
       children: battleState.enemies.asMap().entries.map((entry) {
         final enemy = entry.value;
         final isCurrent = entry.key == battleState.currentEnemyIndex;
-        return _EnemyCard(enemy: enemy, isCurrent: isCurrent);
+        final isHit = hitStates[entry.key] ?? false;
+        return _EnemyCard(
+          key: entry.key < cardKeys.length ? cardKeys[entry.key] : null,
+          enemy: enemy,
+          isCurrent: isCurrent,
+          isHit: isHit,
+        );
       }).toList(),
     );
   }
 }
 
-/// 單一敵人卡牌
+/// 單一敵人卡牌（含命中閃爍效果）
 class _EnemyCard extends StatelessWidget {
   final EnemyInstance enemy;
   final bool isCurrent;
+  final bool isHit;
 
-  const _EnemyCard({required this.enemy, required this.isCurrent});
+  const _EnemyCard({
+    super.key,
+    required this.enemy,
+    required this.isCurrent,
+    this.isHit = false,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -518,99 +1060,108 @@ class _EnemyCard extends StatelessWidget {
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 4),
-      child: Container(
-        padding: const EdgeInsets.all(4),
-        decoration: BoxDecoration(
-          color: isCurrent ? Colors.black38 : Colors.black12,
-          borderRadius: BorderRadius.circular(6),
-          border: isCurrent
-              ? Border.all(color: Colors.red.withAlpha(150), width: 1.5)
-              : null,
-        ),
-        child: Row(
-          children: [
-            // Speed 環圈 + Emoji
-            CatStatusRing(
-              ringColor: color,
-              progress: countdownPercent,
-              size: 36,
-              child: Container(
-                color: color.withAlpha(30),
-                child: Center(
-                  child: Text(enemy.definition.emoji, style: const TextStyle(fontSize: 16)),
-                ),
-              ),
+      child: Stack(
+        children: [
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 100),
+            padding: const EdgeInsets.all(4),
+            decoration: BoxDecoration(
+              color: isHit
+                  ? Colors.white.withAlpha(120)
+                  : isCurrent
+                      ? Colors.black38
+                      : Colors.black12,
+              borderRadius: BorderRadius.circular(6),
+              border: isCurrent
+                  ? Border.all(color: Colors.red.withAlpha(150), width: 1.5)
+                  : null,
             ),
-            const SizedBox(width: 4),
-            // 名稱 + HP + ATK
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    enemy.definition.name,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 9,
-                      fontWeight: FontWeight.bold,
-                      shadows: [Shadow(color: Colors.black54, blurRadius: 2)],
-                    ),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 1),
-                  // HP 條
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(2),
-                    child: LinearProgressIndicator(
-                      value: enemy.hpPercent,
-                      minHeight: 4,
-                      backgroundColor: Colors.black26,
-                      valueColor: AlwaysStoppedAnimation<Color>(
-                        enemy.hpPercent > 0.5
-                            ? Colors.green
-                            : enemy.hpPercent > 0.25
-                                ? Colors.orange
-                                : Colors.red,
-                      ),
+            child: Row(
+              children: [
+                // Speed 環圈 + Emoji
+                CatStatusRing(
+                  ringColor: color,
+                  progress: countdownPercent,
+                  size: 36,
+                  child: Container(
+                    color: color.withAlpha(30),
+                    child: Center(
+                      child: Text(enemy.definition.emoji, style: const TextStyle(fontSize: 16)),
                     ),
                   ),
-                  const SizedBox(height: 1),
-                  Row(
+                ),
+                const SizedBox(width: 4),
+                // 名稱 + HP + ATK
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
-                        'ATK ${enemy.atk}',
-                        style: TextStyle(
-                          color: Colors.red.shade200,
-                          fontSize: 7,
+                        enemy.definition.name,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 9,
                           fontWeight: FontWeight.bold,
+                          shadows: [Shadow(color: Colors.black54, blurRadius: 2)],
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 1),
+                      // HP 條
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(2),
+                        child: LinearProgressIndicator(
+                          value: enemy.hpPercent,
+                          minHeight: 4,
+                          backgroundColor: Colors.black26,
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            enemy.hpPercent > 0.5
+                                ? Colors.green
+                                : enemy.hpPercent > 0.25
+                                    ? Colors.orange
+                                    : Colors.red,
+                          ),
                         ),
                       ),
-                      const Spacer(),
-                      Icon(
-                        Icons.bolt,
-                        size: 8,
-                        color: enemy.attackCountdown <= 1
-                            ? Colors.red
-                            : Colors.white54,
-                      ),
-                      Text(
-                        '${enemy.attackCountdown}',
-                        style: TextStyle(
-                          color: enemy.attackCountdown <= 1
-                              ? Colors.red
-                              : Colors.white54,
-                          fontSize: 8,
-                          fontWeight: FontWeight.bold,
-                        ),
+                      const SizedBox(height: 1),
+                      Row(
+                        children: [
+                          Text(
+                            'ATK ${enemy.atk}',
+                            style: TextStyle(
+                              color: Colors.red.shade200,
+                              fontSize: 7,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const Spacer(),
+                          Icon(
+                            Icons.bolt,
+                            size: 8,
+                            color: enemy.attackCountdown <= 1
+                                ? Colors.red
+                                : Colors.white54,
+                          ),
+                          Text(
+                            '${enemy.attackCountdown}',
+                            style: TextStyle(
+                              color: enemy.attackCountdown <= 1
+                                  ? Colors.red
+                                  : Colors.white54,
+                              fontSize: 8,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -620,10 +1171,12 @@ class _EnemyCard extends StatelessWidget {
 class _PlayerCardsSection extends StatelessWidget {
   final BattleState battleState;
   final BattleProvider battleProvider;
+  final List<GlobalKey> cardKeys;
 
   const _PlayerCardsSection({
     required this.battleState,
     required this.battleProvider,
+    required this.cardKeys,
   });
 
   @override
@@ -634,6 +1187,7 @@ class _PlayerCardsSection extends StatelessWidget {
         final index = entry.key;
         final agent = entry.value;
         return _CatAgentCard(
+          key: index < cardKeys.length ? cardKeys[index] : null,
           agent: agent,
           onTap: () {
             if (agent.isSkillReady) {
@@ -743,7 +1297,7 @@ class _CatAgentCard extends StatelessWidget {
   final BattleAgent agent;
   final VoidCallback onTap;
 
-  const _CatAgentCard({required this.agent, required this.onTap});
+  const _CatAgentCard({super.key, required this.agent, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
