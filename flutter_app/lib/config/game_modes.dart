@@ -113,7 +113,7 @@ class GameModes {
     title: '放置消除',
     description: '輕鬆消除，餵養貓咪',
     numCols: 3,
-    numRows: 8,
+    numRows: 10,
     actionPointsStart: 0, // 無行動點限制
     hasSkills: false,
     hasTimer: false,

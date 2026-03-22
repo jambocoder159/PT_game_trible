@@ -11,6 +11,7 @@ import '../../daily/screens/daily_quest_screen.dart';
 import '../../gm/screens/gm_screen.dart';
 import '../../../config/app_version.dart';
 import '../../../config/game_modes.dart';
+import '../../../core/services/local_storage.dart';
 import '../providers/idle_provider.dart';
 import '../providers/cat_provider.dart';
 import '../widgets/player_info_bar.dart';
@@ -32,15 +33,30 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   int _currentNavIndex = 0;
   int _versionTapCount = 0;
+  bool _boardOnLeft = true; // true = 棋盤在左, false = 棋盤在右
 
   @override
   void initState() {
     super.initState();
-    // 啟動放置遊戲
+    // 載入偏好 + 啟動遊戲
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadBoardPosition();
       _startIdleGame();
       _setupFoodListener();
     });
+  }
+
+  void _loadBoardPosition() {
+    final storage = LocalStorageService.instance;
+    final saved = storage.getJson('board_on_left');
+    if (saved is bool) {
+      setState(() => _boardOnLeft = saved);
+    }
+  }
+
+  void _toggleBoardPosition() {
+    setState(() => _boardOnLeft = !_boardOnLeft);
+    LocalStorageService.instance.setJson('board_on_left', _boardOnLeft);
   }
 
   void _startIdleGame() {
@@ -189,24 +205,64 @@ class _HomeScreenState extends State<HomeScreen> {
               child: PlayerInfoBar(),
             ),
 
-            // ─── 主體：左側遊戲 + 右側貓咪 ───
+            // ─── 切換按鈕 ───
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  GestureDetector(
+                    onTap: _toggleBoardPosition,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: AppTheme.bgCard.withAlpha(120),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: Colors.white.withAlpha(20),
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            _boardOnLeft ? Icons.swap_horiz : Icons.swap_horiz,
+                            color: AppTheme.textSecondary,
+                            size: 14,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            _boardOnLeft ? '棋盤←→貓咪' : '貓咪←→棋盤',
+                            style: TextStyle(
+                              color: AppTheme.textSecondary.withAlpha(180),
+                              fontSize: 10,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 2),
+
+            // ─── 主體：遊戲 + 貓咪（可切換左右） ───
             Expanded(
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 6),
                 child: Row(
-                  children: [
-                    // 左側：消除遊戲（60%）
-                    Expanded(
-                      flex: 6,
-                      child: const IdleMiniGame(),
-                    ),
-                    const SizedBox(width: 4),
-                    // 右側：貓咪面板（40%）
-                    Expanded(
-                      flex: 4,
-                      child: const CatPanel(),
-                    ),
-                  ],
+                  children: _boardOnLeft
+                      ? [
+                          const Expanded(flex: 6, child: IdleMiniGame()),
+                          const SizedBox(width: 4),
+                          const Expanded(flex: 4, child: CatPanel()),
+                        ]
+                      : [
+                          const Expanded(flex: 4, child: CatPanel()),
+                          const SizedBox(width: 4),
+                          const Expanded(flex: 6, child: IdleMiniGame()),
+                        ],
                 ),
               ),
             ),
