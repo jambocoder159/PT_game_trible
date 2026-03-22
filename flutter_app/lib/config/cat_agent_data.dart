@@ -19,6 +19,7 @@ class CatAgentData {
     rarity: AgentRarity.n,
     baseAtk: 25, baseDef: 10, baseHp: 200,
     atkGrowth: 4.0, defGrowth: 1.5, hpGrowth: 12.0,
+    baseSpeed: 2, // striker: 快攻
     skill: AgentSkill(
       name: '爆裂爪擊',
       description: '以燃燒的爪子猛擊敵人，造成 ATK×{multiplier} 傷害',
@@ -69,6 +70,7 @@ class CatAgentData {
     rarity: AgentRarity.sr,
     baseAtk: 30, baseDef: 8, baseHp: 170,
     atkGrowth: 5.0, defGrowth: 1.0, hpGrowth: 8.0,
+    baseSpeed: 2, // infiltrator: 快攻
     skill: AgentSkill(
       name: '地獄突襲',
       description: '從熔岩中突襲，造成 ATK×{multiplier} 傷害。敵人 HP<30% 時 +50%',
@@ -100,6 +102,7 @@ class CatAgentData {
     rarity: AgentRarity.r,
     baseAtk: 12, baseDef: 22, baseHp: 300,
     atkGrowth: 1.5, defGrowth: 3.5, hpGrowth: 18.0,
+    baseSpeed: 4, // defender: 慢但硬
     skill: AgentSkill(
       name: '鋼鐵毛球',
       description: '捲成毛球形成護盾，減少受到的傷害 {multiplier}%，持續 2 回合',
@@ -150,6 +153,7 @@ class CatAgentData {
     rarity: AgentRarity.sr,
     baseAtk: 26, baseDef: 18, baseHp: 280,
     atkGrowth: 4.0, defGrowth: 2.5, hpGrowth: 14.0,
+    baseSpeed: 2, // striker: 快攻
     skill: AgentSkill(
       name: '大地裂擊',
       description: '以大地之力猛擊敵人，造成 ATK×{multiplier} 傷害',
@@ -206,6 +210,7 @@ class CatAgentData {
     rarity: AgentRarity.r,
     baseAtk: 14, baseDef: 20, baseHp: 290,
     atkGrowth: 1.8, defGrowth: 3.2, hpGrowth: 17.0,
+    baseSpeed: 4, // defender: 慢但硬
     skill: AgentSkill(
       name: '冰晶護壁',
       description: '凝結冰晶形成護盾，減少受到的傷害 {multiplier}%，持續 2 回合',
@@ -312,6 +317,7 @@ class CatAgentData {
     rarity: AgentRarity.sr,
     baseAtk: 32, baseDef: 8, baseHp: 175,
     atkGrowth: 5.0, defGrowth: 1.0, hpGrowth: 8.0,
+    baseSpeed: 2, // striker: 快攻
     skill: AgentSkill(
       name: '雷神一擊',
       description: '匯聚雷電之力猛擊，造成 ATK×{multiplier} 傷害',
@@ -343,6 +349,7 @@ class CatAgentData {
     rarity: AgentRarity.sr,
     baseAtk: 28, baseDef: 10, baseHp: 180,
     atkGrowth: 4.5, defGrowth: 1.5, hpGrowth: 8.0,
+    baseSpeed: 2, // infiltrator: 快攻
     skill: AgentSkill(
       name: '暗殺突襲',
       description: '從暗處突襲，造成 ATK×{multiplier} 傷害。敵人 HP 低於 30% 時額外 +50%',
@@ -370,6 +377,7 @@ class CatAgentData {
     rarity: AgentRarity.n,
     baseAtk: 14, baseDef: 18, baseHp: 270,
     atkGrowth: 2.0, defGrowth: 3.0, hpGrowth: 16.0,
+    baseSpeed: 4, // defender: 慢但硬
     skill: AgentSkill(
       name: '暗影壁壘',
       description: '以暗影凝聚護盾，減少受到的傷害 {multiplier}%，持續 2 回合',

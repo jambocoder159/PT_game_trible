@@ -7,6 +7,7 @@ import '../../../config/game_modes.dart';
 import '../../../config/stage_data.dart';
 import '../../../config/theme.dart';
 import '../../../core/models/battle_state.dart';
+import '../../../core/models/enemy.dart';
 import '../../../core/models/game_state.dart';
 import '../../../core/models/material.dart';
 import '../../../core/services/local_storage.dart';
@@ -397,7 +398,7 @@ class _WoodButton extends StatelessWidget {
 }
 
 // ═══════════════════════════════════════════
-// 左側貓咪角色面板
+// 左側面板：敵人卡牌（上）+ 我方角色（下）
 // ═══════════════════════════════════════════
 
 class _CatAgentPanel extends StatelessWidget {
@@ -413,42 +414,234 @@ class _CatAgentPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: const BoxDecoration(
-        // 城市巷弄背景
         gradient: LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
           colors: [
-            Color(0xFF7BA0C4), // 天空
+            Color(0xFF7BA0C4),
             Color(0xFFA8C4D9),
-            Color(0xFFD4C5A9), // 地面色
-            Color(0xFF9E9E9E), // 地面
+            Color(0xFFD4C5A9),
+            Color(0xFF9E9E9E),
           ],
           stops: [0.0, 0.3, 0.75, 1.0],
         ),
       ),
       child: Column(
         children: [
-          const SizedBox(height: 4),
-          // 角色列表
+          // ── 上半：敵人卡牌 ──
           Expanded(
-            child: ListView(
-              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-              children: battleState.team.asMap().entries.map((entry) {
-                final index = entry.key;
-                final agent = entry.value;
-                return _CatAgentCard(
-                  agent: agent,
-                  onTap: () {
-                    if (agent.isSkillReady) {
-                      _showSkillConfirm(context, agent, index);
-                    }
-                  },
-                );
-              }).toList(),
+            flex: 5,
+            child: _EnemyCardsSection(battleState: battleState),
+          ),
+          // 分隔線
+          Container(
+            height: 2,
+            color: Colors.white24,
+            margin: const EdgeInsets.symmetric(horizontal: 6),
+          ),
+          // ── 下半：我方角色 ──
+          Expanded(
+            flex: 5,
+            child: _PlayerCardsSection(
+              battleState: battleState,
+              battleProvider: battleProvider,
             ),
           ),
         ],
       ),
+    );
+  }
+}
+
+/// 敵人卡牌區域
+class _EnemyCardsSection extends StatelessWidget {
+  final BattleState battleState;
+
+  const _EnemyCardsSection({required this.battleState});
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+      children: battleState.enemies.asMap().entries.map((entry) {
+        final enemy = entry.value;
+        final isCurrent = entry.key == battleState.currentEnemyIndex;
+        return _EnemyCard(enemy: enemy, isCurrent: isCurrent);
+      }).toList(),
+    );
+  }
+}
+
+/// 單一敵人卡牌
+class _EnemyCard extends StatelessWidget {
+  final EnemyInstance enemy;
+  final bool isCurrent;
+
+  const _EnemyCard({required this.enemy, required this.isCurrent});
+
+  @override
+  Widget build(BuildContext context) {
+    if (enemy.isDead) {
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 4),
+        child: Opacity(
+          opacity: 0.3,
+          child: Container(
+            padding: const EdgeInsets.all(4),
+            decoration: BoxDecoration(
+              color: Colors.black26,
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Row(
+              children: [
+                Text(enemy.definition.emoji, style: const TextStyle(fontSize: 16)),
+                const SizedBox(width: 4),
+                Text(
+                  '${enemy.definition.name} ✕',
+                  style: const TextStyle(
+                    color: Colors.white38,
+                    fontSize: 9,
+                    decoration: TextDecoration.lineThrough,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    final color = enemy.definition.attribute.blockColor.color;
+    final countdownPercent = enemy.definition.attackInterval > 0
+        ? enemy.attackCountdown / enemy.definition.attackInterval
+        : 0.0;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4),
+      child: Container(
+        padding: const EdgeInsets.all(4),
+        decoration: BoxDecoration(
+          color: isCurrent ? Colors.black38 : Colors.black12,
+          borderRadius: BorderRadius.circular(6),
+          border: isCurrent
+              ? Border.all(color: Colors.red.withAlpha(150), width: 1.5)
+              : null,
+        ),
+        child: Row(
+          children: [
+            // Speed 環圈 + Emoji
+            CatStatusRing(
+              ringColor: color,
+              progress: countdownPercent,
+              size: 36,
+              child: Container(
+                color: color.withAlpha(30),
+                child: Center(
+                  child: Text(enemy.definition.emoji, style: const TextStyle(fontSize: 16)),
+                ),
+              ),
+            ),
+            const SizedBox(width: 4),
+            // 名稱 + HP + ATK
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    enemy.definition.name,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 9,
+                      fontWeight: FontWeight.bold,
+                      shadows: [Shadow(color: Colors.black54, blurRadius: 2)],
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 1),
+                  // HP 條
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(2),
+                    child: LinearProgressIndicator(
+                      value: enemy.hpPercent,
+                      minHeight: 4,
+                      backgroundColor: Colors.black26,
+                      valueColor: AlwaysStoppedAnimation<Color>(
+                        enemy.hpPercent > 0.5
+                            ? Colors.green
+                            : enemy.hpPercent > 0.25
+                                ? Colors.orange
+                                : Colors.red,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 1),
+                  Row(
+                    children: [
+                      Text(
+                        'ATK ${enemy.atk}',
+                        style: TextStyle(
+                          color: Colors.red.shade200,
+                          fontSize: 7,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const Spacer(),
+                      Icon(
+                        Icons.bolt,
+                        size: 8,
+                        color: enemy.attackCountdown <= 1
+                            ? Colors.red
+                            : Colors.white54,
+                      ),
+                      Text(
+                        '${enemy.attackCountdown}',
+                        style: TextStyle(
+                          color: enemy.attackCountdown <= 1
+                              ? Colors.red
+                              : Colors.white54,
+                          fontSize: 8,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// 我方角色卡牌區域
+class _PlayerCardsSection extends StatelessWidget {
+  final BattleState battleState;
+  final BattleProvider battleProvider;
+
+  const _PlayerCardsSection({
+    required this.battleState,
+    required this.battleProvider,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+      children: battleState.team.asMap().entries.map((entry) {
+        final index = entry.key;
+        final agent = entry.value;
+        return _CatAgentCard(
+          agent: agent,
+          onTap: () {
+            if (agent.isSkillReady) {
+              _showSkillConfirm(context, agent, index);
+            }
+          },
+        );
+      }).toList(),
     );
   }
 
@@ -475,7 +668,7 @@ class _CatAgentPanel extends StatelessWidget {
                 ringColor: color,
                 isReady: true,
                 size: 56,
-                child: CatPlaceholder(color: color, size: 52),
+                child: CatPlaceholder(color: color, size: 50),
               ),
               const SizedBox(height: 10),
               Text(
@@ -545,7 +738,7 @@ class _CatAgentPanel extends StatelessWidget {
   }
 }
 
-/// 單一貓咪角色卡片（含狀態環圈）
+/// 單一我方角色卡片（含 Speed 環圈 + 能量條）
 class _CatAgentCard extends StatelessWidget {
   final BattleAgent agent;
   final VoidCallback onTap;
@@ -556,76 +749,99 @@ class _CatAgentCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final color = agent.definition.attribute.blockColor.color;
     final isReady = agent.isSkillReady;
-
-    // 狀態環圈顏色：技能就緒=金色，充能中=角色顏色
     final ringColor = isReady ? Colors.amber : color;
 
     return GestureDetector(
       onTap: isReady ? onTap : null,
       child: Padding(
-        padding: const EdgeInsets.only(bottom: 6),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // 貓咪 + 狀態環
-            CatStatusRing(
-              ringColor: ringColor,
-              isReady: isReady,
-              size: 52,
-              child: CatPlaceholder(color: color, size: 48),
-            ),
-            const SizedBox(height: 2),
-            // 名稱
-            Text(
-              agent.definition.name,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 9,
-                fontWeight: FontWeight.bold,
-                shadows: [Shadow(color: Colors.black54, blurRadius: 3)],
+        padding: const EdgeInsets.only(bottom: 4),
+        child: Container(
+          padding: const EdgeInsets.all(4),
+          decoration: BoxDecoration(
+            color: isReady ? Colors.black38 : Colors.black12,
+            borderRadius: BorderRadius.circular(6),
+            border: isReady
+                ? Border.all(color: Colors.amber.withAlpha(150), width: 1.5)
+                : null,
+          ),
+          child: Row(
+            children: [
+              // Speed 環圈 + 貓咪
+              CatStatusRing(
+                ringColor: ringColor,
+                isReady: isReady,
+                progress: agent.attackCountdownPercent,
+                size: 40,
+                child: CatPlaceholder(color: color, size: 34),
               ),
-              textAlign: TextAlign.center,
-              overflow: TextOverflow.ellipsis,
-            ),
-            // 能量條
-            Container(
-              width: 40,
-              height: 3,
-              margin: const EdgeInsets.only(top: 1),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(2),
-                color: Colors.black26,
-              ),
-              child: FractionallySizedBox(
-                alignment: Alignment.centerLeft,
-                widthFactor: agent.energyPercent,
-                child: Container(
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(2),
-                    color: isReady ? Colors.amber : color.withAlpha(180),
-                  ),
+              const SizedBox(width: 4),
+              // 資訊
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // 名稱 + ATK
+                    Row(
+                      children: [
+                        Text(
+                          agent.definition.name,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 9,
+                            fontWeight: FontWeight.bold,
+                            shadows: [Shadow(color: Colors.black54, blurRadius: 2)],
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const Spacer(),
+                        Text(
+                          '⚔${agent.atk}',
+                          style: TextStyle(
+                            color: Colors.orange.shade200,
+                            fontSize: 7,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 2),
+                    // 能量條
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(2),
+                      child: LinearProgressIndicator(
+                        value: agent.energyPercent,
+                        minHeight: 4,
+                        backgroundColor: Colors.black26,
+                        valueColor: AlwaysStoppedAnimation(
+                          isReady ? Colors.amber : color.withAlpha(150),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 1),
+                    // 能量數字 or 施放提示
+                    if (isReady)
+                      const Text(
+                        '▶ 點擊施放技能',
+                        style: TextStyle(
+                          color: Colors.amber,
+                          fontSize: 7,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      )
+                    else
+                      Text(
+                        '能量 ${agent.currentEnergy}/${agent.maxEnergy}  SPD ${agent.speed}',
+                        style: const TextStyle(
+                          color: Colors.white54,
+                          fontSize: 7,
+                        ),
+                      ),
+                  ],
                 ),
               ),
-            ),
-            // 施放提示
-            if (isReady)
-              Container(
-                margin: const EdgeInsets.only(top: 2),
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-                decoration: BoxDecoration(
-                  color: Colors.amber,
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: const Text(
-                  '施放',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 7,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -653,9 +869,6 @@ class _GamePanel extends StatelessWidget {
       ),
       child: Column(
         children: [
-          // 敵人資訊 + 步數（緊湊版）
-          if (battleState != null) _CompactEnemyBar(battleState: battleState!),
-
           // Combo 顯示
           if (gameState != null && gameState!.combo > 0)
             _ComboBar(combo: gameState!.combo),
@@ -675,110 +888,6 @@ class _GamePanel extends StatelessWidget {
                 return _SkillEffectBar(battleProvider: battle);
               },
             ),
-        ],
-      ),
-    );
-  }
-}
-
-/// 緊湊版敵人資訊條
-class _CompactEnemyBar extends StatelessWidget {
-  final BattleState battleState;
-
-  const _CompactEnemyBar({required this.battleState});
-
-  @override
-  Widget build(BuildContext context) {
-    final enemy = battleState.currentEnemy;
-    if (enemy == null) return const SizedBox(height: 4);
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-      color: Colors.black26,
-      child: Row(
-        children: [
-          // 敵人 emoji
-          Container(
-            width: 28,
-            height: 28,
-            decoration: BoxDecoration(
-              color: enemy.definition.attribute.blockColor.color.withAlpha(50),
-              borderRadius: BorderRadius.circular(6),
-            ),
-            child: Center(
-              child: Text(enemy.definition.emoji, style: const TextStyle(fontSize: 16)),
-            ),
-          ),
-          const SizedBox(width: 6),
-          // 名稱 + HP 條
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  enemy.definition.name,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
-                  ),
-                  overflow: TextOverflow.ellipsis,
-                ),
-                const SizedBox(height: 2),
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(3),
-                  child: LinearProgressIndicator(
-                    value: enemy.hpPercent,
-                    minHeight: 6,
-                    backgroundColor: Colors.black26,
-                    valueColor: AlwaysStoppedAnimation<Color>(
-                      enemy.hpPercent > 0.5
-                          ? Colors.green
-                          : enemy.hpPercent > 0.25
-                              ? Colors.orange
-                              : Colors.red,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 4),
-          // HP 數字
-          Text(
-            '${enemy.currentHp}/${enemy.maxHp}',
-            style: const TextStyle(color: Colors.white70, fontSize: 8),
-          ),
-          const SizedBox(width: 6),
-          // 攻擊倒數
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-            decoration: BoxDecoration(
-              color: enemy.attackCountdown <= 1
-                  ? Colors.red.withAlpha(80)
-                  : Colors.white10,
-              borderRadius: BorderRadius.circular(4),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  Icons.bolt,
-                  size: 10,
-                  color: enemy.attackCountdown <= 1 ? Colors.red : Colors.white54,
-                ),
-                Text(
-                  '${enemy.attackCountdown}',
-                  style: TextStyle(
-                    color: enemy.attackCountdown <= 1 ? Colors.red : Colors.white54,
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ],
-            ),
-          ),
         ],
       ),
     );
@@ -956,6 +1065,8 @@ class _SkillEffectBar extends StatelessWidget {
     switch (type) {
       case BattleEventType.damage:
         return (Icons.flash_on, Colors.orange);
+      case BattleEventType.autoAttack:
+        return (Icons.gps_fixed, Colors.cyan);
       case BattleEventType.enemyAttack:
         return (Icons.warning, Colors.red);
       case BattleEventType.skillActivated:

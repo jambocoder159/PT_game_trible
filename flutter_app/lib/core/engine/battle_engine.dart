@@ -53,12 +53,196 @@ class TurnResult {
   });
 }
 
+/// 自動攻擊事件
+class AutoAttackEvent {
+  final bool isPlayerAttack;
+  final String attackerId;
+  final String? targetId;
+  final int damage;
+  final bool killed;
+
+  const AutoAttackEvent({
+    required this.isPlayerAttack,
+    required this.attackerId,
+    this.targetId,
+    required this.damage,
+    this.killed = false,
+  });
+}
+
+/// Tick 結算結果
+class TickResult {
+  final int tickNumber;
+  final Map<String, int> energyGained;
+  final List<AutoAttackEvent> autoAttacks;
+  final int totalPlayerDamage;
+  final int totalEnemyDamage;
+  final int healAmount;
+  final bool anyEnemyKilled;
+
+  const TickResult({
+    required this.tickNumber,
+    required this.energyGained,
+    required this.autoAttacks,
+    this.totalPlayerDamage = 0,
+    this.totalEnemyDamage = 0,
+    this.healAmount = 0,
+    this.anyEnemyKilled = false,
+  });
+}
+
 class BattleEngine {
   BattleEngine._();
 
   static final _random = Random();
 
-  /// 處理一次消除的傷害和能量
+  /// 處理一個 tick（消方塊驅動時間軸）
+  static TickResult processTick(
+    BattleState battle,
+    Map<BlockColor, int> matchedBlockCounts,
+    int combo,
+  ) {
+    battle.tickCount += 1;
+    battle.lastCombo = combo;
+
+    final energyGained = <String, int>{};
+    final autoAttacks = <AutoAttackEvent>[];
+    int totalPlayerDamage = 0;
+    int totalEnemyDamage = 0;
+    int totalHeal = 0;
+    bool anyEnemyKilled = false;
+
+    // ── 1. 充能：消同色方塊 → 對應角色累積能量 ──
+    for (final entry in matchedBlockCounts.entries) {
+      final color = entry.key;
+      final count = entry.value;
+
+      for (final agent in battle.team) {
+        if (agent.definition.attribute.blockColor == color) {
+          var energy = count;
+
+          // 天賦：能量獲取加成
+          final energyUp = agent.getTalentBonus(TalentEffectType.energyGainUp);
+          if (energyUp > 0) {
+            energy = (energy * (1 + energyUp / 100)).round();
+          }
+
+          // 被動：特定顏色能量加成
+          final energyBonus = agent.getPassive(PassiveEffectType.energyBonus);
+          if (energyBonus != null) {
+            energy = (energy * (1 + energyBonus.effectValue)).round();
+          }
+
+          agent.addEnergy(energy);
+          energyGained[agent.definition.id] =
+              (energyGained[agent.definition.id] ?? 0) + energy;
+        }
+      }
+
+      // 被動：消除治療
+      for (final agent in battle.team) {
+        final healOnMatch = agent.getPassive(PassiveEffectType.healOnMatch);
+        if (healOnMatch != null &&
+            agent.definition.attribute.blockColor == color) {
+          final heal = (battle.teamMaxHp * healOnMatch.effectValue).round();
+          battle.teamCurrentHp =
+              (battle.teamCurrentHp + heal).clamp(0, battle.teamMaxHp);
+          totalHeal += heal;
+        }
+      }
+    }
+
+    // ── 2. 我方自動攻擊 ──
+    for (final agent in battle.team) {
+      agent.attackCountdown -= 1;
+      if (agent.attackCountdown <= 0) {
+        agent.attackCountdown = agent.speed; // 重置
+
+        final enemy = battle.currentEnemy;
+        if (enemy != null && !enemy.isDead) {
+          var damage = battle.calculateAutoAttackDamage(agent, enemy);
+
+          // Combo 加成
+          if (combo > 1) {
+            double comboMult = 1 + (combo - 1) * 0.1;
+            for (final a in battle.team) {
+              final comboBonus = a.getTalentBonus(TalentEffectType.comboBonus);
+              if (comboBonus > 0) {
+                comboMult += comboBonus / 100;
+                break;
+              }
+            }
+            damage = (damage * comboMult).round();
+          }
+
+          enemy.takeDamage(damage);
+          totalPlayerDamage += damage;
+
+          if (!battle.firstAttackDone) battle.firstAttackDone = true;
+
+          final killed = enemy.isDead;
+          autoAttacks.add(AutoAttackEvent(
+            isPlayerAttack: true,
+            attackerId: agent.definition.id,
+            targetId: enemy.definition.id,
+            damage: damage,
+            killed: killed,
+          ));
+
+          if (killed) {
+            anyEnemyKilled = true;
+            _processKillEffects(battle);
+            battle.advanceToNextEnemy();
+          }
+        }
+      }
+    }
+
+    // ── 3. 敵方自動攻擊 ──
+    for (final enemy in battle.enemies) {
+      if (enemy.isDead) continue;
+      final shouldAttack = enemy.tickAttack();
+      if (shouldAttack) {
+        final damage = battle.enemyAttack();
+        totalEnemyDamage += damage;
+
+        autoAttacks.add(AutoAttackEvent(
+          isPlayerAttack: false,
+          attackerId: enemy.definition.id,
+          damage: damage,
+        ));
+
+        // 被動：反擊
+        for (final agent in battle.team) {
+          final counter = agent.getPassive(PassiveEffectType.counterAttack);
+          if (counter != null && !enemy.isDead) {
+            if (_random.nextDouble() < counter.effectValue) {
+              final counterDmg = (agent.atk * 0.5).round();
+              enemy.takeDamage(counterDmg);
+              totalPlayerDamage += counterDmg;
+              if (enemy.isDead) {
+                anyEnemyKilled = true;
+                _processKillEffects(battle);
+                battle.advanceToNextEnemy();
+              }
+            }
+          }
+        }
+      }
+    }
+
+    return TickResult(
+      tickNumber: battle.tickCount,
+      energyGained: energyGained,
+      autoAttacks: autoAttacks,
+      totalPlayerDamage: totalPlayerDamage,
+      totalEnemyDamage: totalEnemyDamage,
+      healAmount: totalHeal,
+      anyEnemyKilled: anyEnemyKilled,
+    );
+  }
+
+  /// 處理一次消除的傷害和能量（舊版回合制，保留向下相容）
   static TurnResult processMatches(
     BattleState battle,
     Map<BlockColor, int> matchedBlockCounts,

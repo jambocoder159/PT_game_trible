@@ -189,11 +189,12 @@ class _CatPainter extends CustomPainter {
   bool shouldRepaint(_CatPainter oldDelegate) => color != oldDelegate.color;
 }
 
-/// 貓咪狀態環圈
+/// 貓咪狀態環圈（含 Speed 倒數弧形進度）
 class CatStatusRing extends StatelessWidget {
   final Color ringColor;
   final bool isActive;
   final bool isReady;
+  final double progress; // 0.0~1.0，Speed 倒數進度（1=剛攻擊完，0=即將攻擊）
   final Widget child;
   final double size;
 
@@ -202,31 +203,101 @@ class CatStatusRing extends StatelessWidget {
     required this.ringColor,
     this.isActive = false,
     this.isReady = false,
+    this.progress = 1.0,
     required this.child,
     this.size = 56,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return SizedBox(
       width: size,
       height: size,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        border: Border.all(
+      child: CustomPaint(
+        painter: _SpeedRingPainter(
           color: ringColor,
-          width: isReady ? 3.0 : 2.0,
+          progress: progress,
+          isReady: isReady,
         ),
-        boxShadow: [
-          if (isReady)
-            BoxShadow(
-              color: ringColor.withAlpha(100),
-              blurRadius: 8,
-              spreadRadius: 1,
-            ),
-        ],
+        child: Padding(
+          padding: const EdgeInsets.all(3),
+          child: ClipOval(child: child),
+        ),
       ),
-      child: ClipOval(child: child),
     );
   }
+}
+
+class _SpeedRingPainter extends CustomPainter {
+  final Color color;
+  final double progress;
+  final bool isReady;
+
+  _SpeedRingPainter({
+    required this.color,
+    required this.progress,
+    required this.isReady,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final radius = size.width / 2 - 1.5;
+
+    // 背景環
+    final bgPaint = Paint()
+      ..color = Colors.black26
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 3.0;
+    canvas.drawCircle(center, radius, bgPaint);
+
+    // 進度弧形
+    final progressColor = progress < 0.3
+        ? (isReady ? Colors.amber : Colors.red)
+        : color;
+    final arcPaint = Paint()
+      ..color = progressColor
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 3.0
+      ..strokeCap = StrokeCap.round;
+
+    final sweepAngle = 2 * math.pi * progress;
+    canvas.drawArc(
+      Rect.fromCircle(center: center, radius: radius),
+      -math.pi / 2, // 從頂部開始
+      sweepAngle,
+      false,
+      arcPaint,
+    );
+
+    // 即將攻擊時發光
+    if (progress < 0.3) {
+      final glowPaint = Paint()
+        ..color = progressColor.withAlpha(60)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 6.0
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4);
+      canvas.drawArc(
+        Rect.fromCircle(center: center, radius: radius),
+        -math.pi / 2,
+        sweepAngle,
+        false,
+        glowPaint,
+      );
+    }
+
+    // 技能就緒時整圈發光
+    if (isReady) {
+      final readyGlow = Paint()
+        ..color = Colors.amber.withAlpha(50)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 5.0
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6);
+      canvas.drawCircle(center, radius, readyGlow);
+    }
+  }
+
+  @override
+  bool shouldRepaint(_SpeedRingPainter old) =>
+      color != old.color || progress != old.progress || isReady != old.isReady;
 }
