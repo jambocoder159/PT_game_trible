@@ -252,6 +252,9 @@ class CatAgentDefinition {
   final double defGrowth;
   final double hpGrowth;
 
+  // 速度：每幾個 tick 自動普攻一次（數值越小越快）
+  final int baseSpeed;
+
   const CatAgentDefinition({
     required this.id,
     required this.name,
@@ -269,6 +272,7 @@ class CatAgentDefinition {
     this.atkGrowth = 3.0,
     this.defGrowth = 2.0,
     this.hpGrowth = 10.0,
+    this.baseSpeed = 3,
   });
 
   /// 計算特定等級的 ATK

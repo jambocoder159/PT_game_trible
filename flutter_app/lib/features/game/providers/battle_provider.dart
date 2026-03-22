@@ -20,12 +20,20 @@ class BattleEvent {
   final String message;
   final int value; // 傷害值或回復值
   final BlockColor? color; // 對應的方塊顏色
+  final int? attackerIndex; // 攻擊者在 team/enemies 中的 index
+  final int? targetIndex; // 目標在 enemies/team 中的 index
+  final bool isPlayerAttack; // true=我方攻擊, false=敵方攻擊
+  final String? emoji; // 攻擊者 emoji（衝撞動畫用）
 
   const BattleEvent({
     required this.type,
     required this.message,
     this.value = 0,
     this.color,
+    this.attackerIndex,
+    this.targetIndex,
+    this.isPlayerAttack = false,
+    this.emoji,
   });
 }
 
@@ -38,6 +46,7 @@ enum BattleEventType {
   shield, // 護盾
   victory, // 勝利
   defeat, // 失敗
+  autoAttack, // 自動普攻
 }
 
 /// 放置效果回呼（由 GameProvider 執行棋盤操作）
@@ -59,9 +68,20 @@ class BattleProvider extends ChangeNotifier {
 
   // 事件佇列
   final List<BattleEvent> _events = [];
+  // 攻擊動畫事件佇列（供左側面板衝撞動畫使用）
+  final List<BattleEvent> _attackAnimEvents = [];
+
+  /// 消費一般事件（技能、回復、勝敗等，供 _SkillEffectBar 使用）
   List<BattleEvent> consumeEvents() {
     final events = List<BattleEvent>.from(_events);
     _events.clear();
+    return events;
+  }
+
+  /// 消費攻擊動畫事件（autoAttack/enemyAttack，供衝撞動畫使用）
+  List<BattleEvent> consumeAttackEvents() {
+    final events = List<BattleEvent>.from(_attackAnimEvents);
+    _attackAnimEvents.clear();
     return events;
   }
 
@@ -147,30 +167,65 @@ class BattleProvider extends ChangeNotifier {
   }
 
   /// 處理三消結果 — 由 GameProvider 呼叫
-  /// matchedBlocks: 此次消除的方塊顏色 → 數量
+  /// 每次連鎖消除 = 1 tick，消方塊驅動時間軸
   void onMatchesProcessed(Map<BlockColor, int> matchedBlocks, int combo) {
     if (_battleState == null || _battleState!.isBattleOver) return;
 
-    final result = BattleEngine.processMatches(
+    final result = BattleEngine.processTick(
       _battleState!,
       matchedBlocks,
       combo,
     );
 
-    // 發送傷害事件
-    for (final entry in result.damageByColor.entries) {
-      _events.add(BattleEvent(
-        type: BattleEventType.damage,
-        message: '-${entry.value}',
-        value: entry.value,
-        color: entry.key,
-      ));
+    // 發送自動攻擊事件（含攻擊者/目標資訊供動畫使用）
+    for (final attack in result.autoAttacks) {
+      if (attack.isPlayerAttack) {
+        final attackerIdx = _battleState!.team.indexWhere(
+            (a) => a.definition.id == attack.attackerId);
+        final targetIdx = _battleState!.currentEnemyIndex;
+        final emoji = attackerIdx >= 0
+            ? _battleState!.team[attackerIdx].definition.attribute.emoji
+            : '⚔';
+        final event = BattleEvent(
+          type: BattleEventType.autoAttack,
+          message: '-${attack.damage}',
+          value: attack.damage,
+          attackerIndex: attackerIdx,
+          targetIndex: targetIdx,
+          isPlayerAttack: true,
+          emoji: emoji,
+        );
+        _events.add(event);
+        _attackAnimEvents.add(event);
+        if (attack.killed) {
+          _events.add(const BattleEvent(
+            type: BattleEventType.enemyKilled,
+            message: '敵人被擊敗！',
+          ));
+        }
+      } else {
+        final attackerIdx = _battleState!.enemies.indexWhere(
+            (e) => e.definition.id == attack.attackerId);
+        final emoji = attackerIdx >= 0
+            ? _battleState!.enemies[attackerIdx].definition.emoji
+            : '👊';
+        final event = BattleEvent(
+          type: BattleEventType.enemyAttack,
+          message: '-${attack.damage}',
+          value: attack.damage,
+          attackerIndex: attackerIdx,
+          isPlayerAttack: false,
+          emoji: emoji,
+        );
+        _events.add(event);
+        _attackAnimEvents.add(event);
+      }
     }
 
-    if (result.enemyKilled) {
-      _events.add(BattleEvent(
-        type: BattleEventType.enemyKilled,
-        message: '敵人被擊敗！',
+    if (_battleState!.isTeamDead) {
+      _events.add(const BattleEvent(
+        type: BattleEventType.defeat,
+        message: '任務失敗...',
       ));
     }
 
@@ -184,7 +239,8 @@ class BattleProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// 處理回合結束（玩家操作後）— 回合開始效果 + 敵人回擊
+  /// 處理回合結束（玩家操作後）— DoT/HoT/debuff 管理
+  /// 敵人攻擊改為每 tick 處理，這裡只管持續效果
   void onTurnEnd() {
     if (_battleState == null || _battleState!.isBattleOver) return;
 
@@ -193,22 +249,7 @@ class BattleProvider extends ChangeNotifier {
     // 處理回合開始效果（DoT、HoT、被動）
     BattleEngine.processTurnStart(_battleState!);
 
-    final result = BattleEngine.processEnemyTurn(_battleState!);
-
-    if (result.enemyAttacked) {
-      _events.add(BattleEvent(
-        type: BattleEventType.enemyAttack,
-        message: '-${result.enemyDamage}',
-        value: result.enemyDamage,
-      ));
-
-      if (_battleState!.isTeamDead) {
-        _events.add(const BattleEvent(
-          type: BattleEventType.defeat,
-          message: '任務失敗...',
-        ));
-      }
-    }
+    // 敵人攻擊已在 processTick 中處理，不再呼叫 processEnemyTurn
 
     notifyListeners();
   }
@@ -259,6 +300,7 @@ class BattleProvider extends ChangeNotifier {
     _battleState = null;
     _currentStage = null;
     _events.clear();
+    _attackAnimEvents.clear();
     notifyListeners();
   }
 }

@@ -21,6 +21,9 @@ class BattleAgent {
   int currentEnergy;
   int maxEnergy;
 
+  // 自動攻擊倒數（tick-based）
+  int attackCountdown;
+
   // 養成系統數據
   final int skillTier;
   final int evolutionStage;
@@ -47,6 +50,7 @@ class BattleAgent {
     List<TalentNodeDefinition>? unlockedTalents,
     List<PassiveSkillDefinition>? equippedPassives,
   })  : maxEnergy = definition.skill.energyCost,
+        attackCountdown = definition.baseSpeed,
         unlockedTalents = unlockedTalents ?? [],
         equippedPassives = equippedPassives ?? [] {
     // 計算天賦百分比加成
@@ -93,6 +97,13 @@ class BattleAgent {
     return (base * evoHpMult * (1 + _hpBonus / 100)).round();
   }
 
+  /// 速度值（tick 數 / 每次普攻）
+  int get speed => definition.baseSpeed;
+
+  /// 攻擊倒數進度（1.0=剛攻擊完，0.0=即將攻擊）
+  double get attackCountdownPercent =>
+      speed > 0 ? attackCountdown / speed : 0;
+
   bool get isSkillReady => currentEnergy >= maxEnergy;
   double get energyPercent => maxEnergy > 0 ? currentEnergy / maxEnergy : 0;
 
@@ -130,6 +141,8 @@ class BattleState {
   double hotPercent;                 // HoT 回復百分比
   int lastCombo;                     // 上一次的 combo 數
 
+  int tickCount; // 消方塊驅動的時間軸計數
+
   BattleState({
     required this.team,
     required this.enemies,
@@ -137,6 +150,7 @@ class BattleState {
     this.teamMaxHp = 0,
     this.teamCurrentHp = 0,
     this.turnCount = 0,
+    this.tickCount = 0,
     this.shieldTurnsLeft = 0,
     this.shieldReduction = 0,
     this.firstAttackDone = false,
@@ -167,7 +181,7 @@ class BattleState {
 
   /// 計算消除方塊對當前敵人造成的傷害
   int calculateMatchDamage(BlockColor blockColor, int matchCount) {
-    final agent = _findAgentByBlockColor(blockColor);
+    final agent = findAgentByBlockColor(blockColor);
     if (agent == null) {
       return matchCount * 5;
     }
@@ -214,8 +228,43 @@ class BattleState {
     return damage;
   }
 
+  /// 計算角色自動普攻對敵人的傷害
+  int calculateAutoAttackDamage(BattleAgent agent, EnemyInstance target) {
+    final multiplier = agent.definition.attribute
+        .damageMultiplierAgainst(target.definition.attribute);
+
+    var damage = (agent.atk * multiplier).round();
+
+    // 天賦：消除傷害加成（沿用在普攻上）
+    final matchDmgUp = agent.getTalentBonus(TalentEffectType.matchDamageUp);
+    if (matchDmgUp > 0) {
+      damage = (damage * (1 + matchDmgUp / 100)).round();
+    }
+
+    // 被動：首擊加成
+    if (!firstAttackDone) {
+      final firstStrike = agent.getPassive(PassiveEffectType.firstStrikeBonus);
+      if (firstStrike != null) {
+        damage = (damage * firstStrike.effectValue).round();
+      }
+    }
+
+    // 被動：攻擊低血敵人加成
+    final lowEnemyBonus = agent.getPassive(PassiveEffectType.lowEnemyHpBonus);
+    if (lowEnemyBonus != null && target.hpPercent < 0.5) {
+      damage = (damage * (1 + lowEnemyBonus.effectValue)).round();
+    }
+
+    // 敵人破防
+    if (defDebuffTurns > 0) {
+      damage = (damage * (1 + defDebuffPercent)).round();
+    }
+
+    return damage;
+  }
+
   /// 根據方塊顏色找對應的隊伍角色
-  BattleAgent? _findAgentByBlockColor(BlockColor blockColor) {
+  BattleAgent? findAgentByBlockColor(BlockColor blockColor) {
     for (final agent in team) {
       if (agent.definition.attribute.blockColor == blockColor) {
         return agent;
