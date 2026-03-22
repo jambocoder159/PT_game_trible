@@ -12,17 +12,17 @@ import '../../gm/screens/gm_screen.dart';
 import '../../../config/app_version.dart';
 import '../../../config/game_modes.dart';
 import '../../../core/services/local_storage.dart';
+import '../../../core/models/cat_data.dart';
+import '../../../core/models/block.dart';
 import '../providers/idle_provider.dart';
 import '../providers/cat_provider.dart';
 import '../widgets/player_info_bar.dart';
 import '../widgets/bottom_nav_bar.dart';
 import '../widgets/idle_mini_game.dart';
 import '../widgets/cat_panel.dart';
+import '../widgets/energy_orb_overlay.dart';
 
 /// 首頁 — 放置型遊戲大廳
-/// 上方：玩家資訊列
-/// 中間：左側消除遊戲 + 右側貓咪面板
-/// 下方：遊戲導航列
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
@@ -33,12 +33,20 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   int _currentNavIndex = 0;
   int _versionTapCount = 0;
-  bool _boardOnLeft = true; // true = 棋盤在左, false = 棋盤在右
+  bool _boardOnLeft = true;
+
+  // 能量球動畫
+  final EnergyOrbController _orbController = EnergyOrbController();
+
+  // 貓咪 GlobalKey（用於定位能量球目標位置）
+  final Map<String, GlobalKey> _catKeys = {};
+
+  // 遊戲區域 GlobalKey（用於定位能量球起點）
+  final GlobalKey _gameAreaKey = GlobalKey();
 
   @override
   void initState() {
     super.initState();
-    // 載入偏好 + 啟動遊戲
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadBoardPosition();
       _startIdleGame();
@@ -66,7 +74,6 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  /// 監聽 IdleProvider 的飼料事件，自動餵貓
   void _setupFoodListener() {
     final idle = context.read<IdleProvider>();
     idle.addListener(_onIdleUpdate);
@@ -85,14 +92,60 @@ class _HomeScreenState extends State<HomeScreen> {
     if (events.isEmpty) return;
 
     final playerLevel = playerProvider.data.playerLevel;
+
+    // 為每個食物事件發射能量球
     for (final event in events) {
-      catProvider.feedMultiple(event.foodByColor, playerLevel);
+      _spawnEnergyOrbs(event.foodByColor);
+    }
+
+    // 餵食（延遲一點，讓能量球先飛一會兒）
+    Future.delayed(const Duration(milliseconds: 350), () {
+      if (!mounted) return;
+      for (final event in events) {
+        catProvider.feedMultiple(event.foodByColor, playerLevel);
+      }
+    });
+  }
+
+  /// 發射能量球：從遊戲區中心飛向對應貓咪
+  void _spawnEnergyOrbs(Map<BlockColor, int> foodByColor) {
+    // 取得遊戲區域中心位置（螢幕座標）
+    final gameBox =
+        _gameAreaKey.currentContext?.findRenderObject() as RenderBox?;
+    if (gameBox == null) return;
+    final gameCenter = gameBox.localToGlobal(
+      Offset(gameBox.size.width / 2, gameBox.size.height / 2),
+    );
+
+    for (final entry in foodByColor.entries) {
+      final color = entry.key;
+      final amount = entry.value;
+
+      // 找到對應貓咪的位置
+      final catDef = CatDefinitions.getByColor(color);
+      if (catDef == null) continue;
+      final catKey = _catKeys[catDef.id];
+      if (catKey == null) continue;
+
+      final catBox =
+          catKey.currentContext?.findRenderObject() as RenderBox?;
+      if (catBox == null) continue;
+      final catCenter = catBox.localToGlobal(
+        Offset(catBox.size.width / 2, catBox.size.height / 2),
+      );
+
+      // 發射能量球（最多顯示 3 顆，避免太多）
+      _orbController.spawnOrbs(
+        color: color,
+        start: gameCenter,
+        end: catCenter,
+        count: amount.clamp(1, 3),
+      );
     }
   }
 
   @override
   void dispose() {
-    // 安全移除 listener
     try {
       context.read<IdleProvider>().removeListener(_onIdleUpdate);
     } catch (_) {}
@@ -104,30 +157,25 @@ class _HomeScreenState extends State<HomeScreen> {
 
     switch (index) {
       case 0:
-        // 首頁（已在此頁）
         setState(() => _currentNavIndex = 0);
         break;
       case 1:
-        // 對戰
         context.read<GameProvider>().startGame(GameModes.triple);
         Navigator.of(context).push(
           MaterialPageRoute(builder: (_) => const GameScreen()),
         );
         break;
       case 2:
-        // 關卡
         Navigator.of(context).push(
           MaterialPageRoute(builder: (_) => const StageSelectScreen()),
         );
         break;
       case 3:
-        // 商店
         Navigator.of(context).push(
           MaterialPageRoute(builder: (_) => const ShopScreen()),
         );
         break;
       case 4:
-        // 更多 → 顯示底部選單
         _showMoreMenu();
         break;
     }
@@ -152,7 +200,9 @@ class _HomeScreenState extends State<HomeScreen> {
                 onTap: () {
                   Navigator.pop(ctx);
                   Navigator.of(context).push(
-                    MaterialPageRoute(builder: (_) => const AgentListScreen()),
+                    MaterialPageRoute(
+                      builder: (_) => const AgentListScreen(),
+                    ),
                   );
                 },
               ),
@@ -162,7 +212,9 @@ class _HomeScreenState extends State<HomeScreen> {
                 onTap: () {
                   Navigator.pop(ctx);
                   Navigator.of(context).push(
-                    MaterialPageRoute(builder: (_) => const DailyQuestScreen()),
+                    MaterialPageRoute(
+                      builder: (_) => const DailyQuestScreen(),
+                    ),
                   );
                 },
               ),
@@ -197,81 +249,104 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: SafeArea(
-        child: Column(
+        child: Stack(
           children: [
-            // ─── 頂部玩家資訊列 ───
-            const Padding(
-              padding: EdgeInsets.fromLTRB(8, 6, 8, 4),
-              child: PlayerInfoBar(),
-            ),
+            // 主要內容
+            Column(
+              children: [
+                // ─── 頂部玩家資訊列 ───
+                const Padding(
+                  padding: EdgeInsets.fromLTRB(8, 6, 8, 4),
+                  child: PlayerInfoBar(),
+                ),
 
-            // ─── 切換按鈕 ───
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  GestureDetector(
-                    onTap: _toggleBoardPosition,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                      decoration: BoxDecoration(
-                        color: AppTheme.bgCard.withAlpha(120),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(
-                          color: Colors.white.withAlpha(20),
-                        ),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            _boardOnLeft ? Icons.swap_horiz : Icons.swap_horiz,
-                            color: AppTheme.textSecondary,
-                            size: 14,
+                // ─── 切換按鈕 ───
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      GestureDetector(
+                        onTap: _toggleBoardPosition,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 3,
                           ),
-                          const SizedBox(width: 4),
-                          Text(
-                            _boardOnLeft ? '棋盤←→貓咪' : '貓咪←→棋盤',
-                            style: TextStyle(
-                              color: AppTheme.textSecondary.withAlpha(180),
-                              fontSize: 10,
+                          decoration: BoxDecoration(
+                            color: AppTheme.bgCard.withAlpha(120),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                              color: Colors.white.withAlpha(20),
                             ),
                           ),
-                        ],
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(
+                                Icons.swap_horiz,
+                                color: AppTheme.textSecondary,
+                                size: 14,
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                _boardOnLeft ? '棋盤←→貓咪' : '貓咪←→棋盤',
+                                style: TextStyle(
+                                  color: AppTheme.textSecondary.withAlpha(180),
+                                  fontSize: 10,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
                       ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 2),
+
+                // ─── 主體：遊戲 + 貓咪（可切換左右） ───
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 6),
+                    child: Row(
+                      children: _boardOnLeft
+                          ? [
+                              Expanded(
+                                flex: 6,
+                                child: IdleMiniGame(key: _gameAreaKey),
+                              ),
+                              const SizedBox(width: 4),
+                              Expanded(
+                                flex: 4,
+                                child: CatPanel(catKeys: _catKeys),
+                              ),
+                            ]
+                          : [
+                              Expanded(
+                                flex: 4,
+                                child: CatPanel(catKeys: _catKeys),
+                              ),
+                              const SizedBox(width: 4),
+                              Expanded(
+                                flex: 6,
+                                child: IdleMiniGame(key: _gameAreaKey),
+                              ),
+                            ],
                     ),
                   ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 2),
-
-            // ─── 主體：遊戲 + 貓咪（可切換左右） ───
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 6),
-                child: Row(
-                  children: _boardOnLeft
-                      ? [
-                          const Expanded(flex: 6, child: IdleMiniGame()),
-                          const SizedBox(width: 4),
-                          const Expanded(flex: 4, child: CatPanel()),
-                        ]
-                      : [
-                          const Expanded(flex: 4, child: CatPanel()),
-                          const SizedBox(width: 4),
-                          const Expanded(flex: 6, child: IdleMiniGame()),
-                        ],
                 ),
-              ),
+
+                // ─── 底部導航列 ───
+                GameBottomNavBar(
+                  currentIndex: _currentNavIndex,
+                  onTap: _onNavTap,
+                ),
+              ],
             ),
 
-            // ─── 底部導航列 ───
-            GameBottomNavBar(
-              currentIndex: _currentNavIndex,
-              onTap: _onNavTap,
-            ),
+            // ─── 能量球飛行動畫覆蓋層 ───
+            EnergyOrbOverlay(controller: _orbController),
           ],
         ),
       ),

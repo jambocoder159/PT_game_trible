@@ -104,14 +104,28 @@ class CatStatus {
     return (base * (1 + playerLevel * 0.15)).round();
   }
 
-  /// 是否吃飽了
+  /// 是否至少有一個寶箱可開
   bool isFull(int playerLevel) => currentFood >= maxFood(playerLevel);
 
-  /// 餵食進度 (0.0 ~ 1.0)
+  /// 累積的寶箱數量
+  int chestCount(int playerLevel) {
+    final max = maxFood(playerLevel);
+    if (max <= 0) return 0;
+    return currentFood ~/ max;
+  }
+
+  /// 當前進度條 (0.0 ~ 1.0)，只顯示「下一個寶箱」的進度
   double progress(int playerLevel) {
     final max = maxFood(playerLevel);
     if (max <= 0) return 0;
-    return (currentFood / max).clamp(0.0, 1.0);
+    return ((currentFood % max) / max).clamp(0.0, 1.0);
+  }
+
+  /// 整體飽食度佔比（用於判斷是否溢出）
+  double overallProgress(int playerLevel) {
+    final max = maxFood(playerLevel);
+    if (max <= 0) return 0;
+    return (currentFood / max).clamp(0.0, 999.0);
   }
 
   factory CatStatus.fromJson(Map<String, dynamic> json) {

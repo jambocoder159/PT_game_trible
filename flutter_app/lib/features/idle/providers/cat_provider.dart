@@ -42,15 +42,13 @@ class CatProvider extends ChangeNotifier {
     return _cats[def.id];
   }
 
-  /// 餵食對應顏色的貓咪
+  /// 餵食對應顏色的貓咪（不設上限，允許累積多個寶箱）
   void feedCat(BlockColor color, int amount, int playerLevel) {
     final cat = getCatByColor(color);
     if (cat == null) return;
 
-    final max = cat.maxFood(playerLevel);
-    final oldFood = cat.currentFood;
-    cat.currentFood = (cat.currentFood + amount).clamp(0, max);
-    cat.totalFed += (cat.currentFood - oldFood);
+    cat.currentFood += amount;
+    cat.totalFed += amount;
 
     notifyListeners();
     _save();
@@ -62,30 +60,37 @@ class CatProvider extends ChangeNotifier {
       final cat = getCatByColor(entry.key);
       if (cat == null) continue;
 
-      final max = cat.maxFood(playerLevel);
-      final oldFood = cat.currentFood;
-      cat.currentFood = (cat.currentFood + entry.value).clamp(0, max);
-      cat.totalFed += (cat.currentFood - oldFood);
+      cat.currentFood += entry.value;
+      cat.totalFed += entry.value;
     }
 
     notifyListeners();
     _save();
   }
 
-  /// 收穫貓咪獎勵（吃飽時可收穫）
-  CatReward? collectReward(String catId, int playerLevel) {
+  /// 收穫所有累積的寶箱（批量開啟）
+  /// 回傳 (獎勵列表, 寶箱數量)
+  (List<CatReward>, int)? collectAllRewards(String catId, int playerLevel) {
     final cat = _cats[catId];
     if (cat == null || !cat.isFull(playerLevel)) return null;
 
-    // 計算獎勵品質
-    final reward = _generateReward(playerLevel);
+    final chestCount = cat.chestCount(playerLevel);
+    if (chestCount <= 0) return null;
 
-    // 重置飽食度
-    cat.currentFood = 0;
+    // 為每個寶箱生成獎勵
+    final rewards = <CatReward>[];
+    for (int i = 0; i < chestCount; i++) {
+      rewards.add(_generateReward(playerLevel));
+    }
+
+    // 扣除已開的寶箱對應的飼料，保留剩餘
+    cat.currentFood -= chestCount * cat.maxFood(playerLevel);
+    if (cat.currentFood < 0) cat.currentFood = 0;
+
     notifyListeners();
     _save();
 
-    return reward;
+    return (rewards, chestCount);
   }
 
   /// 根據玩家等級產生獎勵

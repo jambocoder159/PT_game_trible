@@ -7,9 +7,12 @@ import '../../../core/models/cat_data.dart';
 import '../../agents/providers/player_provider.dart';
 import '../providers/cat_provider.dart';
 
-/// 右側貓咪面板 — 5 隻貓咪的飽食度 + 收穫按鈕
+/// 右側貓咪面板 — 5 隻貓咪的飽食度 + 寶箱堆疊 + 批量開啟
 class CatPanel extends StatelessWidget {
-  const CatPanel({super.key});
+  /// GlobalKey map，讓 HomeScreen 能找到每隻貓的位置（用於能量球飛行）
+  final Map<String, GlobalKey> catKeys;
+
+  const CatPanel({super.key, required this.catKeys});
 
   @override
   Widget build(BuildContext context) {
@@ -25,13 +28,18 @@ class CatPanel extends StatelessWidget {
           children: CatDefinitions.all.map((def) {
             final cat = catProvider.cats[def.id];
             if (cat == null) return const SizedBox.shrink();
+
+            // 確保 GlobalKey 存在
+            catKeys.putIfAbsent(def.id, () => GlobalKey());
+
             return Expanded(
               child: _CatCard(
+                key: catKeys[def.id],
                 definition: def,
                 status: cat,
                 playerLevel: playerLevel,
                 onCollect: cat.isFull(playerLevel)
-                    ? () => _collectReward(context, catProvider, def.id, playerLevel)
+                    ? () => _collectReward(context, catProvider, def, playerLevel)
                     : null,
               ),
             );
@@ -44,44 +52,59 @@ class CatPanel extends StatelessWidget {
   void _collectReward(
     BuildContext context,
     CatProvider catProvider,
-    String catId,
+    CatDefinition def,
     int playerLevel,
   ) {
-    final def = CatDefinitions.getById(catId);
-    if (def == null) return;
+    final result = catProvider.collectAllRewards(def.id, playerLevel);
+    if (result == null) return;
 
-    final reward = catProvider.collectReward(catId, playerLevel);
-    if (reward == null) return;
+    final (rewards, chestCount) = result;
 
-    // 獎勵金幣加到玩家
+    // 合計金幣
+    final totalGold = rewards.fold<int>(0, (sum, r) => sum + r.quantity);
     final player = context.read<PlayerProvider>();
-    player.addGold(reward.quantity);
+    player.addGold(totalGold);
 
-    // 震動回饋
+    // 最高稀有度
+    final maxRarity = rewards.fold<int>(1, (m, r) => r.rarity > m ? r.rarity : m);
+
+    // 震動
     HapticFeedback.heavyImpact();
 
-    // 顯示開寶箱動畫彈窗
+    // 顯示開寶箱彈窗
     showDialog(
       context: context,
       barrierDismissible: false,
       barrierColor: Colors.black54,
       builder: (_) => _RewardDialog(
         catDef: def,
-        reward: reward,
+        rewards: rewards,
+        chestCount: chestCount,
+        totalGold: totalGold,
+        maxRarity: maxRarity,
       ),
     );
   }
 }
 
 // ═══════════════════════════════════════════
-// 收穫獎勵彈窗 — 開寶箱動畫
+// 收穫獎勵彈窗 — 支援批量開啟
 // ═══════════════════════════════════════════
 
 class _RewardDialog extends StatefulWidget {
   final CatDefinition catDef;
-  final CatReward reward;
+  final List<CatReward> rewards;
+  final int chestCount;
+  final int totalGold;
+  final int maxRarity;
 
-  const _RewardDialog({required this.catDef, required this.reward});
+  const _RewardDialog({
+    required this.catDef,
+    required this.rewards,
+    required this.chestCount,
+    required this.totalGold,
+    required this.maxRarity,
+  });
 
   @override
   State<_RewardDialog> createState() => _RewardDialogState();
@@ -103,14 +126,12 @@ class _RewardDialogState extends State<_RewardDialog>
   late Animation<double> _rewardScale;
   late Animation<double> _rewardOpacity;
 
-  // 粒子
   late List<_SparkleParticle> _particles;
 
   @override
   void initState() {
     super.initState();
 
-    // 搖晃動畫
     _shakeController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 600),
@@ -128,7 +149,6 @@ class _RewardDialogState extends State<_RewardDialog>
       curve: Curves.easeInOut,
     ));
 
-    // 爆發動畫
     _burstController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 500),
@@ -140,7 +160,6 @@ class _RewardDialogState extends State<_RewardDialog>
       CurvedAnimation(parent: _burstController, curve: Curves.easeIn),
     );
 
-    // 獎勵顯示動畫
     _rewardController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 400),
@@ -155,18 +174,17 @@ class _RewardDialogState extends State<_RewardDialog>
       ),
     );
 
-    // 生成粒子
     _particles = _generateParticles();
-
-    // 啟動動畫序列
     _startAnimation();
   }
 
   List<_SparkleParticle> _generateParticles() {
     final rng = Random();
     final color = widget.catDef.color.color;
-    return List.generate(16, (i) {
-      final angle = (i / 16) * 2 * pi + rng.nextDouble() * 0.4;
+    // 多寶箱 = 更多粒子
+    final count = 12 + widget.chestCount * 4;
+    return List.generate(count.clamp(12, 32), (i) {
+      final angle = (i / count) * 2 * pi + rng.nextDouble() * 0.4;
       return _SparkleParticle(
         angle: angle,
         speed: 0.8 + rng.nextDouble() * 1.5,
@@ -177,18 +195,15 @@ class _RewardDialogState extends State<_RewardDialog>
   }
 
   Future<void> _startAnimation() async {
-    // Phase 0: 搖晃
     await _shakeController.forward();
     HapticFeedback.mediumImpact();
     await Future.delayed(const Duration(milliseconds: 100));
 
-    // Phase 1: 爆發
     setState(() => _phase = 1);
     HapticFeedback.heavyImpact();
     _burstController.forward();
     await Future.delayed(const Duration(milliseconds: 300));
 
-    // Phase 2: 顯示獎勵
     setState(() => _phase = 2);
     _rewardController.forward();
   }
@@ -204,8 +219,8 @@ class _RewardDialogState extends State<_RewardDialog>
   @override
   Widget build(BuildContext context) {
     final catColor = widget.catDef.color.color;
-    final rarityColor = _rarityColor(widget.reward.rarity);
-    final rarityLabel = _rarityLabel(widget.reward.rarity);
+    final rarityColor = _rarityColor(widget.maxRarity);
+    final rarityLabel = _rarityLabel(widget.maxRarity);
 
     return Dialog(
       backgroundColor: Colors.transparent,
@@ -213,14 +228,13 @@ class _RewardDialogState extends State<_RewardDialog>
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // 寶箱 + 爆發效果
+          // 寶箱 + 爆發
           SizedBox(
             width: 200,
-            height: 200,
+            height: 180,
             child: Stack(
               alignment: Alignment.center,
               children: [
-                // 爆發光環
                 if (_phase >= 1)
                   AnimatedBuilder(
                     animation: _burstController,
@@ -244,13 +258,11 @@ class _RewardDialogState extends State<_RewardDialog>
                       ),
                     ),
                   ),
-
-                // 粒子
                 if (_phase >= 1)
                   AnimatedBuilder(
                     animation: _burstController,
                     builder: (_, __) => CustomPaint(
-                      size: const Size(200, 200),
+                      size: const Size(200, 180),
                       painter: _SparklePainter(
                         progress: _burstController.value,
                         particles: _particles,
@@ -258,8 +270,6 @@ class _RewardDialogState extends State<_RewardDialog>
                       ),
                     ),
                   ),
-
-                // 寶箱 emoji
                 if (_phase == 0)
                   AnimatedBuilder(
                     animation: _shakeAnim,
@@ -267,22 +277,45 @@ class _RewardDialogState extends State<_RewardDialog>
                       offset: Offset(_shakeAnim.value, 0),
                       child: child,
                     ),
-                    child: Text(
-                      '🎁',
-                      style: TextStyle(fontSize: 64, shadows: [
-                        Shadow(
-                          color: catColor.withAlpha(150),
-                          blurRadius: 20,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          '🎁',
+                          style: TextStyle(fontSize: 56, shadows: [
+                            Shadow(
+                              color: catColor.withAlpha(150),
+                              blurRadius: 20,
+                            ),
+                          ]),
                         ),
-                      ]),
+                        if (widget.chestCount > 1)
+                          Container(
+                            margin: const EdgeInsets.only(top: 4),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: catColor.withAlpha(180),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Text(
+                              'x${widget.chestCount}',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                      ],
                     ),
                   ),
-
-                // 打開的寶箱
                 if (_phase >= 1 && _phase < 2)
                   Text(
                     '✨',
-                    style: TextStyle(fontSize: 64, shadows: [
+                    style: TextStyle(fontSize: 56, shadows: [
                       Shadow(
                         color: catColor.withAlpha(200),
                         blurRadius: 30,
@@ -305,8 +338,8 @@ class _RewardDialogState extends State<_RewardDialog>
                 ),
               ),
               child: Container(
-                width: 220,
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                width: 240,
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                 decoration: BoxDecoration(
                   color: AppTheme.bgCard,
                   borderRadius: BorderRadius.circular(16),
@@ -330,11 +363,27 @@ class _RewardDialogState extends State<_RewardDialog>
                         fontSize: 12,
                       ),
                     ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 6),
 
-                    // 稀有度標籤
+                    // 寶箱數量
+                    if (widget.chestCount > 1) ...[
+                      Text(
+                        '開啟 ${widget.chestCount} 個寶箱',
+                        style: TextStyle(
+                          color: catColor,
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                    ],
+
+                    // 最高稀有度標籤
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 3,
+                      ),
                       decoration: BoxDecoration(
                         color: rarityColor.withAlpha(40),
                         borderRadius: BorderRadius.circular(8),
@@ -349,34 +398,85 @@ class _RewardDialogState extends State<_RewardDialog>
                         ),
                       ),
                     ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 10),
 
-                    // 獎勵內容
-                    Text(
-                      widget.reward.name,
-                      style: TextStyle(
-                        color: rarityColor,
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
+                    // 獎勵明細（批量時分行顯示）
+                    if (widget.chestCount <= 3)
+                      ...widget.rewards.map((r) => Padding(
+                            padding: const EdgeInsets.only(bottom: 2),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Text(
+                                  r.name,
+                                  style: TextStyle(
+                                    color: _rarityColor(r.rarity),
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                                const SizedBox(width: 6),
+                                Text(
+                                  '+${r.quantity} 🪙',
+                                  style: const TextStyle(
+                                    color: Color(0xFFFFD700),
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          )),
+
+                    // 超過 3 個寶箱只顯示總計
+                    if (widget.chestCount > 3) ...[
+                      _RewardSummaryRow(
+                        label: '普通素材',
+                        count: widget.rewards.where((r) => r.rarity == 1).length,
+                        color: _rarityColor(1),
+                      ),
+                      _RewardSummaryRow(
+                        label: '進階素材',
+                        count: widget.rewards.where((r) => r.rarity == 2).length,
+                        color: _rarityColor(2),
+                      ),
+                      _RewardSummaryRow(
+                        label: '稀有素材',
+                        count: widget.rewards.where((r) => r.rarity == 3).length,
+                        color: _rarityColor(3),
+                      ),
+                    ],
+
+                    const SizedBox(height: 8),
+
+                    // 總計金幣
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withAlpha(10),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Text('🪙', style: TextStyle(fontSize: 20)),
+                          const SizedBox(width: 4),
+                          Text(
+                            '+${widget.totalGold}',
+                            style: const TextStyle(
+                              color: Color(0xFFFFD700),
+                              fontSize: 22,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                    const SizedBox(height: 4),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Text('🪙', style: TextStyle(fontSize: 20)),
-                        const SizedBox(width: 4),
-                        Text(
-                          '+${widget.reward.quantity}',
-                          style: const TextStyle(
-                            color: Color(0xFFFFD700),
-                            fontSize: 24,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 12),
 
                     // 關閉按鈕
                     SizedBox(
@@ -415,11 +515,11 @@ class _RewardDialogState extends State<_RewardDialog>
   Color _rarityColor(int rarity) {
     switch (rarity) {
       case 3:
-        return const Color(0xFFBF6FFF); // 紫色 - 稀有
+        return const Color(0xFFBF6FFF);
       case 2:
-        return const Color(0xFF4FAAFF); // 藍色 - 進階
+        return const Color(0xFF4FAAFF);
       default:
-        return const Color(0xFFAABBCC); // 灰藍 - 普通
+        return const Color(0xFFAABBCC);
     }
   }
 
@@ -432,6 +532,45 @@ class _RewardDialogState extends State<_RewardDialog>
       default:
         return '★ 普通';
     }
+  }
+}
+
+/// 獎勵摘要行（超過 3 個寶箱時用）
+class _RewardSummaryRow extends StatelessWidget {
+  final String label;
+  final int count;
+  final Color color;
+
+  const _RewardSummaryRow({
+    required this.label,
+    required this.count,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    if (count == 0) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 2),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Text(
+            label,
+            style: TextStyle(color: color, fontSize: 12),
+          ),
+          const SizedBox(width: 6),
+          Text(
+            'x$count',
+            style: TextStyle(
+              color: color,
+              fontSize: 12,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 
@@ -486,10 +625,13 @@ class _SparklePainter extends CustomPainter {
         ..color = p.color.withAlpha(alpha)
         ..style = PaintingStyle.fill;
 
-      // 星形粒子（小菱形）
       canvas.drawRRect(
         RRect.fromRectAndRadius(
-          Rect.fromCenter(center: Offset(px, py), width: r * 2, height: r * 2),
+          Rect.fromCenter(
+            center: Offset(px, py),
+            width: r * 2,
+            height: r * 2,
+          ),
           Radius.circular(r * 0.3),
         ),
         paint,
@@ -502,7 +644,7 @@ class _SparklePainter extends CustomPainter {
 }
 
 // ═══════════════════════════════════════════
-// 貓咪卡片（含飽食脈衝動畫）
+// 貓咪卡片（含飽食脈衝動畫 + 寶箱數量徽章）
 // ═══════════════════════════════════════════
 
 class _CatCard extends StatefulWidget {
@@ -512,6 +654,7 @@ class _CatCard extends StatefulWidget {
   final VoidCallback? onCollect;
 
   const _CatCard({
+    super.key,
     required this.definition,
     required this.status,
     required this.playerLevel,
@@ -565,6 +708,7 @@ class _CatCardState extends State<_CatCard>
   Widget build(BuildContext context) {
     final progress = widget.status.progress(widget.playerLevel);
     final isFull = widget.status.isFull(widget.playerLevel);
+    final chestCount = widget.status.chestCount(widget.playerLevel);
     final blockColor = widget.definition.color.color;
 
     return AnimatedBuilder(
@@ -601,7 +745,7 @@ class _CatCardState extends State<_CatCard>
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                // 貓咪 emoji + 名稱
+                // 貓咪 emoji + 名稱 + 寶箱徽章
                 Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -624,15 +768,37 @@ class _CatCardState extends State<_CatCard>
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
+                    // 寶箱數量徽章
+                    if (chestCount > 0) ...[
+                      const SizedBox(width: 3),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 4,
+                          vertical: 1,
+                        ),
+                        decoration: BoxDecoration(
+                          color: blockColor.withAlpha(200),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          '🎁$chestCount',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 8,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ],
                   ],
                 ),
                 const SizedBox(height: 3),
 
-                // 飽食度進度條
+                // 飽食度進度條（顯示下一個寶箱的進度）
                 ClipRRect(
                   borderRadius: BorderRadius.circular(3),
                   child: LinearProgressIndicator(
-                    value: progress,
+                    value: isFull ? (progress == 0 ? 1.0 : progress) : progress,
                     minHeight: 5,
                     backgroundColor: Colors.white.withAlpha(20),
                     valueColor: AlwaysStoppedAnimation(
@@ -650,11 +816,14 @@ class _CatCardState extends State<_CatCard>
                   ),
                 ),
 
-                // 收穫按鈕（吃飽時顯示）
+                // 開啟按鈕（有寶箱時顯示）
                 if (isFull)
                   Container(
                     margin: const EdgeInsets.only(top: 2),
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 2,
+                    ),
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
                         colors: [blockColor, blockColor.withAlpha(180)],
@@ -667,9 +836,9 @@ class _CatCardState extends State<_CatCard>
                         ),
                       ],
                     ),
-                    child: const Text(
-                      '開啟',
-                      style: TextStyle(
+                    child: Text(
+                      chestCount > 1 ? '開啟 x$chestCount' : '開啟',
+                      style: const TextStyle(
                         color: Colors.white,
                         fontSize: 9,
                         fontWeight: FontWeight.bold,
