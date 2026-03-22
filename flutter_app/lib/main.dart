@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'config/theme.dart';
 import 'core/services/local_storage.dart';
+import 'core/services/settings_service.dart';
 import 'features/game/providers/game_provider.dart';
 import 'features/game/providers/battle_provider.dart';
 import 'features/agents/providers/player_provider.dart';
@@ -31,6 +32,9 @@ void main() async {
 
   // 初始化本地存檔
   await LocalStorageService.instance.init();
+
+  // 初始化設定服務
+  await SettingsService.instance.init();
 
   runApp(const Match3App());
 }

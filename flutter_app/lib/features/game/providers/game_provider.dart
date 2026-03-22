@@ -113,6 +113,26 @@ class GameProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// 暫停遊戲（停止計時器、阻止操作）
+  void pauseGame() {
+    final s = _state;
+    if (s == null || s.status != GameStatus.playing) return;
+    s.status = GameStatus.paused;
+    _timer?.cancel();
+    notifyListeners();
+  }
+
+  /// 恢復遊戲
+  void resumeGame() {
+    final s = _state;
+    if (s == null || s.status != GameStatus.paused) return;
+    s.status = GameStatus.playing;
+    if (s.mode.hasTimer && s.timeLeftMs > 0) {
+      _startTimer();
+    }
+    notifyListeners();
+  }
+
   void endGame() {
     _timer?.cancel();
     if (_state != null) {
