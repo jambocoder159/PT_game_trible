@@ -160,33 +160,8 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _onNavTap(int index) {
-    if (index == _currentNavIndex && index == 2) return;
-
-    switch (index) {
-      case 0: // 背包
-        Navigator.of(context).push(
-          MaterialPageRoute(builder: (_) => const BackpackScreen()),
-        );
-        break;
-      case 1: // 角色
-        Navigator.of(context).push(
-          MaterialPageRoute(builder: (_) => const AgentListScreen()),
-        );
-        break;
-      case 2: // 放置（首頁）
-        setState(() => _currentNavIndex = 2);
-        break;
-      case 3: // 闖關
-        Navigator.of(context).push(
-          MaterialPageRoute(builder: (_) => const StageSelectScreen()),
-        );
-        break;
-      case 4: // 商店
-        Navigator.of(context).push(
-          MaterialPageRoute(builder: (_) => const ShopScreen()),
-        );
-        break;
-    }
+    if (index == _currentNavIndex) return;
+    setState(() => _currentNavIndex = index);
   }
 
   void _showSettingsModal() {
@@ -325,91 +300,104 @@ class _HomeScreenState extends State<HomeScreen> {
           onTap: _onNavTap,
         ),
       ),
-      body: SafeArea(
-        bottom: false,
-        child: Stack(
-          children: [
-            // 主要內容
-            Column(
-              children: [
-                // ─── 頂部玩家資訊列 ───
-                const Padding(
-                  padding: EdgeInsets.fromLTRB(8, 6, 8, 4),
-                  child: PlayerInfoBar(),
-                ),
+      body: IndexedStack(
+        index: _currentNavIndex,
+        children: [
+          const BackpackScreen(),       // 0: 背包
+          const AgentListScreen(),      // 1: 角色
+          _buildIdleContent(),          // 2: 放置
+          const StageSelectScreen(),    // 3: 闖關
+          const ShopScreen(),           // 4: 商店
+        ],
+      ),
+    );
+  }
 
-                // ─── 頂部功能圖示列 ───
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 8),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      _TopIconButton(
-                        icon: Icons.settings_rounded,
-                        label: '設置',
-                        onTap: _showSettingsModal,
-                      ),
-                      const SizedBox(width: 8),
-                      _TopIconButton(
-                        icon: Icons.bar_chart_rounded,
-                        label: '數據',
-                        onTap: _showCareerStatsModal,
-                      ),
-                      const SizedBox(width: 8),
-                      _TopIconButton(
-                        icon: Icons.task_alt_rounded,
-                        label: '任務',
-                        onTap: () {
-                          Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (_) => const DailyQuestScreen(),
-                            ),
-                          );
-                        },
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 2),
+  /// 放置頁（首頁）內容
+  Widget _buildIdleContent() {
+    return SafeArea(
+      bottom: false,
+      child: Stack(
+        children: [
+          Column(
+            children: [
+              // ─── 頂部玩家資訊列 ───
+              const Padding(
+                padding: EdgeInsets.fromLTRB(8, 6, 8, 4),
+                child: PlayerInfoBar(),
+              ),
 
-                // ─── 主體：遊戲 + 貓咪（可切換左右） ───
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 6),
-                    child: Row(
-                      children: _boardOnLeft
-                          ? [
-                              Expanded(
-                                flex: 6,
-                                child: IdleMiniGame(key: _gameAreaKey),
-                              ),
-                              const SizedBox(width: 4),
-                              Expanded(
-                                flex: 4,
-                                child: CatPanel(catKeys: _catKeys),
-                              ),
-                            ]
-                          : [
-                              Expanded(
-                                flex: 4,
-                                child: CatPanel(catKeys: _catKeys),
-                              ),
-                              const SizedBox(width: 4),
-                              Expanded(
-                                flex: 6,
-                                child: IdleMiniGame(key: _gameAreaKey),
-                              ),
-                            ],
+              // ─── 頂部功能圖示列 ───
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    _TopIconButton(
+                      icon: Icons.settings_rounded,
+                      label: '設置',
+                      onTap: _showSettingsModal,
                     ),
+                    const SizedBox(width: 8),
+                    _TopIconButton(
+                      icon: Icons.bar_chart_rounded,
+                      label: '數據',
+                      onTap: _showCareerStatsModal,
+                    ),
+                    const SizedBox(width: 8),
+                    _TopIconButton(
+                      icon: Icons.task_alt_rounded,
+                      label: '任務',
+                      onTap: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => const DailyQuestScreen(),
+                          ),
+                        );
+                      },
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 2),
+
+              // ─── 主體：遊戲 + 貓咪（可切換左右） ───
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 6),
+                  child: Row(
+                    children: _boardOnLeft
+                        ? [
+                            Expanded(
+                              flex: 6,
+                              child: IdleMiniGame(key: _gameAreaKey),
+                            ),
+                            const SizedBox(width: 4),
+                            Expanded(
+                              flex: 4,
+                              child: CatPanel(catKeys: _catKeys),
+                            ),
+                          ]
+                        : [
+                            Expanded(
+                              flex: 4,
+                              child: CatPanel(catKeys: _catKeys),
+                            ),
+                            const SizedBox(width: 4),
+                            Expanded(
+                              flex: 6,
+                              child: IdleMiniGame(key: _gameAreaKey),
+                            ),
+                          ],
                   ),
                 ),
-              ],
-            ),
+              ),
+            ],
+          ),
 
-            // ─── 能量球飛行動畫覆蓋層 ───
-            EnergyOrbOverlay(controller: _orbController),
-          ],
-        ),
+          // ─── 能量球飛行動畫覆蓋層 ───
+          EnergyOrbOverlay(controller: _orbController),
+        ],
       ),
     );
   }

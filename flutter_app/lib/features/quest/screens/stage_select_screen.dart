@@ -22,6 +22,7 @@ class _StageSelectScreenState extends State<StageSelectScreen> {
     return Scaffold(
       backgroundColor: AppTheme.bgPrimary,
       appBar: AppBar(
+        automaticallyImplyLeading: false,
         title: const Text('任務選擇'),
         backgroundColor: AppTheme.bgSecondary,
       ),
