@@ -41,6 +41,8 @@ class _BattleScreenState extends State<BattleScreen> {
   bool _resultSaved = false;
   BattleRewardResult? _reward;
   bool _boardOnLeft = false; // 預設棋盤在右側（截圖佈局）
+  bool _victoryAnimPlaying = false; // 勝利爆炸演出中
+  bool _showResult = false; // 顯示結算畫面
 
   @override
   void initState() {
@@ -139,6 +141,13 @@ class _BattleScreenState extends State<BattleScreen> {
     }
   }
 
+  void _startEndAnimation(bool isVictory) {
+    if (_victoryAnimPlaying || _showResult) return;
+    setState(() {
+      _victoryAnimPlaying = true;
+    });
+  }
+
   void _retryBattle(BuildContext context) {
     final playerProvider = context.read<PlayerProvider>();
 
@@ -160,6 +169,8 @@ class _BattleScreenState extends State<BattleScreen> {
     setState(() {
       _resultSaved = false;
       _reward = null;
+      _victoryAnimPlaying = false;
+      _showResult = false;
     });
 
     final battleProvider = context.read<BattleProvider>();
@@ -265,37 +276,36 @@ class _BattleScreenState extends State<BattleScreen> {
                     },
                   ),
 
-                // 戰鬥結束
-                if (battle.isBattleOver) ...[
+                // 戰鬥結束 — 先播放爆炸演出，再顯示結算
+                if ((battle.isBattleOver || (gameState?.status == GameStatus.gameOver && !battle.isBattleOver)) &&
+                    !_victoryAnimPlaying && !_showResult)
                   Builder(builder: (_) {
+                    final isVictory = battle.isBattleOver && battle.isVictory;
                     WidgetsBinding.instance.addPostFrameCallback((_) {
-                      _saveResult(battle.isVictory, gameState?.score ?? 0);
+                      _saveResult(isVictory, gameState?.score ?? 0);
+                      _startEndAnimation(isVictory);
                     });
                     return const SizedBox.shrink();
                   }),
-                  _BattleEndOverlay(
-                    isVictory: battle.isVictory,
-                    stage: widget.stage,
-                    score: gameState?.score ?? 0,
-                    reward: _reward,
-                    onExit: () {
-                      battle.endBattle();
-                      Navigator.of(context).pop();
-                    },
-                    onRetry: () => _retryBattle(context),
-                  ),
-                ],
 
-                if (gameState?.status == GameStatus.gameOver &&
-                    !battle.isBattleOver) ...[
-                  Builder(builder: (_) {
-                    WidgetsBinding.instance.addPostFrameCallback((_) {
-                      _saveResult(false, gameState?.score ?? 0);
-                    });
-                    return const SizedBox.shrink();
-                  }),
+                // 爆炸演出層
+                if (_victoryAnimPlaying)
+                  _BattleEndExplosion(
+                    isVictory: battle.isVictory,
+                    onComplete: () {
+                      if (mounted) {
+                        setState(() {
+                          _victoryAnimPlaying = false;
+                          _showResult = true;
+                        });
+                      }
+                    },
+                  ),
+
+                // 結算畫面
+                if (_showResult)
                   _BattleEndOverlay(
-                    isVictory: false,
+                    isVictory: battle.isBattleOver ? battle.isVictory : false,
                     stage: widget.stage,
                     score: gameState?.score ?? 0,
                     reward: _reward,
@@ -305,7 +315,6 @@ class _BattleScreenState extends State<BattleScreen> {
                     },
                     onRetry: () => _retryBattle(context),
                   ),
-                ],
               ],
             );
           },
@@ -2367,4 +2376,273 @@ class _BuffChip extends StatelessWidget {
       ),
     );
   }
+}
+
+// ═══════════════════════════════════════════
+// 戰鬥結束爆炸演出
+// ═══════════════════════════════════════════
+
+class _BattleEndExplosion extends StatefulWidget {
+  final bool isVictory;
+  final VoidCallback onComplete;
+
+  const _BattleEndExplosion({
+    required this.isVictory,
+    required this.onComplete,
+  });
+
+  @override
+  State<_BattleEndExplosion> createState() => _BattleEndExplosionState();
+}
+
+class _BattleEndExplosionState extends State<_BattleEndExplosion>
+    with TickerProviderStateMixin {
+  late AnimationController _flashController;
+  late AnimationController _expandController;
+  late AnimationController _textController;
+
+  late Animation<double> _flashOpacity;
+  late Animation<double> _expandScale;
+  late Animation<double> _expandOpacity;
+  late Animation<double> _textScale;
+  late Animation<double> _textOpacity;
+
+  @override
+  void initState() {
+    super.initState();
+
+    // 階段 1：白色閃光（0~600ms）
+    _flashController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 600),
+    );
+    _flashOpacity = TweenSequence<double>([
+      TweenSequenceItem(tween: Tween(begin: 0.0, end: 0.9), weight: 30),
+      TweenSequenceItem(tween: Tween(begin: 0.9, end: 0.0), weight: 70),
+    ]).animate(CurvedAnimation(
+      parent: _flashController,
+      curve: Curves.easeOut,
+    ));
+
+    // 階段 2：擴散光環（200ms~1400ms）
+    _expandController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1200),
+    );
+    _expandScale = Tween<double>(begin: 0.0, end: 3.0).animate(
+      CurvedAnimation(parent: _expandController, curve: Curves.easeOutCubic),
+    );
+    _expandOpacity = Tween<double>(begin: 0.8, end: 0.0).animate(
+      CurvedAnimation(parent: _expandController, curve: Curves.easeIn),
+    );
+
+    // 階段 3：文字彈入（500ms~1500ms）
+    _textController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1000),
+    );
+    _textScale = TweenSequence<double>([
+      TweenSequenceItem(tween: Tween(begin: 0.0, end: 1.4), weight: 30),
+      TweenSequenceItem(tween: Tween(begin: 1.4, end: 0.9), weight: 20),
+      TweenSequenceItem(tween: Tween(begin: 0.9, end: 1.05), weight: 15),
+      TweenSequenceItem(tween: Tween(begin: 1.05, end: 1.0), weight: 35),
+    ]).animate(CurvedAnimation(
+      parent: _textController,
+      curve: Curves.easeOut,
+    ));
+    _textOpacity = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _textController,
+        curve: const Interval(0.0, 0.3, curve: Curves.easeIn),
+      ),
+    );
+
+    _startSequence();
+  }
+
+  Future<void> _startSequence() async {
+    // 階段 1：閃光
+    HapticFeedback.heavyImpact();
+    _flashController.forward();
+    await Future.delayed(const Duration(milliseconds: 200));
+    if (!mounted) return;
+
+    // 階段 2：擴散光環
+    _expandController.forward();
+    await Future.delayed(const Duration(milliseconds: 300));
+    if (!mounted) return;
+
+    // 階段 3：文字彈入
+    HapticFeedback.mediumImpact();
+    _textController.forward();
+    await Future.delayed(const Duration(milliseconds: 1500));
+    if (!mounted) return;
+
+    widget.onComplete();
+  }
+
+  @override
+  void dispose() {
+    _flashController.dispose();
+    _expandController.dispose();
+    _textController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final color = widget.isVictory ? Colors.amber : Colors.red;
+    final text = widget.isVictory ? '勝利！' : '失敗...';
+
+    return Stack(
+      children: [
+        // 半透明黑底（漸入）
+        AnimatedBuilder(
+          animation: _flashController,
+          builder: (_, __) {
+            return Container(
+              color: Colors.black.withAlpha(
+                (_flashController.value * 120).round().clamp(0, 120),
+              ),
+            );
+          },
+        ),
+
+        // 白色閃光
+        AnimatedBuilder(
+          animation: _flashOpacity,
+          builder: (_, __) {
+            return Container(
+              color: Colors.white.withAlpha(
+                (_flashOpacity.value * 255).round().clamp(0, 255),
+              ),
+            );
+          },
+        ),
+
+        // 擴散光環
+        Center(
+          child: AnimatedBuilder(
+            animation: _expandController,
+            builder: (_, __) {
+              return Opacity(
+                opacity: _expandOpacity.value.clamp(0.0, 1.0),
+                child: Transform.scale(
+                  scale: _expandScale.value,
+                  child: Container(
+                    width: 120,
+                    height: 120,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(color: color, width: 4),
+                      boxShadow: [
+                        BoxShadow(
+                          color: color.withAlpha(100),
+                          blurRadius: 40,
+                          spreadRadius: 10,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+
+        // 放射線條
+        Center(
+          child: AnimatedBuilder(
+            animation: _expandController,
+            builder: (_, __) {
+              return Opacity(
+                opacity: _expandOpacity.value.clamp(0.0, 1.0),
+                child: CustomPaint(
+                  size: const Size(300, 300),
+                  painter: _RadialBurstPainter(
+                    progress: _expandScale.value / 3.0,
+                    color: color,
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+
+        // 文字
+        Center(
+          child: AnimatedBuilder(
+            animation: _textController,
+            builder: (_, __) {
+              return Opacity(
+                opacity: _textOpacity.value.clamp(0.0, 1.0),
+                child: Transform.scale(
+                  scale: _textScale.value,
+                  child: Text(
+                    text,
+                    style: TextStyle(
+                      fontSize: 42,
+                      fontWeight: FontWeight.w900,
+                      color: color,
+                      letterSpacing: 6,
+                      shadows: [
+                        Shadow(
+                          color: color.withAlpha(180),
+                          blurRadius: 24,
+                        ),
+                        const Shadow(
+                          color: Colors.black,
+                          blurRadius: 8,
+                          offset: Offset(2, 2),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// 放射爆發線條
+class _RadialBurstPainter extends CustomPainter {
+  final double progress;
+  final Color color;
+
+  _RadialBurstPainter({required this.progress, required this.color});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final maxLen = size.width / 2;
+    const numRays = 12;
+
+    final paint = Paint()
+      ..color = color.withAlpha((180 * (1.0 - progress)).round().clamp(0, 255))
+      ..strokeWidth = 2.5
+      ..strokeCap = StrokeCap.round;
+
+    for (int i = 0; i < numRays; i++) {
+      final angle = (i / numRays) * pi * 2;
+      final innerR = maxLen * progress * 0.3;
+      final outerR = maxLen * progress;
+      final start = Offset(
+        center.dx + cos(angle) * innerR,
+        center.dy + sin(angle) * innerR,
+      );
+      final end = Offset(
+        center.dx + cos(angle) * outerR,
+        center.dy + sin(angle) * outerR,
+      );
+      canvas.drawLine(start, end, paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _RadialBurstPainter old) =>
+      old.progress != progress;
 }
