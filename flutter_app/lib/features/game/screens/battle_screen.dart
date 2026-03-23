@@ -1052,22 +1052,25 @@ class _EnemyCardsSection extends StatelessWidget {
           enemy: enemy,
           isCurrent: isCurrent,
           isHit: isHit,
+          battleState: battleState,
         );
       }).toList(),
     );
   }
 }
 
-/// 單一敵人卡牌（含命中閃爍效果）
+/// 單一敵人卡牌（含命中閃爍效果 + 狀態效果 + 攻擊意圖）
 class _EnemyCard extends StatelessWidget {
   final EnemyInstance enemy;
   final bool isCurrent;
   final bool isHit;
+  final BattleState battleState;
 
   const _EnemyCard({
     super.key,
     required this.enemy,
     required this.isCurrent,
+    required this.battleState,
     this.isHit = false,
   });
 
@@ -1185,23 +1188,28 @@ class _EnemyCard extends StatelessWidget {
                               fontWeight: FontWeight.bold,
                             ),
                           ),
+                          // 敵人身上的 debuff 圖示
+                          if (isCurrent) ...[
+                            if (battleState.defDebuffTurns > 0)
+                              _StatusIcon(
+                                icon: Icons.shield_outlined,
+                                color: Colors.orange,
+                                label: '${battleState.defDebuffTurns}',
+                                tooltip: '破防',
+                              ),
+                            if (battleState.activeDots.isNotEmpty)
+                              _StatusIcon(
+                                icon: Icons.local_fire_department,
+                                color: Colors.deepOrange,
+                                label: '${battleState.activeDots.first.turnsRemaining}',
+                                tooltip: 'DoT',
+                              ),
+                          ],
                           const Spacer(),
-                          Icon(
-                            Icons.bolt,
-                            size: 8,
-                            color: enemy.attackCountdown <= 1
-                                ? Colors.red
-                                : Colors.white54,
-                          ),
-                          Text(
-                            '${enemy.attackCountdown}',
-                            style: TextStyle(
-                              color: enemy.attackCountdown <= 1
-                                  ? Colors.red
-                                  : Colors.white54,
-                              fontSize: 8,
-                              fontWeight: FontWeight.bold,
-                            ),
+                          // 攻擊意圖預告
+                          _AttackIntent(
+                            countdown: enemy.attackCountdown,
+                            atk: enemy.atk,
                           ),
                         ],
                       ),
@@ -1233,7 +1241,12 @@ class _PlayerCardsSection extends StatelessWidget {
   Widget build(BuildContext context) {
     return ListView(
       padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
-      children: battleState.team.asMap().entries.map((entry) {
+      children: [
+        // 團隊狀態列（HP + buff 圖示）
+        _TeamStatusBar(battleState: battleState),
+        const SizedBox(height: 2),
+        // 角色卡牌
+        ...battleState.team.asMap().entries.map((entry) {
         final index = entry.key;
         final agent = entry.value;
         return _CatAgentCard(
@@ -1245,7 +1258,8 @@ class _PlayerCardsSection extends StatelessWidget {
             }
           },
         );
-      }).toList(),
+      }),
+      ],
     );
   }
 
@@ -2069,6 +2083,246 @@ class _RewardCard extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+// ═══════════════════════════════════════════
+// 狀態效果圖示（敵人 debuff / 我方 buff）
+// ═══════════════════════════════════════════
+
+/// 小型狀態效果圖示（用於卡片上）
+class _StatusIcon extends StatelessWidget {
+  final IconData icon;
+  final Color color;
+  final String label;
+  final String tooltip;
+
+  const _StatusIcon({
+    required this.icon,
+    required this.color,
+    required this.label,
+    required this.tooltip,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(left: 3),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 1),
+        decoration: BoxDecoration(
+          color: color.withAlpha(40),
+          borderRadius: BorderRadius.circular(3),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 8, color: color),
+            Text(
+              label,
+              style: TextStyle(color: color, fontSize: 7, fontWeight: FontWeight.bold),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// 敵人攻擊意圖預告
+class _AttackIntent extends StatelessWidget {
+  final int countdown;
+  final int atk;
+
+  const _AttackIntent({required this.countdown, required this.atk});
+
+  @override
+  Widget build(BuildContext context) {
+    // countdown == 1 → 下一 tick 就會攻擊（危險）
+    // countdown == 2 → 即將攻擊（警告）
+    final isDanger = countdown <= 1;
+    final isWarning = countdown == 2;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 1),
+      decoration: BoxDecoration(
+        color: isDanger
+            ? Colors.red.withAlpha(60)
+            : isWarning
+                ? Colors.orange.withAlpha(30)
+                : Colors.transparent,
+        borderRadius: BorderRadius.circular(3),
+        border: isDanger
+            ? Border.all(color: Colors.red.withAlpha(120), width: 0.5)
+            : null,
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (isDanger) ...[
+            // 危險：顯示攻擊預告傷害
+            const Icon(Icons.warning_amber_rounded, size: 8, color: Colors.red),
+            const SizedBox(width: 1),
+            Text(
+              '$atk',
+              style: const TextStyle(
+                color: Colors.red,
+                fontSize: 8,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ] else ...[
+            Icon(
+              Icons.bolt,
+              size: 8,
+              color: isWarning ? Colors.orange : Colors.white54,
+            ),
+            Text(
+              '$countdown',
+              style: TextStyle(
+                color: isWarning ? Colors.orange : Colors.white54,
+                fontSize: 8,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+/// 團隊狀態列：HP 條 + buff 圖示
+class _TeamStatusBar extends StatelessWidget {
+  final BattleState battleState;
+
+  const _TeamStatusBar({required this.battleState});
+
+  @override
+  Widget build(BuildContext context) {
+    final hpPercent = battleState.teamMaxHp > 0
+        ? battleState.teamCurrentHp / battleState.teamMaxHp
+        : 0.0;
+
+    final hasShield = battleState.shieldTurnsLeft > 0;
+    final hasHot = battleState.hotTurnsLeft > 0;
+    final hasReflect = battleState.reflectTurnsLeft > 0;
+    final hasAnyBuff = hasShield || hasHot || hasReflect;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 3),
+      decoration: BoxDecoration(
+        color: Colors.black26,
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // HP 條
+          Row(
+            children: [
+              const Icon(Icons.favorite, size: 9, color: Colors.red),
+              const SizedBox(width: 3),
+              Expanded(
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(2),
+                  child: LinearProgressIndicator(
+                    value: hpPercent,
+                    minHeight: 5,
+                    backgroundColor: Colors.black26,
+                    valueColor: AlwaysStoppedAnimation<Color>(
+                      hpPercent > 0.5
+                          ? Colors.green
+                          : hpPercent > 0.25
+                              ? Colors.orange
+                              : Colors.red,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 3),
+              Text(
+                '${battleState.teamCurrentHp}',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 8,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+          // Buff 圖示列
+          if (hasAnyBuff) ...[
+            const SizedBox(height: 2),
+            Row(
+              children: [
+                if (hasShield)
+                  _BuffChip(
+                    icon: Icons.shield,
+                    label: '護盾 ${battleState.shieldTurnsLeft}',
+                    color: Colors.blue,
+                  ),
+                if (hasHot)
+                  _BuffChip(
+                    icon: Icons.healing,
+                    label: '回復 ${battleState.hotTurnsLeft}',
+                    color: Colors.green,
+                  ),
+                if (hasReflect)
+                  _BuffChip(
+                    icon: Icons.replay,
+                    label: '反射 ${battleState.reflectTurnsLeft}',
+                    color: Colors.purple,
+                  ),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+/// Buff 標籤
+class _BuffChip extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final Color color;
+
+  const _BuffChip({
+    required this.icon,
+    required this.label,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(right: 4),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 1),
+        decoration: BoxDecoration(
+          color: color.withAlpha(40),
+          borderRadius: BorderRadius.circular(3),
+          border: Border.all(color: color.withAlpha(80), width: 0.5),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 8, color: color),
+            const SizedBox(width: 2),
+            Text(
+              label,
+              style: TextStyle(
+                color: color,
+                fontSize: 7,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
