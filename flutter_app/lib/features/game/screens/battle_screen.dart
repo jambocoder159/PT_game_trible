@@ -492,6 +492,13 @@ class _CatAgentPanelState extends State<_CatAgentPanel>
   final List<_RushAnimData> _activeRushAnims = [];
   final List<_DamagePopupData> _activeDamagePopups = [];
 
+  // 序列化攻擊佇列
+  final List<_RushAnimData> _pendingAttacks = [];
+  bool _isPlayingSequence = false;
+
+  // 階段標示
+  String? _phaseBanner; // "進攻!" / "敵方回合"
+
   // Enemy card hit flash states
   final Map<int, bool> _enemyHitStates = {};
   bool _playerSectionHit = false;
@@ -536,11 +543,16 @@ class _CatAgentPanelState extends State<_CatAgentPanel>
 
   void _processEvents() {
     final events = widget.battleProvider.consumeAttackEvents();
+    if (events.isEmpty) return;
+
+    // 收集所有攻擊到 pending 佇列
+    bool hasPlayerAttack = false;
+    bool hasEnemyAttack = false;
+
     for (final event in events) {
       if (event.type == BattleEventType.autoAttack &&
           event.attackerIndex != null &&
           event.targetIndex != null) {
-        // 我方攻擊 → 從角色卡牌衝向敵人卡牌
         final from = _getCardCenter(
             event.attackerIndex! < _playerKeys.length
                 ? _playerKeys[event.attackerIndex!]
@@ -550,7 +562,8 @@ class _CatAgentPanelState extends State<_CatAgentPanel>
                 ? _enemyKeys[event.targetIndex!]
                 : _enemyKeys.last);
         if (from != null && to != null) {
-          _activeRushAnims.add(_RushAnimData(
+          hasPlayerAttack = true;
+          _pendingAttacks.add(_RushAnimData(
             from: from,
             to: to,
             emoji: event.emoji ?? '⚔',
@@ -562,14 +575,14 @@ class _CatAgentPanelState extends State<_CatAgentPanel>
         }
       } else if (event.type == BattleEventType.enemyAttack &&
           event.attackerIndex != null) {
-        // 敵人攻擊 → 從敵人卡牌衝向我方區域
         final from = _getCardCenter(
             event.attackerIndex! < _enemyKeys.length
                 ? _enemyKeys[event.attackerIndex!]
                 : _enemyKeys.last);
         final to = _getPlayerSectionCenter();
         if (from != null && to != null) {
-          _activeRushAnims.add(_RushAnimData(
+          hasEnemyAttack = true;
+          _pendingAttacks.add(_RushAnimData(
             from: from,
             to: to,
             emoji: event.emoji ?? '👊',
@@ -580,25 +593,80 @@ class _CatAgentPanelState extends State<_CatAgentPanel>
         }
       }
     }
+
+    // 如果有新事件且未在播放中，啟動序列播放
+    if (_pendingAttacks.isNotEmpty && !_isPlayingSequence) {
+      _playAttackSequence();
+    }
+  }
+
+  /// 序列化播放攻擊動畫（一個接一個）
+  Future<void> _playAttackSequence() async {
+    if (_isPlayingSequence) return;
+    _isPlayingSequence = true;
+
+    while (_pendingAttacks.isNotEmpty) {
+      if (!mounted) break;
+
+      final attack = _pendingAttacks.removeAt(0);
+
+      // 檢查是否需要顯示階段標示
+      final isEnemy = !attack.isPlayerAttack;
+      final nextIsEnemy = _pendingAttacks.isEmpty ? null : !_pendingAttacks.first.isPlayerAttack;
+
+      // 第一個敵方攻擊前顯示「敵方回合」
+      if (isEnemy && _phaseBanner != '敵方回合') {
+        setState(() => _phaseBanner = '敵方回合');
+        await Future.delayed(const Duration(milliseconds: 500));
+        if (!mounted) break;
+      }
+      // 第一個我方攻擊前顯示「進攻!」
+      if (!isEnemy && _phaseBanner != '進攻!') {
+        setState(() => _phaseBanner = '進攻!');
+        await Future.delayed(const Duration(milliseconds: 400));
+        if (!mounted) break;
+      }
+
+      // 播放這個攻擊
+      setState(() {
+        _activeRushAnims.add(attack);
+      });
+
+      // 等待衝撞動畫完成（600ms）+ 傷害數字顯示間隔
+      await Future.delayed(const Duration(milliseconds: 500));
+      if (!mounted) break;
+    }
+
+    // 全部播完，清除階段標示
+    if (mounted) {
+      await Future.delayed(const Duration(milliseconds: 300));
+      if (mounted) {
+        setState(() {
+          _phaseBanner = null;
+          _isPlayingSequence = false;
+        });
+      }
+    }
   }
 
   void _onRushHit(_RushAnimData data) {
+    HapticFeedback.mediumImpact();
     setState(() {
-      // 在目標位置加傷害數字
+      // 在目標位置加傷害數字（偏移加大以配合大字型）
       _activeDamagePopups.add(_DamagePopupData(
-        position: data.to + const Offset(-12, -20),
+        position: data.to + const Offset(-20, -28),
         damage: data.damage,
         color: data.isPlayerAttack ? Colors.white : Colors.red,
       ));
-      // 觸發目標閃爍
+      // 觸發目標閃爍（延長到 250ms）
       if (data.isPlayerAttack && data.targetIndex != null) {
         _enemyHitStates[data.targetIndex!] = true;
-        Future.delayed(const Duration(milliseconds: 150), () {
+        Future.delayed(const Duration(milliseconds: 250), () {
           if (mounted) setState(() => _enemyHitStates[data.targetIndex!] = false);
         });
       } else if (!data.isPlayerAttack) {
         _playerSectionHit = true;
-        Future.delayed(const Duration(milliseconds: 150), () {
+        Future.delayed(const Duration(milliseconds: 250), () {
           if (mounted) setState(() => _playerSectionHit = false);
         });
       }
@@ -668,6 +736,39 @@ class _CatAgentPanelState extends State<_CatAgentPanel>
             ],
           ),
         ),
+        // 階段標示層
+        if (_phaseBanner != null)
+          Positioned.fill(
+            child: Center(
+              child: IgnorePointer(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: _phaseBanner == '敵方回合'
+                        ? Colors.red.withAlpha(200)
+                        : Colors.cyan.withAlpha(200),
+                    borderRadius: BorderRadius.circular(8),
+                    boxShadow: [
+                      BoxShadow(
+                        color: (_phaseBanner == '敵方回合' ? Colors.red : Colors.cyan)
+                            .withAlpha(100),
+                        blurRadius: 16,
+                      ),
+                    ],
+                  ),
+                  child: Text(
+                    _phaseBanner!,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 2,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
         // 衝撞動畫層
         ..._activeRushAnims.map((rush) => _RushAttackWidget(
           key: rush.key,
@@ -715,7 +816,7 @@ class _ShakeWrapperState extends State<_ShakeWrapper>
     super.initState();
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 150),
+      duration: const Duration(milliseconds: 250),
     );
   }
 
@@ -738,7 +839,7 @@ class _ShakeWrapperState extends State<_ShakeWrapper>
     return AnimatedBuilder(
       animation: _controller,
       builder: (_, child) {
-        final offset = sin(_controller.value * pi * 4) * 4.0 *
+        final offset = sin(_controller.value * pi * 5) * 6.0 *
             (1.0 - _controller.value);
         return Transform.translate(
           offset: Offset(offset, 0),
@@ -784,7 +885,7 @@ class _RushAttackWidgetState extends State<_RushAttackWidget>
     super.initState();
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 400),
+      duration: const Duration(milliseconds: 600),
     );
 
     // 位置：0→1→0（衝出→撞擊→彈回）
@@ -857,7 +958,7 @@ class _RushAttackWidgetState extends State<_RushAttackWidget>
             // 衝撞 emoji
             Positioned(
               left: pos.dx - 14,
-              top: pos.dy - 14,
+              top: pos.dy - 18,
               child: Transform(
                 alignment: Alignment.center,
                 transform: Matrix4.identity()
@@ -865,11 +966,11 @@ class _RushAttackWidgetState extends State<_RushAttackWidget>
                 child: Text(
                   widget.data.emoji,
                   style: TextStyle(
-                    fontSize: 24,
+                    fontSize: 32,
                     shadows: [
                       Shadow(
-                        color: widget.data.color.withAlpha(180),
-                        blurRadius: 12,
+                        color: widget.data.color.withAlpha(200),
+                        blurRadius: 16,
                       ),
                     ],
                   ),
@@ -879,11 +980,11 @@ class _RushAttackWidgetState extends State<_RushAttackWidget>
             // 撞擊特效
             if (_showImpact)
               Positioned(
-                left: widget.data.to.dx - 14,
-                top: widget.data.to.dy - 14,
+                left: widget.data.to.dx - 18,
+                top: widget.data.to.dy - 18,
                 child: const Text(
                   '💥',
-                  style: TextStyle(fontSize: 24),
+                  style: TextStyle(fontSize: 32),
                 ),
               ),
           ],
@@ -927,21 +1028,21 @@ class _DamagePopupState extends State<_DamagePopup>
     super.initState();
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 600),
+      duration: const Duration(milliseconds: 900),
     );
 
     _slideAnim = Tween<Offset>(
       begin: Offset.zero,
-      end: const Offset(0, -1.5),
+      end: const Offset(0, -2.0),
     ).animate(CurvedAnimation(
       parent: _controller,
       curve: Curves.easeOutCubic,
     ));
 
     _scaleAnim = TweenSequence<double>([
-      TweenSequenceItem(tween: Tween(begin: 0.0, end: 1.4), weight: 30),
-      TweenSequenceItem(tween: Tween(begin: 1.4, end: 1.0), weight: 20),
-      TweenSequenceItem(tween: Tween(begin: 1.0, end: 1.0), weight: 50),
+      TweenSequenceItem(tween: Tween(begin: 0.0, end: 1.6), weight: 20),
+      TweenSequenceItem(tween: Tween(begin: 1.6, end: 1.0), weight: 15),
+      TweenSequenceItem(tween: Tween(begin: 1.0, end: 1.0), weight: 65),
     ]).animate(CurvedAnimation(
       parent: _controller,
       curve: Curves.easeOut,
@@ -950,7 +1051,7 @@ class _DamagePopupState extends State<_DamagePopup>
     _opacityAnim = Tween<double>(begin: 1.0, end: 0.0).animate(
       CurvedAnimation(
         parent: _controller,
-        curve: const Interval(0.6, 1.0, curve: Curves.easeIn),
+        curve: const Interval(0.65, 1.0, curve: Curves.easeIn),
       ),
     );
 
@@ -985,17 +1086,17 @@ class _DamagePopupState extends State<_DamagePopup>
         child: Text(
           '-${widget.damage}',
           style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
+            fontSize: 26,
+            fontWeight: FontWeight.w900,
             color: widget.color,
             shadows: [
               Shadow(
-                color: widget.color.withAlpha(150),
-                blurRadius: 8,
+                color: widget.color.withAlpha(200),
+                blurRadius: 12,
               ),
               const Shadow(
                 color: Colors.black,
-                blurRadius: 4,
+                blurRadius: 6,
                 offset: Offset(1, 1),
               ),
             ],
