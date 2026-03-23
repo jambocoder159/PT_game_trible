@@ -73,8 +73,8 @@ class GameProvider extends ChangeNotifier {
   /// 消除回合完成的回呼（BattleProvider 監聽用）
   OnMatchTurnComplete? onMatchTurnComplete;
 
-  /// 回合結束的回呼（敵人回擊用）
-  VoidCallback? onTurnEnd;
+  /// 回合結束的回呼（每次操作後呼叫，hadMatches 表示是否有消除）
+  void Function({bool hadMatches})? onTurnEnd;
 
   // 分數彈出事件佇列
   final List<ScorePopupEvent> _scorePopups = [];
@@ -110,6 +110,26 @@ class GameProvider extends ChangeNotifier {
       _startTimer();
     }
 
+    notifyListeners();
+  }
+
+  /// 暫停遊戲（停止計時器、阻止操作）
+  void pauseGame() {
+    final s = _state;
+    if (s == null || s.status != GameStatus.playing) return;
+    s.status = GameStatus.paused;
+    _timer?.cancel();
+    notifyListeners();
+  }
+
+  /// 恢復遊戲
+  void resumeGame() {
+    final s = _state;
+    if (s == null || s.status != GameStatus.paused) return;
+    s.status = GameStatus.playing;
+    if (s.mode.hasTimer && s.timeLeftMs > 0) {
+      _startTimer();
+    }
     notifyListeners();
   }
 
@@ -297,6 +317,7 @@ class GameProvider extends ChangeNotifier {
   // ─── 技能放置效果 ───
 
   /// 施放技能時操作棋盤（由 BattleProvider 呼叫）
+  /// 技能效果不觸發三消判斷，不中斷 combo
   Future<void> applyBoardEffect(SkillBoardEffect effect, BlockColor agentColor) async {
     final s = _state;
     if (s == null || s.status != GameStatus.playing || _isProcessing) return;
@@ -328,7 +349,7 @@ class GameProvider extends ChangeNotifier {
     await Future.delayed(const Duration(milliseconds: 400));
     if (_gameGeneration != gen) { _isProcessing = false; return; }
 
-    // 消除類效果需要重力 + 補充 + 連鎖處理
+    // 消除類效果只做重力掉落 + 補充，不觸發三消判斷
     if (effect.type == BoardEffectType.eliminateRandom ||
         effect.type == BoardEffectType.eliminateRow ||
         effect.type == BoardEffectType.eliminateColumn) {
@@ -341,13 +362,6 @@ class GameProvider extends ChangeNotifier {
       notifyListeners();
       await Future.delayed(const Duration(milliseconds: 300));
       if (_gameGeneration != gen) { _isProcessing = false; return; }
-
-      await _processMatchLoop();
-    }
-
-    // 轉色效果可能產生新連鎖
-    if (effect.type == BoardEffectType.convertColor) {
-      await _processMatchLoop();
     }
 
     _isProcessing = false;
@@ -547,9 +561,9 @@ class GameProvider extends ChangeNotifier {
       if (_gameGeneration != gen) return false;
     }
 
-    // 整個回合結束後，通知敵人回擊（只在同一世代有效）
-    if (everHadMatch && _gameGeneration == gen) {
-      onTurnEnd?.call();
+    // 整個回合結束後，通知戰鬥系統（無論是否有消除）
+    if (_gameGeneration == gen) {
+      onTurnEnd?.call(hadMatches: everHadMatch);
     }
 
     return everHadMatch;

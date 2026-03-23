@@ -40,12 +40,7 @@ class GameScreen extends StatelessWidget {
                             state?.mode.title ?? '',
                             style: Theme.of(context).textTheme.headlineMedium,
                           ),
-                          IconButton(
-                            onPressed: () {
-                              // TODO: 暫停/設定選單
-                            },
-                            icon: const Icon(Icons.settings),
-                          ),
+                          const SizedBox(width: 48),
                         ],
                       ),
                     ),

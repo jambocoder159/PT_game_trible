@@ -198,13 +198,29 @@ class BattleEngine {
       }
     }
 
-    // ── 3. 敵方自動攻擊 ──
+    // ── 3. 敵方攻擊已移至 processEnemyPhase，整輪結束後才呼叫 ──
+
+    return TickResult(
+      tickNumber: battle.tickCount,
+      energyGained: energyGained,
+      autoAttacks: autoAttacks,
+      totalPlayerDamage: totalPlayerDamage,
+      totalEnemyDamage: totalEnemyDamage,
+      healAmount: totalHeal,
+      anyEnemyKilled: anyEnemyKilled,
+    );
+  }
+
+  /// 處理敵方攻擊階段（整輪消除完成後呼叫一次）
+  /// 所有存活敵人推進 countdown，到期的敵人發動攻擊
+  static List<AutoAttackEvent> processEnemyPhase(BattleState battle) {
+    final autoAttacks = <AutoAttackEvent>[];
+
     for (final enemy in battle.enemies) {
       if (enemy.isDead) continue;
       final shouldAttack = enemy.tickAttack();
       if (shouldAttack) {
         final damage = battle.enemyAttack();
-        totalEnemyDamage += damage;
 
         autoAttacks.add(AutoAttackEvent(
           isPlayerAttack: false,
@@ -219,9 +235,7 @@ class BattleEngine {
             if (_random.nextDouble() < counter.effectValue) {
               final counterDmg = (agent.atk * 0.5).round();
               enemy.takeDamage(counterDmg);
-              totalPlayerDamage += counterDmg;
               if (enemy.isDead) {
-                anyEnemyKilled = true;
                 _processKillEffects(battle);
                 battle.advanceToNextEnemy();
               }
@@ -231,15 +245,7 @@ class BattleEngine {
       }
     }
 
-    return TickResult(
-      tickNumber: battle.tickCount,
-      energyGained: energyGained,
-      autoAttacks: autoAttacks,
-      totalPlayerDamage: totalPlayerDamage,
-      totalEnemyDamage: totalEnemyDamage,
-      healAmount: totalHeal,
-      anyEnemyKilled: anyEnemyKilled,
-    );
+    return autoAttacks;
   }
 
   /// 處理一次消除的傷害和能量（舊版回合制，保留向下相容）

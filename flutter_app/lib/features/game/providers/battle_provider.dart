@@ -177,56 +177,32 @@ class BattleProvider extends ChangeNotifier {
       combo,
     );
 
-    // 發送自動攻擊事件（含攻擊者/目標資訊供動畫使用）
+    // 發送我方自動攻擊事件（敵方攻擊已移至 onTurnEnd）
     for (final attack in result.autoAttacks) {
-      if (attack.isPlayerAttack) {
-        final attackerIdx = _battleState!.team.indexWhere(
-            (a) => a.definition.id == attack.attackerId);
-        final targetIdx = _battleState!.currentEnemyIndex;
-        final emoji = attackerIdx >= 0
-            ? _battleState!.team[attackerIdx].definition.attribute.emoji
-            : '⚔';
-        final event = BattleEvent(
-          type: BattleEventType.autoAttack,
-          message: '-${attack.damage}',
-          value: attack.damage,
-          attackerIndex: attackerIdx,
-          targetIndex: targetIdx,
-          isPlayerAttack: true,
-          emoji: emoji,
-        );
-        _events.add(event);
-        _attackAnimEvents.add(event);
-        if (attack.killed) {
-          _events.add(const BattleEvent(
-            type: BattleEventType.enemyKilled,
-            message: '敵人被擊敗！',
-          ));
-        }
-      } else {
-        final attackerIdx = _battleState!.enemies.indexWhere(
-            (e) => e.definition.id == attack.attackerId);
-        final emoji = attackerIdx >= 0
-            ? _battleState!.enemies[attackerIdx].definition.emoji
-            : '👊';
-        final event = BattleEvent(
-          type: BattleEventType.enemyAttack,
-          message: '-${attack.damage}',
-          value: attack.damage,
-          attackerIndex: attackerIdx,
-          isPlayerAttack: false,
-          emoji: emoji,
-        );
-        _events.add(event);
-        _attackAnimEvents.add(event);
+      if (!attack.isPlayerAttack) continue;
+      final attackerIdx = _battleState!.team.indexWhere(
+          (a) => a.definition.id == attack.attackerId);
+      final targetIdx = _battleState!.currentEnemyIndex;
+      final emoji = attackerIdx >= 0
+          ? _battleState!.team[attackerIdx].definition.attribute.emoji
+          : '⚔';
+      final event = BattleEvent(
+        type: BattleEventType.autoAttack,
+        message: '-${attack.damage}',
+        value: attack.damage,
+        attackerIndex: attackerIdx,
+        targetIndex: targetIdx,
+        isPlayerAttack: true,
+        emoji: emoji,
+      );
+      _events.add(event);
+      _attackAnimEvents.add(event);
+      if (attack.killed) {
+        _events.add(const BattleEvent(
+          type: BattleEventType.enemyKilled,
+          message: '敵人被擊敗！',
+        ));
       }
-    }
-
-    if (_battleState!.isTeamDead) {
-      _events.add(const BattleEvent(
-        type: BattleEventType.defeat,
-        message: '任務失敗...',
-      ));
     }
 
     if (_battleState!.allEnemiesDead) {
@@ -239,17 +215,42 @@ class BattleProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// 處理回合結束（玩家操作後）— DoT/HoT/debuff 管理
-  /// 敵人攻擊改為每 tick 處理，這裡只管持續效果
-  void onTurnEnd() {
+  /// 處理回合結束（每次玩家操作後都會呼叫）
+  /// 整輪消除完成後，敵人才統一推進 countdown 並攻擊
+  void onTurnEnd({bool hadMatches = true}) {
     if (_battleState == null || _battleState!.isBattleOver) return;
 
     _battleState!.turnCount++;
 
-    // 處理回合開始效果（DoT、HoT、被動）
-    BattleEngine.processTurnStart(_battleState!);
+    // ── 敵方攻擊階段（整輪結束後統一處理） ──
+    final enemyAttacks = BattleEngine.processEnemyPhase(_battleState!);
+    for (final attack in enemyAttacks) {
+      final attackerIdx = _battleState!.enemies.indexWhere(
+          (e) => e.definition.id == attack.attackerId);
+      final emoji = attackerIdx >= 0
+          ? _battleState!.enemies[attackerIdx].definition.emoji
+          : '👊';
+      final event = BattleEvent(
+        type: BattleEventType.enemyAttack,
+        message: '-${attack.damage}',
+        value: attack.damage,
+        attackerIndex: attackerIdx,
+        isPlayerAttack: false,
+        emoji: emoji,
+      );
+      _events.add(event);
+      _attackAnimEvents.add(event);
+    }
 
-    // 敵人攻擊已在 processTick 中處理，不再呼叫 processEnemyTurn
+    if (_battleState!.isTeamDead) {
+      _events.add(const BattleEvent(
+        type: BattleEventType.defeat,
+        message: '任務失敗...',
+      ));
+    }
+
+    // 處理持續效果（DoT、HoT、被動）
+    BattleEngine.processTurnStart(_battleState!);
 
     notifyListeners();
   }
