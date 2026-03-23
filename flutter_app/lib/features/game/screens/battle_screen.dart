@@ -310,6 +310,7 @@ class _BattleScreenState extends State<BattleScreen> {
                     score: gameState?.score ?? 0,
                     reward: _reward,
                     onExit: () {
+                      setState(() => _showResult = false);
                       battle.endBattle();
                       Navigator.of(context).pop();
                     },
