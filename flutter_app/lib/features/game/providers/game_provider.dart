@@ -317,6 +317,7 @@ class GameProvider extends ChangeNotifier {
   // ─── 技能放置效果 ───
 
   /// 施放技能時操作棋盤（由 BattleProvider 呼叫）
+  /// 技能效果不觸發三消判斷，不中斷 combo
   Future<void> applyBoardEffect(SkillBoardEffect effect, BlockColor agentColor) async {
     final s = _state;
     if (s == null || s.status != GameStatus.playing || _isProcessing) return;
@@ -348,7 +349,7 @@ class GameProvider extends ChangeNotifier {
     await Future.delayed(const Duration(milliseconds: 400));
     if (_gameGeneration != gen) { _isProcessing = false; return; }
 
-    // 消除類效果需要重力 + 補充 + 連鎖處理
+    // 消除類效果只做重力掉落 + 補充，不觸發三消判斷
     if (effect.type == BoardEffectType.eliminateRandom ||
         effect.type == BoardEffectType.eliminateRow ||
         effect.type == BoardEffectType.eliminateColumn) {
@@ -361,13 +362,6 @@ class GameProvider extends ChangeNotifier {
       notifyListeners();
       await Future.delayed(const Duration(milliseconds: 300));
       if (_gameGeneration != gen) { _isProcessing = false; return; }
-
-      await _processMatchLoop();
-    }
-
-    // 轉色效果可能產生新連鎖
-    if (effect.type == BoardEffectType.convertColor) {
-      await _processMatchLoop();
     }
 
     _isProcessing = false;
