@@ -93,8 +93,8 @@ class _BattleScreenState extends State<BattleScreen> {
         );
       }
     };
-    gameProvider.onTurnEnd = () {
-      battleProvider.onTurnEnd();
+    gameProvider.onTurnEnd = ({bool hadMatches = true}) {
+      battleProvider.onTurnEnd(hadMatches: hadMatches);
     };
     battleProvider.onBoardEffectRequested = (effect, agentColor) {
       return gameProvider.applyBoardEffect(effect, agentColor);
@@ -108,12 +108,17 @@ class _BattleScreenState extends State<BattleScreen> {
     _resultSaved = true;
 
     final playerProvider = context.read<PlayerProvider>();
+    final battleProvider = context.read<BattleProvider>();
+    final bs = battleProvider.battleState;
+    final hpPercent = bs != null && bs.teamMaxHp > 0
+        ? bs.teamCurrentHp / bs.teamMaxHp
+        : 0.0;
+
     final reward = await playerProvider.completeBattle(
       stageId: widget.stage.id,
       isVictory: isVictory,
       score: score,
-      twoStarScore: widget.stage.twoStarScore,
-      threeStarScore: widget.stage.threeStarScore,
+      hpPercent: hpPercent,
       goldReward: widget.stage.reward.gold,
       expReward: widget.stage.reward.exp,
       unlockAgentId: widget.stage.reward.unlockAgentId,
@@ -189,7 +194,6 @@ class _BattleScreenState extends State<BattleScreen> {
                     // ── 頂部木質風格標題欄 ──
                     _WoodTopBar(
                       stage: widget.stage,
-                      gameState: gameState,
                       onBack: () {
                         battle.endBattle();
                         Navigator.of(context).pop();
@@ -317,14 +321,12 @@ class _BattleScreenState extends State<BattleScreen> {
 
 class _WoodTopBar extends StatelessWidget {
   final StageDefinition stage;
-  final GameState? gameState;
   final VoidCallback onBack;
   final VoidCallback onToggle;
   final VoidCallback onPause;
 
   const _WoodTopBar({
     required this.stage,
-    required this.gameState,
     required this.onBack,
     required this.onToggle,
     required this.onPause,
@@ -355,14 +357,14 @@ class _WoodTopBar extends StatelessWidget {
             child: const Icon(Icons.arrow_back_ios_new, size: 16, color: Colors.white),
           ),
           const SizedBox(width: 8),
-          // SCORE
+          // STAGE 名稱
           Expanded(
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Text(
-                  'SCORE',
-                  style: TextStyle(
+                Text(
+                  'STAGE ${stage.id}',
+                  style: const TextStyle(
                     fontSize: 9,
                     fontWeight: FontWeight.w600,
                     color: Colors.white70,
@@ -370,42 +372,19 @@ class _WoodTopBar extends StatelessWidget {
                   ),
                 ),
                 Text(
-                  '${gameState?.score ?? 0}',
+                  stage.name,
                   style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w900,
-                    color: Colors.white,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w800,
+                    color: Color(0xFFFFF3CD),
                     shadows: [Shadow(color: Colors.black38, blurRadius: 2)],
                   ),
+                  overflow: TextOverflow.ellipsis,
                 ),
               ],
             ),
           ),
-          // STAGE
-          Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text(
-                'STAGE',
-                style: TextStyle(
-                  fontSize: 9,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.white70,
-                  letterSpacing: 0.5,
-                ),
-              ),
-              Text(
-                stage.id,
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w800,
-                  color: Color(0xFFFFF3CD),
-                  shadows: [Shadow(color: Colors.black38, blurRadius: 2)],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(width: 8),
+          const SizedBox(width: 4),
           // 切換按鈕
           _WoodButton(
             onTap: onToggle,
@@ -1135,15 +1114,15 @@ class _EnemyCard extends StatelessWidget {
                 CatStatusRing(
                   ringColor: color,
                   progress: countdownPercent,
-                  size: 36,
+                  size: 42,
                   child: Container(
                     color: color.withAlpha(30),
                     child: Center(
-                      child: Text(enemy.definition.emoji, style: const TextStyle(fontSize: 16)),
+                      child: Text(enemy.definition.emoji, style: const TextStyle(fontSize: 20)),
                     ),
                   ),
                 ),
-                const SizedBox(width: 4),
+                const SizedBox(width: 6),
                 // 名稱 + HP + ATK
                 Expanded(
                   child: Column(
@@ -1154,19 +1133,19 @@ class _EnemyCard extends StatelessWidget {
                         enemy.definition.name,
                         style: const TextStyle(
                           color: Colors.white,
-                          fontSize: 9,
+                          fontSize: 11,
                           fontWeight: FontWeight.bold,
                           shadows: [Shadow(color: Colors.black54, blurRadius: 2)],
                         ),
                         overflow: TextOverflow.ellipsis,
                       ),
-                      const SizedBox(height: 1),
+                      const SizedBox(height: 2),
                       // HP 條
                       ClipRRect(
                         borderRadius: BorderRadius.circular(2),
                         child: LinearProgressIndicator(
                           value: enemy.hpPercent,
-                          minHeight: 4,
+                          minHeight: 6,
                           backgroundColor: Colors.black26,
                           valueColor: AlwaysStoppedAnimation<Color>(
                             enemy.hpPercent > 0.5
@@ -1177,14 +1156,14 @@ class _EnemyCard extends StatelessWidget {
                           ),
                         ),
                       ),
-                      const SizedBox(height: 1),
+                      const SizedBox(height: 2),
                       Row(
                         children: [
                           Text(
                             'ATK ${enemy.atk}',
                             style: TextStyle(
                               color: Colors.red.shade200,
-                              fontSize: 7,
+                              fontSize: 9,
                               fontWeight: FontWeight.bold,
                             ),
                           ),
@@ -1389,10 +1368,10 @@ class _CatAgentCard extends StatelessWidget {
                 ringColor: ringColor,
                 isReady: isReady,
                 progress: agent.attackCountdownPercent,
-                size: 40,
-                child: CatPlaceholder(color: color, size: 34),
+                size: 46,
+                child: CatPlaceholder(color: color, size: 40),
               ),
-              const SizedBox(width: 4),
+              const SizedBox(width: 6),
               // 資訊
               Expanded(
                 child: Column(
@@ -1406,7 +1385,7 @@ class _CatAgentCard extends StatelessWidget {
                           agent.definition.name,
                           style: const TextStyle(
                             color: Colors.white,
-                            fontSize: 9,
+                            fontSize: 11,
                             fontWeight: FontWeight.bold,
                             shadows: [Shadow(color: Colors.black54, blurRadius: 2)],
                           ),
@@ -1417,19 +1396,19 @@ class _CatAgentCard extends StatelessWidget {
                           '⚔${agent.atk}',
                           style: TextStyle(
                             color: Colors.orange.shade200,
-                            fontSize: 7,
+                            fontSize: 9,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 2),
+                    const SizedBox(height: 3),
                     // 能量條
                     ClipRRect(
                       borderRadius: BorderRadius.circular(2),
                       child: LinearProgressIndicator(
                         value: agent.energyPercent,
-                        minHeight: 4,
+                        minHeight: 5,
                         backgroundColor: Colors.black26,
                         valueColor: AlwaysStoppedAnimation(
                           isReady ? Colors.amber : color.withAlpha(150),
@@ -1443,7 +1422,7 @@ class _CatAgentCard extends StatelessWidget {
                         '▶ 點擊施放技能',
                         style: TextStyle(
                           color: Colors.amber,
-                          fontSize: 7,
+                          fontSize: 9,
                           fontWeight: FontWeight.bold,
                         ),
                       )
@@ -1452,7 +1431,7 @@ class _CatAgentCard extends StatelessWidget {
                         '能量 ${agent.currentEnergy}/${agent.maxEnergy}  SPD ${agent.speed}',
                         style: const TextStyle(
                           color: Colors.white54,
-                          fontSize: 7,
+                          fontSize: 9,
                         ),
                       ),
                   ],
@@ -1527,6 +1506,9 @@ class _WoodBottomBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final ap = gameState?.actionPoints ?? 0;
+    final isLow = ap <= 3;
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: const BoxDecoration(
@@ -1540,55 +1522,21 @@ class _WoodBottomBar extends StatelessWidget {
         ),
       ),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          // 步數
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.directions_walk, size: 14, color: Colors.white70),
-              const SizedBox(width: 3),
-              Text(
-                '${gameState?.actionPoints ?? 0}',
-                style: const TextStyle(
-                  color: Color(0xFFFBBF24),
-                  fontWeight: FontWeight.w900,
-                  fontSize: 16,
-                ),
-              ),
-            ],
+          Icon(
+            Icons.directions_walk,
+            size: 16,
+            color: isLow ? Colors.red : Colors.white70,
           ),
-          // 分數
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.star, size: 14, color: Colors.amber),
-              const SizedBox(width: 3),
-              Text(
-                '${gameState?.score ?? 0}',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 14,
-                ),
-              ),
-            ],
-          ),
-          // 操作次數
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.touch_app, size: 14, color: Colors.white54),
-              const SizedBox(width: 3),
-              Text(
-                '${gameState?.actionCount ?? 0}',
-                style: const TextStyle(
-                  color: Colors.white70,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 13,
-                ),
-              ),
-            ],
+          const SizedBox(width: 4),
+          Text(
+            '剩餘 $ap 步',
+            style: TextStyle(
+              color: isLow ? Colors.red : const Color(0xFFFBBF24),
+              fontWeight: FontWeight.w900,
+              fontSize: 16,
+            ),
           ),
         ],
       ),
@@ -1817,14 +1765,6 @@ class _BattleEndOverlay extends StatelessWidget {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    // 分數
-                    _RewardSection(
-                      icon: Icons.scoreboard_outlined,
-                      label: '分數',
-                      value: '$score',
-                    ),
-                    const SizedBox(height: 10),
-
                     if (isVictory && reward != null) ...[
                       // 金幣 + 經驗
                       Row(

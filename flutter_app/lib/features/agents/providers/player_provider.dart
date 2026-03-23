@@ -180,8 +180,7 @@ class PlayerProvider extends ChangeNotifier {
     required String stageId,
     required bool isVictory,
     required int score,
-    required int twoStarScore,
-    required int threeStarScore,
+    required double hpPercent,
     required int goldReward,
     required int expReward,
     String? unlockAgentId,
@@ -190,12 +189,17 @@ class PlayerProvider extends ChangeNotifier {
       return const BattleReward();
     }
 
-    // 計算星級
-    int stars = 1;
-    if (score >= threeStarScore) {
+    // 計算星級（血量制）
+    // 3星：未扣血（100%）
+    // 2星：血量 ≥ 20%
+    // 1星：血量 < 20%
+    int stars;
+    if (hpPercent >= 1.0) {
       stars = 3;
-    } else if (score >= twoStarScore) {
+    } else if (hpPercent >= 0.2) {
       stars = 2;
+    } else {
+      stars = 1;
     }
 
     // 更新關卡進度（只保留最佳）

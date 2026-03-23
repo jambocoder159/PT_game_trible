@@ -239,17 +239,20 @@ class BattleProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// 處理回合結束（玩家操作後）— DoT/HoT/debuff 管理
-  /// 敵人攻擊改為每 tick 處理，這裡只管持續效果
-  void onTurnEnd() {
+  /// 處理回合結束（每次玩家操作後都會呼叫）
+  /// 無論是否消除成功，敵人都會推進一個 tick
+  void onTurnEnd({bool hadMatches = true}) {
     if (_battleState == null || _battleState!.isBattleOver) return;
 
     _battleState!.turnCount++;
 
+    // 沒有消除時，仍推進一個 tick（敵人倒數 + 普攻判定）
+    if (!hadMatches) {
+      onMatchesProcessed({}, 0);
+    }
+
     // 處理回合開始效果（DoT、HoT、被動）
     BattleEngine.processTurnStart(_battleState!);
-
-    // 敵人攻擊已在 processTick 中處理，不再呼叫 processEnemyTurn
 
     notifyListeners();
   }

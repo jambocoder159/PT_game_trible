@@ -73,8 +73,8 @@ class GameProvider extends ChangeNotifier {
   /// 消除回合完成的回呼（BattleProvider 監聽用）
   OnMatchTurnComplete? onMatchTurnComplete;
 
-  /// 回合結束的回呼（敵人回擊用）
-  VoidCallback? onTurnEnd;
+  /// 回合結束的回呼（每次操作後呼叫，hadMatches 表示是否有消除）
+  void Function({bool hadMatches})? onTurnEnd;
 
   // 分數彈出事件佇列
   final List<ScorePopupEvent> _scorePopups = [];
@@ -567,9 +567,9 @@ class GameProvider extends ChangeNotifier {
       if (_gameGeneration != gen) return false;
     }
 
-    // 整個回合結束後，通知敵人回擊（只在同一世代有效）
-    if (everHadMatch && _gameGeneration == gen) {
-      onTurnEnd?.call();
+    // 整個回合結束後，通知戰鬥系統（無論是否有消除）
+    if (_gameGeneration == gen) {
+      onTurnEnd?.call(hadMatches: everHadMatch);
     }
 
     return everHadMatch;
