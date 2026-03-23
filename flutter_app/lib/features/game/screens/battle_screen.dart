@@ -178,6 +178,34 @@ class _BattleScreenState extends State<BattleScreen> {
     _initBattle();
   }
 
+  void _confirmExitBattle(BuildContext context, BattleProvider battle) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppTheme.bgSecondary,
+        title: const Text('確認放棄'),
+        content: const Text('放棄任務後已消耗的體力不會返還，確定要離開嗎？'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('繼續戰鬥'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.of(ctx).pop();
+              battle.endBattle();
+              Navigator.of(context).pop();
+            },
+            child: Text(
+              '確定離開',
+              style: TextStyle(color: AppTheme.accentSecondary),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   void dispose() {
     final gameProvider = context.read<GameProvider>();
@@ -205,10 +233,7 @@ class _BattleScreenState extends State<BattleScreen> {
                     // ── 頂部木質風格標題欄 ──
                     _WoodTopBar(
                       stage: widget.stage,
-                      onBack: () {
-                        battle.endBattle();
-                        Navigator.of(context).pop();
-                      },
+                      onBack: () => _confirmExitBattle(context, battle),
                       onToggle: _toggleBoardPosition,
                       onPause: () => game.pauseGame(),
                     ),

@@ -129,8 +129,8 @@ class _PauseMenuState extends State<PauseMenu> {
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: AppTheme.bgSecondary,
-        title: const Text('確認離開'),
-        content: const Text('離開後此局進度將不會保存，確定要返回主選單嗎？'),
+        title: const Text('確認放棄'),
+        content: const Text('放棄任務後已消耗的體力不會返還，確定要離開嗎？'),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(),

@@ -208,10 +208,15 @@ class _StageList extends StatelessWidget {
     // 消耗體力
     playerProvider.consumeStamina(stage.staminaCost);
 
-    // 進入戰鬥
+    // 進入戰鬥（淡出過場）
     Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => BattleScreen(stage: stage),
+      PageRouteBuilder(
+        pageBuilder: (_, __, ___) => BattleScreen(stage: stage),
+        transitionDuration: const Duration(milliseconds: 500),
+        reverseTransitionDuration: const Duration(milliseconds: 300),
+        transitionsBuilder: (_, animation, __, child) {
+          return FadeTransition(opacity: animation, child: child);
+        },
       ),
     );
   }

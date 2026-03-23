@@ -152,49 +152,53 @@ class BattleEngine {
       }
     }
 
-    // ── 2. 我方自動攻擊 ──
+    // ── 2. 我方攻擊：消除對應顏色方塊 → 該角色攻擊 ──
     for (final agent in battle.team) {
-      agent.attackCountdown -= 1;
-      if (agent.attackCountdown <= 0) {
-        agent.attackCountdown = agent.speed; // 重置
+      final agentColor = agent.definition.attribute.blockColor;
+      final matchCount = matchedBlockCounts[agentColor] ?? 0;
+      if (matchCount <= 0) continue; // 沒消除對應顏色 → 不攻擊
 
-        final enemy = battle.currentEnemy;
-        if (enemy != null && !enemy.isDead) {
-          var damage = battle.calculateAutoAttackDamage(agent, enemy);
+      final enemy = battle.currentEnemy;
+      if (enemy == null || enemy.isDead) continue;
 
-          // Combo 加成
-          if (combo > 1) {
-            double comboMult = 1 + (combo - 1) * 0.1;
-            for (final a in battle.team) {
-              final comboBonus = a.getTalentBonus(TalentEffectType.comboBonus);
-              if (comboBonus > 0) {
-                comboMult += comboBonus / 100;
-                break;
-              }
-            }
-            damage = (damage * comboMult).round();
-          }
+      var damage = battle.calculateAutoAttackDamage(agent, enemy);
 
-          enemy.takeDamage(damage);
-          totalPlayerDamage += damage;
+      // 消除數量加成：每多消 1 個方塊增加 20% 傷害
+      if (matchCount > 1) {
+        damage = (damage * (1 + (matchCount - 1) * 0.2)).round();
+      }
 
-          if (!battle.firstAttackDone) battle.firstAttackDone = true;
-
-          final killed = enemy.isDead;
-          autoAttacks.add(AutoAttackEvent(
-            isPlayerAttack: true,
-            attackerId: agent.definition.id,
-            targetId: enemy.definition.id,
-            damage: damage,
-            killed: killed,
-          ));
-
-          if (killed) {
-            anyEnemyKilled = true;
-            _processKillEffects(battle);
-            battle.advanceToNextEnemy();
+      // Combo 加成
+      if (combo > 1) {
+        double comboMult = 1 + (combo - 1) * 0.1;
+        for (final a in battle.team) {
+          final comboBonus = a.getTalentBonus(TalentEffectType.comboBonus);
+          if (comboBonus > 0) {
+            comboMult += comboBonus / 100;
+            break;
           }
         }
+        damage = (damage * comboMult).round();
+      }
+
+      enemy.takeDamage(damage);
+      totalPlayerDamage += damage;
+
+      if (!battle.firstAttackDone) battle.firstAttackDone = true;
+
+      final killed = enemy.isDead;
+      autoAttacks.add(AutoAttackEvent(
+        isPlayerAttack: true,
+        attackerId: agent.definition.id,
+        targetId: enemy.definition.id,
+        damage: damage,
+        killed: killed,
+      ));
+
+      if (killed) {
+        anyEnemyKilled = true;
+        _processKillEffects(battle);
+        battle.advanceToNextEnemy();
       }
     }
 
