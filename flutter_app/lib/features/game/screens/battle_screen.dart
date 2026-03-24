@@ -1478,6 +1478,150 @@ class _CatAgentCard extends StatelessWidget {
 
   const _CatAgentCard({super.key, required this.agent, required this.onTap});
 
+  void _showAgentInfo(BuildContext context) {
+    final def = agent.definition;
+    final color = def.attribute.blockColor.color;
+
+    HapticFeedback.lightImpact();
+    showDialog(
+      context: context,
+      builder: (ctx) => Dialog(
+        backgroundColor: AppTheme.bgCard,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: BorderSide(color: color.withAlpha(120), width: 1.5),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // 名稱 + 屬性
+              Row(
+                children: [
+                  Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: color.withAlpha(60),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: color.withAlpha(120)),
+                    ),
+                    child: Center(
+                      child: Text(def.attribute.emoji, style: const TextStyle(fontSize: 22)),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '${def.name} Lv.${agent.level}',
+                          style: const TextStyle(
+                            color: AppTheme.textPrimary,
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        Text(
+                          '${def.breed} · ${def.role.label}',
+                          style: const TextStyle(
+                            color: AppTheme.textSecondary,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              // 數值
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                children: [
+                  _InfoStat('ATK', '${agent.atk}', Colors.orange),
+                  _InfoStat('DEF', '${agent.def}', Colors.blue),
+                  _InfoStat('HP', '${agent.hp}', Colors.green),
+                  _InfoStat('SPD', '${agent.speed}', Colors.purple),
+                ],
+              ),
+              const SizedBox(height: 16),
+              // 技能
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: Colors.white.withAlpha(10),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '🎯 ${def.skill.name}',
+                      style: const TextStyle(
+                        color: AppTheme.textPrimary,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      def.skill.description,
+                      style: const TextStyle(
+                        color: AppTheme.textSecondary,
+                        fontSize: 12,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      '能量消耗: ${def.skill.energyCost}',
+                      style: TextStyle(
+                        color: Colors.amber.shade300,
+                        fontSize: 11,
+                      ),
+                    ),
+                    if (def.skill.boardEffect != null)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 4),
+                        child: Text(
+                          '🧩 ${def.skill.boardEffect!.description}',
+                          style: TextStyle(
+                            color: Colors.cyan.shade300,
+                            fontSize: 11,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 12),
+              // 被動
+              Text(
+                '💡 被動：${def.passiveDescription}',
+                style: const TextStyle(
+                  color: AppTheme.textSecondary,
+                  fontSize: 12,
+                ),
+              ),
+              const SizedBox(height: 16),
+              // 關閉按鈕
+              Center(
+                child: TextButton(
+                  onPressed: () => Navigator.of(ctx).pop(),
+                  child: const Text('關閉'),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final color = agent.definition.attribute.blockColor.color;
@@ -1486,6 +1630,7 @@ class _CatAgentCard extends StatelessWidget {
 
     return GestureDetector(
       onTap: isReady ? onTap : null,
+      onLongPress: () => _showAgentInfo(context),
       child: Padding(
         padding: const EdgeInsets.only(bottom: 4),
         child: Container(
@@ -1577,6 +1722,37 @@ class _CatAgentCard extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _InfoStat extends StatelessWidget {
+  final String label;
+  final String value;
+  final Color color;
+
+  const _InfoStat(this.label, this.value, this.color);
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Text(
+          value,
+          style: TextStyle(
+            color: color,
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        Text(
+          label,
+          style: const TextStyle(
+            color: AppTheme.textSecondary,
+            fontSize: 11,
+          ),
+        ),
+      ],
     );
   }
 }
