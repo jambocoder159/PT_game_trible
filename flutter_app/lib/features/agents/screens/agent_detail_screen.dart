@@ -43,6 +43,8 @@ class AgentDetailScreen extends StatelessWidget {
               ),
               // 角色基本資訊
               _AgentHeader(definition: definition, level: level, instance: agentInfo.instance, displayName: agentInfo.displayName),
+              // 經驗值 + 訓練按鈕
+              _TrainingBar(definition: definition, agentInfo: agentInfo),
               // Tab 區域
               Expanded(
                 child: _TabSection(
@@ -300,6 +302,109 @@ class _StatChip extends StatelessWidget {
           color: AppTheme.textSecondary,
           fontSize: 11,
         ),
+      ),
+    );
+  }
+}
+
+/// 經驗值條 + 訓練按鈕
+class _TrainingBar extends StatelessWidget {
+  final CatAgentDefinition definition;
+  final AgentInfo agentInfo;
+
+  const _TrainingBar({required this.definition, required this.agentInfo});
+
+  @override
+  Widget build(BuildContext context) {
+    final level = agentInfo.level;
+    final currentExp = agentInfo.currentExp;
+    final expForNext = definition.expRequiredForLevel(level + 1) -
+        definition.expRequiredForLevel(level);
+    final progress = expForNext > 0
+        ? (currentExp / expForNext).clamp(0.0, 1.0)
+        : 1.0;
+    final isMaxLevel = level >= definition.maxLevel;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      color: AppTheme.bgSecondary.withValues(alpha: 0.3),
+      child: Row(
+        children: [
+          // 經驗條
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Text(
+                      'EXP',
+                      style: TextStyle(
+                        color: AppTheme.textSecondary,
+                        fontSize: 11,
+                      ),
+                    ),
+                    const Spacer(),
+                    Text(
+                      isMaxLevel ? 'MAX' : '$currentExp / $expForNext',
+                      style: TextStyle(
+                        color: AppTheme.textSecondary,
+                        fontSize: 11,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(4),
+                  child: LinearProgressIndicator(
+                    value: progress,
+                    minHeight: 6,
+                    backgroundColor: Colors.white10,
+                    valueColor: AlwaysStoppedAnimation(
+                      isMaxLevel ? Colors.amber : Colors.green.shade400,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 12),
+          // 訓練按鈕
+          ElevatedButton(
+            onPressed: isMaxLevel
+                ? null
+                : () {
+                    final provider = context.read<PlayerProvider>();
+                    if (provider.data.gold >= 50) {
+                      provider.addGold(-50);
+                      provider.levelUpAgent(definition.id, 30);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('獲得 30 EXP！(消耗 50 金幣)'),
+                          backgroundColor: Colors.green,
+                        ),
+                      );
+                    } else {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('金幣不足！'),
+                          backgroundColor: Colors.red,
+                        ),
+                      );
+                    }
+                  },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.green.shade700,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              minimumSize: Size.zero,
+            ),
+            child: Text(
+              isMaxLevel ? '已滿級' : '訓練 🪙50',
+              style: const TextStyle(fontSize: 12),
+            ),
+          ),
+        ],
       ),
     );
   }

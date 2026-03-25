@@ -22,6 +22,7 @@ class _BackpackScreenState extends State<BackpackScreen> {
     return Scaffold(
       backgroundColor: AppTheme.bgPrimary,
       appBar: AppBar(
+        automaticallyImplyLeading: false,
         title: const Text('素材背包'),
         backgroundColor: AppTheme.bgSecondary,
         actions: [

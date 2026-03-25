@@ -521,13 +521,13 @@ class GameProvider extends ChangeNotifier {
       final idsToRemove = MatchDetector.getBlockIdsToEliminate(matches);
       _markBlocksForElimination(idsToRemove);
       notifyListeners();
-      await Future.delayed(const Duration(milliseconds: 350));
+      await Future.delayed(const Duration(milliseconds: 250));
       if (_gameGeneration != gen) return false;
 
       // 移除方塊
       _removeEliminatedBlocks();
       notifyListeners();
-      await Future.delayed(const Duration(milliseconds: 100));
+      await Future.delayed(const Duration(milliseconds: 50));
       if (_gameGeneration != gen) return false;
 
       // 每次連鎖消除後，通知戰鬥系統（即時造成傷害）
@@ -551,13 +551,13 @@ class GameProvider extends ChangeNotifier {
       // 重力掉落
       _applyGravity();
       notifyListeners();
-      await Future.delayed(const Duration(milliseconds: 400));
+      await Future.delayed(const Duration(milliseconds: 250));
       if (_gameGeneration != gen) return false;
 
       // 補充新方塊
       _refillGrid();
       notifyListeners();
-      await Future.delayed(const Duration(milliseconds: 300));
+      await Future.delayed(const Duration(milliseconds: 200));
       if (_gameGeneration != gen) return false;
     }
 

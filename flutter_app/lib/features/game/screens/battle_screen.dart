@@ -178,6 +178,34 @@ class _BattleScreenState extends State<BattleScreen> {
     _initBattle();
   }
 
+  void _confirmExitBattle(BuildContext context, BattleProvider battle) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppTheme.bgSecondary,
+        title: const Text('確認放棄'),
+        content: const Text('放棄任務後已消耗的體力不會返還，確定要離開嗎？'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('繼續戰鬥'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.of(ctx).pop();
+              battle.endBattle();
+              Navigator.of(context).pop();
+            },
+            child: Text(
+              '確定離開',
+              style: TextStyle(color: AppTheme.accentSecondary),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   void dispose() {
     final gameProvider = context.read<GameProvider>();
@@ -193,9 +221,8 @@ class _BattleScreenState extends State<BattleScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFF2D3748),
       body: SafeArea(
-        child: Consumer2<GameProvider, BattleProvider>(
-          builder: (context, game, battle, _) {
-            final gameState = game.state;
+        child: Consumer<BattleProvider>(
+          builder: (context, battle, _) {
             final battleState = battle.battleState;
 
             return Stack(
@@ -205,12 +232,9 @@ class _BattleScreenState extends State<BattleScreen> {
                     // ── 頂部木質風格標題欄 ──
                     _WoodTopBar(
                       stage: widget.stage,
-                      onBack: () {
-                        battle.endBattle();
-                        Navigator.of(context).pop();
-                      },
+                      onBack: () => _confirmExitBattle(context, battle),
                       onToggle: _toggleBoardPosition,
-                      onPause: () => game.pauseGame(),
+                      onPause: () => context.read<GameProvider>().pauseGame(),
                     ),
 
                     // ── 主體分屏區域 ──
@@ -218,40 +242,52 @@ class _BattleScreenState extends State<BattleScreen> {
                       child: Row(
                         children: _boardOnLeft
                             ? [
-                                // 棋盤在左
+                                // 棋盤在左（獨立 Consumer 隔離重繪）
                                 Expanded(
                                   flex: 6,
-                                  child: _GamePanel(
-                                    battleState: battleState,
-                                    gameState: gameState,
+                                  child: RepaintBoundary(
+                                    child: Consumer<GameProvider>(
+                                      builder: (_, game, __) => _GamePanel(
+                                        battleState: battleState,
+                                        gameState: game.state,
+                                      ),
+                                    ),
                                   ),
                                 ),
                                 // 角色在右
                                 if (battleState != null)
                                   Expanded(
                                     flex: 4,
-                                    child: _CatAgentPanel(
-                                      battleState: battleState,
-                                      battleProvider: battle,
+                                    child: RepaintBoundary(
+                                      child: _CatAgentPanel(
+                                        battleState: battleState,
+                                        battleProvider: battle,
+                                      ),
                                     ),
                                   ),
                               ]
                             : [
-                                // 角色在左（截圖預設佈局）
+                                // 角色在左
                                 if (battleState != null)
                                   Expanded(
                                     flex: 4,
-                                    child: _CatAgentPanel(
-                                      battleState: battleState,
-                                      battleProvider: battle,
+                                    child: RepaintBoundary(
+                                      child: _CatAgentPanel(
+                                        battleState: battleState,
+                                        battleProvider: battle,
+                                      ),
                                     ),
                                   ),
                                 // 棋盤在右
                                 Expanded(
                                   flex: 6,
-                                  child: _GamePanel(
-                                    battleState: battleState,
-                                    gameState: gameState,
+                                  child: RepaintBoundary(
+                                    child: Consumer<GameProvider>(
+                                      builder: (_, game, __) => _GamePanel(
+                                        battleState: battleState,
+                                        gameState: game.state,
+                                      ),
+                                    ),
                                   ),
                                 ),
                               ],
@@ -259,34 +295,46 @@ class _BattleScreenState extends State<BattleScreen> {
                     ),
 
                     // ── 底部控制列 ──
-                    _WoodBottomBar(
-                      gameState: gameState,
-                      battleProvider: battle,
+                    Consumer<GameProvider>(
+                      builder: (_, game, __) => _WoodBottomBar(
+                        gameState: game.state,
+                        battleProvider: battle,
+                      ),
                     ),
                   ],
                 ),
 
                 // 暫停選單覆蓋層
-                if (gameState?.status == GameStatus.paused)
-                  PauseMenu(
-                    onResume: () => game.resumeGame(),
-                    onExitToMenu: () {
-                      battle.endBattle();
-                      Navigator.of(context).pop();
-                    },
-                  ),
+                Consumer<GameProvider>(
+                  builder: (_, game, __) {
+                    if (game.state?.status != GameStatus.paused) {
+                      return const SizedBox.shrink();
+                    }
+                    return PauseMenu(
+                      onResume: () => game.resumeGame(),
+                      onExitToMenu: () {
+                        battle.endBattle();
+                        Navigator.of(context).pop();
+                      },
+                    );
+                  },
+                ),
 
                 // 戰鬥結束 — 先播放爆炸演出，再顯示結算
-                if ((battle.isBattleOver || (gameState?.status == GameStatus.gameOver && !battle.isBattleOver)) &&
-                    !_victoryAnimPlaying && !_showResult)
-                  Builder(builder: (_) {
-                    final isVictory = battle.isBattleOver && battle.isVictory;
-                    WidgetsBinding.instance.addPostFrameCallback((_) {
-                      _saveResult(isVictory, gameState?.score ?? 0);
-                      _startEndAnimation(isVictory);
-                    });
+                Consumer<GameProvider>(
+                  builder: (_, game, __) {
+                    final gameState = game.state;
+                    if ((battle.isBattleOver || (gameState?.status == GameStatus.gameOver && !battle.isBattleOver)) &&
+                        !_victoryAnimPlaying && !_showResult) {
+                      final isVictory = battle.isBattleOver && battle.isVictory;
+                      WidgetsBinding.instance.addPostFrameCallback((_) {
+                        _saveResult(isVictory, gameState?.score ?? 0);
+                        _startEndAnimation(isVictory);
+                      });
+                    }
                     return const SizedBox.shrink();
-                  }),
+                  },
+                ),
 
                 // 爆炸演出層
                 if (_victoryAnimPlaying)
@@ -307,9 +355,10 @@ class _BattleScreenState extends State<BattleScreen> {
                   _BattleEndOverlay(
                     isVictory: battle.isBattleOver ? battle.isVictory : false,
                     stage: widget.stage,
-                    score: gameState?.score ?? 0,
+                    score: context.read<GameProvider>().state?.score ?? 0,
                     reward: _reward,
                     onExit: () {
+                      setState(() => _showResult = false);
                       battle.endBattle();
                       Navigator.of(context).pop();
                     },
@@ -554,6 +603,19 @@ class _CatAgentPanelState extends State<_CatAgentPanel>
     final events = widget.battleProvider.consumeAttackEvents();
     if (events.isEmpty) return;
 
+    // 一次性批量快取所有卡片位置，避免動畫中重複 RenderBox 查詢
+    final cachedPlayerPos = <int, Offset>{};
+    final cachedEnemyPos = <int, Offset>{};
+    for (int i = 0; i < _playerKeys.length; i++) {
+      final pos = _getCardCenter(_playerKeys[i]);
+      if (pos != null) cachedPlayerPos[i] = pos;
+    }
+    for (int i = 0; i < _enemyKeys.length; i++) {
+      final pos = _getCardCenter(_enemyKeys[i]);
+      if (pos != null) cachedEnemyPos[i] = pos;
+    }
+    final playerSectionCenter = _getPlayerSectionCenter();
+
     // 收集所有攻擊到 pending 佇列
     bool hasPlayerAttack = false;
     bool hasEnemyAttack = false;
@@ -562,14 +624,14 @@ class _CatAgentPanelState extends State<_CatAgentPanel>
       if (event.type == BattleEventType.autoAttack &&
           event.attackerIndex != null &&
           event.targetIndex != null) {
-        final from = _getCardCenter(
-            event.attackerIndex! < _playerKeys.length
-                ? _playerKeys[event.attackerIndex!]
-                : _playerKeys.last);
-        final to = _getCardCenter(
-            event.targetIndex! < _enemyKeys.length
-                ? _enemyKeys[event.targetIndex!]
-                : _enemyKeys.last);
+        final fromIdx = event.attackerIndex! < _playerKeys.length
+            ? event.attackerIndex!
+            : _playerKeys.length - 1;
+        final toIdx = event.targetIndex! < _enemyKeys.length
+            ? event.targetIndex!
+            : _enemyKeys.length - 1;
+        final from = cachedPlayerPos[fromIdx];
+        final to = cachedEnemyPos[toIdx];
         if (from != null && to != null) {
           hasPlayerAttack = true;
           _pendingAttacks.add(_RushAnimData(
@@ -584,16 +646,15 @@ class _CatAgentPanelState extends State<_CatAgentPanel>
         }
       } else if (event.type == BattleEventType.enemyAttack &&
           event.attackerIndex != null) {
-        final from = _getCardCenter(
-            event.attackerIndex! < _enemyKeys.length
-                ? _enemyKeys[event.attackerIndex!]
-                : _enemyKeys.last);
-        final to = _getPlayerSectionCenter();
-        if (from != null && to != null) {
+        final fromIdx = event.attackerIndex! < _enemyKeys.length
+            ? event.attackerIndex!
+            : _enemyKeys.length - 1;
+        final from = cachedEnemyPos[fromIdx];
+        if (from != null && playerSectionCenter != null) {
           hasEnemyAttack = true;
           _pendingAttacks.add(_RushAnimData(
             from: from,
-            to: to,
+            to: playerSectionCenter,
             emoji: event.emoji ?? '👊',
             color: Colors.red,
             damage: event.value,
@@ -626,13 +687,13 @@ class _CatAgentPanelState extends State<_CatAgentPanel>
       // 第一個敵方攻擊前顯示「敵方回合」
       if (isEnemy && _phaseBanner != '敵方回合') {
         setState(() => _phaseBanner = '敵方回合');
-        await Future.delayed(const Duration(milliseconds: 500));
+        await Future.delayed(const Duration(milliseconds: 350));
         if (!mounted) break;
       }
       // 第一個我方攻擊前顯示「進攻!」
       if (!isEnemy && _phaseBanner != '進攻!') {
         setState(() => _phaseBanner = '進攻!');
-        await Future.delayed(const Duration(milliseconds: 400));
+        await Future.delayed(const Duration(milliseconds: 300));
         if (!mounted) break;
       }
 
@@ -641,14 +702,14 @@ class _CatAgentPanelState extends State<_CatAgentPanel>
         _activeRushAnims.add(attack);
       });
 
-      // 等待衝撞動畫完成（600ms）+ 傷害數字顯示間隔
-      await Future.delayed(const Duration(milliseconds: 500));
+      // 等待衝撞動畫完成 + 傷害數字顯示間隔
+      await Future.delayed(const Duration(milliseconds: 350));
       if (!mounted) break;
     }
 
     // 全部播完，清除階段標示
     if (mounted) {
-      await Future.delayed(const Duration(milliseconds: 300));
+      await Future.delayed(const Duration(milliseconds: 200));
       if (mounted) {
         setState(() {
           _phaseBanner = null;
@@ -661,24 +722,27 @@ class _CatAgentPanelState extends State<_CatAgentPanel>
   void _onRushHit(_RushAnimData data) {
     HapticFeedback.mediumImpact();
     setState(() {
-      // 在目標位置加傷害數字（偏移加大以配合大字型）
       _activeDamagePopups.add(_DamagePopupData(
         position: data.to + const Offset(-20, -28),
         damage: data.damage,
         color: data.isPlayerAttack ? Colors.white : Colors.red,
       ));
-      // 觸發目標閃爍（延長到 250ms）
       if (data.isPlayerAttack && data.targetIndex != null) {
         _enemyHitStates[data.targetIndex!] = true;
-        Future.delayed(const Duration(milliseconds: 250), () {
-          if (mounted) setState(() => _enemyHitStates[data.targetIndex!] = false);
-        });
       } else if (!data.isPlayerAttack) {
         _playerSectionHit = true;
-        Future.delayed(const Duration(milliseconds: 250), () {
-          if (mounted) setState(() => _playerSectionHit = false);
-        });
       }
+    });
+    // 單一延遲清除 hit 閃爍狀態
+    Future.delayed(const Duration(milliseconds: 200), () {
+      if (!mounted) return;
+      setState(() {
+        if (data.isPlayerAttack && data.targetIndex != null) {
+          _enemyHitStates[data.targetIndex!] = false;
+        } else if (!data.isPlayerAttack) {
+          _playerSectionHit = false;
+        }
+      });
     });
   }
 
@@ -894,7 +958,7 @@ class _RushAttackWidgetState extends State<_RushAttackWidget>
     super.initState();
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 600),
+      duration: const Duration(milliseconds: 450),
     );
 
     // 位置：0→1→0（衝出→撞擊→彈回）
@@ -1037,7 +1101,7 @@ class _DamagePopupState extends State<_DamagePopup>
     super.initState();
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 900),
+      duration: const Duration(milliseconds: 700),
     );
 
     _slideAnim = Tween<Offset>(
@@ -1206,6 +1270,7 @@ class _EnemyCard extends StatelessWidget {
         children: [
           AnimatedContainer(
             duration: const Duration(milliseconds: 100),
+            curve: Curves.easeInOut,
             padding: const EdgeInsets.all(4),
             decoration: BoxDecoration(
               color: isHit
@@ -1452,6 +1517,150 @@ class _CatAgentCard extends StatelessWidget {
 
   const _CatAgentCard({super.key, required this.agent, required this.onTap});
 
+  void _showAgentInfo(BuildContext context) {
+    final def = agent.definition;
+    final color = def.attribute.blockColor.color;
+
+    HapticFeedback.lightImpact();
+    showDialog(
+      context: context,
+      builder: (ctx) => Dialog(
+        backgroundColor: AppTheme.bgCard,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: BorderSide(color: color.withAlpha(120), width: 1.5),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // 名稱 + 屬性
+              Row(
+                children: [
+                  Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: color.withAlpha(60),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: color.withAlpha(120)),
+                    ),
+                    child: Center(
+                      child: Text(def.attribute.emoji, style: const TextStyle(fontSize: 22)),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '${def.name} Lv.${agent.level}',
+                          style: const TextStyle(
+                            color: AppTheme.textPrimary,
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        Text(
+                          '${def.breed} · ${def.role.label}',
+                          style: const TextStyle(
+                            color: AppTheme.textSecondary,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              // 數值
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                children: [
+                  _InfoStat('ATK', '${agent.atk}', Colors.orange),
+                  _InfoStat('DEF', '${agent.def}', Colors.blue),
+                  _InfoStat('HP', '${agent.hp}', Colors.green),
+                  _InfoStat('SPD', '${agent.speed}', Colors.purple),
+                ],
+              ),
+              const SizedBox(height: 16),
+              // 技能
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: Colors.white.withAlpha(10),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '🎯 ${def.skill.name}',
+                      style: const TextStyle(
+                        color: AppTheme.textPrimary,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      def.skill.description,
+                      style: const TextStyle(
+                        color: AppTheme.textSecondary,
+                        fontSize: 12,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      '能量消耗: ${def.skill.energyCost}',
+                      style: TextStyle(
+                        color: Colors.amber.shade300,
+                        fontSize: 11,
+                      ),
+                    ),
+                    if (def.skill.boardEffect != null)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 4),
+                        child: Text(
+                          '🧩 ${def.skill.boardEffect!.description}',
+                          style: TextStyle(
+                            color: Colors.cyan.shade300,
+                            fontSize: 11,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 12),
+              // 被動
+              Text(
+                '💡 被動：${def.passiveDescription}',
+                style: const TextStyle(
+                  color: AppTheme.textSecondary,
+                  fontSize: 12,
+                ),
+              ),
+              const SizedBox(height: 16),
+              // 關閉按鈕
+              Center(
+                child: TextButton(
+                  onPressed: () => Navigator.of(ctx).pop(),
+                  child: const Text('關閉'),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final color = agent.definition.attribute.blockColor.color;
@@ -1460,6 +1669,7 @@ class _CatAgentCard extends StatelessWidget {
 
     return GestureDetector(
       onTap: isReady ? onTap : null,
+      onLongPress: () => _showAgentInfo(context),
       child: Padding(
         padding: const EdgeInsets.only(bottom: 4),
         child: Container(
@@ -1551,6 +1761,37 @@ class _CatAgentCard extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _InfoStat extends StatelessWidget {
+  final String label;
+  final String value;
+  final Color color;
+
+  const _InfoStat(this.label, this.value, this.color);
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Text(
+          value,
+          style: TextStyle(
+            color: color,
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        Text(
+          label,
+          style: const TextStyle(
+            color: AppTheme.textSecondary,
+            fontSize: 11,
+          ),
+        ),
+      ],
     );
   }
 }

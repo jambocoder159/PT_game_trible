@@ -15,6 +15,7 @@ class AgentListScreen extends StatelessWidget {
     return Scaffold(
       backgroundColor: AppTheme.bgPrimary,
       appBar: AppBar(
+        automaticallyImplyLeading: false,
         title: const Text('特工名冊'),
         backgroundColor: AppTheme.bgSecondary,
         actions: [

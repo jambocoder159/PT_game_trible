@@ -34,7 +34,7 @@ class _BlockWidgetState extends State<BlockWidget>
     super.initState();
     _elimController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 350),
+      duration: const Duration(milliseconds: 250),
     );
 
     // 快速膨脹然後消失（Candy Crush 風格 pop）

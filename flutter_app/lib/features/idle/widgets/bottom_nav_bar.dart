@@ -13,11 +13,11 @@ class GameBottomNavBar extends StatelessWidget {
   });
 
   static const _items = [
-    _NavItem(icon: Icons.home_rounded, label: '首頁'),
-    _NavItem(icon: Icons.sports_esports_rounded, label: '對戰'),
-    _NavItem(icon: Icons.map_rounded, label: '關卡'),
+    _NavItem(icon: Icons.inventory_2_rounded, label: '背包'),
+    _NavItem(icon: Icons.pets, label: '角色'),
+    _NavItem(icon: Icons.home_rounded, label: '放置'),
+    _NavItem(icon: Icons.map_rounded, label: '闖關'),
     _NavItem(icon: Icons.shopping_bag_rounded, label: '商店'),
-    _NavItem(icon: Icons.menu_rounded, label: '更多'),
   ];
 
   @override

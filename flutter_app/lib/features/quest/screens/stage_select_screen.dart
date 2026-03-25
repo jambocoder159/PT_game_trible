@@ -18,10 +18,39 @@ class _StageSelectScreenState extends State<StageSelectScreen> {
   int _selectedChapter = 1;
 
   @override
+  void initState() {
+    super.initState();
+    _initChapter();
+  }
+
+  /// 自動跳到有未完成關卡的最新章節
+  void _initChapter() {
+    final progress = context.read<PlayerProvider>().data.stageProgress;
+
+    int latestChapter = 1;
+    for (final chapter in StageData.chapters) {
+      final stages = StageData.getChapterStages(chapter.number);
+      final allCleared = stages.every((s) => progress[s.id]?.cleared == true);
+      final anyCleared = stages.any((s) => progress[s.id]?.cleared == true);
+
+      if (anyCleared && !allCleared) {
+        latestChapter = chapter.number;
+        break;
+      } else if (allCleared) {
+        latestChapter = chapter.number + 1;
+      }
+    }
+
+    final maxChapter = StageData.chapters.last.number;
+    _selectedChapter = latestChapter.clamp(1, maxChapter);
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppTheme.bgPrimary,
       appBar: AppBar(
+        automaticallyImplyLeading: false,
         title: const Text('任務選擇'),
         backgroundColor: AppTheme.bgSecondary,
       ),
@@ -179,10 +208,15 @@ class _StageList extends StatelessWidget {
     // 消耗體力
     playerProvider.consumeStamina(stage.staminaCost);
 
-    // 進入戰鬥
+    // 進入戰鬥（淡出過場）
     Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => BattleScreen(stage: stage),
+      PageRouteBuilder(
+        pageBuilder: (_, __, ___) => BattleScreen(stage: stage),
+        transitionDuration: const Duration(milliseconds: 500),
+        reverseTransitionDuration: const Duration(milliseconds: 300),
+        transitionsBuilder: (_, animation, __, child) {
+          return FadeTransition(opacity: animation, child: child);
+        },
       ),
     );
   }

@@ -14,6 +14,7 @@ class ShopScreen extends StatelessWidget {
     return Scaffold(
       backgroundColor: AppTheme.bgPrimary,
       appBar: AppBar(
+        automaticallyImplyLeading: false,
         title: const Text('商城'),
         backgroundColor: AppTheme.bgSecondary,
         actions: [
