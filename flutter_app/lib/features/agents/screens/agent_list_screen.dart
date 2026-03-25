@@ -2,6 +2,7 @@
 /// 顯示所有角色（已解鎖 + 未解鎖），可查看詳情、升級、編入隊伍
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../../../config/image_assets.dart';
 import '../../../config/theme.dart';
 import '../../../core/models/cat_agent.dart';
 import '../providers/player_provider.dart';
@@ -94,9 +95,10 @@ class _TeamPreview extends StatelessWidget {
           ...List.generate(3, (i) {
             if (i < teamAgents.length) {
               final agent = teamAgents[i];
+              final iconPath = ImageAssets.iconImage(agent.definition.id);
               return Container(
                 margin: const EdgeInsets.only(right: 8),
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
                   color: agent.definition.attribute.blockColor.color.withValues(alpha: 0.3),
                   borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
@@ -104,12 +106,37 @@ class _TeamPreview extends StatelessWidget {
                     color: agent.definition.attribute.blockColor.color.withValues(alpha: 0.6),
                   ),
                 ),
-                child: Text(
-                  '${agent.definition.attribute.emoji} ${agent.definition.name}',
-                  style: const TextStyle(
-                    color: AppTheme.textPrimary,
-                    fontSize: 13,
-                  ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (iconPath != null)
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(4),
+                        child: Image.asset(
+                          iconPath,
+                          width: 22,
+                          height: 22,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => Text(
+                            agent.definition.attribute.emoji,
+                            style: const TextStyle(fontSize: 14),
+                          ),
+                        ),
+                      )
+                    else
+                      Text(
+                        agent.definition.attribute.emoji,
+                        style: const TextStyle(fontSize: 14),
+                      ),
+                    const SizedBox(width: 4),
+                    Text(
+                      agent.definition.name,
+                      style: const TextStyle(
+                        color: AppTheme.textPrimary,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ],
                 ),
               );
             } else {
@@ -167,6 +194,7 @@ class _AgentCard extends StatelessWidget {
             children: [
               // 頭像區域
               _AgentAvatar(
+                agentId: def.id,
                 attribute: def.attribute,
                 rarity: def.rarity,
                 isUnlocked: isUnlocked,
@@ -454,11 +482,13 @@ class _CurrencyChip extends StatelessWidget {
 }
 
 class _AgentAvatar extends StatelessWidget {
+  final String agentId;
   final AgentAttribute attribute;
   final AgentRarity rarity;
   final bool isUnlocked;
 
   const _AgentAvatar({
+    required this.agentId,
     required this.attribute,
     required this.rarity,
     required this.isUnlocked,
@@ -466,6 +496,8 @@ class _AgentAvatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final avatarPath = ImageAssets.avatarImage(agentId);
+
     return Container(
       width: 56,
       height: 56,
@@ -481,11 +513,25 @@ class _AgentAvatar extends StatelessWidget {
           width: 2,
         ),
       ),
-      child: Center(
-        child: Text(
-          isUnlocked ? attribute.emoji : '🔒',
-          style: const TextStyle(fontSize: 28),
-        ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(AppTheme.radiusMedium - 2),
+        child: isUnlocked && avatarPath != null
+            ? Image.asset(
+                avatarPath,
+                width: 52,
+                height: 52,
+                fit: BoxFit.cover,
+                errorBuilder: (_, __, ___) => Center(
+                  child: Text(attribute.emoji,
+                      style: const TextStyle(fontSize: 28)),
+                ),
+              )
+            : Center(
+                child: Text(
+                  isUnlocked ? attribute.emoji : '🔒',
+                  style: const TextStyle(fontSize: 28),
+                ),
+              ),
       ),
     );
   }

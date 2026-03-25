@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../config/cat_agent_data.dart';
 import '../../../config/evolution_data.dart';
+import '../../../config/image_assets.dart';
 import '../../../config/theme.dart';
 import '../../../core/models/cat_agent.dart';
 import '../providers/player_provider.dart';
@@ -74,6 +75,26 @@ class _AgentHeader extends StatelessWidget {
     required this.displayName,
   });
 
+  Widget _buildAvatar() {
+    final avatarPath = ImageAssets.avatarImage(definition.id);
+    if (avatarPath == null) {
+      return Center(
+        child: Text(definition.attribute.emoji,
+            style: const TextStyle(fontSize: 28)),
+      );
+    }
+    return Image.asset(
+      avatarPath,
+      width: 52,
+      height: 52,
+      fit: BoxFit.cover,
+      errorBuilder: (_, __, ___) => Center(
+        child: Text(definition.attribute.emoji,
+            style: const TextStyle(fontSize: 28)),
+      ),
+    );
+  }
+
   double get _evoMult {
     final stage = instance?.evolutionStage ?? 0;
     if (stage == 0) return 1.0;
@@ -104,11 +125,9 @@ class _AgentHeader extends StatelessWidget {
                 width: 2,
               ),
             ),
-            child: Center(
-              child: Text(
-                definition.attribute.emoji,
-                style: const TextStyle(fontSize: 28),
-              ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(AppTheme.radiusMedium - 2),
+              child: _buildAvatar(),
             ),
           ),
           const SizedBox(width: 14),
