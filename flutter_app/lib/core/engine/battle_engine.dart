@@ -53,7 +53,7 @@ class TurnResult {
   });
 }
 
-/// 自動攻擊事件
+/// 自動攻擊事件（含 Balatro 風格傷害分解數據）
 class AutoAttackEvent {
   final bool isPlayerAttack;
   final String attackerId;
@@ -61,12 +61,24 @@ class AutoAttackEvent {
   final int damage;
   final bool killed;
 
+  // ── Balatro 風格傷害分解 ──
+  final int baseDamage;       // 基礎攻擊力（未乘消除/combo）
+  final double attributeMult; // 屬性克制倍率 (1.0 or 1.5)
+  final int matchCount;       // 消除方塊數
+  final int combo;            // 當前 combo
+  final double comboMult;     // combo 倍率
+
   const AutoAttackEvent({
     required this.isPlayerAttack,
     required this.attackerId,
     this.targetId,
     required this.damage,
     this.killed = false,
+    this.baseDamage = 0,
+    this.attributeMult = 1.0,
+    this.matchCount = 0,
+    this.combo = 0,
+    this.comboMult = 1.0,
   });
 }
 
@@ -161,7 +173,12 @@ class BattleEngine {
       final enemy = battle.currentEnemy;
       if (enemy == null || enemy.isDead) continue;
 
-      var damage = battle.calculateAutoAttackDamage(agent, enemy);
+      // 擷取屬性克制倍率（供 Balatro 演出用）
+      final attrMult = agent.definition.attribute
+          .damageMultiplierAgainst(enemy.definition.attribute);
+
+      var baseDamage = battle.calculateAutoAttackDamage(agent, enemy);
+      var damage = baseDamage;
 
       // 消除數量加成：每多消 1 個方塊增加 20% 傷害
       if (matchCount > 1) {
@@ -169,16 +186,17 @@ class BattleEngine {
       }
 
       // Combo 加成
+      double actualComboMult = 1.0;
       if (combo > 1) {
-        double comboMult = 1 + (combo - 1) * 0.1;
+        actualComboMult = 1 + (combo - 1) * 0.1;
         for (final a in battle.team) {
           final comboBonus = a.getTalentBonus(TalentEffectType.comboBonus);
           if (comboBonus > 0) {
-            comboMult += comboBonus / 100;
+            actualComboMult += comboBonus / 100;
             break;
           }
         }
-        damage = (damage * comboMult).round();
+        damage = (damage * actualComboMult).round();
       }
 
       enemy.takeDamage(damage);
@@ -193,6 +211,11 @@ class BattleEngine {
         targetId: enemy.definition.id,
         damage: damage,
         killed: killed,
+        baseDamage: baseDamage,
+        attributeMult: attrMult,
+        matchCount: matchCount,
+        combo: combo,
+        comboMult: actualComboMult,
       ));
 
       if (killed) {

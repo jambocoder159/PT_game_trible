@@ -17,6 +17,8 @@ import '../../../core/services/local_storage.dart';
 import '../../agents/providers/player_provider.dart';
 import '../providers/battle_provider.dart';
 import '../providers/game_provider.dart';
+import '../widgets/combo_counter.dart';
+import '../widgets/damage_counter.dart';
 import '../widgets/game_board.dart';
 import '../../agents/widgets/agent_unlock_animation.dart';
 import '../widgets/cat_placeholder.dart';
@@ -545,6 +547,13 @@ class _RushAnimData {
   final int? targetIndex; // 目標卡牌 index（用於閃爍）
   final UniqueKey key = UniqueKey();
 
+  // Balatro 傷害分解
+  final int baseDamage;
+  final double attributeMult;
+  final int matchCount;
+  final int combo;
+  final double comboMult;
+
   _RushAnimData({
     required this.from,
     required this.to,
@@ -553,7 +562,16 @@ class _RushAnimData {
     required this.damage,
     required this.isPlayerAttack,
     this.targetIndex,
+    this.baseDamage = 0,
+    this.attributeMult = 1.0,
+    this.matchCount = 0,
+    this.combo = 0,
+    this.comboMult = 1.0,
   });
+
+  /// 是否需要 Balatro 風格傷害演出
+  bool get needsCounterBuildup =>
+      combo > 1 || attributeMult > 1.0 || matchCount > 2;
 }
 
 /// 飄浮傷害數字資料
@@ -561,12 +579,26 @@ class _DamagePopupData {
   final Offset position;
   final int damage;
   final Color color;
+  final bool useCounter; // 是否使用 Balatro 風格計數器
   final UniqueKey key = UniqueKey();
+
+  // Balatro 傷害分解
+  final int baseDamage;
+  final double attributeMult;
+  final int matchCount;
+  final int combo;
+  final double comboMult;
 
   _DamagePopupData({
     required this.position,
     required this.damage,
     required this.color,
+    this.useCounter = false,
+    this.baseDamage = 0,
+    this.attributeMult = 1.0,
+    this.matchCount = 0,
+    this.combo = 0,
+    this.comboMult = 1.0,
   });
 }
 
@@ -601,6 +633,10 @@ class _CatAgentPanelState extends State<_CatAgentPanel>
 
   // 階段標示
   String? _phaseBanner; // "進攻!" / "敵方回合"
+  bool _phaseBannerIsEnemy = false; // 標示類型（用於動畫方向）
+
+  // 預感暗幕（敵方回合前的戲劇停頓）
+  double _anticipationAlpha = 0.0;
 
   // Enemy card hit flash states
   final Map<int, bool> _enemyHitStates = {};
@@ -662,9 +698,6 @@ class _CatAgentPanelState extends State<_CatAgentPanel>
     final playerSectionCenter = _getPlayerSectionCenter();
 
     // 收集所有攻擊到 pending 佇列
-    bool hasPlayerAttack = false;
-    bool hasEnemyAttack = false;
-
     for (final event in events) {
       if (event.type == BattleEventType.autoAttack &&
           event.attackerIndex != null &&
@@ -678,7 +711,6 @@ class _CatAgentPanelState extends State<_CatAgentPanel>
         final from = cachedPlayerPos[fromIdx];
         final to = cachedEnemyPos[toIdx];
         if (from != null && to != null) {
-          hasPlayerAttack = true;
           _pendingAttacks.add(_RushAnimData(
             from: from,
             to: to,
@@ -687,6 +719,11 @@ class _CatAgentPanelState extends State<_CatAgentPanel>
             damage: event.value,
             isPlayerAttack: true,
             targetIndex: event.targetIndex,
+            baseDamage: event.baseDamage,
+            attributeMult: event.attributeMult,
+            matchCount: event.matchCount,
+            combo: event.combo,
+            comboMult: event.comboMult,
           ));
         }
       } else if (event.type == BattleEventType.enemyAttack &&
@@ -696,7 +733,6 @@ class _CatAgentPanelState extends State<_CatAgentPanel>
             : _enemyKeys.length - 1;
         final from = cachedEnemyPos[fromIdx];
         if (from != null && playerSectionCenter != null) {
-          hasEnemyAttack = true;
           _pendingAttacks.add(_RushAnimData(
             from: from,
             to: playerSectionCenter,
@@ -715,7 +751,8 @@ class _CatAgentPanelState extends State<_CatAgentPanel>
     }
   }
 
-  /// 序列化播放攻擊動畫（一個接一個）
+  /// 序列化播放攻擊動畫（Balatro 風格節奏）
+  /// 我方快攻交錯、敵方慢重、攻守轉場戲劇停頓
   Future<void> _playAttackSequence() async {
     if (_isPlayingSequence) return;
     _isPlayingSequence = true;
@@ -724,40 +761,55 @@ class _CatAgentPanelState extends State<_CatAgentPanel>
       if (!mounted) break;
 
       final attack = _pendingAttacks.removeAt(0);
-
-      // 檢查是否需要顯示階段標示
       final isEnemy = !attack.isPlayerAttack;
-      final nextIsEnemy = _pendingAttacks.isEmpty ? null : !_pendingAttacks.first.isPlayerAttack;
 
-      // 第一個敵方攻擊前顯示「敵方回合」
+      // ── 攻守轉場：預感停頓 + 暗幕 ──
       if (isEnemy && _phaseBanner != '敵方回合') {
-        setState(() => _phaseBanner = '敵方回合');
-        await Future.delayed(const Duration(milliseconds: 350));
+        // 從我方→敵方：400ms 戲劇停頓 + 畫面微暗
+        if (_phaseBanner == '進攻!') {
+          setState(() => _phaseBanner = null);
+          await Future.delayed(const Duration(milliseconds: 150));
+          if (!mounted) break;
+        }
+        // 預感暗幕漸入
+        setState(() => _anticipationAlpha = 60.0);
+        await Future.delayed(const Duration(milliseconds: 250));
+        if (!mounted) break;
+        setState(() {
+          _phaseBanner = '敵方回合';
+          _phaseBannerIsEnemy = true;
+        });
+        await Future.delayed(const Duration(milliseconds: 400));
         if (!mounted) break;
       }
-      // 第一個我方攻擊前顯示「進攻!」
       if (!isEnemy && _phaseBanner != '進攻!') {
-        setState(() => _phaseBanner = '進攻!');
-        await Future.delayed(const Duration(milliseconds: 300));
+        setState(() {
+          _anticipationAlpha = 0.0;
+          _phaseBanner = '進攻!';
+          _phaseBannerIsEnemy = false;
+        });
+        await Future.delayed(const Duration(milliseconds: 250));
         if (!mounted) break;
       }
 
-      // 播放這個攻擊
+      // ── 播放攻擊動畫 ──
       setState(() {
         _activeRushAnims.add(attack);
       });
 
-      // 等待衝撞動畫完成 + 傷害數字顯示間隔
-      await Future.delayed(const Duration(milliseconds: 350));
+      // 動態間隔：我方快攻交錯 150ms / 敵方慢重 500ms
+      final delay = isEnemy ? 500 : 150;
+      await Future.delayed(Duration(milliseconds: delay));
       if (!mounted) break;
     }
 
-    // 全部播完，清除階段標示
+    // 全部播完，清除階段標示和暗幕
     if (mounted) {
-      await Future.delayed(const Duration(milliseconds: 200));
+      await Future.delayed(const Duration(milliseconds: 150));
       if (mounted) {
         setState(() {
           _phaseBanner = null;
+          _anticipationAlpha = 0.0;
           _isPlayingSequence = false;
         });
       }
@@ -767,10 +819,17 @@ class _CatAgentPanelState extends State<_CatAgentPanel>
   void _onRushHit(_RushAnimData data) {
     HapticFeedback.mediumImpact();
     setState(() {
+      final useCounter = data.isPlayerAttack && data.needsCounterBuildup;
       _activeDamagePopups.add(_DamagePopupData(
         position: data.to + const Offset(-20, -28),
         damage: data.damage,
         color: data.isPlayerAttack ? Colors.white : Colors.red,
+        useCounter: useCounter,
+        baseDamage: data.baseDamage,
+        attributeMult: data.attributeMult,
+        matchCount: data.matchCount,
+        combo: data.combo,
+        comboMult: data.comboMult,
       ));
       if (data.isPlayerAttack && data.targetIndex != null) {
         _enemyHitStates[data.targetIndex!] = true;
@@ -844,6 +903,7 @@ class _CatAgentPanelState extends State<_CatAgentPanel>
                 child: _ShakeWrapper(
                   key: _playerSectionKey,
                   isShaking: _playerSectionHit,
+                  intensity: ShakeIntensity.heavy,
                   child: _PlayerCardsSection(
                     battleState: widget.battleState,
                     battleProvider: widget.battleProvider,
@@ -854,38 +914,29 @@ class _CatAgentPanelState extends State<_CatAgentPanel>
             ],
           ),
         ),
-        // 階段標示層
-        if (_phaseBanner != null)
+        // 預感暗幕層（敵方回合前的戲劇停頓）
+        if (_anticipationAlpha > 0)
           Positioned.fill(
-            child: Center(
-              child: IgnorePointer(
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: _phaseBanner == '敵方回合'
-                        ? Colors.red.withAlpha(200)
-                        : Colors.cyan.withAlpha(200),
-                    borderRadius: BorderRadius.circular(8),
-                    boxShadow: [
-                      BoxShadow(
-                        color: (_phaseBanner == '敵方回合' ? Colors.red : Colors.cyan)
-                            .withAlpha(100),
-                        blurRadius: 16,
-                      ),
-                    ],
-                  ),
-                  child: Text(
-                    _phaseBanner!,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 2,
-                    ),
-                  ),
-                ),
+            child: IgnorePointer(
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                color: Colors.black.withAlpha(_anticipationAlpha.round()),
               ),
             ),
+          ),
+        // Combo 計數器（右上角）
+        if (widget.battleState.lastCombo > 0)
+          Positioned(
+            top: 8,
+            right: 8,
+            child: ComboCounter(combo: widget.battleState.lastCombo),
+          ),
+        // 階段標示層（動畫化）
+        if (_phaseBanner != null)
+          _PhaseBannerWidget(
+            key: ValueKey('phase_$_phaseBanner'),
+            text: _phaseBanner!,
+            isEnemy: _phaseBannerIsEnemy,
           ),
         // 衝撞動畫層
         ..._activeRushAnims.map((rush) => _RushAttackWidget(
@@ -895,29 +946,200 @@ class _CatAgentPanelState extends State<_CatAgentPanel>
           onComplete: () => _removeRush(rush),
         )),
         // 飄浮傷害數字層
-        ..._activeDamagePopups.map((popup) => _DamagePopup(
-          key: popup.key,
-          position: popup.position,
-          damage: popup.damage,
-          color: popup.color,
-          onComplete: () => _removePopup(popup),
-        )),
+        ..._activeDamagePopups.map((popup) => popup.useCounter
+            ? DamageCounterWidget(
+                key: popup.key,
+                position: popup.position,
+                finalDamage: popup.damage,
+                baseDamage: popup.baseDamage,
+                attributeMult: popup.attributeMult,
+                matchCount: popup.matchCount,
+                combo: popup.combo,
+                comboMult: popup.comboMult,
+                color: popup.color,
+                onComplete: () => _removePopup(popup),
+              )
+            : _DamagePopup(
+                key: popup.key,
+                position: popup.position,
+                damage: popup.damage,
+                color: popup.color,
+                onComplete: () => _removePopup(popup),
+              ),
+        ),
       ],
     );
   }
 }
 
 // ═══════════════════════════════════════════
-// 晃動包裝器（敵人攻擊時我方區域晃動）
+// 震動強度等級（Balatro 風格分級打擊感）
+// ═══════════════════════════════════════════
+
+enum ShakeIntensity {
+  light,   // 消方塊等輕微反饋
+  medium,  // 普攻命中
+  heavy,   // 敵方攻擊、大傷害
+  massive, // 技能施放、Boss 擊殺
+}
+
+// ═══════════════════════════════════════════
+// 動畫化階段標示（進攻→左滑入 / 敵方→上方落下）
+// ═══════════════════════════════════════════
+
+class _PhaseBannerWidget extends StatefulWidget {
+  final String text;
+  final bool isEnemy;
+
+  const _PhaseBannerWidget({
+    super.key,
+    required this.text,
+    required this.isEnemy,
+  });
+
+  @override
+  State<_PhaseBannerWidget> createState() => _PhaseBannerWidgetState();
+}
+
+class _PhaseBannerWidgetState extends State<_PhaseBannerWidget>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _slideAnim;
+  late Animation<double> _opacityAnim;
+  late Animation<double> _scaleAnim;
+
+  @override
+  void initState() {
+    super.initState();
+    // 敵方稍長（更有威脅感）
+    final durationMs = widget.isEnemy ? 650 : 550;
+    _controller = AnimationController(
+      vsync: this,
+      duration: Duration(milliseconds: durationMs),
+    );
+
+    if (widget.isEnemy) {
+      // 「敵方回合」：從上方落下 + bounceOut
+      _slideAnim = Tween<double>(begin: -1.5, end: 0.0).animate(
+        CurvedAnimation(
+          parent: _controller,
+          curve: const Interval(0.0, 0.45, curve: Curves.bounceOut),
+        ),
+      );
+    } else {
+      // 「進攻!」：從左側滑入 + easeOutBack 過衝
+      _slideAnim = Tween<double>(begin: -2.0, end: 0.0).animate(
+        CurvedAnimation(
+          parent: _controller,
+          curve: const Interval(0.0, 0.40, curve: Curves.easeOutBack),
+        ),
+      );
+    }
+
+    // 彈入縮放
+    _scaleAnim = TweenSequence<double>([
+      TweenSequenceItem(tween: Tween(begin: 0.8, end: 1.1), weight: 30),
+      TweenSequenceItem(tween: Tween(begin: 1.1, end: 1.0), weight: 20),
+      TweenSequenceItem(tween: Tween(begin: 1.0, end: 1.0), weight: 25),
+      TweenSequenceItem(tween: Tween(begin: 1.0, end: 0.6), weight: 25),
+    ]).animate(CurvedAnimation(
+      parent: _controller,
+      curve: Curves.easeOut,
+    ));
+
+    // 淡入→持續→淡出
+    _opacityAnim = TweenSequence<double>([
+      TweenSequenceItem(tween: Tween(begin: 0.0, end: 1.0), weight: 20),
+      TweenSequenceItem(tween: Tween(begin: 1.0, end: 1.0), weight: 50),
+      TweenSequenceItem(tween: Tween(begin: 1.0, end: 0.0), weight: 30),
+    ]).animate(_controller);
+
+    _controller.forward();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final color = widget.isEnemy ? Colors.red : Colors.cyan;
+
+    return Positioned.fill(
+      child: Center(
+        child: IgnorePointer(
+          child: AnimatedBuilder(
+            animation: _controller,
+            builder: (_, child) {
+              final slideVal = _slideAnim.value;
+              // 敵方：Y 軸偏移 / 我方：X 軸偏移
+              final offset = widget.isEnemy
+                  ? Offset(0, slideVal * 40)
+                  : Offset(slideVal * 60, 0);
+
+              return Transform.translate(
+                offset: offset,
+                child: Transform.scale(
+                  scale: _scaleAnim.value.clamp(0.0, 2.0),
+                  child: Opacity(
+                    opacity: _opacityAnim.value.clamp(0.0, 1.0),
+                    child: child,
+                  ),
+                ),
+              );
+            },
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+              decoration: BoxDecoration(
+                color: color.withAlpha(200),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: Colors.white.withAlpha(100),
+                  width: 1.5,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: color.withAlpha(120),
+                    blurRadius: 20,
+                    spreadRadius: 2,
+                  ),
+                ],
+              ),
+              child: Text(
+                widget.text,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 3,
+                  shadows: [
+                    Shadow(color: Colors.black54, blurRadius: 4),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ═══════════════════════════════════════════
+// 增強型 2D 晃動包裝器 + 縮放脈衝
 // ═══════════════════════════════════════════
 
 class _ShakeWrapper extends StatefulWidget {
   final bool isShaking;
+  final ShakeIntensity intensity;
   final Widget child;
 
   const _ShakeWrapper({
     super.key,
     required this.isShaking,
+    this.intensity = ShakeIntensity.medium,
     required this.child,
   });
 
@@ -928,13 +1150,23 @@ class _ShakeWrapper extends StatefulWidget {
 class _ShakeWrapperState extends State<_ShakeWrapper>
     with SingleTickerProviderStateMixin {
   late AnimationController _controller;
+  ShakeIntensity _activeIntensity = ShakeIntensity.medium;
+
+  // 各等級參數
+  static const _params = {
+    ShakeIntensity.light:   (amplitude: 3.0,  durationMs: 200, zoom: 1.0),
+    ShakeIntensity.medium:  (amplitude: 6.0,  durationMs: 300, zoom: 1.0),
+    ShakeIntensity.heavy:   (amplitude: 10.0, durationMs: 400, zoom: 1.02),
+    ShakeIntensity.massive: (amplitude: 14.0, durationMs: 500, zoom: 1.03),
+  };
 
   @override
   void initState() {
     super.initState();
+    _activeIntensity = widget.intensity;
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 250),
+      duration: Duration(milliseconds: _params[_activeIntensity]!.durationMs),
     );
   }
 
@@ -942,6 +1174,10 @@ class _ShakeWrapperState extends State<_ShakeWrapper>
   void didUpdateWidget(covariant _ShakeWrapper oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (widget.isShaking && !oldWidget.isShaking) {
+      _activeIntensity = widget.intensity;
+      _controller.duration = Duration(
+        milliseconds: _params[_activeIntensity]!.durationMs,
+      );
       _controller.forward(from: 0);
     }
   }
@@ -957,12 +1193,29 @@ class _ShakeWrapperState extends State<_ShakeWrapper>
     return AnimatedBuilder(
       animation: _controller,
       builder: (_, child) {
-        final offset = sin(_controller.value * pi * 5) * 6.0 *
-            (1.0 - _controller.value);
-        return Transform.translate(
-          offset: Offset(offset, 0),
+        final p = _params[_activeIntensity]!;
+        final t = _controller.value;
+        final decay = 1.0 - t;
+
+        // 2D 震動：X 和 Y 使用不同頻率避免圓周感
+        final offsetX = sin(t * pi * 5) * p.amplitude * decay;
+        final offsetY = sin(t * pi * 7) * p.amplitude * 0.6 * decay;
+
+        // heavy/massive 加入 zoom pulse
+        final zoom = p.zoom > 1.0
+            ? 1.0 + (p.zoom - 1.0) * sin(t * pi) // 脈衝：0→peak→0
+            : 1.0;
+
+        Widget result = Transform.translate(
+          offset: Offset(offsetX, offsetY),
           child: child,
         );
+
+        if (zoom > 1.0) {
+          result = Transform.scale(scale: zoom, child: result);
+        }
+
+        return result;
       },
       child: widget.child,
     );
@@ -990,13 +1243,16 @@ class _RushAttackWidget extends StatefulWidget {
 }
 
 class _RushAttackWidgetState extends State<_RushAttackWidget>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   late AnimationController _controller;
+  late AnimationController _impactController;
   late Animation<double> _positionAnim;
   late Animation<double> _scaleXAnim;
   late Animation<double> _scaleYAnim;
   bool _hitFired = false;
-  bool _showImpact = false;
+
+  // 撞擊爆發隨機種子（預計算放射線角度偏移）
+  late List<double> _burstLineOffsets;
 
   @override
   void initState() {
@@ -1005,6 +1261,14 @@ class _RushAttackWidgetState extends State<_RushAttackWidget>
       vsync: this,
       duration: const Duration(milliseconds: 450),
     );
+    _impactController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 200),
+    );
+
+    // 預計算 10 條放射線的隨機長度偏移
+    final rng = Random();
+    _burstLineOffsets = List.generate(10, (_) => 0.6 + rng.nextDouble() * 0.4);
 
     // 位置：0→1→0（衝出→撞擊→彈回）
     _positionAnim = TweenSequence<double>([
@@ -1049,10 +1313,7 @@ class _RushAttackWidgetState extends State<_RushAttackWidget>
     if (!_hitFired && _controller.value >= 0.50) {
       _hitFired = true;
       widget.onHit();
-      setState(() => _showImpact = true);
-      Future.delayed(const Duration(milliseconds: 150), () {
-        if (mounted) setState(() => _showImpact = false);
-      });
+      _impactController.forward(from: 0);
     }
   }
 
@@ -1060,13 +1321,14 @@ class _RushAttackWidgetState extends State<_RushAttackWidget>
   void dispose() {
     _controller.removeListener(_checkHit);
     _controller.dispose();
+    _impactController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
-      animation: _controller,
+      animation: Listenable.merge([_controller, _impactController]),
       builder: (_, __) {
         final t = _positionAnim.value;
         final pos = Offset.lerp(widget.data.from, widget.data.to, t)!;
@@ -1095,14 +1357,21 @@ class _RushAttackWidgetState extends State<_RushAttackWidget>
                 ),
               ),
             ),
-            // 撞擊特效
-            if (_showImpact)
+            // 自繪撞擊爆發特效（取代 💥 emoji）
+            if (_impactController.value > 0 && _impactController.value < 1.0)
               Positioned(
-                left: widget.data.to.dx - 18,
-                top: widget.data.to.dy - 18,
-                child: const Text(
-                  '💥',
-                  style: TextStyle(fontSize: 32),
+                left: widget.data.to.dx - 28,
+                top: widget.data.to.dy - 28,
+                width: 56,
+                height: 56,
+                child: CustomPaint(
+                  painter: _ImpactBurstPainter(
+                    progress: Curves.easeOutCubic.transform(
+                      _impactController.value,
+                    ),
+                    color: widget.data.color,
+                    lineOffsets: _burstLineOffsets,
+                  ),
                 ),
               ),
           ],
@@ -1110,6 +1379,78 @@ class _RushAttackWidgetState extends State<_RushAttackWidget>
       },
     );
   }
+}
+
+// ═══════════════════════════════════════════
+// 自繪撞擊��發特效（漫畫速度線 + 放射環 + 中心閃光）
+// ═══════════════════════════════════════════
+
+class _ImpactBurstPainter extends CustomPainter {
+  final double progress;
+  final Color color;
+  final List<double> lineOffsets;
+
+  _ImpactBurstPainter({
+    required this.progress,
+    required this.color,
+    required this.lineOffsets,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final cx = size.width / 2;
+    final cy = size.height / 2;
+    final center = Offset(cx, cy);
+    final maxRadius = size.width / 2;
+    final alpha = ((1.0 - progress) * 255).round().clamp(0, 255);
+    if (alpha <= 0) return;
+
+    // 1) 中心閃光填充
+    final flashRadius = maxRadius * 0.5 * progress;
+    final flashAlpha = ((1.0 - progress) * 200).round().clamp(0, 255);
+    final flashPaint = Paint()
+      ..shader = RadialGradient(
+        colors: [
+          Colors.white.withAlpha(flashAlpha),
+          color.withAlpha((flashAlpha * 0.5).round()),
+          Colors.transparent,
+        ],
+        stops: const [0.0, 0.5, 1.0],
+      ).createShader(Rect.fromCircle(center: center, radius: flashRadius));
+    canvas.drawCircle(center, flashRadius, flashPaint);
+
+    // 2) 放射線條（漫畫速度線風格）
+    final linePaint = Paint()
+      ..color = Colors.white.withAlpha(alpha)
+      ..strokeWidth = (2.0 * (1.0 - progress * 0.5)).clamp(0.5, 2.0)
+      ..strokeCap = StrokeCap.round;
+
+    for (int i = 0; i < lineOffsets.length; i++) {
+      final angle = (i / lineOffsets.length) * 2 * pi;
+      final lenFactor = lineOffsets[i];
+      final innerR = maxRadius * 0.2 * progress;
+      final outerR = maxRadius * progress * lenFactor;
+      final cosA = cos(angle);
+      final sinA = sin(angle);
+      canvas.drawLine(
+        Offset(cx + cosA * innerR, cy + sinA * innerR),
+        Offset(cx + cosA * outerR, cy + sinA * outerR),
+        linePaint,
+      );
+    }
+
+    // 3) 外圈擴散環
+    final ringRadius = maxRadius * 0.7 * progress;
+    final ringAlpha = ((1.0 - progress) * 180).round().clamp(0, 255);
+    final ringPaint = Paint()
+      ..color = color.withAlpha(ringAlpha)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = (2.5 * (1.0 - progress * 0.6)).clamp(0.5, 2.5);
+    canvas.drawCircle(center, ringRadius, ringPaint);
+  }
+
+  @override
+  bool shouldRepaint(_ImpactBurstPainter old) => old.progress != progress;
 }
 
 // ═══════════════════════════════════════════
@@ -1140,27 +1481,60 @@ class _DamagePopupState extends State<_DamagePopup>
   late Animation<Offset> _slideAnim;
   late Animation<double> _scaleAnim;
   late Animation<double> _opacityAnim;
+  late Animation<double> _shakeAnim;
+
+  // 依傷害量決定的視覺參數
+  late double _fontSize;
+  late double _glowRadius;
+  late double _peakScale;
+  late bool _hasShake;
 
   @override
   void initState() {
     super.initState();
+    final d = widget.damage;
+
+    // 傷害量分級視覺
+    if (d >= 100) {
+      _fontSize = 38;
+      _glowRadius = 20;
+      _peakScale = 2.0;
+      _hasShake = true;
+    } else if (d >= 50) {
+      _fontSize = 32;
+      _glowRadius = 16;
+      _peakScale = 1.8;
+      _hasShake = true;
+    } else if (d >= 20) {
+      _fontSize = 26;
+      _glowRadius = 12;
+      _peakScale = 1.6;
+      _hasShake = false;
+    } else {
+      _fontSize = 22;
+      _glowRadius = 8;
+      _peakScale = 1.4;
+      _hasShake = false;
+    }
+
+    final duration = _hasShake ? 900 : 700;
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 700),
+      duration: Duration(milliseconds: duration),
     );
 
     _slideAnim = Tween<Offset>(
       begin: Offset.zero,
-      end: const Offset(0, -2.0),
+      end: Offset(0, _hasShake ? -2.5 : -2.0),
     ).animate(CurvedAnimation(
       parent: _controller,
       curve: Curves.easeOutCubic,
     ));
 
     _scaleAnim = TweenSequence<double>([
-      TweenSequenceItem(tween: Tween(begin: 0.0, end: 1.6), weight: 20),
-      TweenSequenceItem(tween: Tween(begin: 1.6, end: 1.0), weight: 15),
-      TweenSequenceItem(tween: Tween(begin: 1.0, end: 1.0), weight: 65),
+      TweenSequenceItem(tween: Tween(begin: 0.0, end: _peakScale), weight: 15),
+      TweenSequenceItem(tween: Tween(begin: _peakScale, end: 1.0), weight: 15),
+      TweenSequenceItem(tween: Tween(begin: 1.0, end: 1.0), weight: 70),
     ]).animate(CurvedAnimation(
       parent: _controller,
       curve: Curves.easeOut,
@@ -1172,6 +1546,16 @@ class _DamagePopupState extends State<_DamagePopup>
         curve: const Interval(0.65, 1.0, curve: Curves.easeIn),
       ),
     );
+
+    // 大傷害震動
+    _shakeAnim = _hasShake
+        ? Tween<double>(begin: 0.0, end: 1.0).animate(
+            CurvedAnimation(
+              parent: _controller,
+              curve: const Interval(0.0, 0.35, curve: Curves.linear),
+            ),
+          )
+        : const AlwaysStoppedAnimation(0.0);
 
     _controller.forward().then((_) => widget.onComplete());
   }
@@ -1190,13 +1574,19 @@ class _DamagePopupState extends State<_DamagePopup>
       child: AnimatedBuilder(
         animation: _controller,
         builder: (_, child) {
+          final shakeOffset = _hasShake
+              ? sin(_shakeAnim.value * pi * 6) * 3.0 * (1.0 - _shakeAnim.value)
+              : 0.0;
           return SlideTransition(
             position: _slideAnim,
-            child: ScaleTransition(
-              scale: _scaleAnim,
-              child: FadeTransition(
-                opacity: _opacityAnim,
-                child: child,
+            child: Transform.translate(
+              offset: Offset(shakeOffset, 0),
+              child: ScaleTransition(
+                scale: _scaleAnim,
+                child: FadeTransition(
+                  opacity: _opacityAnim,
+                  child: child,
+                ),
               ),
             ),
           );
@@ -1204,13 +1594,13 @@ class _DamagePopupState extends State<_DamagePopup>
         child: Text(
           '-${widget.damage}',
           style: TextStyle(
-            fontSize: 26,
+            fontSize: _fontSize,
             fontWeight: FontWeight.w900,
             color: widget.color,
             shadows: [
               Shadow(
                 color: widget.color.withAlpha(200),
-                blurRadius: 12,
+                blurRadius: _glowRadius,
               ),
               const Shadow(
                 color: Colors.black,
@@ -2801,40 +3191,52 @@ class _SkillBannerAnimationState extends State<_SkillBannerAnimation>
   late Animation<double> _textFadeAnim;     // 文字淡入
   late Animation<double> _flashAnim;        // 閃光
   late Animation<double> _bannerCloseAnim;  // 黑條收合
+  late Animation<double> _zoomAnim;         // 整體縮放（電影感）
+  late Animation<double> _freezeFlashAnim;  // 開場凍結閃光
 
   @override
   void initState() {
     super.initState();
     _mainController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1200),
+      duration: const Duration(milliseconds: 1350), // 加長 150ms 給凍結幀
     );
 
-    // Timeline:
-    // 0%-15%:   黑條從中間展開
-    // 10%-50%:  角色從左側滑入到中央
-    // 25%-55%:  技能名稱淡入
-    // 50%-60%:  閃光效果
-    // 70%-100%: 黑條收合，整體消失
+    // Timeline（含凍結幀偏移）:
+    // 0%-4%:    凍結幀白閃（新增）
+    // 4%-17%:   黑條從中間展開
+    // 12%-48%:  角色從左側滑入到中央
+    // 27%-53%:  技能名稱淡入
+    // 50%-63%:  閃光效果
+    // 72%-100%: 黑條收合，整體消失
+
+    // 凍結幀白閃
+    _freezeFlashAnim = TweenSequence<double>([
+      TweenSequenceItem(tween: Tween(begin: 0.0, end: 0.5), weight: 40),
+      TweenSequenceItem(tween: Tween(begin: 0.5, end: 0.0), weight: 60),
+    ]).animate(CurvedAnimation(
+      parent: _mainController,
+      curve: const Interval(0.0, 0.06, curve: Curves.easeOut),
+    ));
 
     _bannerOpenAnim = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(
         parent: _mainController,
-        curve: const Interval(0.0, 0.15, curve: Curves.easeOut),
+        curve: const Interval(0.04, 0.17, curve: Curves.easeOut),
       ),
     );
 
     _charSlideAnim = Tween<double>(begin: -1.5, end: 0.0).animate(
       CurvedAnimation(
         parent: _mainController,
-        curve: const Interval(0.10, 0.45, curve: Curves.easeOutCubic),
+        curve: const Interval(0.12, 0.48, curve: Curves.easeOutCubic),
       ),
     );
 
     _textFadeAnim = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(
         parent: _mainController,
-        curve: const Interval(0.25, 0.50, curve: Curves.easeIn),
+        curve: const Interval(0.27, 0.53, curve: Curves.easeIn),
       ),
     );
 
@@ -2844,7 +3246,7 @@ class _SkillBannerAnimationState extends State<_SkillBannerAnimation>
     ]).animate(
       CurvedAnimation(
         parent: _mainController,
-        curve: const Interval(0.48, 0.65, curve: Curves.easeOut),
+        curve: const Interval(0.50, 0.63, curve: Curves.easeOut),
       ),
     );
 
@@ -2854,6 +3256,16 @@ class _SkillBannerAnimationState extends State<_SkillBannerAnimation>
         curve: const Interval(0.72, 1.0, curve: Curves.easeInCubic),
       ),
     );
+
+    // 整體縮放：微縮出→回彈（電影感 zoom）
+    _zoomAnim = TweenSequence<double>([
+      TweenSequenceItem(tween: Tween(begin: 1.0, end: 0.97), weight: 15),
+      TweenSequenceItem(tween: Tween(begin: 0.97, end: 0.97), weight: 55),
+      TweenSequenceItem(tween: Tween(begin: 0.97, end: 1.0), weight: 30),
+    ]).animate(CurvedAnimation(
+      parent: _mainController,
+      curve: Curves.easeInOut,
+    ));
 
     HapticFeedback.heavyImpact();
     _mainController.forward().then((_) => widget.onComplete());
@@ -2879,16 +3291,31 @@ class _SkillBannerAnimationState extends State<_SkillBannerAnimation>
             ? _bannerOpenAnim.value
             : _bannerCloseAnim.value;
 
-        if (bannerScale <= 0.01) return const SizedBox.shrink();
+        if (bannerScale <= 0.01 && _freezeFlashAnim.value <= 0.01) {
+          return const SizedBox.shrink();
+        }
 
-        return Stack(
-          children: [
-            // 半透明背景遮罩
-            Positioned.fill(
-              child: IgnorePointer(
-                child: Container(
-                  color: Colors.black.withAlpha((bannerScale * 120).round()),
+        return Transform.scale(
+          scale: _zoomAnim.value,
+          child: Stack(
+            children: [
+              // 凍結幀白閃（技能施放瞬間的衝擊感）
+              if (_freezeFlashAnim.value > 0.01)
+                Positioned.fill(
+                  child: IgnorePointer(
+                    child: Container(
+                      color: Colors.white.withAlpha(
+                        (_freezeFlashAnim.value * 255).round().clamp(0, 255),
+                      ),
+                    ),
+                  ),
                 ),
+              // 半透明背景遮罩
+              Positioned.fill(
+                child: IgnorePointer(
+                  child: Container(
+                    color: Colors.black.withAlpha((bannerScale * 120).round()),
+                  ),
               ),
             ),
 
@@ -3048,7 +3475,8 @@ class _SkillBannerAnimationState extends State<_SkillBannerAnimation>
                 ),
               ),
             ),
-          ],
+            ],
+          ),
         );
       },
     );
