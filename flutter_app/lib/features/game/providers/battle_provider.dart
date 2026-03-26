@@ -25,6 +25,13 @@ class BattleEvent {
   final bool isPlayerAttack; // true=我方攻擊, false=敵方攻擊
   final String? emoji; // 攻擊者 emoji（衝撞動畫用）
 
+  // ── Balatro 風格傷害分解（供演算演出用） ──
+  final int baseDamage;       // 基礎攻擊力
+  final double attributeMult; // 屬性克制倍率 (1.0 or 1.5)
+  final int matchCount;       // 消除方塊數
+  final int combo;            // 當前 combo
+  final double comboMult;     // combo 倍率
+
   const BattleEvent({
     required this.type,
     required this.message,
@@ -34,6 +41,11 @@ class BattleEvent {
     this.targetIndex,
     this.isPlayerAttack = false,
     this.emoji,
+    this.baseDamage = 0,
+    this.attributeMult = 1.0,
+    this.matchCount = 0,
+    this.combo = 0,
+    this.comboMult = 1.0,
   });
 }
 
@@ -194,6 +206,11 @@ class BattleProvider extends ChangeNotifier {
         targetIndex: targetIdx,
         isPlayerAttack: true,
         emoji: emoji,
+        baseDamage: attack.baseDamage,
+        attributeMult: attack.attributeMult,
+        matchCount: attack.matchCount,
+        combo: attack.combo,
+        comboMult: attack.comboMult,
       );
       _events.add(event);
       _attackAnimEvents.add(event);
