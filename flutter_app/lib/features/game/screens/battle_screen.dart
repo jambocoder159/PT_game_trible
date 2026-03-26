@@ -199,6 +199,59 @@ class _BattleScreenState extends State<BattleScreen> {
     _initBattle();
   }
 
+  VoidCallback? _getNextStageCallback(
+      BuildContext context, BattleProvider battle) {
+    // 找到當前關卡在同章節的下一關
+    final currentStage = widget.stage;
+    final chapterStages = StageData.getChapterStages(currentStage.chapter);
+    final currentIndex =
+        chapterStages.indexWhere((s) => s.id == currentStage.id);
+
+    StageDefinition? nextStage;
+    if (currentIndex >= 0 && currentIndex < chapterStages.length - 1) {
+      nextStage = chapterStages[currentIndex + 1];
+    } else {
+      // 本章最後一關 → 找下一章的第一關
+      final nextChapter = currentStage.chapter + 1;
+      final nextChapterStages = StageData.getChapterStages(nextChapter);
+      if (nextChapterStages.isNotEmpty) {
+        nextStage = nextChapterStages.first;
+      }
+    }
+
+    if (nextStage == null) return null;
+
+    final playerProvider = context.read<PlayerProvider>();
+    final ns = nextStage;
+
+    return () {
+      // 檢查體力
+      if (playerProvider.data.stamina < ns.staminaCost) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('體力不足！下一關需要 ${ns.staminaCost} 體力'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return;
+      }
+
+      // 消耗體力並切換到下一關
+      playerProvider.consumeStamina(ns.staminaCost);
+      battle.endBattle();
+      Navigator.of(context).pushReplacement(
+        PageRouteBuilder(
+          pageBuilder: (_, __, ___) => BattleScreen(stage: ns),
+          transitionDuration: const Duration(milliseconds: 500),
+          reverseTransitionDuration: const Duration(milliseconds: 300),
+          transitionsBuilder: (_, animation, __, child) {
+            return FadeTransition(opacity: animation, child: child);
+          },
+        ),
+      );
+    };
+  }
+
   void _confirmExitBattle(BuildContext context, BattleProvider battle) {
     showDialog(
       context: context,
@@ -446,6 +499,9 @@ class _BattleScreenState extends State<BattleScreen> {
                       Navigator.of(context).pop();
                     },
                     onRetry: () => _retryBattle(context),
+                    onNextStage: (battle.isBattleOver && battle.isVictory)
+                        ? _getNextStageCallback(context, battle)
+                        : null,
                   ),
               ],
             );
@@ -2600,6 +2656,7 @@ class _BattleEndOverlay extends StatelessWidget {
   final BattleRewardResult? reward;
   final VoidCallback onExit;
   final VoidCallback onRetry;
+  final VoidCallback? onNextStage;
 
   const _BattleEndOverlay({
     required this.isVictory,
@@ -2608,6 +2665,7 @@ class _BattleEndOverlay extends StatelessWidget {
     this.reward,
     required this.onExit,
     required this.onRetry,
+    this.onNextStage,
   });
 
   int get _stars => reward?.stars ?? (isVictory ? 1 : 0);
@@ -2831,41 +2889,93 @@ class _BattleEndOverlay extends StatelessWidget {
                     const SizedBox(height: 20),
 
                     // ── 按鈕區 ──
-                    Row(
-                      children: [
-                        // 返回地圖
-                        Expanded(
-                          child: OutlinedButton.icon(
-                            onPressed: onExit,
-                            icon: const Icon(Icons.map_outlined, size: 18),
-                            label: const Text('返回地圖'),
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: AppTheme.textPrimary,
-                              side: BorderSide(
-                                  color: Colors.white.withAlpha(60)),
-                              padding:
-                                  const EdgeInsets.symmetric(vertical: 12),
-                            ),
+                    // 勝利且有下一關 → 三個按鈕（返回地圖 / 再戰 / 下一關）
+                    if (isVictory && onNextStage != null) ...[
+                      // 下一關（主按鈕）
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton.icon(
+                          onPressed: onNextStage,
+                          icon: const Icon(Icons.arrow_forward_rounded, size: 18),
+                          label: const Text('繼續下一關'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppTheme.accentSecondary,
+                            padding: const EdgeInsets.symmetric(vertical: 13),
                           ),
                         ),
-                        const SizedBox(width: 12),
-                        // 重試
-                        Expanded(
-                          child: ElevatedButton.icon(
-                            onPressed: onRetry,
-                            icon: const Icon(Icons.refresh, size: 18),
-                            label: Text(isVictory ? '再戰一次' : '重新挑戰'),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: isVictory
-                                  ? AppTheme.accentPrimary
-                                  : AppTheme.accentSecondary,
-                              padding:
-                                  const EdgeInsets.symmetric(vertical: 12),
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: OutlinedButton.icon(
+                              onPressed: onExit,
+                              icon: const Icon(Icons.map_outlined, size: 16),
+                              label: const Text('返回地圖',
+                                  style: TextStyle(fontSize: 13)),
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: AppTheme.textPrimary,
+                                side: BorderSide(
+                                    color: Colors.white.withAlpha(60)),
+                                padding:
+                                    const EdgeInsets.symmetric(vertical: 10),
+                              ),
                             ),
                           ),
-                        ),
-                      ],
-                    ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: OutlinedButton.icon(
+                              onPressed: onRetry,
+                              icon: const Icon(Icons.refresh, size: 16),
+                              label: const Text('再戰一次',
+                                  style: TextStyle(fontSize: 13)),
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: AppTheme.textPrimary,
+                                side: BorderSide(
+                                    color: Colors.white.withAlpha(60)),
+                                padding:
+                                    const EdgeInsets.symmetric(vertical: 10),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ] else ...[
+                      // 無下一關或失敗 → 兩個按鈕
+                      Row(
+                        children: [
+                          Expanded(
+                            child: OutlinedButton.icon(
+                              onPressed: onExit,
+                              icon: const Icon(Icons.map_outlined, size: 18),
+                              label: const Text('返回地圖'),
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: AppTheme.textPrimary,
+                                side: BorderSide(
+                                    color: Colors.white.withAlpha(60)),
+                                padding:
+                                    const EdgeInsets.symmetric(vertical: 12),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: ElevatedButton.icon(
+                              onPressed: onRetry,
+                              icon: const Icon(Icons.refresh, size: 18),
+                              label: Text(isVictory ? '再戰一次' : '重新挑戰'),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: isVictory
+                                    ? AppTheme.accentPrimary
+                                    : AppTheme.accentSecondary,
+                                padding:
+                                    const EdgeInsets.symmetric(vertical: 12),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
                   ],
                 ),
               ),
