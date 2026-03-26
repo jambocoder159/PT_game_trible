@@ -2,6 +2,7 @@
 /// 章節列表 → 關卡列表 → 開始戰鬥
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../../../config/image_assets.dart';
 import '../../../config/stage_data.dart';
 import '../../../config/theme.dart';
 import '../../agents/providers/player_provider.dart';
@@ -268,16 +269,20 @@ class _StageCard extends StatelessWidget {
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Center(
-                  child: Text(
-                    isUnlocked ? '${stage.stageNumber}' : '🔒',
-                    style: TextStyle(
-                      color: isUnlocked
-                          ? AppTheme.textPrimary
-                          : AppTheme.textSecondary,
-                      fontWeight: FontWeight.bold,
-                      fontSize: isUnlocked ? 18 : 16,
-                    ),
-                  ),
+                  child: isUnlocked
+                      ? Text(
+                          '${stage.stageNumber}',
+                          style: const TextStyle(
+                            color: AppTheme.textPrimary,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 18,
+                          ),
+                        )
+                      : GameIcon(
+                          assetPath: ImageAssets.lock,
+                          fallbackEmoji: '🔒',
+                          size: 20,
+                        ),
                 ),
               ),
               const SizedBox(width: 12),
@@ -302,9 +307,10 @@ class _StageCard extends StatelessWidget {
                         // 敵人列表
                         ...stage.enemies.take(4).map((e) => Padding(
                               padding: const EdgeInsets.only(right: 2),
-                              child: Text(
-                                e.emoji,
-                                style: const TextStyle(fontSize: 14),
+                              child: GameImage(
+                                assetPath: ImageAssets.enemyImage(e.id),
+                                fallbackEmoji: e.emoji,
+                                width: 18, height: 18,
                               ),
                             )),
                         if (stage.enemies.length > 4)
@@ -317,14 +323,21 @@ class _StageCard extends StatelessWidget {
                           ),
                         const Spacer(),
                         // 體力消耗
-                        Text(
-                          '⚡${stage.staminaCost}',
-                          style: TextStyle(
-                            color: stamina >= stage.staminaCost
-                                ? AppTheme.textSecondary
-                                : Colors.red,
-                            fontSize: 12,
-                          ),
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            GameIcon(assetPath: ImageAssets.energy, fallbackEmoji: '⚡', size: 14),
+                            const SizedBox(width: 2),
+                            Text(
+                              '${stage.staminaCost}',
+                              style: TextStyle(
+                                color: stamina >= stage.staminaCost
+                                    ? AppTheme.textSecondary
+                                    : Colors.red,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ],
                         ),
                       ],
                     ),
@@ -336,9 +349,11 @@ class _StageCard extends StatelessWidget {
                 Row(
                   mainAxisSize: MainAxisSize.min,
                   children: List.generate(3, (i) {
-                    return Icon(
-                      i < stars ? Icons.star : Icons.star_border,
-                      color: i < stars ? Colors.amber : Colors.grey,
+                    return GameIcon(
+                      assetPath: i < stars
+                          ? ImageAssets.starFull
+                          : ImageAssets.starEmpty,
+                      fallbackEmoji: i < stars ? '⭐' : '☆',
                       size: 18,
                     );
                   }),

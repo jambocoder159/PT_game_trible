@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../../config/cat_agent_data.dart';
+import '../../../config/image_assets.dart';
 import '../../../config/theme.dart';
 import '../../../core/models/cat_agent.dart';
 import '../providers/idle_provider.dart';
@@ -20,6 +21,7 @@ class IdleSkillBar extends StatelessWidget {
 
         return Container(
           padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+          clipBehavior: Clip.none,
           decoration: BoxDecoration(
             color: AppTheme.bgSecondary.withAlpha(150),
             borderRadius: BorderRadius.circular(8),
@@ -41,7 +43,7 @@ class IdleSkillBar extends StatelessWidget {
   }
 }
 
-class _SkillButton extends StatelessWidget {
+class _SkillButton extends StatefulWidget {
   final String agentId;
   final CatAgentDefinition def;
   final IdleProvider idle;
@@ -53,28 +55,69 @@ class _SkillButton extends StatelessWidget {
   });
 
   @override
+  State<_SkillButton> createState() => _SkillButtonState();
+}
+
+class _SkillButtonState extends State<_SkillButton>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _vfxController;
+  late Animation<double> _vfxScale;
+  late Animation<double> _vfxOpacity;
+  bool _showVfx = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _vfxController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 600),
+    );
+    _vfxScale = Tween<double>(begin: 0.3, end: 1.8).animate(
+      CurvedAnimation(parent: _vfxController, curve: Curves.easeOut),
+    );
+    _vfxOpacity = Tween<double>(begin: 1.0, end: 0.0).animate(
+      CurvedAnimation(parent: _vfxController, curve: Curves.easeIn),
+    );
+    _vfxController.addStatusListener((status) {
+      if (status == AnimationStatus.completed) {
+        setState(() => _showVfx = false);
+        _vfxController.reset();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _vfxController.dispose();
+    super.dispose();
+  }
+
+  void _onActivate() {
+    HapticFeedback.mediumImpact();
+    setState(() => _showVfx = true);
+    _vfxController.forward();
+    widget.idle.activateSkill(widget.agentId);
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final energy = idle.getEnergy(agentId);
-    final cost = def.skill.energyCost;
+    final energy = widget.idle.getEnergy(widget.agentId);
+    final cost = widget.def.skill.energyCost;
     final progress = (energy / cost).clamp(0.0, 1.0);
-    final isReady = idle.isSkillReady(agentId);
-    final attrColor = _attrColor(def.attribute);
+    final isReady = widget.idle.isSkillReady(widget.agentId);
+    final attrColor = _attrColor(widget.def.attribute);
 
     return GestureDetector(
-      onTap: isReady
-          ? () {
-              HapticFeedback.mediumImpact();
-              idle.activateSkill(agentId);
-            }
-          : null,
+      onTap: isReady ? _onActivate : null,
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 3),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // 角色圖示 + 能量環
+            // 角色圖示 + 能量環 + VFX
             Stack(
               alignment: Alignment.center,
+              clipBehavior: Clip.none,
               children: [
                 SizedBox(
                   width: 38,
@@ -112,18 +155,45 @@ class _SkillButton extends StatelessWidget {
                         : null,
                   ),
                   child: Center(
-                    child: Text(
-                      def.attribute.emoji,
-                      style: const TextStyle(fontSize: 14),
+                    child: GameIcon(
+                      assetPath: ImageAssets.attributeIcon(widget.def.attribute),
+                      fallbackEmoji: widget.def.attribute.emoji,
+                      size: 14,
                     ),
                   ),
                 ),
+                // VFX 特效層
+                if (_showVfx)
+                  AnimatedBuilder(
+                    animation: _vfxController,
+                    builder: (context, child) {
+                      return Transform.scale(
+                        scale: _vfxScale.value,
+                        child: Opacity(
+                          opacity: _vfxOpacity.value,
+                          child: SizedBox(
+                            width: 48,
+                            height: 48,
+                            child: Image.asset(
+                              ImageAssets.skillVfx(widget.def.attribute),
+                              fit: BoxFit.contain,
+                              errorBuilder: (_, __, ___) => Icon(
+                                Icons.auto_awesome,
+                                color: attrColor,
+                                size: 28,
+                              ),
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
               ],
             ),
             const SizedBox(height: 2),
             // 角色名稱
             Text(
-              def.name,
+              widget.def.name,
               style: TextStyle(
                 color: isReady ? AppTheme.textPrimary : AppTheme.textSecondary,
                 fontSize: 8,

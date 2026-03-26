@@ -37,6 +37,11 @@ flutter:
     - assets/images/output/blocks/
     - assets/images/output/characters/
     - assets/images/output/icons/
+    - assets/images/output/background/
+    - assets/images/output/enemies/
+    - assets/images/output/bosses/
+    - assets/images/output/vfx/
+    - assets/images/icons/
     - assets/audio/sfx/
     - assets/audio/bgm/
     - assets/fonts/

@@ -6,6 +6,8 @@
 /// - 功能素材：talentScroll / skillCore / passiveGem（系統專用）
 /// - 屬性精華：essenceA~E（對應五屬性，進化 & 天賦用）
 /// - 通用道具：expPotion / sweepTicket / crystalDust（便利 & 兌換）
+import 'package:flutter/material.dart';
+
 enum GameMaterial {
   // ── 碎片系列 ──
   commonShard,   // 普通碎片
@@ -173,6 +175,74 @@ enum GameMaterial {
         return '自動通關已三星的關卡，獲得獎勵';
       case GameMaterial.crystalDust:
         return '萬能兌換貨幣，可轉換為其他素材';
+    }
+  }
+
+  /// Flutter Material Icon 對應
+  IconData get iconData {
+    switch (this) {
+      case GameMaterial.commonShard:
+        return Icons.diamond_outlined;
+      case GameMaterial.advancedShard:
+        return Icons.diamond;
+      case GameMaterial.rareShard:
+        return Icons.auto_awesome;
+      case GameMaterial.talentScroll:
+        return Icons.menu_book;
+      case GameMaterial.skillCore:
+        return Icons.settings_suggest;
+      case GameMaterial.passiveGem:
+        return Icons.hexagon;
+      case GameMaterial.essenceA:
+        return Icons.local_fire_department;
+      case GameMaterial.essenceB:
+        return Icons.eco;
+      case GameMaterial.essenceC:
+        return Icons.water_drop;
+      case GameMaterial.essenceD:
+        return Icons.bolt;
+      case GameMaterial.essenceE:
+        return Icons.dark_mode;
+      case GameMaterial.expPotion:
+        return Icons.science;
+      case GameMaterial.sweepTicket:
+        return Icons.confirmation_number;
+      case GameMaterial.crystalDust:
+        return Icons.auto_awesome;
+    }
+  }
+
+  /// 圖示顏色
+  Color get iconColor {
+    switch (this) {
+      case GameMaterial.commonShard:
+        return const Color(0xFF90CAF9);
+      case GameMaterial.advancedShard:
+        return const Color(0xFF42A5F5);
+      case GameMaterial.rareShard:
+        return const Color(0xFFCE93D8);
+      case GameMaterial.talentScroll:
+        return const Color(0xFFFFD54F);
+      case GameMaterial.skillCore:
+        return const Color(0xFF78909C);
+      case GameMaterial.passiveGem:
+        return const Color(0xFF80CBC4);
+      case GameMaterial.essenceA:
+        return const Color(0xFFFF6B6B);
+      case GameMaterial.essenceB:
+        return const Color(0xFF66BB6A);
+      case GameMaterial.essenceC:
+        return const Color(0xFF42A5F5);
+      case GameMaterial.essenceD:
+        return const Color(0xFFFFD54F);
+      case GameMaterial.essenceE:
+        return const Color(0xFFAB47BC);
+      case GameMaterial.expPotion:
+        return const Color(0xFF4DB6AC);
+      case GameMaterial.sweepTicket:
+        return const Color(0xFFFFB74D);
+      case GameMaterial.crystalDust:
+        return const Color(0xFFE0E0E0);
     }
   }
 }

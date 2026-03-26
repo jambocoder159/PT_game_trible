@@ -415,8 +415,11 @@ class CatPanel extends StatelessWidget {
     final iconPath = ImageAssets.iconImage(agentId);
     if (iconPath == null) {
       return Center(
-        child: Text(agentDef.attribute.emoji,
-            style: TextStyle(fontSize: size * 0.5)),
+        child: GameIcon(
+          assetPath: ImageAssets.attributeIcon(agentDef.attribute),
+          fallbackEmoji: agentDef.attribute.emoji,
+          size: size * 0.5,
+        ),
       );
     }
     return Image.asset(
@@ -425,8 +428,11 @@ class CatPanel extends StatelessWidget {
       height: size,
       fit: BoxFit.cover,
       errorBuilder: (_, __, ___) => Center(
-        child: Text(agentDef.attribute.emoji,
-            style: TextStyle(fontSize: size * 0.5)),
+        child: GameIcon(
+          assetPath: ImageAssets.attributeIcon(agentDef.attribute),
+          fallbackEmoji: agentDef.attribute.emoji,
+          size: size * 0.5,
+        ),
       ),
     );
   }

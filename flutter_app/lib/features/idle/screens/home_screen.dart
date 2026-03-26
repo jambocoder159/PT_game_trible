@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../../../config/image_assets.dart';
 import '../../../config/theme.dart';
 import '../../agents/providers/player_provider.dart';
 import '../../agents/screens/agent_list_screen.dart';
@@ -19,6 +20,7 @@ import '../widgets/bottom_nav_bar.dart';
 import '../widgets/idle_mini_game.dart';
 import '../widgets/cat_panel.dart';
 import '../widgets/energy_orb_overlay.dart';
+import '../../../core/models/cat_agent.dart';
 
 /// 首頁 — 放置型遊戲大廳
 class HomeScreen extends StatefulWidget {
@@ -35,6 +37,11 @@ class _HomeScreenState extends State<HomeScreen> {
 
   // 能量球動畫
   final EnergyOrbController _orbController = EnergyOrbController();
+
+  // 技能 VFX 特效
+  bool _showSkillVfx = false;
+  AgentAttribute? _skillVfxAttribute;
+  String? _skillVfxAgentName;
 
   // 貓咪 GlobalKey（用於定位能量球目標位置）
   final Map<String, GlobalKey> _catKeys = {};
@@ -96,6 +103,17 @@ class _HomeScreenState extends State<HomeScreen> {
     if (!mounted) return;
 
     final idle = context.read<IdleProvider>();
+
+    // 偵測技能施放 → 觸發 VFX
+    if (idle.lastSkillAttribute != null && !_showSkillVfx) {
+      setState(() {
+        _showSkillVfx = true;
+        _skillVfxAttribute = idle.lastSkillAttribute;
+        _skillVfxAgentName = idle.lastSkillAgentName;
+      });
+      idle.consumeSkillVfx();
+    }
+
     final catProvider = context.read<CatProvider>();
     final playerProvider = context.read<PlayerProvider>();
 
@@ -325,6 +343,17 @@ class _HomeScreenState extends State<HomeScreen> {
       bottom: false,
       child: Stack(
         children: [
+          // 首頁背景圖
+          Positioned.fill(
+            child: Opacity(
+              opacity: 0.25,
+              child: Image.asset(
+                ImageAssets.homeBackground,
+                fit: BoxFit.cover,
+                errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+              ),
+            ),
+          ),
           Column(
             children: [
               // ─── 頂部玩家資訊列 ───
@@ -403,6 +432,16 @@ class _HomeScreenState extends State<HomeScreen> {
 
           // ─── 能量球飛行動畫覆蓋層 ───
           EnergyOrbOverlay(controller: _orbController),
+
+          // ─── 技能施放 VFX 覆蓋層 ───
+          if (_showSkillVfx && _skillVfxAttribute != null)
+            _SkillVfxOverlay(
+              attribute: _skillVfxAttribute!,
+              agentName: _skillVfxAgentName ?? '',
+              onComplete: () {
+                if (mounted) setState(() => _showSkillVfx = false);
+              },
+            ),
         ],
       ),
     );
@@ -482,6 +521,167 @@ class _StatRow extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// 技能施放 VFX 全屏覆蓋特效
+class _SkillVfxOverlay extends StatefulWidget {
+  final AgentAttribute attribute;
+  final String agentName;
+  final VoidCallback onComplete;
+
+  const _SkillVfxOverlay({
+    required this.attribute,
+    required this.agentName,
+    required this.onComplete,
+  });
+
+  @override
+  State<_SkillVfxOverlay> createState() => _SkillVfxOverlayState();
+}
+
+class _SkillVfxOverlayState extends State<_SkillVfxOverlay>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _flashOpacity;
+  late Animation<double> _vfxScale;
+  late Animation<double> _vfxOpacity;
+  late Animation<double> _textOpacity;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 900),
+    );
+
+    // 閃光：0~20% 快閃
+    _flashOpacity = TweenSequence<double>([
+      TweenSequenceItem(tween: Tween(begin: 0.0, end: 0.5), weight: 10),
+      TweenSequenceItem(tween: Tween(begin: 0.5, end: 0.0), weight: 20),
+      TweenSequenceItem(tween: ConstantTween(0.0), weight: 70),
+    ]).animate(_controller);
+
+    // VFX 圖片：從小放大
+    _vfxScale = Tween<double>(begin: 0.5, end: 2.0).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeOut),
+    );
+
+    // VFX 透明度：先出現再消失
+    _vfxOpacity = TweenSequence<double>([
+      TweenSequenceItem(tween: Tween(begin: 0.0, end: 1.0), weight: 20),
+      TweenSequenceItem(tween: ConstantTween(1.0), weight: 40),
+      TweenSequenceItem(tween: Tween(begin: 1.0, end: 0.0), weight: 40),
+    ]).animate(_controller);
+
+    // 文字：稍晚出現
+    _textOpacity = TweenSequence<double>([
+      TweenSequenceItem(tween: ConstantTween(0.0), weight: 15),
+      TweenSequenceItem(tween: Tween(begin: 0.0, end: 1.0), weight: 15),
+      TweenSequenceItem(tween: ConstantTween(1.0), weight: 40),
+      TweenSequenceItem(tween: Tween(begin: 1.0, end: 0.0), weight: 30),
+    ]).animate(_controller);
+
+    _controller.addStatusListener((status) {
+      if (status == AnimationStatus.completed) {
+        widget.onComplete();
+      }
+    });
+
+    _controller.forward();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  Color _attrColor() {
+    switch (widget.attribute) {
+      case AgentAttribute.attributeA:
+        return const Color(0xFFFF6B6B);
+      case AgentAttribute.attributeB:
+        return const Color(0xFF51CF66);
+      case AgentAttribute.attributeC:
+        return const Color(0xFF4DABF7);
+      case AgentAttribute.attributeD:
+        return const Color(0xFFFFD43B);
+      case AgentAttribute.attributeE:
+        return const Color(0xFFCC5DE8);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final color = _attrColor();
+
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, _) {
+        return IgnorePointer(
+          child: Stack(
+            children: [
+              // 全屏閃光
+              if (_flashOpacity.value > 0)
+                Positioned.fill(
+                  child: Opacity(
+                    opacity: _flashOpacity.value,
+                    child: Container(color: color),
+                  ),
+                ),
+
+              // 中央 VFX 特效圖
+              Center(
+                child: Opacity(
+                  opacity: _vfxOpacity.value,
+                  child: Transform.scale(
+                    scale: _vfxScale.value,
+                    child: SizedBox(
+                      width: 120,
+                      height: 120,
+                      child: Image.asset(
+                        ImageAssets.skillVfx(widget.attribute),
+                        fit: BoxFit.contain,
+                        errorBuilder: (_, __, ___) => Icon(
+                          Icons.auto_awesome,
+                          color: color,
+                          size: 64,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+
+              // 技能名稱文字
+              Positioned(
+                bottom: MediaQuery.of(context).size.height * 0.35,
+                left: 0,
+                right: 0,
+                child: Opacity(
+                  opacity: _textOpacity.value,
+                  child: Text(
+                    '${widget.agentName} 技能發動！',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      shadows: [
+                        Shadow(color: color, blurRadius: 16),
+                        Shadow(color: color, blurRadius: 32),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }

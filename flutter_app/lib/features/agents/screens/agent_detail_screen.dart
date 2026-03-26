@@ -267,17 +267,35 @@ class _CharacterCard extends StatelessWidget {
                       ),
                     ),
                   ),
-                  // 角色立繪
+                  // 角色立繪（背景圖 + 立繪疊加）
                   Expanded(
-                    child: Padding(
-                      padding: const EdgeInsets.all(8),
-                      child: charPath != null
-                          ? Image.asset(
-                              charPath,
-                              fit: BoxFit.contain,
-                              errorBuilder: (_, __, ___) => _fallbackImage(),
-                            )
-                          : _fallbackImage(),
+                    child: Stack(
+                      children: [
+                        // 角色卡背景圖（不影響 layout）
+                        Positioned.fill(
+                          child: Opacity(
+                            opacity: 0.35,
+                            child: Image.asset(
+                              ImageAssets.agentInfoBackground,
+                              fit: BoxFit.cover,
+                              errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                            ),
+                          ),
+                        ),
+                        // 角色立繪
+                        Positioned.fill(
+                          child: Padding(
+                            padding: const EdgeInsets.all(8),
+                            child: charPath != null
+                                ? Image.asset(
+                                    charPath,
+                                    fit: BoxFit.contain,
+                                    errorBuilder: (_, __, ___) => _fallbackImage(),
+                                  )
+                                : _fallbackImage(),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                   // 稀有度星星
@@ -413,9 +431,10 @@ class _CharacterCard extends StatelessWidget {
 
   Widget _fallbackImage() {
     return Center(
-      child: Text(
-        definition.attribute.emoji,
-        style: const TextStyle(fontSize: 48),
+      child: GameIcon(
+        assetPath: ImageAssets.attributeIcon(definition.attribute),
+        fallbackEmoji: definition.attribute.emoji,
+        size: 48,
       ),
     );
   }

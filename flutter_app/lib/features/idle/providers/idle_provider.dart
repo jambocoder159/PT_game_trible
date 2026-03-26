@@ -447,6 +447,17 @@ class IdleProvider extends ChangeNotifier {
     return (_energy[agentId] ?? 0) >= def.skill.energyCost;
   }
 
+  /// 最近施放技能的屬性（供 UI 層讀取 VFX）
+  AgentAttribute? _lastSkillAttribute;
+  String? _lastSkillAgentName;
+  AgentAttribute? get lastSkillAttribute => _lastSkillAttribute;
+  String? get lastSkillAgentName => _lastSkillAgentName;
+
+  void consumeSkillVfx() {
+    _lastSkillAttribute = null;
+    _lastSkillAgentName = null;
+  }
+
   /// 施放技能（只執行棋盤效果）
   Future<void> activateSkill(String agentId) async {
     final s = _state;
@@ -455,6 +466,10 @@ class IdleProvider extends ChangeNotifier {
 
     final def = _findAgent(agentId);
     if (def == null) return;
+
+    // 記錄技能施放資訊供 VFX 使用
+    _lastSkillAttribute = def.attribute;
+    _lastSkillAgentName = def.name;
 
     final effect = def.skill.boardEffect;
     if (effect == null) return;
