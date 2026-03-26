@@ -5,7 +5,7 @@ import '../../../config/theme.dart';
 import '../../agents/providers/player_provider.dart';
 import '../../game/providers/game_provider.dart';
 import '../../game/widgets/game_board.dart';
-import '../../menu/screens/main_menu_screen.dart';
+import '../../idle/screens/home_screen.dart';
 import '../widgets/tutorial_overlay.dart';
 
 /// 新手引導畫面
@@ -150,7 +150,7 @@ class _TutorialScreenState extends State<TutorialScreen> {
   void _completeTutorial() {
     context.read<PlayerProvider>().completeTutorial();
     Navigator.of(context).pushReplacement(
-      MaterialPageRoute(builder: (_) => const MainMenuScreen()),
+      MaterialPageRoute(builder: (_) => const HomeScreen()),
     );
   }
 

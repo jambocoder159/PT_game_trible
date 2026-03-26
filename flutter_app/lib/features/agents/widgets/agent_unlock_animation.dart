@@ -11,10 +11,10 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import '../../config/image_assets.dart';
-import '../../config/theme.dart';
-import '../../core/models/cat_agent.dart';
-import '../game/widgets/cat_placeholder.dart';
+import '../../../config/image_assets.dart';
+import '../../../config/theme.dart';
+import '../../../core/models/cat_agent.dart';
+import '../../game/widgets/cat_placeholder.dart';
 
 class AgentUnlockAnimation extends StatefulWidget {
   final CatAgentDefinition definition;
