@@ -18,7 +18,7 @@ class AutoEliminateSettings extends StatelessWidget {
         final playerLevel = player.data.playerLevel;
 
         return SafeArea(
-          child: Padding(
+          child: SingleChildScrollView(
             padding: const EdgeInsets.all(20),
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -270,43 +270,49 @@ class AutoEliminateSettings extends StatelessWidget {
         // 主要顏色
         Row(
           children: [
-            Text(
-              '主要：',
-              style: TextStyle(
-                color: AppTheme.textSecondary.withAlpha(180),
-                fontSize: 12,
+            SizedBox(
+              width: 40,
+              child: Text(
+                '主要',
+                style: TextStyle(
+                  color: AppTheme.textSecondary.withAlpha(180),
+                  fontSize: 12,
+                ),
               ),
             ),
-            const SizedBox(width: 8),
-            ...BlockColor.values.map((color) => Padding(
-                  padding: const EdgeInsets.only(right: 6),
-                  child: _ColorCircle(
-                    color: color,
-                    isSelected: config.targetColor == color,
-                    onTap: () => idle.setTargetColor(color),
+            ...BlockColor.values.map((color) => Expanded(
+                  child: Center(
+                    child: _ColorCircle(
+                      color: color,
+                      isSelected: config.targetColor == color,
+                      onTap: () => idle.setTargetColor(color),
+                    ),
                   ),
                 )),
           ],
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 10),
 
         // 備用顏色
         Row(
           children: [
-            Text(
-              '備用：',
-              style: TextStyle(
-                color: AppTheme.textSecondary.withAlpha(180),
-                fontSize: 12,
+            SizedBox(
+              width: 40,
+              child: Text(
+                '備用',
+                style: TextStyle(
+                  color: AppTheme.textSecondary.withAlpha(180),
+                  fontSize: 12,
+                ),
               ),
             ),
-            const SizedBox(width: 8),
-            ...BlockColor.values.map((color) => Padding(
-                  padding: const EdgeInsets.only(right: 6),
-                  child: _ColorCircle(
-                    color: color,
-                    isSelected: config.fallbackColor == color,
-                    onTap: () => idle.setFallbackColor(color),
+            ...BlockColor.values.map((color) => Expanded(
+                  child: Center(
+                    child: _ColorCircle(
+                      color: color,
+                      isSelected: config.fallbackColor == color,
+                      onTap: () => idle.setFallbackColor(color),
+                    ),
                   ),
                 )),
           ],
