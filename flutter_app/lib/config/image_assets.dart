@@ -134,7 +134,6 @@ class ImageAssets {
     'security_bot': 'fox',
     'elite_security': 'fox',
     'shadow_agent_enemy': 'fox',
-    'shadow_commander': 'fox',
     // 機關/毒型怪 → snake
     'trap_device': 'snake',
     'laser_trap': 'snake',
@@ -146,7 +145,7 @@ class ImageAssets {
     'shop_owner': 'boss_ch2',
     'seagull_boss': 'boss_ch3',
     'ceo': 'boss_ch4',
-    // shadowCommander 在第 5 章 boss 戰出現，但也是普通敵人
+    'shadow_commander': 'boss_ch5',
     'final_boss': 'boss_ch6',
   };
 
