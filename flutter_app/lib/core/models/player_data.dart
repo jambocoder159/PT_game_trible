@@ -26,6 +26,12 @@ class PlayerData {
   // 每日任務
   DailyQuestData dailyQuests;
 
+  // 七日打卡
+  WeeklyCheckInData weeklyCheckIn;
+
+  // 新手任務
+  NewbieQuestData newbieQuests;
+
   // 新手引導
   bool tutorialCompleted;
 
@@ -45,12 +51,16 @@ class PlayerData {
     List<String>? team,
     Map<String, StageProgress>? stageProgress,
     DailyQuestData? dailyQuests,
+    WeeklyCheckInData? weeklyCheckIn,
+    NewbieQuestData? newbieQuests,
     Map<String, int>? materials,
   })  : lastStaminaRecover = lastStaminaRecover ?? DateTime.now(),
         agents = agents ?? {},
         team = team ?? [],
         stageProgress = stageProgress ?? {},
         dailyQuests = dailyQuests ?? DailyQuestData(),
+        weeklyCheckIn = weeklyCheckIn ?? WeeklyCheckInData(),
+        newbieQuests = newbieQuests ?? NewbieQuestData(),
         materials = materials ?? {};
 
   /// 建立新玩家的初始資料
@@ -106,6 +116,12 @@ class PlayerData {
       dailyQuests: json['dailyQuests'] != null
           ? DailyQuestData.fromJson(json['dailyQuests'] as Map<String, dynamic>)
           : DailyQuestData(),
+      weeklyCheckIn: json['weeklyCheckIn'] != null
+          ? WeeklyCheckInData.fromJson(json['weeklyCheckIn'] as Map<String, dynamic>)
+          : WeeklyCheckInData(),
+      newbieQuests: json['newbieQuests'] != null
+          ? NewbieQuestData.fromJson(json['newbieQuests'] as Map<String, dynamic>)
+          : NewbieQuestData(),
       materials: materials,
     );
   }
@@ -125,6 +141,8 @@ class PlayerData {
       'team': team,
       'stageProgress': stageProgress.map((k, v) => MapEntry(k, v.toJson())),
       'dailyQuests': dailyQuests.toJson(),
+      'weeklyCheckIn': weeklyCheckIn.toJson(),
+      'newbieQuests': newbieQuests.toJson(),
       'materials': materials,
     };
   }
@@ -251,6 +269,138 @@ class DailyQuestData {
       'stagesCompleted': stagesCompleted,
       'blocksEliminated': blocksEliminated,
       'rewardsClaimed': rewardsClaimed,
+    };
+  }
+}
+
+/// 七日打卡資料
+class WeeklyCheckInData {
+  /// 打卡週期的起始日（第一天登入日）
+  String startDate;
+
+  /// 已打卡的天數列表（1~7，代表第幾天打過卡）
+  List<int> checkedDays;
+
+  /// 今天是否已打卡
+  bool todayChecked;
+
+  /// 今天的日期字串（用來判斷是否跨日）
+  String lastCheckDate;
+
+  WeeklyCheckInData({
+    String? startDate,
+    List<int>? checkedDays,
+    this.todayChecked = false,
+    String? lastCheckDate,
+  })  : startDate = startDate ?? _todayString(),
+        checkedDays = checkedDays ?? [],
+        lastCheckDate = lastCheckDate ?? '';
+
+  static String _todayString() {
+    final now = DateTime.now();
+    return '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+  }
+
+  /// 當前是第幾天（從 startDate 算起，1-based）
+  int get currentDay {
+    try {
+      final start = DateTime.parse(startDate);
+      final now = DateTime.now();
+      final diff = DateTime(now.year, now.month, now.day)
+          .difference(DateTime(start.year, start.month, start.day))
+          .inDays;
+      return (diff + 1).clamp(1, 8); // 超過 7 天回傳 8 表示週期結束
+    } catch (_) {
+      return 1;
+    }
+  }
+
+  /// 今天是否需要刷新（跨日）
+  bool get needsRefresh => lastCheckDate != _todayString();
+
+  /// 週期是否已結束（7 天都過了）
+  bool get isCycleComplete => currentDay > 7;
+
+  /// 重新開始新一輪打卡
+  void resetCycle() {
+    startDate = _todayString();
+    checkedDays = [];
+    todayChecked = false;
+    lastCheckDate = '';
+  }
+
+  /// 跨日刷新（只重置 todayChecked）
+  void refreshDay() {
+    todayChecked = false;
+    lastCheckDate = _todayString();
+  }
+
+  /// 打卡（回傳是否成功）
+  bool checkIn() {
+    if (todayChecked) return false;
+    if (isCycleComplete) return false;
+    final day = currentDay;
+    if (!checkedDays.contains(day)) {
+      checkedDays.add(day);
+    }
+    todayChecked = true;
+    lastCheckDate = _todayString();
+    return true;
+  }
+
+  /// 已打卡天數
+  int get totalChecked => checkedDays.length;
+
+  factory WeeklyCheckInData.fromJson(Map<String, dynamic> json) {
+    return WeeklyCheckInData(
+      startDate: json['startDate'] as String?,
+      checkedDays: (json['checkedDays'] as List<dynamic>?)?.cast<int>() ?? [],
+      todayChecked: json['todayChecked'] as bool? ?? false,
+      lastCheckDate: json['lastCheckDate'] as String? ?? '',
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'startDate': startDate,
+      'checkedDays': checkedDays,
+      'todayChecked': todayChecked,
+      'lastCheckDate': lastCheckDate,
+    };
+  }
+}
+
+/// 新手任務資料
+class NewbieQuestData {
+  /// 已完成的任務 ID 集合
+  Set<String> completedIds;
+
+  /// 已領取獎勵的任務 ID
+  Set<String> claimedIds;
+
+  NewbieQuestData({
+    Set<String>? completedIds,
+    Set<String>? claimedIds,
+  })  : completedIds = completedIds ?? {},
+        claimedIds = claimedIds ?? {};
+
+  bool isCompleted(String id) => completedIds.contains(id);
+  bool isClaimed(String id) => claimedIds.contains(id);
+
+  void complete(String id) => completedIds.add(id);
+  void claim(String id) => claimedIds.add(id);
+
+  factory NewbieQuestData.fromJson(Map<String, dynamic> json) {
+    return NewbieQuestData(
+      completedIds: (json['completedIds'] as List<dynamic>?)?.cast<String>().toSet() ?? {},
+      claimedIds: (json['claimedIds'] as List<dynamic>?)?.cast<String>().toSet() ?? {},
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'completedIds': completedIds.toList(),
+      'claimedIds': claimedIds.toList(),
     };
   }
 }

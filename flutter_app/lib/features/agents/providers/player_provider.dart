@@ -6,6 +6,7 @@ import '../../../config/cat_agent_data.dart';
 import '../../../config/evolution_data.dart';
 import '../../../config/passive_skill_data.dart';
 import '../../../config/skill_tier_data.dart';
+import '../../../config/stage_data.dart';
 import '../../../config/talent_tree_data.dart';
 import '../../../core/models/cat_agent.dart';
 import '../../../core/models/material.dart';
@@ -356,6 +357,69 @@ class PlayerProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  // ─── 七日打卡 ───
+
+  /// 七日打卡（回傳是否成功）
+  Future<bool> weeklyCheckIn() async {
+    final wc = _data.weeklyCheckIn;
+    // 週期結束自動開新週期
+    if (wc.isCycleComplete) {
+      wc.resetCycle();
+    }
+    // 跨日刷新
+    if (wc.needsRefresh) {
+      wc.refreshDay();
+    }
+    if (!wc.checkIn()) return false;
+    await _save();
+    notifyListeners();
+    return true;
+  }
+
+  /// 領取七日打卡獎勵（根據天數）
+  /// 獎勵在 UI 層定義，這裡只負責發放
+  Future<void> claimWeeklyReward({int gold = 0, int diamonds = 0}) async {
+    _data.gold += gold;
+    _data.diamonds += diamonds;
+    await _save();
+    notifyListeners();
+  }
+
+  // ─── 新手任務 ───
+
+  /// 檢查並自動完成新手任務（根據當前進度）
+  void refreshNewbieQuests() {
+    final nq = _data.newbieQuests;
+    final d = _data;
+
+    // 完成教學
+    if (d.tutorialCompleted) nq.complete('tutorial');
+    // 解鎖第二個角色
+    if (d.agents.values.where((a) => a.isUnlocked).length >= 2) nq.complete('unlock_agent');
+    // 通關 1-3
+    if (d.stageProgress['1-3']?.cleared == true) nq.complete('clear_1_3');
+    // 組滿 3 人隊伍
+    if (d.team.length >= 3) nq.complete('full_team');
+    // 達到 Lv.5
+    if (d.playerLevel >= 5) nq.complete('reach_lv5');
+    // 消除 500 方塊（累計）
+    if (d.dailyQuests.blocksEliminated >= 500) nq.complete('eliminate_500');
+    // 完成一次每日全任務
+    if (d.dailyQuests.rewardsClaimed) nq.complete('daily_all');
+  }
+
+  /// 領取新手任務獎勵
+  Future<bool> claimNewbieReward(String questId, {int gold = 0, int diamonds = 0}) async {
+    final nq = _data.newbieQuests;
+    if (!nq.isCompleted(questId) || nq.isClaimed(questId)) return false;
+    nq.claim(questId);
+    _data.gold += gold;
+    _data.diamonds += diamonds;
+    await _save();
+    notifyListeners();
+    return true;
+  }
+
   // ─── 體力操作 ───
 
   bool get hasEnoughStamina => _data.stamina > 0;
@@ -567,6 +631,50 @@ class PlayerProvider extends ChangeNotifier {
   /// 重置所有關卡進度
   Future<void> gmResetStages() async {
     _data.stageProgress.clear();
+    await _save();
+    notifyListeners();
+  }
+
+  /// 設定玩家等級（GM）
+  Future<void> gmSetPlayerLevel(int level) async {
+    _data.playerLevel = level.clamp(1, 999);
+    _data.playerExp = 0;
+    await _save();
+    notifyListeners();
+  }
+
+  /// 增加玩家等級（GM）
+  Future<void> gmAddPlayerLevel(int levels) async {
+    _data.playerLevel = (_data.playerLevel + levels).clamp(1, 999);
+    _data.playerExp = 0;
+    await _save();
+    notifyListeners();
+  }
+
+  /// 通關所有關卡（GM，全 3 星）
+  Future<void> gmClearAllStages() async {
+    for (final stage in StageData.allStages) {
+      _data.stageProgress[stage.id] = const StageProgress(
+        cleared: true,
+        stars: 3,
+        bestScore: 9999,
+      );
+    }
+    await _save();
+    notifyListeners();
+  }
+
+  /// 通關指定章節所有關卡（GM，全 3 星）
+  Future<void> gmClearChapter(int chapter) async {
+    for (final stage in StageData.allStages) {
+      if (stage.chapter == chapter) {
+        _data.stageProgress[stage.id] = const StageProgress(
+          cleared: true,
+          stars: 3,
+          bestScore: 9999,
+        );
+      }
+    }
     await _save();
     notifyListeners();
   }

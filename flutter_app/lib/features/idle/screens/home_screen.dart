@@ -67,6 +67,12 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void _startIdleGame() {
     final idle = context.read<IdleProvider>();
+
+    // 載入自動消除設定 & 檢查階段解鎖
+    idle.loadAutoConfig();
+    final playerLevel = context.read<PlayerProvider>().data.playerLevel;
+    idle.checkStageUnlock(playerLevel);
+
     if (idle.state == null) {
       idle.startIdleGame();
     }

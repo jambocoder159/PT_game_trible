@@ -5,6 +5,7 @@ import '../../../config/theme.dart';
 import '../../../core/models/block.dart';
 import '../../game/widgets/block_widget.dart';
 import '../providers/idle_provider.dart';
+import 'auto_eliminate_bar.dart';
 
 /// 首頁簡化版消除遊戲（3×8 棋盤，支援點擊消除 + 長按/滑動移動）
 class IdleMiniGame extends StatefulWidget {
@@ -247,6 +248,11 @@ class _IdleMiniGameState extends State<IdleMiniGame>
                         ),
                       ],
                     ),
+                  ),
+                  // 自動消除狀態列
+                  const Padding(
+                    padding: EdgeInsets.only(bottom: 3),
+                    child: AutoEliminateBar(),
                   ),
                   // Combo 顯示（棋盤外部）
                   if (state.combo > 1)
