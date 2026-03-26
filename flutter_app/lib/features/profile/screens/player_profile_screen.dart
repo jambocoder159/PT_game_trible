@@ -128,9 +128,11 @@ class _ProfileHeader extends StatelessWidget {
                   ],
                 ),
                 child: ClipOval(
-                  child: teamLeader != null
+                  child: teamLeader != null &&
+                          ImageAssets.avatarImage(teamLeader.definition.id) !=
+                              null
                       ? Image.asset(
-                          ImageAssets.avatarImage(teamLeader.definition.id),
+                          ImageAssets.avatarImage(teamLeader.definition.id)!,
                           fit: BoxFit.cover,
                           errorBuilder: (_, __, ___) => Container(
                             color: AppTheme.bgCard,
@@ -549,11 +551,12 @@ class _AgentCollectionGrid extends StatelessWidget {
               SizedBox(
                 width: 36,
                 height: 36,
-                child: agent.isUnlocked
+                child: agent.isUnlocked &&
+                        ImageAssets.avatarImage(agent.definition.id) != null
                     ? ClipRRect(
                         borderRadius: BorderRadius.circular(6),
                         child: Image.asset(
-                          ImageAssets.avatarImage(agent.definition.id),
+                          ImageAssets.avatarImage(agent.definition.id)!,
                           fit: BoxFit.cover,
                           errorBuilder: (_, __, ___) => Icon(
                             Icons.person,
