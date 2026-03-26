@@ -42,20 +42,7 @@ class AgentDetailScreen extends StatelessWidget {
         return Scaffold(
           backgroundColor: AppTheme.bgPrimary,
           body: SafeArea(
-            child: Stack(
-              children: [
-                // 角色資訊背景圖
-                Positioned.fill(
-                  child: Opacity(
-                    opacity: 0.2,
-                    child: Image.asset(
-                      ImageAssets.agentInfoBackground,
-                      fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) => const SizedBox.shrink(),
-                    ),
-                  ),
-                ),
-                Column(
+            child: Column(
               children: [
                 // ── 頂部彩色名稱欄 ──
                 _NameBanner(
@@ -98,8 +85,6 @@ class AgentDetailScreen extends StatelessWidget {
                     attrColor: attrColor,
                   ),
                 ),
-              ],
-            ),
               ],
             ),
           ),
@@ -282,17 +267,34 @@ class _CharacterCard extends StatelessWidget {
                       ),
                     ),
                   ),
-                  // 角色立繪
+                  // 角色立繪（背景圖 + 立繪疊加）
                   Expanded(
-                    child: Padding(
-                      padding: const EdgeInsets.all(8),
-                      child: charPath != null
-                          ? Image.asset(
-                              charPath,
-                              fit: BoxFit.contain,
-                              errorBuilder: (_, __, ___) => _fallbackImage(),
-                            )
-                          : _fallbackImage(),
+                    child: Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        // 角色卡背景圖
+                        ClipRRect(
+                          child: Opacity(
+                            opacity: 0.35,
+                            child: Image.asset(
+                              ImageAssets.agentInfoBackground,
+                              fit: BoxFit.cover,
+                              errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                            ),
+                          ),
+                        ),
+                        // 角色立繪
+                        Padding(
+                          padding: const EdgeInsets.all(8),
+                          child: charPath != null
+                              ? Image.asset(
+                                  charPath,
+                                  fit: BoxFit.contain,
+                                  errorBuilder: (_, __, ___) => _fallbackImage(),
+                                )
+                              : _fallbackImage(),
+                        ),
+                      ],
                     ),
                   ),
                   // 稀有度星星

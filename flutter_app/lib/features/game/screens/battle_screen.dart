@@ -910,10 +910,10 @@ class _CatAgentPanelState extends State<_CatAgentPanel>
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
               colors: [
-                Color(0xFF7BA0C4),
-                Color(0xFFA8C4D9),
-                Color(0xFFD4C5A9),
-                Color(0xFF9E9E9E),
+                Color(0xCC7BA0C4),
+                Color(0xBBA8C4D9),
+                Color(0xAAD4C5A9),
+                Color(0x999E9E9E),
               ],
               stops: [0.0, 0.3, 0.75, 1.0],
             ),
@@ -2377,7 +2377,7 @@ class _GamePanel extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: _gamePanelBg,
+        color: _gamePanelBg.withAlpha(200),
         border: const Border(
           left: BorderSide(color: _woodDark, width: 3),
         ),

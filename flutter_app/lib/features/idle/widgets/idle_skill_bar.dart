@@ -21,6 +21,7 @@ class IdleSkillBar extends StatelessWidget {
 
         return Container(
           padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+          clipBehavior: Clip.none,
           decoration: BoxDecoration(
             color: AppTheme.bgSecondary.withAlpha(150),
             borderRadius: BorderRadius.circular(8),
@@ -116,6 +117,7 @@ class _SkillButtonState extends State<_SkillButton>
             // 角色圖示 + 能量環 + VFX
             Stack(
               alignment: Alignment.center,
+              clipBehavior: Clip.none,
               children: [
                 SizedBox(
                   width: 38,
