@@ -4,6 +4,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import '../../../config/cat_agent_data.dart';
 import '../../../config/game_modes.dart';
 import '../../../config/image_assets.dart';
 import '../../../config/stage_data.dart';
@@ -17,6 +18,7 @@ import '../../agents/providers/player_provider.dart';
 import '../providers/battle_provider.dart';
 import '../providers/game_provider.dart';
 import '../widgets/game_board.dart';
+import '../../agents/widgets/agent_unlock_animation.dart';
 import '../widgets/cat_placeholder.dart';
 import '../widgets/pause_menu.dart';
 
@@ -2326,35 +2328,53 @@ class _BattleEndOverlay extends StatelessWidget {
                       if (reward!.agentUnlocked &&
                           reward!.unlockedAgentId != null) ...[
                         const SizedBox(height: 12),
-                        Container(
-                          width: double.infinity,
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 14, vertical: 10),
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              colors: [
-                                Colors.amber.withAlpha(30),
-                                Colors.orange.withAlpha(20),
+                        GestureDetector(
+                          onTap: () {
+                            final def = CatAgentData.getById(reward!.unlockedAgentId!);
+                            if (def != null) {
+                              final overlay = Overlay.of(context);
+                              late OverlayEntry entry;
+                              entry = OverlayEntry(
+                                builder: (_) => AgentUnlockAnimation(
+                                  definition: def,
+                                  onComplete: () {
+                                    entry.remove();
+                                  },
+                                ),
+                              );
+                              overlay.insert(entry);
+                            }
+                          },
+                          child: Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 14, vertical: 10),
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                colors: [
+                                  Colors.amber.withAlpha(30),
+                                  Colors.orange.withAlpha(20),
+                                ],
+                              ),
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(
+                                  color: Colors.amber.withAlpha(100)),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                const Text('🎉', style: TextStyle(fontSize: 20)),
+                                const SizedBox(width: 8),
+                                Text(
+                                  '新特工加入！點擊查看',
+                                  style: TextStyle(
+                                    color: Colors.amber.shade300,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 15,
+                                  ),
+                                ),
                               ],
                             ),
-                            borderRadius: BorderRadius.circular(10),
-                            border: Border.all(
-                                color: Colors.amber.withAlpha(100)),
-                          ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              const Text('🎉', style: TextStyle(fontSize: 20)),
-                              const SizedBox(width: 8),
-                              Text(
-                                '新特工加入！',
-                                style: TextStyle(
-                                  color: Colors.amber.shade300,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 15,
-                                ),
-                              ),
-                            ],
                           ),
                         ),
                       ],

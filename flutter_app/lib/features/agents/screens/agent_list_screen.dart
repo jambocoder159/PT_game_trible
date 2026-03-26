@@ -2,10 +2,12 @@
 /// 顯示所有角色（已解鎖 + 未解鎖），可查看詳情、升級、編入隊伍
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../../../config/cat_agent_data.dart';
 import '../../../config/image_assets.dart';
 import '../../../config/theme.dart';
 import '../../../core/models/cat_agent.dart';
 import '../providers/player_provider.dart';
+import '../widgets/agent_unlock_animation.dart';
 import 'agent_detail_screen.dart';
 
 class AgentListScreen extends StatelessWidget {
@@ -750,12 +752,19 @@ class _UnlockButton extends StatelessWidget {
         final provider = context.read<PlayerProvider>();
         final success = await provider.unlockAgent(agentId);
         if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(success ? '解鎖成功！' : '條件不足'),
-              backgroundColor: success ? Colors.green : Colors.red,
-            ),
-          );
+          if (success) {
+            final def = CatAgentData.getById(agentId);
+            if (def != null) {
+              _showUnlockAnimation(context, def);
+            }
+          } else {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('條件不足'),
+                backgroundColor: Colors.red,
+              ),
+            );
+          }
         }
       },
       style: ElevatedButton.styleFrom(
@@ -765,5 +774,19 @@ class _UnlockButton extends StatelessWidget {
       ),
       child: const Text('解鎖', style: TextStyle(fontSize: 13)),
     );
+  }
+
+  void _showUnlockAnimation(BuildContext context, CatAgentDefinition def) {
+    final overlay = Overlay.of(context);
+    late OverlayEntry entry;
+    entry = OverlayEntry(
+      builder: (_) => AgentUnlockAnimation(
+        definition: def,
+        onComplete: () {
+          entry.remove();
+        },
+      ),
+    );
+    overlay.insert(entry);
   }
 }
