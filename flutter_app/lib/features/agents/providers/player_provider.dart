@@ -6,6 +6,7 @@ import '../../../config/cat_agent_data.dart';
 import '../../../config/evolution_data.dart';
 import '../../../config/passive_skill_data.dart';
 import '../../../config/skill_tier_data.dart';
+import '../../../config/stage_data.dart';
 import '../../../config/talent_tree_data.dart';
 import '../../../core/models/cat_agent.dart';
 import '../../../core/models/material.dart';
@@ -567,6 +568,50 @@ class PlayerProvider extends ChangeNotifier {
   /// 重置所有關卡進度
   Future<void> gmResetStages() async {
     _data.stageProgress.clear();
+    await _save();
+    notifyListeners();
+  }
+
+  /// 設定玩家等級（GM）
+  Future<void> gmSetPlayerLevel(int level) async {
+    _data.playerLevel = level.clamp(1, 999);
+    _data.playerExp = 0;
+    await _save();
+    notifyListeners();
+  }
+
+  /// 增加玩家等級（GM）
+  Future<void> gmAddPlayerLevel(int levels) async {
+    _data.playerLevel = (_data.playerLevel + levels).clamp(1, 999);
+    _data.playerExp = 0;
+    await _save();
+    notifyListeners();
+  }
+
+  /// 通關所有關卡（GM，全 3 星）
+  Future<void> gmClearAllStages() async {
+    for (final stage in StageData.allStages) {
+      _data.stageProgress[stage.id] = const StageProgress(
+        cleared: true,
+        stars: 3,
+        bestScore: 9999,
+      );
+    }
+    await _save();
+    notifyListeners();
+  }
+
+  /// 通關指定章節所有關卡（GM，全 3 星）
+  Future<void> gmClearChapter(int chapter) async {
+    for (final stage in StageData.allStages) {
+      if (stage.chapter == chapter) {
+        _data.stageProgress[stage.id] = const StageProgress(
+          cleared: true,
+          stars: 3,
+          bestScore: 9999,
+        );
+      }
+    }
     await _save();
     notifyListeners();
   }

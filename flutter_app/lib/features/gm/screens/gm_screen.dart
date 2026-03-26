@@ -3,8 +3,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../config/app_version.dart';
+import '../../../config/stage_data.dart';
 import '../../../config/theme.dart';
 import '../../agents/providers/player_provider.dart';
+import '../../idle/providers/idle_provider.dart';
 import '../../tutorial/screens/tutorial_screen.dart';
 
 class GmScreen extends StatelessWidget {
@@ -58,6 +60,87 @@ class GmScreen extends StatelessWidget {
               _StatusRow('教學', data.tutorialCompleted ? '已完成' : '未完成'),
               _StatusRow('版本', AppVersion.displayVersion),
               const SizedBox(height: 20),
+
+              // 玩家等級
+              _SectionTitle('玩家等級'),
+              Row(
+                children: [
+                  Expanded(
+                    child: _GmButton(
+                      icon: Icons.add,
+                      label: '+1 等級',
+                      color: Colors.lightBlue,
+                      onTap: () {
+                        provider.gmAddPlayerLevel(1);
+                        // 同步更新自動消除階段解鎖
+                        context.read<IdleProvider>().checkStageUnlock(
+                          provider.data.playerLevel,
+                        );
+                        _showDone(context, '等級 → Lv.${provider.data.playerLevel}');
+                      },
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: _GmButton(
+                      icon: Icons.add,
+                      label: '+5 等級',
+                      color: Colors.lightBlue,
+                      onTap: () {
+                        provider.gmAddPlayerLevel(5);
+                        context.read<IdleProvider>().checkStageUnlock(
+                          provider.data.playerLevel,
+                        );
+                        _showDone(context, '等級 → Lv.${provider.data.playerLevel}');
+                      },
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Expanded(
+                    child: _GmButton(
+                      icon: Icons.arrow_upward,
+                      label: '設為 Lv.5',
+                      color: Colors.indigo,
+                      onTap: () {
+                        provider.gmSetPlayerLevel(5);
+                        context.read<IdleProvider>().checkStageUnlock(5);
+                        _showDone(context, '等級 → Lv.5');
+                      },
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: _GmButton(
+                      icon: Icons.arrow_upward,
+                      label: '設為 Lv.15',
+                      color: Colors.indigo,
+                      onTap: () {
+                        provider.gmSetPlayerLevel(15);
+                        context.read<IdleProvider>().checkStageUnlock(15);
+                        _showDone(context, '等級 → Lv.15');
+                      },
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: _GmButton(
+                      icon: Icons.arrow_upward,
+                      label: '設為 Lv.30',
+                      color: Colors.indigo,
+                      onTap: () {
+                        provider.gmSetPlayerLevel(30);
+                        context.read<IdleProvider>().checkStageUnlock(30);
+                        _showDone(context, '等級 → Lv.30');
+                      },
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
 
               // 體力
               _SectionTitle('體力'),
@@ -175,6 +258,37 @@ class GmScreen extends StatelessWidget {
 
               // 關卡
               _SectionTitle('關卡'),
+              _GmButton(
+                icon: Icons.done_all,
+                label: '全關卡通關（3 星）',
+                color: Colors.green,
+                onTap: () {
+                  provider.gmClearAllStages();
+                  _showDone(context, '全關卡已通關 ⭐⭐⭐');
+                },
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  ...StageData.chapters.map((ch) => Expanded(
+                        child: Padding(
+                          padding: EdgeInsets.only(
+                            right: ch.number < StageData.chapters.length ? 8.0 : 0,
+                          ),
+                          child: _GmButton(
+                            icon: Icons.check_circle_outline,
+                            label: '通關 Ch.${ch.number}',
+                            color: Colors.lightGreen,
+                            onTap: () {
+                              provider.gmClearChapter(ch.number);
+                              _showDone(context, '第 ${ch.number} 章已通關');
+                            },
+                          ),
+                        ),
+                      )),
+                ],
+              ),
+              const SizedBox(height: 8),
               _GmButton(
                 icon: Icons.restart_alt,
                 label: '重置所有關卡進度',
