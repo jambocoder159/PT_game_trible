@@ -7,14 +7,21 @@ import '../../../config/game_modes.dart';
 import '../../../core/models/block.dart';
 import '../../../core/models/cat_agent.dart';
 import '../../../core/models/game_state.dart';
+import '../../../core/models/auto_eliminate_config.dart';
 import '../../../core/engine/match_detector.dart';
+import '../../../core/services/local_storage.dart';
 
 /// 飼料產出事件（給 CatProvider 消費）
 class FoodEvent {
   final Map<BlockColor, int> foodByColor;
   final int combo;
+  final EliminationSource source;
 
-  const FoodEvent({required this.foodByColor, required this.combo});
+  const FoodEvent({
+    required this.foodByColor,
+    required this.combo,
+    this.source = EliminationSource.manual,
+  });
 }
 
 /// 放置模式遊戲 Provider — 簡化版 GameProvider
@@ -33,6 +40,17 @@ class IdleProvider extends ChangeNotifier {
   /// 每次消除方塊的回呼（用於每日任務計數）
   void Function(int count)? onBlocksEliminated;
 
+  // ─── 自動消除系統 ───
+
+  AutoEliminateConfig _autoConfig = AutoEliminateConfig();
+  AutoEliminateConfig get autoConfig => _autoConfig;
+
+  Timer? _autoTimer;
+
+  /// 自動消除倒計時（毫秒，供 UI 顯示）
+  int _autoCountdownMs = 0;
+  int get autoCountdownMs => _autoCountdownMs;
+
   // 飼料事件佇列
   final List<FoodEvent> _foodEvents = [];
   List<FoodEvent> consumeFoodEvents() {
@@ -50,6 +68,12 @@ class IdleProvider extends ChangeNotifier {
     _state = GameState.initial(GameModes.idle);
     _state!.status = GameStatus.playing;
     _fillGrid();
+
+    // 若自動消除已開啟，啟動 timer
+    if (_autoConfig.isAutoActive) {
+      _startAutoTimer();
+    }
+
     notifyListeners();
   }
 
@@ -83,9 +107,10 @@ class IdleProvider extends ChangeNotifier {
     _foodEvents.add(FoodEvent(
       foodByColor: tapFood,
       combo: 0,
+      source: EliminationSource.manual,
     ));
     onBlocksEliminated?.call(1);
-    _accumulateEnergy(tapFood);
+    _accumulateEnergy(tapFood, multiplier: AutoEliminateConfig.manualMultiplier);
 
     // 重力 + 補充
     _applyGravity();
@@ -179,7 +204,8 @@ class IdleProvider extends ChangeNotifier {
   GameModeConfig get mode => GameModes.idle;
 
   /// 連鎖消除迴圈 — 產出飼料
-  Future<bool> _processMatchLoop() async {
+  /// [energyMultiplier] 控制此次連鎖的能量倍率（自動消除傳 0.5，手動傳 1.0）
+  Future<bool> _processMatchLoop({double energyMultiplier = 1.0}) async {
     final s = _state!;
     final gen = _gameGeneration;
     bool everHadMatch = false;
@@ -215,11 +241,15 @@ class IdleProvider extends ChangeNotifier {
         boostedFood[entry.key] = (entry.value * multiplier).round();
       }
 
+      final source = energyMultiplier < 1.0
+          ? EliminationSource.chain
+          : EliminationSource.manual;
       _foodEvents.add(FoodEvent(
         foodByColor: boostedFood,
         combo: s.combo,
+        source: source,
       ));
-      _accumulateEnergy(foodMap);
+      _accumulateEnergy(foodMap, multiplier: energyMultiplier);
 
       // 分數（僅用於展示）
       final eliminatedCount = foodMap.values.fold(0, (a, b) => a + b);
@@ -388,7 +418,8 @@ class IdleProvider extends ChangeNotifier {
   }
 
   /// 消除方塊時累積能量
-  void _accumulateEnergy(Map<BlockColor, int> foodByColor) {
+  /// [multiplier] 能量倍率：手動 1.0 / 自動單顆 0.3 / 自動連鎖 0.5
+  void _accumulateEnergy(Map<BlockColor, int> foodByColor, {double multiplier = 1.0}) {
     for (final agentId in _teamIds) {
       final def = _findAgent(agentId);
       if (def == null) continue;
@@ -399,7 +430,8 @@ class IdleProvider extends ChangeNotifier {
       final otherBlocks = foodByColor.entries
           .where((e) => e.key != agentColor)
           .fold(0, (sum, e) => sum + e.value);
-      final gain = matched + (otherBlocks * 0.5).round();
+      final baseGain = matched + (otherBlocks * 0.5).round();
+      final gain = (baseGain * multiplier).round();
 
       if (gain > 0) {
         final cost = def.skill.energyCost;
@@ -557,5 +589,223 @@ class IdleProvider extends ChangeNotifier {
         }
       }
     }
+  }
+
+  // ─── 自動消除系統 ───
+
+  /// 載入自動消除設定（從本地存儲）
+  void loadAutoConfig() {
+    final json = LocalStorageService.instance.getJson('auto_eliminate_config');
+    if (json is Map<String, dynamic>) {
+      _autoConfig = AutoEliminateConfig.fromJson(json);
+    }
+  }
+
+  /// 儲存自動消除設定
+  void _saveAutoConfig() {
+    LocalStorageService.instance.setJson(
+      'auto_eliminate_config',
+      _autoConfig.toJson(),
+    );
+  }
+
+  /// 根據玩家等級檢查並解鎖階段
+  void checkStageUnlock(int playerLevel) {
+    AutoEliminateStage highest = AutoEliminateStage.stage1;
+    for (final entry in AutoEliminateConfig.unlockLevelRequirements.entries) {
+      if (playerLevel >= entry.value && entry.key.index > highest.index) {
+        highest = entry.key;
+      }
+    }
+    if (highest.index > _autoConfig.unlockedStage.index) {
+      _autoConfig.unlockedStage = highest;
+      _saveAutoConfig();
+      notifyListeners();
+    }
+  }
+
+  /// 開關自動消除
+  void toggleAutoEliminate(bool enabled) {
+    if (_autoConfig.unlockedStage == AutoEliminateStage.stage1) return;
+    _autoConfig.isEnabled = enabled;
+    _saveAutoConfig();
+
+    if (enabled && _state?.status == GameStatus.playing) {
+      _startAutoTimer();
+    } else {
+      _stopAutoTimer();
+    }
+    notifyListeners();
+  }
+
+  /// 設定 Stage 3 主要目標顏色
+  void setTargetColor(BlockColor color) {
+    _autoConfig.targetColor = color;
+    _saveAutoConfig();
+    notifyListeners();
+  }
+
+  /// 設定 Stage 3 備用顏色
+  void setFallbackColor(BlockColor color) {
+    _autoConfig.fallbackColor = color;
+    _saveAutoConfig();
+    notifyListeners();
+  }
+
+  /// 升級自動消除週期，回傳是否成功
+  /// [deductGold] 外部提供的扣金幣函數，回傳是否扣款成功
+  bool upgradeInterval(bool Function(int cost) deductGold) {
+    if (_autoConfig.isMaxIntervalLevel) return false;
+    final cost = _autoConfig.nextUpgradeCost;
+    if (!deductGold(cost)) return false;
+
+    _autoConfig.intervalLevel++;
+    _saveAutoConfig();
+
+    // 重啟 timer 以套用新週期
+    if (_autoConfig.isAutoActive && _state?.status == GameStatus.playing) {
+      _stopAutoTimer();
+      _startAutoTimer();
+    }
+    notifyListeners();
+    return true;
+  }
+
+  /// 啟動自動消除計時器
+  void _startAutoTimer() {
+    _stopAutoTimer();
+    _autoCountdownMs = _autoConfig.intervalMs;
+    const tickMs = 100;
+    _autoTimer = Timer.periodic(const Duration(milliseconds: tickMs), (timer) {
+      if (_state == null || _state!.status != GameStatus.playing) {
+        return;
+      }
+      _autoCountdownMs -= tickMs;
+      if (_autoCountdownMs <= 0) {
+        _autoCountdownMs = _autoConfig.intervalMs;
+        _autoEliminate();
+      }
+      notifyListeners();
+    });
+  }
+
+  /// 停止自動消除計時器
+  void _stopAutoTimer() {
+    _autoTimer?.cancel();
+    _autoTimer = null;
+    _autoCountdownMs = 0;
+  }
+
+  /// 自動消除核心邏輯（選方塊 → 消除 → 重力 → 補充 → 連鎖）
+  Future<void> _autoEliminate() async {
+    final s = _state;
+    if (s == null || s.status != GameStatus.playing || _isProcessing) return;
+
+    final target = _autoSelectBlock();
+    if (target == null) return;
+    final (col, row) = target;
+
+    _isProcessing = true;
+    final gen = _gameGeneration;
+
+    final eliminatedColor = s.grid[col][row]!.color;
+
+    // 消除動畫（自動消除稍慢，視覺區分）
+    s.grid[col][row] = s.grid[col][row]!.copyWith(isEliminating: true);
+    notifyListeners();
+    await Future.delayed(const Duration(milliseconds: 400));
+    if (_gameGeneration != gen) { _isProcessing = false; return; }
+
+    // 移除
+    s.grid[col][row] = null;
+    notifyListeners();
+    await Future.delayed(const Duration(milliseconds: 80));
+    if (_gameGeneration != gen) { _isProcessing = false; return; }
+
+    // 產出飼料（飼料不打折，能量打折）
+    final autoFood = {eliminatedColor: 1};
+    _foodEvents.add(FoodEvent(
+      foodByColor: autoFood,
+      combo: 0,
+      source: EliminationSource.auto_,
+    ));
+    onBlocksEliminated?.call(1);
+    _accumulateEnergy(autoFood, multiplier: AutoEliminateConfig.autoSingleMultiplier);
+
+    // 重力 + 補充
+    _applyGravity();
+    notifyListeners();
+    await Future.delayed(const Duration(milliseconds: 350));
+    if (_gameGeneration != gen) { _isProcessing = false; return; }
+
+    _refillGrid();
+    notifyListeners();
+    await Future.delayed(const Duration(milliseconds: 250));
+    if (_gameGeneration != gen) { _isProcessing = false; return; }
+
+    // 連鎖消除（能量倍率 0.5）
+    await _processMatchLoop(energyMultiplier: AutoEliminateConfig.autoChainMultiplier);
+    if (_gameGeneration != gen) { _isProcessing = false; return; }
+
+    // 自動消除後重置 combo
+    s.combo = 0;
+
+    _isProcessing = false;
+    notifyListeners();
+  }
+
+  /// 根據當前階段選擇要消除的方塊
+  (int, int)? _autoSelectBlock() {
+    final s = _state;
+    if (s == null) return null;
+
+    if (_autoConfig.unlockedStage == AutoEliminateStage.stage3) {
+      // Stage 3: 優先指定顏色 → 備用顏色 → 隨機
+      final target = _findBlockOfColor(_autoConfig.targetColor);
+      if (target != null) return target;
+      final fallback = _findBlockOfColor(_autoConfig.fallbackColor);
+      if (fallback != null) return fallback;
+    }
+
+    // Stage 2 或 Stage 3 fallback: 隨機
+    return _findRandomBlock();
+  }
+
+  /// 在棋盤上找一個指定顏色的方塊（隨機選一個）
+  (int, int)? _findBlockOfColor(BlockColor? color) {
+    if (color == null) return null;
+    final s = _state!;
+    final candidates = <(int, int)>[];
+    for (int col = 0; col < s.mode.numCols; col++) {
+      for (int row = 0; row < s.mode.numRows; row++) {
+        final block = s.grid[col][row];
+        if (block != null && block.color == color) {
+          candidates.add((col, row));
+        }
+      }
+    }
+    if (candidates.isEmpty) return null;
+    return candidates[_random.nextInt(candidates.length)];
+  }
+
+  /// 在棋盤上隨機找一個非空方塊
+  (int, int)? _findRandomBlock() {
+    final s = _state!;
+    final candidates = <(int, int)>[];
+    for (int col = 0; col < s.mode.numCols; col++) {
+      for (int row = 0; row < s.mode.numRows; row++) {
+        if (s.grid[col][row] != null) {
+          candidates.add((col, row));
+        }
+      }
+    }
+    if (candidates.isEmpty) return null;
+    return candidates[_random.nextInt(candidates.length)];
+  }
+
+  @override
+  void dispose() {
+    _stopAutoTimer();
+    super.dispose();
   }
 }
