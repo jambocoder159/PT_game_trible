@@ -8,8 +8,8 @@ import '../../backpack/screens/backpack_screen.dart';
 import '../../quest/screens/stage_select_screen.dart';
 import '../../shop/screens/shop_screen.dart';
 import '../../daily/screens/daily_quest_screen.dart';
-import '../../gm/screens/gm_screen.dart';
-import '../../../config/app_version.dart';
+import '../../settings/screens/settings_screen.dart';
+import '../../profile/screens/player_profile_screen.dart';
 import '../../../core/services/local_storage.dart';
 import '../../../core/models/cat_data.dart';
 import '../../../core/models/block.dart';
@@ -32,7 +32,6 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   int _currentNavIndex = 2; // 放置（首頁）為預設
-  int _versionTapCount = 0;
   bool _boardOnLeft = true;
 
   // 能量球動畫
@@ -189,127 +188,17 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _showSettingsModal() {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: AppTheme.bgSecondary,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (ctx) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text(
-                '設置',
-                style: TextStyle(
-                  color: AppTheme.textPrimary,
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 20),
-              // 棋盤位置切換
-              ListTile(
-                leading: const Icon(Icons.swap_horiz, color: AppTheme.textPrimary),
-                title: const Text(
-                  '棋盤位置',
-                  style: TextStyle(color: AppTheme.textPrimary, fontWeight: FontWeight.w500),
-                ),
-                subtitle: Text(
-                  _boardOnLeft ? '棋盤在左' : '棋盤在右',
-                  style: TextStyle(color: AppTheme.textSecondary.withAlpha(150), fontSize: 12),
-                ),
-                trailing: const Icon(Icons.chevron_right, color: AppTheme.textSecondary),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-                ),
-                onTap: () {
-                  _toggleBoardPosition();
-                  Navigator.pop(ctx);
-                },
-              ),
-              const SizedBox(height: 16),
-              // 版本號（隱藏 GM 入口）
-              GestureDetector(
-                onTap: () {
-                  _versionTapCount++;
-                  if (_versionTapCount >= 5) {
-                    _versionTapCount = 0;
-                    Navigator.pop(ctx);
-                    Navigator.of(context).push(
-                      MaterialPageRoute(builder: (_) => const GmScreen()),
-                    );
-                  }
-                },
-                child: Text(
-                  AppVersion.displayVersion,
-                  style: TextStyle(
-                    color: AppTheme.textSecondary.withAlpha(100),
-                    fontSize: 11,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const SettingsScreen()),
+    ).then((_) {
+      // 返回時重新載入棋盤位置（可能在設定頁被更改）
+      _loadBoardPosition();
+    });
   }
 
   void _showCareerStatsModal() {
-    final playerProvider = context.read<PlayerProvider>();
-    if (!playerProvider.isInitialized) return;
-    final data = playerProvider.data;
-
-    // 計算統計數據
-    final totalStages = data.stageProgress.length;
-    final clearedStages = data.stageProgress.values.where((s) => s.cleared).length;
-    final totalStars = data.stageProgress.values.fold<int>(0, (sum, s) => sum + s.stars);
-    final totalAgents = data.agents.length;
-    final unlockedAgents = data.agents.values.where((a) => a.isUnlocked).length;
-
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: AppTheme.bgSecondary,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (ctx) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text(
-                '個人生涯數據',
-                style: TextStyle(
-                  color: AppTheme.textPrimary,
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 20),
-              // 等級 & 經驗
-              _StatRow(label: '等級', value: 'Lv.${data.playerLevel}'),
-              _StatRow(label: '經驗值', value: '${data.playerExp} / ${data.playerLevel * 100}'),
-              const Divider(color: Colors.white12, height: 24),
-              // 貨幣
-              _StatRow(label: '🪙 金幣', value: '${data.gold}'),
-              _StatRow(label: '💎 鑽石', value: '${data.diamonds}'),
-              const Divider(color: Colors.white12, height: 24),
-              // 關卡進度
-              _StatRow(label: '已通關', value: '$clearedStages / $totalStages 關'),
-              _StatRow(label: '總星數', value: '$totalStars ⭐'),
-              const Divider(color: Colors.white12, height: 24),
-              // 特工
-              _StatRow(label: '已解鎖特工', value: '$unlockedAgents / $totalAgents'),
-              const SizedBox(height: 8),
-            ],
-          ),
-        ),
-      ),
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const PlayerProfileScreen()),
     );
   }
 
@@ -490,40 +379,6 @@ class _TopIconButton extends StatelessWidget {
   }
 }
 
-/// 生涯數據行
-class _StatRow extends StatelessWidget {
-  final String label;
-  final String value;
-
-  const _StatRow({required this.label, required this.value});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(
-            label,
-            style: TextStyle(
-              color: AppTheme.textSecondary.withAlpha(200),
-              fontSize: 14,
-            ),
-          ),
-          Text(
-            value,
-            style: const TextStyle(
-              color: AppTheme.textPrimary,
-              fontSize: 14,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
 
 /// 技能施放 VFX 全屏覆蓋特效
 class _SkillVfxOverlay extends StatefulWidget {
