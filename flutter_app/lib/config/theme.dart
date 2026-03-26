@@ -44,11 +44,59 @@ class AppTheme {
   static const double blockSize = 56.0;
   static const double blockGap = 4.0;
 
+  // ─── 稀有度顏色 ───
+  static const Color rarityN = Color(0xFF9E9E9E);
+  static const Color rarityR = Color(0xFF42A5F5);
+  static const Color raritySR = Color(0xFFAB47BC);
+  static const Color raritySSR = Color(0xFFFF8F00);
+
+  static Color rarityColor(String rarity) {
+    switch (rarity.toUpperCase()) {
+      case 'SSR':
+        return raritySSR;
+      case 'SR':
+        return raritySR;
+      case 'R':
+        return rarityR;
+      default:
+        return rarityN;
+    }
+  }
+
+  static List<Color> rarityGradient(String rarity) {
+    switch (rarity.toUpperCase()) {
+      case 'SSR':
+        return [const Color(0xFFFF8F00), const Color(0xFFFFD54F)];
+      case 'SR':
+        return [const Color(0xFFAB47BC), const Color(0xFFCE93D8)];
+      case 'R':
+        return [const Color(0xFF42A5F5), const Color(0xFF90CAF9)];
+      default:
+        return [const Color(0xFF9E9E9E), const Color(0xFFBDBDBD)];
+    }
+  }
+
+  // ─── 狀態顏色 ───
+  static const Color stageCleared = Color(0xFF4CAF50);
+  static const Color stageCurrent = Color(0xFF42A5F5);
+  static const Color stageLocked = Color(0xFF616161);
+  static const Color pathActive = Color(0xFF66BB6A);
+  static const Color pathInactive = Color(0xFF424242);
+
+  // ─── 間距 ───
+  static const double spacingXs = 4.0;
+  static const double spacingSm = 8.0;
+  static const double spacingMd = 12.0;
+  static const double spacingLg = 16.0;
+  static const double spacingXl = 24.0;
+
   // ─── 動畫時長 ───
   static const Duration animSwap = Duration(milliseconds: 150);
   static const Duration animEliminate = Duration(milliseconds: 250);
   static const Duration animDrop = Duration(milliseconds: 300);
   static const Duration animScore = Duration(milliseconds: 600);
+  static const Duration animCardAppear = Duration(milliseconds: 200);
+  static const Duration animPulse = Duration(milliseconds: 1500);
 
   // ─── ThemeData ───
   static ThemeData get darkTheme {

@@ -1,5 +1,5 @@
-/// 素材背包畫面
-/// 分類顯示所有素材，支援篩選和詳情查看
+/// 素材背包畫面 — 全新設計
+/// 3列大格子 + 橫向滾動藥丸式分類 + 排序功能
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -7,6 +7,9 @@ import '../../../config/image_assets.dart';
 import '../../../config/theme.dart';
 import '../../../core/models/material.dart';
 import '../../agents/providers/player_provider.dart';
+
+// ─── 排序方式 ───
+enum MaterialSortBy { rarity, count, category }
 
 class BackpackScreen extends StatefulWidget {
   const BackpackScreen({super.key});
@@ -17,6 +20,7 @@ class BackpackScreen extends StatefulWidget {
 
 class _BackpackScreenState extends State<BackpackScreen> {
   MaterialCategory? _selectedCategory;
+  MaterialSortBy _sortBy = MaterialSortBy.rarity;
 
   @override
   Widget build(BuildContext context) {
@@ -27,27 +31,33 @@ class _BackpackScreenState extends State<BackpackScreen> {
         title: const Text('素材背包'),
         backgroundColor: AppTheme.bgSecondary,
         actions: [
+          // 排序按鈕
+          PopupMenuButton<MaterialSortBy>(
+            icon: const Icon(Icons.sort, size: 20),
+            color: AppTheme.bgSecondary,
+            onSelected: (v) => setState(() => _sortBy = v),
+            itemBuilder: (_) => [
+              _sortMenuItem(MaterialSortBy.rarity, '依稀有度'),
+              _sortMenuItem(MaterialSortBy.count, '依數量'),
+              _sortMenuItem(MaterialSortBy.category, '依分類'),
+            ],
+          ),
+          // 貨幣
           Consumer<PlayerProvider>(
             builder: (_, p, __) => Padding(
-              padding: const EdgeInsets.only(right: 16),
+              padding: const EdgeInsets.only(right: 12),
               child: Row(
                 children: [
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      GameIcon(assetPath: ImageAssets.coin, fallbackEmoji: '🪙', size: 16),
-                      const SizedBox(width: 3),
-                      Text('${p.data.gold}', style: const TextStyle(fontSize: 14)),
-                    ],
+                  _CurrencyBadge(
+                    iconPath: ImageAssets.coin,
+                    fallback: '🪙',
+                    amount: p.data.gold,
                   ),
-                  const SizedBox(width: 12),
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      GameIcon(assetPath: ImageAssets.diamond, fallbackEmoji: '💎', size: 16),
-                      const SizedBox(width: 3),
-                      Text('${p.data.diamonds}', style: const TextStyle(fontSize: 14)),
-                    ],
+                  const SizedBox(width: 8),
+                  _CurrencyBadge(
+                    iconPath: ImageAssets.diamond,
+                    fallback: '💎',
+                    amount: p.data.diamonds,
                   ),
                 ],
               ),
@@ -59,8 +69,8 @@ class _BackpackScreenState extends State<BackpackScreen> {
         builder: (context, provider, _) {
           return Column(
             children: [
-              // 分類 Tab
-              _CategoryTabs(
+              // ─── 分類標籤（橫向滾動藥丸） ───
+              _CategoryTabBar(
                 selected: _selectedCategory,
                 onSelect: (cat) => setState(() {
                   _selectedCategory = _selectedCategory == cat ? null : cat;
@@ -68,12 +78,37 @@ class _BackpackScreenState extends State<BackpackScreen> {
                 provider: provider,
               ),
 
-              // 素材網格
-              Expanded(
-                child: _MaterialGrid(
-                  category: _selectedCategory,
-                  provider: provider,
+              // ─── 排序指示器 ───
+              Padding(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                child: Row(
+                  children: [
+                    Icon(Icons.sort, size: 14,
+                        color: AppTheme.textSecondary.withAlpha(120)),
+                    const SizedBox(width: 4),
+                    Text(
+                      _sortLabel(),
+                      style: TextStyle(
+                        color: AppTheme.textSecondary.withAlpha(150),
+                        fontSize: 11,
+                      ),
+                    ),
+                    const Spacer(),
+                    Text(
+                      '${_getFilteredMaterials(provider).where((e) => e.$2 > 0).length} 種素材',
+                      style: TextStyle(
+                        color: AppTheme.textSecondary.withAlpha(120),
+                        fontSize: 11,
+                      ),
+                    ),
+                  ],
                 ),
+              ),
+
+              // ─── 素材網格 ───
+              Expanded(
+                child: _buildGrid(provider),
               ),
             ],
           );
@@ -81,187 +116,80 @@ class _BackpackScreenState extends State<BackpackScreen> {
       ),
     );
   }
-}
 
-// ─── 分類 Tab ───
-
-class _CategoryTabs extends StatelessWidget {
-  final MaterialCategory? selected;
-  final ValueChanged<MaterialCategory> onSelect;
-  final PlayerProvider provider;
-
-  const _CategoryTabs({
-    required this.selected,
-    required this.onSelect,
-    required this.provider,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: AppTheme.bgSecondary.withAlpha(120),
-      ),
+  PopupMenuItem<MaterialSortBy> _sortMenuItem(
+      MaterialSortBy value, String label) {
+    return PopupMenuItem(
+      value: value,
       child: Row(
         children: [
-          // 全部
-          _TabChip(
-            label: '全部',
-            emoji: '📋',
-            isSelected: selected == null,
-            count: _totalCount(),
-            onTap: () => onSelect(selected ?? MaterialCategory.shard),
-          ),
-          const SizedBox(width: 6),
-          ...MaterialCategory.values.map((cat) {
-            final count = _categoryCount(cat);
-            return Padding(
-              padding: const EdgeInsets.only(right: 6),
-              child: _TabChip(
-                label: cat.label,
-                emoji: cat.emoji,
-                isSelected: selected == cat,
-                count: count,
-                onTap: () => onSelect(cat),
-              ),
-            );
-          }),
+          if (_sortBy == value)
+            const Icon(Icons.check, size: 16, color: AppTheme.accentSecondary)
+          else
+            const SizedBox(width: 16),
+          const SizedBox(width: 8),
+          Text(label,
+              style: const TextStyle(color: AppTheme.textPrimary, fontSize: 14)),
         ],
       ),
     );
   }
 
-  int _totalCount() {
-    int total = 0;
-    for (final m in GameMaterial.values) {
-      total += provider.getMaterialCount(m);
+  String _sortLabel() {
+    switch (_sortBy) {
+      case MaterialSortBy.rarity:
+        return '依稀有度排序';
+      case MaterialSortBy.count:
+        return '依數量排序';
+      case MaterialSortBy.category:
+        return '依分類排序';
     }
-    return total;
   }
 
-  int _categoryCount(MaterialCategory cat) {
-    int total = 0;
-    for (final m in GameMaterial.values) {
-      if (m.category == cat) {
-        total += provider.getMaterialCount(m);
-      }
-    }
-    return total;
-  }
-}
-
-class _TabChip extends StatelessWidget {
-  final String label;
-  final String emoji;
-  final bool isSelected;
-  final int count;
-  final VoidCallback onTap;
-
-  const _TabChip({
-    required this.label,
-    required this.emoji,
-    required this.isSelected,
-    required this.count,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-        decoration: BoxDecoration(
-          color: isSelected
-              ? AppTheme.accentPrimary.withAlpha(40)
-              : AppTheme.bgCard.withAlpha(120),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: isSelected
-                ? AppTheme.accentPrimary.withAlpha(150)
-                : Colors.white.withAlpha(20),
-          ),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(emoji, style: const TextStyle(fontSize: 12)),
-            const SizedBox(width: 3),
-            Text(
-              label,
-              style: TextStyle(
-                color: isSelected
-                    ? AppTheme.accentPrimary
-                    : AppTheme.textSecondary,
-                fontSize: 11,
-                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-              ),
-            ),
-            if (count > 0) ...[
-              const SizedBox(width: 3),
-              Text(
-                '$count',
-                style: TextStyle(
-                  color: isSelected
-                      ? AppTheme.accentPrimary
-                      : AppTheme.textSecondary.withAlpha(150),
-                  fontSize: 10,
-                ),
-              ),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// ─── 素材網格 ───
-
-class _MaterialGrid extends StatelessWidget {
-  final MaterialCategory? category;
-  final PlayerProvider provider;
-
-  const _MaterialGrid({
-    required this.category,
-    required this.provider,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final materials = GameMaterial.values
-        .where((m) => category == null || m.category == category)
+  List<(GameMaterial, int)> _getFilteredMaterials(PlayerProvider provider) {
+    var materials = GameMaterial.values
+        .where((m) => _selectedCategory == null || m.category == _selectedCategory)
+        .map((m) => (m, provider.getMaterialCount(m)))
         .toList();
 
-    // 分成有數量和沒數量的
-    final owned = materials.where((m) => provider.getMaterialCount(m) > 0).toList();
-    final unowned = materials.where((m) => provider.getMaterialCount(m) == 0).toList();
-    final sorted = [...owned, ...unowned];
+    // 排序
+    materials.sort((a, b) {
+      // 有數量的優先
+      if ((a.$2 > 0) != (b.$2 > 0)) return a.$2 > 0 ? -1 : 1;
+      switch (_sortBy) {
+        case MaterialSortBy.rarity:
+          return b.$1.rarity.compareTo(a.$1.rarity);
+        case MaterialSortBy.count:
+          return b.$2.compareTo(a.$2);
+        case MaterialSortBy.category:
+          final catCmp = a.$1.category.index.compareTo(b.$1.category.index);
+          if (catCmp != 0) return catCmp;
+          return b.$1.rarity.compareTo(a.$1.rarity);
+      }
+    });
 
-    if (sorted.isEmpty) {
-      return const Center(
-        child: Text(
-          '此分類暫無素材',
-          style: TextStyle(color: AppTheme.textSecondary),
-        ),
-      );
+    return materials;
+  }
+
+  Widget _buildGrid(PlayerProvider provider) {
+    final materials = _getFilteredMaterials(provider);
+
+    if (materials.isEmpty) {
+      return _EmptyState(category: _selectedCategory);
     }
 
     return GridView.builder(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.fromLTRB(10, 4, 10, 20),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 4,
-        mainAxisSpacing: 8,
-        crossAxisSpacing: 8,
-        childAspectRatio: 0.75,
+        crossAxisCount: 3,
+        mainAxisSpacing: 10,
+        crossAxisSpacing: 10,
+        childAspectRatio: 0.82,
       ),
-      itemCount: sorted.length,
+      itemCount: materials.length,
       itemBuilder: (context, index) {
-        final material = sorted[index];
-        final count = provider.getMaterialCount(material);
-        return _MaterialCell(
+        final (material, count) = materials[index];
+        return _MaterialCard(
           material: material,
           count: count,
           onTap: () => _showDetail(context, material, count),
@@ -286,12 +214,180 @@ class _MaterialGrid extends StatelessWidget {
   }
 }
 
-class _MaterialCell extends StatelessWidget {
+// ═══════════════════════════════════════
+// 分類標籤欄
+// ═══════════════════════════════════════
+
+class _CategoryTabBar extends StatelessWidget {
+  final MaterialCategory? selected;
+  final ValueChanged<MaterialCategory> onSelect;
+  final PlayerProvider provider;
+
+  const _CategoryTabBar({
+    required this.selected,
+    required this.onSelect,
+    required this.provider,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: AppTheme.bgSecondary.withAlpha(120),
+        border: Border(
+          bottom: BorderSide(color: Colors.white.withAlpha(10)),
+        ),
+      ),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        child: Row(
+          children: [
+            // 全部
+            _CategoryPill(
+              label: '全部',
+              emoji: '📋',
+              isSelected: selected == null,
+              count: _totalCount(),
+              onTap: () {
+                // 選中某分類時，點「全部」取消篩選
+                if (selected != null) onSelect(selected!);
+              },
+            ),
+            const SizedBox(width: 8),
+            ...MaterialCategory.values.map((cat) {
+              final count = _categoryCount(cat);
+              return Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: _CategoryPill(
+                  label: cat.label,
+                  emoji: cat.emoji,
+                  isSelected: selected == cat,
+                  count: count,
+                  onTap: () => onSelect(cat),
+                ),
+              );
+            }),
+          ],
+        ),
+      ),
+    );
+  }
+
+  int _totalCount() {
+    int total = 0;
+    for (final m in GameMaterial.values) {
+      total += provider.getMaterialCount(m);
+    }
+    return total;
+  }
+
+  int _categoryCount(MaterialCategory cat) {
+    int total = 0;
+    for (final m in GameMaterial.values) {
+      if (m.category == cat) total += provider.getMaterialCount(m);
+    }
+    return total;
+  }
+}
+
+class _CategoryPill extends StatelessWidget {
+  final String label;
+  final String emoji;
+  final bool isSelected;
+  final int count;
+  final VoidCallback onTap;
+
+  const _CategoryPill({
+    required this.label,
+    required this.emoji,
+    required this.isSelected,
+    required this.count,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? AppTheme.accentPrimary.withAlpha(50)
+              : AppTheme.bgCard.withAlpha(120),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: isSelected
+                ? AppTheme.accentPrimary.withAlpha(160)
+                : Colors.white.withAlpha(15),
+            width: isSelected ? 1.5 : 1,
+          ),
+          boxShadow: isSelected
+              ? [
+                  BoxShadow(
+                    color: AppTheme.accentPrimary.withAlpha(30),
+                    blurRadius: 8,
+                  ),
+                ]
+              : null,
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(emoji, style: const TextStyle(fontSize: 14)),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: TextStyle(
+                color: isSelected
+                    ? AppTheme.textPrimary
+                    : AppTheme.textSecondary,
+                fontSize: 13,
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+              ),
+            ),
+            if (count > 0) ...[
+              const SizedBox(width: 6),
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                decoration: BoxDecoration(
+                  color: isSelected
+                      ? AppTheme.accentPrimary.withAlpha(80)
+                      : Colors.white.withAlpha(15),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Text(
+                  '$count',
+                  style: TextStyle(
+                    color: isSelected
+                        ? Colors.white
+                        : AppTheme.textSecondary.withAlpha(150),
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ═══════════════════════════════════════
+// 素材卡片（3列）
+// ═══════════════════════════════════════
+
+class _MaterialCard extends StatelessWidget {
   final GameMaterial material;
   final int count;
   final VoidCallback onTap;
 
-  const _MaterialCell({
+  const _MaterialCard({
     required this.material,
     required this.count,
     required this.onTap,
@@ -307,21 +403,21 @@ class _MaterialCell extends StatelessWidget {
       child: Container(
         decoration: BoxDecoration(
           color: isEmpty
-              ? AppTheme.bgCard.withAlpha(80)
+              ? AppTheme.bgCard.withAlpha(60)
               : AppTheme.bgCard,
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
           border: Border.all(
             color: isEmpty
-                ? Colors.white.withAlpha(10)
-                : rarityColor.withAlpha(100),
+                ? Colors.white.withAlpha(8)
+                : rarityColor.withAlpha(80),
             width: isEmpty ? 0.5 : 1.5,
           ),
           boxShadow: isEmpty
               ? null
               : [
                   BoxShadow(
-                    color: rarityColor.withAlpha(30),
-                    blurRadius: 6,
+                    color: rarityColor.withAlpha(25),
+                    blurRadius: 8,
                     spreadRadius: 1,
                   ),
                 ],
@@ -329,10 +425,11 @@ class _MaterialCell extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            // 漸層圓形圖示
+            const SizedBox(height: 6),
+            // 圖標（大圓形 + 光暈）
             Container(
-              width: 36,
-              height: 36,
+              width: 48,
+              height: 48,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 gradient: LinearGradient(
@@ -340,73 +437,96 @@ class _MaterialCell extends StatelessWidget {
                   end: Alignment.bottomRight,
                   colors: isEmpty
                       ? [
-                          Colors.grey.withAlpha(40),
-                          Colors.grey.withAlpha(20),
+                          Colors.grey.withAlpha(30),
+                          Colors.grey.withAlpha(15),
                         ]
                       : [
-                          material.iconColor.withAlpha(60),
-                          material.iconColor.withAlpha(30),
+                          material.iconColor.withAlpha(50),
+                          material.iconColor.withAlpha(25),
                         ],
                 ),
                 border: Border.all(
                   color: isEmpty
-                      ? Colors.white.withAlpha(15)
-                      : material.iconColor.withAlpha(120),
-                  width: 1.5,
+                      ? Colors.white.withAlpha(10)
+                      : material.iconColor.withAlpha(100),
+                  width: 2,
                 ),
                 boxShadow: isEmpty
                     ? null
                     : [
                         BoxShadow(
                           color: material.iconColor.withAlpha(40),
-                          blurRadius: 6,
+                          blurRadius: 10,
                         ),
                       ],
               ),
               child: Icon(
                 material.iconData,
-                size: 18,
+                size: 24,
                 color: isEmpty
-                    ? Colors.white.withAlpha(60)
+                    ? Colors.white.withAlpha(40)
                     : material.iconColor,
               ),
             ),
-            const SizedBox(height: 3),
+            const SizedBox(height: 6),
+
             // 名稱
-            Text(
-              material.label,
-              style: TextStyle(
-                color: isEmpty
-                    ? AppTheme.textSecondary.withAlpha(100)
-                    : AppTheme.textPrimary,
-                fontSize: 9,
-                fontWeight: FontWeight.w500,
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+              child: Text(
+                material.label,
+                style: TextStyle(
+                  color: isEmpty
+                      ? AppTheme.textSecondary.withAlpha(80)
+                      : AppTheme.textPrimary,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w500,
+                ),
+                textAlign: TextAlign.center,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
-              textAlign: TextAlign.center,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
             ),
-            const SizedBox(height: 2),
-            // 數量
+            const SizedBox(height: 4),
+
+            // 數量（帶稀有度色帶）
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
               decoration: BoxDecoration(
                 color: isEmpty
                     ? Colors.transparent
-                    : rarityColor.withAlpha(30),
-                borderRadius: BorderRadius.circular(6),
+                    : rarityColor.withAlpha(25),
+                borderRadius: BorderRadius.circular(8),
               ),
               child: Text(
                 isEmpty ? '-' : 'x$count',
                 style: TextStyle(
                   color: isEmpty
-                      ? AppTheme.textSecondary.withAlpha(80)
+                      ? AppTheme.textSecondary.withAlpha(60)
                       : rarityColor,
-                  fontSize: 11,
+                  fontSize: 13,
                   fontWeight: FontWeight.bold,
                 ),
               ),
             ),
+            const SizedBox(height: 4),
+
+            // 稀有度底邊條
+            if (!isEmpty)
+              Container(
+                height: 3,
+                margin: const EdgeInsets.symmetric(horizontal: 12),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      rarityColor.withAlpha(0),
+                      rarityColor.withAlpha(120),
+                      rarityColor.withAlpha(0),
+                    ],
+                  ),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
           ],
         ),
       ),
@@ -425,7 +545,51 @@ class _MaterialCell extends StatelessWidget {
   }
 }
 
-// ─── 素材詳情 ───
+// ═══════════════════════════════════════
+// 空狀態
+// ═══════════════════════════════════════
+
+class _EmptyState extends StatelessWidget {
+  final MaterialCategory? category;
+
+  const _EmptyState({this.category});
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            Icons.inventory_2_outlined,
+            size: 56,
+            color: AppTheme.textSecondary.withAlpha(60),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            category != null ? '${category!.label} 分類暫無素材' : '背包空空如也',
+            style: TextStyle(
+              color: AppTheme.textSecondary.withAlpha(120),
+              fontSize: 15,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            '通關闘卡來獲得素材吧！',
+            style: TextStyle(
+              color: AppTheme.textSecondary.withAlpha(80),
+              fontSize: 12,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ═══════════════════════════════════════
+// 素材詳情 BottomSheet
+// ═══════════════════════════════════════
 
 class _MaterialDetailSheet extends StatelessWidget {
   final GameMaterial material;
@@ -443,7 +607,7 @@ class _MaterialDetailSheet extends StatelessWidget {
 
     return SafeArea(
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
+        padding: const EdgeInsets.fromLTRB(24, 12, 24, 24),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -458,12 +622,12 @@ class _MaterialDetailSheet extends StatelessWidget {
             ),
             const SizedBox(height: 20),
 
-            // 圖示
+            // 圖標（更大）
             Container(
-              width: 72,
-              height: 72,
+              width: 80,
+              height: 80,
               decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(16),
+                borderRadius: BorderRadius.circular(20),
                 gradient: LinearGradient(
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
@@ -472,70 +636,50 @@ class _MaterialDetailSheet extends StatelessWidget {
                     rarityColor.withAlpha(30),
                   ],
                 ),
-                border: Border.all(color: rarityColor.withAlpha(120), width: 2),
+                border: Border.all(color: rarityColor.withAlpha(120), width: 2.5),
                 boxShadow: [
                   BoxShadow(
-                    color: material.iconColor.withAlpha(40),
-                    blurRadius: 12,
-                    spreadRadius: 2,
+                    color: material.iconColor.withAlpha(50),
+                    blurRadius: 16,
+                    spreadRadius: 3,
                   ),
                 ],
               ),
               child: Center(
                 child: Icon(
                   material.iconData,
-                  size: 36,
+                  size: 40,
                   color: material.iconColor,
                 ),
               ),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 14),
 
             // 名稱
             Text(
               material.label,
               style: const TextStyle(
                 color: AppTheme.textPrimary,
-                fontSize: 20,
+                fontSize: 22,
                 fontWeight: FontWeight.bold,
               ),
             ),
-            const SizedBox(height: 4),
+            const SizedBox(height: 6),
 
             // 稀有度 + 分類
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: rarityColor.withAlpha(30),
-                    borderRadius: BorderRadius.circular(6),
-                    border: Border.all(color: rarityColor.withAlpha(80)),
-                  ),
-                  child: Text(
-                    rarityLabel,
-                    style: TextStyle(
-                      color: rarityColor,
-                      fontSize: 11,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
+                _InfoTag(
+                  label: rarityLabel,
+                  color: rarityColor,
+                  filled: true,
                 ),
                 const SizedBox(width: 8),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withAlpha(10),
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: Text(
-                    '${material.category.emoji} ${material.category.label}',
-                    style: const TextStyle(
-                      color: AppTheme.textSecondary,
-                      fontSize: 11,
-                    ),
-                  ),
+                _InfoTag(
+                  label: '${material.category.emoji} ${material.category.label}',
+                  color: Colors.white,
+                  filled: false,
                 ),
               ],
             ),
@@ -546,19 +690,19 @@ class _MaterialDetailSheet extends StatelessWidget {
               material.description,
               style: const TextStyle(
                 color: AppTheme.textSecondary,
-                fontSize: 13,
+                fontSize: 14,
               ),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 16),
 
-            // 擁有數量
+            // 持有數量（醒目顯示）
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
               decoration: BoxDecoration(
                 color: AppTheme.bgCard,
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: Colors.white.withAlpha(20)),
+                borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+                border: Border.all(color: Colors.white.withAlpha(15)),
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
@@ -567,16 +711,46 @@ class _MaterialDetailSheet extends StatelessWidget {
                     '持有數量',
                     style: TextStyle(
                       color: AppTheme.textSecondary,
-                      fontSize: 13,
+                      fontSize: 14,
                     ),
                   ),
-                  const SizedBox(width: 12),
+                  const SizedBox(width: 16),
                   Text(
                     '$count',
                     style: TextStyle(
-                      color: count > 0 ? AppTheme.textPrimary : AppTheme.textSecondary,
-                      fontSize: 22,
+                      color: count > 0
+                          ? AppTheme.textPrimary
+                          : AppTheme.textSecondary,
+                      fontSize: 26,
                       fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+
+            // 獲取途徑提示
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.white.withAlpha(5),
+                borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.info_outline,
+                      size: 16,
+                      color: AppTheme.textSecondary.withAlpha(100)),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      '通過闘關模式通關可獲得此素材',
+                      style: TextStyle(
+                        color: AppTheme.textSecondary.withAlpha(120),
+                        fontSize: 12,
+                      ),
                     ),
                   ),
                 ],
@@ -608,5 +782,70 @@ class _MaterialDetailSheet extends StatelessWidget {
       default:
         return '★ 普通';
     }
+  }
+}
+
+class _InfoTag extends StatelessWidget {
+  final String label;
+  final Color color;
+  final bool filled;
+
+  const _InfoTag({
+    required this.label,
+    required this.color,
+    required this.filled,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+      decoration: BoxDecoration(
+        color: filled ? color.withAlpha(30) : Colors.white.withAlpha(8),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: filled ? color.withAlpha(80) : Colors.white.withAlpha(20),
+        ),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          color: filled ? color : AppTheme.textSecondary,
+          fontSize: 11,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+    );
+  }
+}
+
+// ═══════════════════════════════════════
+// 貨幣徽章
+// ═══════════════════════════════════════
+
+class _CurrencyBadge extends StatelessWidget {
+  final String iconPath;
+  final String fallback;
+  final int amount;
+
+  const _CurrencyBadge({
+    required this.iconPath,
+    required this.fallback,
+    required this.amount,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        GameIcon(assetPath: iconPath, fallbackEmoji: fallback, size: 16),
+        const SizedBox(width: 3),
+        Text(
+          '$amount',
+          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+        ),
+      ],
+    );
   }
 }
