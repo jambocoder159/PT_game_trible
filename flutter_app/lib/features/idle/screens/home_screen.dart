@@ -20,6 +20,7 @@ import '../widgets/bottom_nav_bar.dart';
 import '../widgets/idle_mini_game.dart';
 import '../widgets/cat_panel.dart';
 import '../widgets/energy_orb_overlay.dart';
+import '../widgets/idle_skill_bar.dart';
 
 /// 首頁 — 放置型遊戲大廳
 class HomeScreen extends StatefulWidget {
@@ -375,6 +376,16 @@ class _HomeScreenState extends State<HomeScreen> {
                       },
                     ),
                   ],
+                ),
+              ),
+              const SizedBox(height: 2),
+
+              // ─── 技能施放列 ───
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 8),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: IdleSkillBar(),
                 ),
               ),
               const SizedBox(height: 2),

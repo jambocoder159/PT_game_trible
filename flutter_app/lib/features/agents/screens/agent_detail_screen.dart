@@ -270,10 +270,9 @@ class _CharacterCard extends StatelessWidget {
                   // 角色立繪（背景圖 + 立繪疊加）
                   Expanded(
                     child: Stack(
-                      fit: StackFit.expand,
                       children: [
-                        // 角色卡背景圖
-                        ClipRRect(
+                        // 角色卡背景圖（不影響 layout）
+                        Positioned.fill(
                           child: Opacity(
                             opacity: 0.35,
                             child: Image.asset(
@@ -284,15 +283,17 @@ class _CharacterCard extends StatelessWidget {
                           ),
                         ),
                         // 角色立繪
-                        Padding(
-                          padding: const EdgeInsets.all(8),
-                          child: charPath != null
-                              ? Image.asset(
-                                  charPath,
-                                  fit: BoxFit.contain,
-                                  errorBuilder: (_, __, ___) => _fallbackImage(),
-                                )
-                              : _fallbackImage(),
+                        Positioned.fill(
+                          child: Padding(
+                            padding: const EdgeInsets.all(8),
+                            child: charPath != null
+                                ? Image.asset(
+                                    charPath,
+                                    fit: BoxFit.contain,
+                                    errorBuilder: (_, __, ___) => _fallbackImage(),
+                                  )
+                                : _fallbackImage(),
+                          ),
                         ),
                       ],
                     ),
