@@ -1,5 +1,6 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
+import '../../../config/image_assets.dart';
 import '../../../config/theme.dart';
 import '../../../core/models/block.dart';
 
@@ -131,6 +132,39 @@ class _BlockWidgetState extends State<BlockWidget>
   }
 
   Widget _buildBlockContainer(Color color, Color darkerColor, double size) {
+    final imagePath = ImageAssets.blockImage(
+      widget.block.color,
+      dark: widget.block.isBlackened,
+    );
+
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(AppTheme.radiusBlock),
+        boxShadow: [
+          BoxShadow(
+            color: color.withAlpha(80),
+            blurRadius: 8,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(AppTheme.radiusBlock),
+        child: Image.asset(
+          imagePath,
+          width: size,
+          height: size,
+          fit: BoxFit.cover,
+          errorBuilder: (_, __, ___) => _buildFallbackBlock(color, darkerColor, size),
+        ),
+      ),
+    );
+  }
+
+  /// 圖片載入失敗時的 fallback（原始漸層樣式）
+  Widget _buildFallbackBlock(Color color, Color darkerColor, double size) {
     return Container(
       width: size,
       height: size,
@@ -140,14 +174,6 @@ class _BlockWidgetState extends State<BlockWidget>
           end: Alignment.bottomRight,
           colors: [color, darkerColor],
         ),
-        borderRadius: BorderRadius.circular(AppTheme.radiusBlock),
-        boxShadow: [
-          BoxShadow(
-            color: color.withAlpha(80),
-            blurRadius: 8,
-            offset: const Offset(0, 3),
-          ),
-        ],
       ),
       child: Center(
         child: Text(

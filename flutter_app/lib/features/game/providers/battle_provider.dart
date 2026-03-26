@@ -256,7 +256,13 @@ class BattleProvider extends ChangeNotifier {
   }
 
   /// 施放技能
-  void activateSkill(int agentIndex) {
+  ///
+  /// [useAttackOnly] 只使用攻擊/治療/護盾效果，不觸發方塊效果
+  /// [useBoardOnly] 只使用方塊效果，不觸發攻擊效果
+  void activateSkill(int agentIndex, {
+    bool useAttackOnly = false,
+    bool useBoardOnly = false,
+  }) {
     if (_battleState == null || _battleState!.isBattleOver) return;
     if (agentIndex >= _battleState!.team.length) return;
 
@@ -265,21 +271,30 @@ class BattleProvider extends ChangeNotifier {
 
     final result = BattleEngine.activateSkill(_battleState!, agent);
 
-    // 根據技能類型選擇事件類型
-    BattleEventType eventType;
-    if (result.hpHealed > 0 && result.damageDealt == 0) {
-      eventType = BattleEventType.heal;
-    } else if (result.shieldTurns > 0 && result.damageDealt == 0) {
-      eventType = BattleEventType.shield;
-    } else {
-      eventType = BattleEventType.skillActivated;
-    }
+    if (!useBoardOnly) {
+      // 根據技能類型選擇事件類型
+      BattleEventType eventType;
+      if (result.hpHealed > 0 && result.damageDealt == 0) {
+        eventType = BattleEventType.heal;
+      } else if (result.shieldTurns > 0 && result.damageDealt == 0) {
+        eventType = BattleEventType.shield;
+      } else {
+        eventType = BattleEventType.skillActivated;
+      }
 
-    _events.add(BattleEvent(
-      type: eventType,
-      message: result.description,
-      value: result.damageDealt + result.hpHealed,
-    ));
+      _events.add(BattleEvent(
+        type: eventType,
+        message: result.description,
+        value: result.damageDealt + result.hpHealed,
+      ));
+    } else {
+      // 僅方塊效果模式：加入提示事件
+      _events.add(BattleEvent(
+        type: BattleEventType.skillActivated,
+        message: '${agent.definition.name} 發動方塊效果！',
+        value: 0,
+      ));
+    }
 
     if (_battleState!.allEnemiesDead) {
       _events.add(const BattleEvent(
@@ -288,12 +303,33 @@ class BattleProvider extends ChangeNotifier {
       ));
     }
 
+    // 記錄施放技能的角色 ID，供動畫使用
+    _lastSkillAgentId = agent.definition.id;
+    _lastSkillAgentName = agent.definition.name;
+    _lastSkillName = agent.definition.skill.name;
+
     notifyListeners();
 
     // 執行放置效果（操作棋盤）
-    if (result.boardEffect != null && result.agentColor != null) {
+    if (!useAttackOnly && result.boardEffect != null && result.agentColor != null) {
       onBoardEffectRequested?.call(result.boardEffect!, result.agentColor!);
     }
+  }
+
+  /// 最近施放技能的角色資訊（供動畫使用）
+  String? _lastSkillAgentId;
+  String? _lastSkillAgentName;
+  String? _lastSkillName;
+
+  String? get lastSkillAgentId => _lastSkillAgentId;
+  String? get lastSkillAgentName => _lastSkillAgentName;
+  String? get lastSkillName => _lastSkillName;
+
+  /// 消費（清除）技能動畫資訊
+  void consumeSkillAnim() {
+    _lastSkillAgentId = null;
+    _lastSkillAgentName = null;
+    _lastSkillName = null;
   }
 
   /// 結束戰鬥

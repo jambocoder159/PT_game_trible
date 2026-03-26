@@ -4,7 +4,9 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import '../../../config/cat_agent_data.dart';
 import '../../../config/game_modes.dart';
+import '../../../config/image_assets.dart';
 import '../../../config/stage_data.dart';
 import '../../../config/theme.dart';
 import '../../../core/models/battle_state.dart';
@@ -16,6 +18,7 @@ import '../../agents/providers/player_provider.dart';
 import '../providers/battle_provider.dart';
 import '../providers/game_provider.dart';
 import '../widgets/game_board.dart';
+import '../../agents/widgets/agent_unlock_animation.dart';
 import '../widgets/cat_placeholder.dart';
 import '../widgets/pause_menu.dart';
 
@@ -43,6 +46,13 @@ class _BattleScreenState extends State<BattleScreen> {
   bool _boardOnLeft = false; // 預設棋盤在右側（截圖佈局）
   bool _victoryAnimPlaying = false; // 勝利爆炸演出中
   bool _showResult = false; // 顯示結算畫面
+
+  // 技能橫幅動畫
+  bool _showSkillBanner = false;
+  String? _skillBannerAgentId;
+  String? _skillBannerAgentName;
+  String? _skillBannerSkillName;
+  Color? _skillBannerColor;
 
   @override
   void initState() {
@@ -225,6 +235,27 @@ class _BattleScreenState extends State<BattleScreen> {
           builder: (context, battle, _) {
             final battleState = battle.battleState;
 
+            // 偵測技能施放 → 觸發橫幅動畫
+            if (battle.lastSkillAgentId != null && !_showSkillBanner) {
+              final agentDef = battleState?.team
+                  .where((a) => a.definition.id == battle.lastSkillAgentId)
+                  .firstOrNull
+                  ?.definition;
+              final agentColor = agentDef?.attribute.blockColor.color;
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (mounted && battle.lastSkillAgentId != null) {
+                  setState(() {
+                    _showSkillBanner = true;
+                    _skillBannerAgentId = battle.lastSkillAgentId;
+                    _skillBannerAgentName = battle.lastSkillAgentName;
+                    _skillBannerSkillName = battle.lastSkillName;
+                    _skillBannerColor = agentColor ?? Colors.amber;
+                  });
+                  battle.consumeSkillAnim();
+                }
+              });
+            }
+
             return Stack(
               children: [
                 Column(
@@ -335,6 +366,20 @@ class _BattleScreenState extends State<BattleScreen> {
                     return const SizedBox.shrink();
                   },
                 ),
+
+                // 技能施放橫幅動畫（寶可夢藍寶石版飛天風格）
+                if (_showSkillBanner)
+                  _SkillBannerAnimation(
+                    agentId: _skillBannerAgentId!,
+                    agentName: _skillBannerAgentName ?? '',
+                    skillName: _skillBannerSkillName ?? '',
+                    color: _skillBannerColor ?? Colors.amber,
+                    onComplete: () {
+                      if (mounted) {
+                        setState(() => _showSkillBanner = false);
+                      }
+                    },
+                  ),
 
                 // 爆炸演出層
                 if (_victoryAnimPlaying)
@@ -1436,11 +1481,12 @@ class _PlayerCardsSection extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
+              // 角色圖片
               CatStatusRing(
                 ringColor: color,
                 isReady: true,
                 size: 56,
-                child: CatPlaceholder(color: color, size: 50),
+                child: _buildAgentAvatar(agent.definition.id, color, 50),
               ),
               const SizedBox(height: 10),
               Text(
@@ -1453,6 +1499,7 @@ class _PlayerCardsSection extends StatelessWidget {
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 6),
+              // 技能描述
               if (effect != null)
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
@@ -1467,41 +1514,111 @@ class _PlayerCardsSection extends StatelessWidget {
                   ),
                 ),
               const SizedBox(height: 16),
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: () => Navigator.pop(ctx),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: AppTheme.textSecondary,
-                        side: BorderSide(color: Colors.white.withAlpha(30)),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
+              // 雙選擇：進攻 or 換方塊
+              if (effect != null)
+                Column(
+                  children: [
+                    // 進攻模式
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton.icon(
+                        onPressed: () {
+                          Navigator.pop(ctx);
+                          HapticFeedback.mediumImpact();
+                          battleProvider.activateSkill(index,
+                              useAttackOnly: true);
+                        },
+                        icon: const Text('⚔️', style: TextStyle(fontSize: 16)),
+                        label: const Text('進攻'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.red.shade700,
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          padding: const EdgeInsets.symmetric(vertical: 10),
                         ),
                       ),
-                      child: const Text('取消'),
                     ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: ElevatedButton(
-                      onPressed: () {
-                        Navigator.pop(ctx);
-                        HapticFeedback.mediumImpact();
-                        battleProvider.activateSkill(index);
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: color,
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
+                    const SizedBox(height: 8),
+                    // 方塊效果模式
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton.icon(
+                        onPressed: () {
+                          Navigator.pop(ctx);
+                          HapticFeedback.mediumImpact();
+                          battleProvider.activateSkill(index,
+                              useBoardOnly: true);
+                        },
+                        icon: const Text('🧩', style: TextStyle(fontSize: 16)),
+                        label: Text(effect.description,
+                            style: const TextStyle(fontSize: 12)),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: color,
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          padding: const EdgeInsets.symmetric(vertical: 10),
                         ),
                       ),
-                      child: const Text('施放！'),
                     ),
-                  ),
-                ],
-              ),
+                    const SizedBox(height: 8),
+                    // 取消
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton(
+                        onPressed: () => Navigator.pop(ctx),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: AppTheme.textSecondary,
+                          side: BorderSide(color: Colors.white.withAlpha(30)),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                        ),
+                        child: const Text('取消'),
+                      ),
+                    ),
+                  ],
+                )
+              else
+                // 沒有方塊效果的技能 → 直接施放
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () => Navigator.pop(ctx),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: AppTheme.textSecondary,
+                          side: BorderSide(color: Colors.white.withAlpha(30)),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                        ),
+                        child: const Text('取消'),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: ElevatedButton(
+                        onPressed: () {
+                          Navigator.pop(ctx);
+                          HapticFeedback.mediumImpact();
+                          battleProvider.activateSkill(index);
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: color,
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                        ),
+                        child: const Text('施放！'),
+                      ),
+                    ),
+                  ],
+                ),
             ],
           ),
         ),
@@ -1547,8 +1664,9 @@ class _CatAgentCard extends StatelessWidget {
                       borderRadius: BorderRadius.circular(10),
                       border: Border.all(color: color.withAlpha(120)),
                     ),
-                    child: Center(
-                      child: Text(def.attribute.emoji, style: const TextStyle(fontSize: 22)),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: _buildAgentAvatar(def.id, color, 36),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -1683,13 +1801,13 @@ class _CatAgentCard extends StatelessWidget {
           ),
           child: Row(
             children: [
-              // Speed 環圈 + 貓咪
+              // Speed 環圈 + 角色圖片
               CatStatusRing(
                 ringColor: ringColor,
                 isReady: isReady,
                 progress: agent.attackCountdownPercent,
                 size: 46,
-                child: CatPlaceholder(color: color, size: 40),
+                child: _buildAgentAvatar(agent.definition.id, color, 40),
               ),
               const SizedBox(width: 6),
               // 資訊
@@ -1763,6 +1881,19 @@ class _CatAgentCard extends StatelessWidget {
       ),
     );
   }
+}
+
+/// 角色圖片 Widget（帶 fallback）
+Widget _buildAgentAvatar(String agentId, Color color, double size) {
+  final path = ImageAssets.avatarImage(agentId);
+  if (path == null) return CatPlaceholder(color: color, size: size);
+  return Image.asset(
+    path,
+    width: size,
+    height: size,
+    fit: BoxFit.cover,
+    errorBuilder: (_, __, ___) => CatPlaceholder(color: color, size: size),
+  );
 }
 
 class _InfoStat extends StatelessWidget {
@@ -2197,35 +2328,53 @@ class _BattleEndOverlay extends StatelessWidget {
                       if (reward!.agentUnlocked &&
                           reward!.unlockedAgentId != null) ...[
                         const SizedBox(height: 12),
-                        Container(
-                          width: double.infinity,
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 14, vertical: 10),
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              colors: [
-                                Colors.amber.withAlpha(30),
-                                Colors.orange.withAlpha(20),
+                        GestureDetector(
+                          onTap: () {
+                            final def = CatAgentData.getById(reward!.unlockedAgentId!);
+                            if (def != null) {
+                              final overlay = Overlay.of(context);
+                              late OverlayEntry entry;
+                              entry = OverlayEntry(
+                                builder: (_) => AgentUnlockAnimation(
+                                  definition: def,
+                                  onComplete: () {
+                                    entry.remove();
+                                  },
+                                ),
+                              );
+                              overlay.insert(entry);
+                            }
+                          },
+                          child: Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 14, vertical: 10),
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                colors: [
+                                  Colors.amber.withAlpha(30),
+                                  Colors.orange.withAlpha(20),
+                                ],
+                              ),
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(
+                                  color: Colors.amber.withAlpha(100)),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                const Text('🎉', style: TextStyle(fontSize: 20)),
+                                const SizedBox(width: 8),
+                                Text(
+                                  '新特工加入！點擊查看',
+                                  style: TextStyle(
+                                    color: Colors.amber.shade300,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 15,
+                                  ),
+                                ),
                               ],
                             ),
-                            borderRadius: BorderRadius.circular(10),
-                            border: Border.all(
-                                color: Colors.amber.withAlpha(100)),
-                          ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              const Text('🎉', style: TextStyle(fontSize: 20)),
-                              const SizedBox(width: 8),
-                              Text(
-                                '新特工加入！',
-                                style: TextStyle(
-                                  color: Colors.amber.shade300,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 15,
-                                ),
-                              ),
-                            ],
                           ),
                         ),
                       ],
@@ -2615,6 +2764,293 @@ class _BuffChip extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+// ═══════════════════════════════════════════
+// 技能施放橫幅動畫（寶可夢藍寶石版飛天風格）
+// 黑色電影式橫條 + 角色立繪從左滑入 + 技能名稱 + 閃光
+// ═══════════════════════════════════════════
+
+class _SkillBannerAnimation extends StatefulWidget {
+  final String agentId;
+  final String agentName;
+  final String skillName;
+  final Color color;
+  final VoidCallback onComplete;
+
+  const _SkillBannerAnimation({
+    required this.agentId,
+    required this.agentName,
+    required this.skillName,
+    required this.color,
+    required this.onComplete,
+  });
+
+  @override
+  State<_SkillBannerAnimation> createState() => _SkillBannerAnimationState();
+}
+
+class _SkillBannerAnimationState extends State<_SkillBannerAnimation>
+    with TickerProviderStateMixin {
+  late AnimationController _mainController;
+  // 各階段動畫
+  late Animation<double> _bannerOpenAnim;   // 黑條展開
+  late Animation<double> _charSlideAnim;    // 角色滑入
+  late Animation<double> _textFadeAnim;     // 文字淡入
+  late Animation<double> _flashAnim;        // 閃光
+  late Animation<double> _bannerCloseAnim;  // 黑條收合
+
+  @override
+  void initState() {
+    super.initState();
+    _mainController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1200),
+    );
+
+    // Timeline:
+    // 0%-15%:   黑條從中間展開
+    // 10%-50%:  角色從左側滑入到中央
+    // 25%-55%:  技能名稱淡入
+    // 50%-60%:  閃光效果
+    // 70%-100%: 黑條收合，整體消失
+
+    _bannerOpenAnim = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _mainController,
+        curve: const Interval(0.0, 0.15, curve: Curves.easeOut),
+      ),
+    );
+
+    _charSlideAnim = Tween<double>(begin: -1.5, end: 0.0).animate(
+      CurvedAnimation(
+        parent: _mainController,
+        curve: const Interval(0.10, 0.45, curve: Curves.easeOutCubic),
+      ),
+    );
+
+    _textFadeAnim = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _mainController,
+        curve: const Interval(0.25, 0.50, curve: Curves.easeIn),
+      ),
+    );
+
+    _flashAnim = TweenSequence<double>([
+      TweenSequenceItem(tween: Tween(begin: 0.0, end: 0.8), weight: 40),
+      TweenSequenceItem(tween: Tween(begin: 0.8, end: 0.0), weight: 60),
+    ]).animate(
+      CurvedAnimation(
+        parent: _mainController,
+        curve: const Interval(0.48, 0.65, curve: Curves.easeOut),
+      ),
+    );
+
+    _bannerCloseAnim = Tween<double>(begin: 1.0, end: 0.0).animate(
+      CurvedAnimation(
+        parent: _mainController,
+        curve: const Interval(0.72, 1.0, curve: Curves.easeInCubic),
+      ),
+    );
+
+    HapticFeedback.heavyImpact();
+    _mainController.forward().then((_) => widget.onComplete());
+  }
+
+  @override
+  void dispose() {
+    _mainController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final screenSize = MediaQuery.of(context).size;
+    final bannerHeight = screenSize.height * 0.28;
+    final charImagePath = ImageAssets.characterImage(widget.agentId);
+
+    return AnimatedBuilder(
+      animation: _mainController,
+      builder: (context, _) {
+        // 整體可見度（開合階段）
+        final bannerScale = _mainController.value < 0.72
+            ? _bannerOpenAnim.value
+            : _bannerCloseAnim.value;
+
+        if (bannerScale <= 0.01) return const SizedBox.shrink();
+
+        return Stack(
+          children: [
+            // 半透明背景遮罩
+            Positioned.fill(
+              child: IgnorePointer(
+                child: Container(
+                  color: Colors.black.withAlpha((bannerScale * 120).round()),
+                ),
+              ),
+            ),
+
+            // 中央橫幅區域
+            Center(
+              child: ClipRect(
+                child: Align(
+                  alignment: Alignment.center,
+                  heightFactor: bannerScale.clamp(0.0, 1.0),
+                  child: Container(
+                    width: screenSize.width,
+                    height: bannerHeight,
+                    decoration: BoxDecoration(
+                      // 斜切黑條（類似寶可夢風格）
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          Colors.black.withAlpha(0),
+                          Colors.black.withAlpha(220),
+                          Colors.black.withAlpha(240),
+                          Colors.black.withAlpha(220),
+                          Colors.black.withAlpha(0),
+                        ],
+                        stops: const [0.0, 0.15, 0.5, 0.85, 1.0],
+                      ),
+                    ),
+                    child: Stack(
+                      clipBehavior: Clip.none,
+                      children: [
+                        // 上下彩色線條
+                        Positioned(
+                          top: bannerHeight * 0.12,
+                          left: 0,
+                          right: 0,
+                          child: Container(
+                            height: 2,
+                            color: widget.color.withAlpha(180),
+                          ),
+                        ),
+                        Positioned(
+                          bottom: bannerHeight * 0.12,
+                          left: 0,
+                          right: 0,
+                          child: Container(
+                            height: 2,
+                            color: widget.color.withAlpha(180),
+                          ),
+                        ),
+
+                        // 角色立繪（從左滑入）
+                        Positioned(
+                          left: screenSize.width * 0.05 +
+                              (_charSlideAnim.value * screenSize.width * 0.3),
+                          top: -bannerHeight * 0.15,
+                          child: Opacity(
+                            opacity: (_charSlideAnim.value + 1.5).clamp(0.0, 1.0),
+                            child: SizedBox(
+                              height: bannerHeight * 1.3,
+                              width: bannerHeight * 1.0,
+                              child: charImagePath != null
+                                  ? Image.asset(
+                                      charImagePath,
+                                      fit: BoxFit.contain,
+                                      errorBuilder: (_, __, ___) =>
+                                          CatPlaceholder(
+                                        color: widget.color,
+                                        size: bannerHeight * 0.8,
+                                      ),
+                                    )
+                                  : CatPlaceholder(
+                                      color: widget.color,
+                                      size: bannerHeight * 0.8,
+                                    ),
+                            ),
+                          ),
+                        ),
+
+                        // 技能名稱（右側）
+                        Positioned(
+                          right: screenSize.width * 0.08,
+                          top: 0,
+                          bottom: 0,
+                          child: Opacity(
+                            opacity: _textFadeAnim.value,
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              children: [
+                                // 角色名
+                                Text(
+                                  widget.agentName,
+                                  style: TextStyle(
+                                    color: widget.color,
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.bold,
+                                    letterSpacing: 2,
+                                    shadows: [
+                                      Shadow(
+                                        color: widget.color.withAlpha(120),
+                                        blurRadius: 8,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                // 技能名
+                                Text(
+                                  widget.skillName,
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 22,
+                                    fontWeight: FontWeight.w900,
+                                    letterSpacing: 3,
+                                    shadows: [
+                                      Shadow(
+                                        color: widget.color.withAlpha(200),
+                                        blurRadius: 12,
+                                      ),
+                                      const Shadow(
+                                        color: Colors.black,
+                                        blurRadius: 4,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+
+                        // 閃光效果
+                        if (_flashAnim.value > 0.01)
+                          Positioned.fill(
+                            child: IgnorePointer(
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  gradient: RadialGradient(
+                                    center: const Alignment(-0.2, 0.0),
+                                    radius: 1.5,
+                                    colors: [
+                                      widget.color
+                                          .withAlpha((_flashAnim.value * 200).round()),
+                                      Colors.white
+                                          .withAlpha((_flashAnim.value * 100).round()),
+                                      Colors.transparent,
+                                    ],
+                                    stops: const [0.0, 0.3, 1.0],
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 }

@@ -2,6 +2,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import '../../../config/image_assets.dart';
 import '../../../config/theme.dart';
 import '../../../config/cat_agent_data.dart';
 import '../../../core/models/cat_data.dart';
@@ -144,9 +145,8 @@ class CatPanel extends StatelessWidget {
                   shape: BoxShape.circle,
                   border: Border.all(color: attrColor.withAlpha(150), width: 2),
                 ),
-                child: Center(
-                  child: Text(agentDef.attribute.emoji,
-                      style: const TextStyle(fontSize: 22)),
+                child: ClipOval(
+                  child: _buildAgentImage(agentId, agentDef, 44),
                 ),
               ),
               const SizedBox(height: 10),
@@ -320,8 +320,10 @@ class CatPanel extends StatelessWidget {
                     ),
                     child: Row(
                       children: [
-                        Text(info.definition.attribute.emoji,
-                            style: const TextStyle(fontSize: 18)),
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(6),
+                          child: _buildAgentImage(info.definition.id, info.definition, 28),
+                        ),
                         const SizedBox(width: 10),
                         Expanded(
                           child: Column(
@@ -405,6 +407,26 @@ class CatPanel extends StatelessWidget {
         chestCount: totalChests,
         totalGold: totalGold,
         maxRarity: maxRarity,
+      ),
+    );
+  }
+
+  static Widget _buildAgentImage(String agentId, CatAgentDefinition agentDef, double size) {
+    final iconPath = ImageAssets.iconImage(agentId);
+    if (iconPath == null) {
+      return Center(
+        child: Text(agentDef.attribute.emoji,
+            style: TextStyle(fontSize: size * 0.5)),
+      );
+    }
+    return Image.asset(
+      iconPath,
+      width: size,
+      height: size,
+      fit: BoxFit.cover,
+      errorBuilder: (_, __, ___) => Center(
+        child: Text(agentDef.attribute.emoji,
+            style: TextStyle(fontSize: size * 0.5)),
       ),
     );
   }
@@ -595,10 +617,12 @@ class _AgentCardState extends State<_AgentCard>
             ),
             child: Row(
               children: [
-                // 屬性圖示
-                Text(
-                  widget.agentDef.attribute.emoji,
-                  style: const TextStyle(fontSize: 16),
+                // 角色圖示
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(4),
+                  child: CatPanel._buildAgentImage(
+                    widget.agentId, widget.agentDef, 20,
+                  ),
                 ),
                 const SizedBox(width: 5),
                 // 名稱 + 能量條

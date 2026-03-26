@@ -33,6 +33,10 @@ flutter:
 
   assets:
     - assets/images/
+    - assets/images/output/avatars/
+    - assets/images/output/blocks/
+    - assets/images/output/characters/
+    - assets/images/output/icons/
     - assets/audio/sfx/
     - assets/audio/bgm/
     - assets/fonts/
