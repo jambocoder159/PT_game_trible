@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 import '../../../config/image_assets.dart';
 import '../../../config/stage_data.dart';
 import '../../../config/theme.dart';
+import '../../../core/models/player_data.dart';
 import '../../agents/providers/player_provider.dart';
 import '../../game/screens/battle_screen.dart';
 
