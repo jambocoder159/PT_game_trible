@@ -47,7 +47,20 @@ class ShopScreen extends StatelessWidget {
           ),
         ],
       ),
-      body: ListView(
+      body: Stack(
+        children: [
+          // 商店背景圖
+          Positioned.fill(
+            child: Opacity(
+              opacity: 0.35,
+              child: Image.asset(
+                ImageAssets.shopBackground,
+                fit: BoxFit.cover,
+                errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+              ),
+            ),
+          ),
+          ListView(
         padding: const EdgeInsets.all(16),
         children: [
           // 月卡
@@ -245,6 +258,8 @@ class ShopScreen extends StatelessWidget {
               );
             },
           ),
+        ],
+      ),
         ],
       ),
     );

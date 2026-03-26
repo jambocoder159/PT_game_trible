@@ -3,6 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import '../../../config/image_assets.dart';
 import '../../../config/theme.dart';
 import '../../../core/models/material.dart';
 import '../../agents/providers/player_provider.dart';
@@ -31,11 +32,23 @@ class _BackpackScreenState extends State<BackpackScreen> {
               padding: const EdgeInsets.only(right: 16),
               child: Row(
                 children: [
-                  Text('🪙 ${p.data.gold}',
-                      style: const TextStyle(fontSize: 14)),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      GameIcon(assetPath: ImageAssets.coin, fallbackEmoji: '🪙', size: 16),
+                      const SizedBox(width: 3),
+                      Text('${p.data.gold}', style: const TextStyle(fontSize: 14)),
+                    ],
+                  ),
                   const SizedBox(width: 12),
-                  Text('💎 ${p.data.diamonds}',
-                      style: const TextStyle(fontSize: 14)),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      GameIcon(assetPath: ImageAssets.diamond, fallbackEmoji: '💎', size: 16),
+                      const SizedBox(width: 3),
+                      Text('${p.data.diamonds}', style: const TextStyle(fontSize: 14)),
+                    ],
+                  ),
                 ],
               ),
             ),
@@ -316,15 +329,49 @@ class _MaterialCell extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            // 圖示
-            Text(
-              material.emoji,
-              style: TextStyle(
-                fontSize: 26,
-                color: isEmpty ? Colors.white.withAlpha(80) : null,
+            // 漸層圓形圖示
+            Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: isEmpty
+                      ? [
+                          Colors.grey.withAlpha(40),
+                          Colors.grey.withAlpha(20),
+                        ]
+                      : [
+                          material.iconColor.withAlpha(60),
+                          material.iconColor.withAlpha(30),
+                        ],
+                ),
+                border: Border.all(
+                  color: isEmpty
+                      ? Colors.white.withAlpha(15)
+                      : material.iconColor.withAlpha(120),
+                  width: 1.5,
+                ),
+                boxShadow: isEmpty
+                    ? null
+                    : [
+                        BoxShadow(
+                          color: material.iconColor.withAlpha(40),
+                          blurRadius: 6,
+                        ),
+                      ],
+              ),
+              child: Icon(
+                material.iconData,
+                size: 18,
+                color: isEmpty
+                    ? Colors.white.withAlpha(60)
+                    : material.iconColor,
               ),
             ),
-            const SizedBox(height: 2),
+            const SizedBox(height: 3),
             // 名稱
             Text(
               material.label,
@@ -416,12 +463,30 @@ class _MaterialDetailSheet extends StatelessWidget {
               width: 72,
               height: 72,
               decoration: BoxDecoration(
-                color: rarityColor.withAlpha(30),
                 borderRadius: BorderRadius.circular(16),
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    material.iconColor.withAlpha(50),
+                    rarityColor.withAlpha(30),
+                  ],
+                ),
                 border: Border.all(color: rarityColor.withAlpha(120), width: 2),
+                boxShadow: [
+                  BoxShadow(
+                    color: material.iconColor.withAlpha(40),
+                    blurRadius: 12,
+                    spreadRadius: 2,
+                  ),
+                ],
               ),
               child: Center(
-                child: Text(material.emoji, style: const TextStyle(fontSize: 36)),
+                child: Icon(
+                  material.iconData,
+                  size: 36,
+                  color: material.iconColor,
+                ),
               ),
             ),
             const SizedBox(height: 12),

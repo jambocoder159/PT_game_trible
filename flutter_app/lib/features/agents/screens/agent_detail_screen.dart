@@ -42,7 +42,20 @@ class AgentDetailScreen extends StatelessWidget {
         return Scaffold(
           backgroundColor: AppTheme.bgPrimary,
           body: SafeArea(
-            child: Column(
+            child: Stack(
+              children: [
+                // 角色資訊背景圖
+                Positioned.fill(
+                  child: Opacity(
+                    opacity: 0.2,
+                    child: Image.asset(
+                      ImageAssets.agentInfoBackground,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                    ),
+                  ),
+                ),
+                Column(
               children: [
                 // ── 頂部彩色名稱欄 ──
                 _NameBanner(
@@ -85,6 +98,8 @@ class AgentDetailScreen extends StatelessWidget {
                     attrColor: attrColor,
                   ),
                 ),
+              ],
+            ),
               ],
             ),
           ),

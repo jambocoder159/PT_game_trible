@@ -4,6 +4,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import '../../../config/boss_dialogue_data.dart';
 import '../../../config/cat_agent_data.dart';
 import '../../../config/game_modes.dart';
 import '../../../config/image_assets.dart';
@@ -49,6 +50,9 @@ class _BattleScreenState extends State<BattleScreen> {
   bool _victoryAnimPlaying = false; // 勝利爆炸演出中
   bool _showResult = false; // 顯示結算畫面
 
+  // Boss 對話演出
+  bool _showBossIntro = false;
+
   // 技能橫幅動畫
   bool _showSkillBanner = false;
   String? _skillBannerAgentId;
@@ -60,6 +64,11 @@ class _BattleScreenState extends State<BattleScreen> {
   void initState() {
     super.initState();
     _loadBoardPosition();
+    // Boss 關（X-10）顯示對話演出
+    if (widget.stage.stageNumber == 10 &&
+        bossDialogues.containsKey(widget.stage.chapter)) {
+      _showBossIntro = true;
+    }
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _initBattle();
     });
@@ -233,7 +242,7 @@ class _BattleScreenState extends State<BattleScreen> {
     final bgPath = ImageAssets.battleBackground(widget.stage.chapter);
 
     return Scaffold(
-      backgroundColor: const Color(0xFF2D3748),
+      backgroundColor: Colors.black,
       body: SafeArea(
         child: Stack(
           children: [
@@ -241,7 +250,7 @@ class _BattleScreenState extends State<BattleScreen> {
             if (bgPath != null)
               Positioned.fill(
                 child: Opacity(
-                  opacity: 0.3,
+                  opacity: 0.5,
                   child: Image.asset(
                     bgPath,
                     fit: BoxFit.cover,
@@ -395,6 +404,17 @@ class _BattleScreenState extends State<BattleScreen> {
                     onComplete: () {
                       if (mounted) {
                         setState(() => _showSkillBanner = false);
+                      }
+                    },
+                  ),
+
+                // Boss 對話演出
+                if (_showBossIntro)
+                  _BossIntroOverlay(
+                    chapter: widget.stage.chapter,
+                    onComplete: () {
+                      if (mounted) {
+                        setState(() => _showBossIntro = false);
                       }
                     },
                   ),
@@ -3776,4 +3796,271 @@ class _RadialBurstPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant _RadialBurstPainter old) =>
       old.progress != progress;
+}
+
+// ═══════════════════════════════════════════
+// Boss 對話演出
+// ═══════════════════════════════════════════
+
+class _BossIntroOverlay extends StatefulWidget {
+  final int chapter;
+  final VoidCallback onComplete;
+
+  const _BossIntroOverlay({
+    required this.chapter,
+    required this.onComplete,
+  });
+
+  @override
+  State<_BossIntroOverlay> createState() => _BossIntroOverlayState();
+}
+
+class _BossIntroOverlayState extends State<_BossIntroOverlay>
+    with TickerProviderStateMixin {
+  late AnimationController _entranceController;
+  late Animation<double> _bgFade;
+  late Animation<Offset> _bossSlide;
+  late Animation<double> _bossFade;
+
+  int _currentLine = 0;
+  String _displayedText = '';
+  bool _isTyping = false;
+
+  BossDialogue? get _dialogue => bossDialogues[widget.chapter];
+
+  @override
+  void initState() {
+    super.initState();
+
+    _entranceController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 800),
+    );
+
+    _bgFade = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _entranceController,
+        curve: const Interval(0.0, 0.4, curve: Curves.easeIn),
+      ),
+    );
+
+    _bossSlide = Tween<Offset>(
+      begin: const Offset(-1.0, 0.0),
+      end: Offset.zero,
+    ).animate(
+      CurvedAnimation(
+        parent: _entranceController,
+        curve: const Interval(0.2, 0.7, curve: Curves.easeOutCubic),
+      ),
+    );
+
+    _bossFade = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _entranceController,
+        curve: const Interval(0.2, 0.6, curve: Curves.easeIn),
+      ),
+    );
+
+    HapticFeedback.heavyImpact();
+    _entranceController.forward().then((_) {
+      _typeCurrentLine();
+    });
+  }
+
+  @override
+  void dispose() {
+    _entranceController.dispose();
+    super.dispose();
+  }
+
+  void _typeCurrentLine() {
+    final lines = _dialogue?.introLines ?? [];
+    if (_currentLine >= lines.length) return;
+
+    _isTyping = true;
+    _displayedText = '';
+    final fullText = lines[_currentLine];
+    int charIndex = 0;
+
+    Future.doWhile(() async {
+      if (!mounted || charIndex >= fullText.length) {
+        if (mounted) setState(() => _isTyping = false);
+        return false;
+      }
+      await Future.delayed(const Duration(milliseconds: 40));
+      if (!mounted) return false;
+      charIndex++;
+      setState(() {
+        _displayedText = fullText.substring(0, charIndex);
+      });
+      return charIndex < fullText.length;
+    });
+  }
+
+  void _onTap() {
+    final lines = _dialogue?.introLines ?? [];
+
+    if (_isTyping) {
+      // 跳過打字效果，直接顯示完整文字
+      setState(() {
+        _displayedText = lines[_currentLine];
+        _isTyping = false;
+      });
+      return;
+    }
+
+    // 下一句
+    if (_currentLine < lines.length - 1) {
+      setState(() => _currentLine++);
+      _typeCurrentLine();
+    } else {
+      // 對話結束
+      widget.onComplete();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final dialogue = _dialogue;
+    if (dialogue == null) {
+      widget.onComplete();
+      return const SizedBox.shrink();
+    }
+
+    final screenSize = MediaQuery.of(context).size;
+    final bossImagePath = ImageAssets.bossImage(widget.chapter);
+    final lines = dialogue.introLines;
+    final isLastLine = _currentLine >= lines.length - 1 && !_isTyping;
+
+    return AnimatedBuilder(
+      animation: _entranceController,
+      builder: (context, _) {
+        return GestureDetector(
+          onTap: _onTap,
+          behavior: HitTestBehavior.opaque,
+          child: Container(
+            color: Colors.black.withAlpha((_bgFade.value * 200).round()),
+            child: Stack(
+              children: [
+                // Boss 立繪（左側大圖）
+                Positioned(
+                  left: 0,
+                  bottom: screenSize.height * 0.15,
+                  child: SlideTransition(
+                    position: _bossSlide,
+                    child: FadeTransition(
+                      opacity: _bossFade,
+                      child: SizedBox(
+                        height: screenSize.height * 0.55,
+                        child: Image.asset(
+                          bossImagePath,
+                          fit: BoxFit.contain,
+                          errorBuilder: (_, __, ___) => SizedBox(
+                            width: 200,
+                            child: Center(
+                              child: Text(
+                                dialogue.bossName,
+                                style: const TextStyle(
+                                  fontSize: 48,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+
+                // 對話框（底部）
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  child: FadeTransition(
+                    opacity: _bossFade,
+                    child: Container(
+                      padding: const EdgeInsets.fromLTRB(20, 16, 20, 40),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [
+                            Colors.black.withAlpha(0),
+                            Colors.black.withAlpha(220),
+                            Colors.black.withAlpha(240),
+                          ],
+                          stops: const [0.0, 0.25, 1.0],
+                        ),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          // Boss 名稱
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.red.withAlpha(150),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              dialogue.bossName,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          // 對話文字
+                          SizedBox(
+                            height: 50,
+                            child: Text(
+                              _displayedText,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 16,
+                                height: 1.5,
+                                shadows: [
+                                  Shadow(
+                                    color: Colors.black,
+                                    blurRadius: 4,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          // 提示文字
+                          Align(
+                            alignment: Alignment.centerRight,
+                            child: Text(
+                              isLastLine ? '▶ 點擊開戰！' : '▶ 點擊繼續',
+                              style: TextStyle(
+                                color: isLastLine
+                                    ? Colors.amber
+                                    : Colors.white.withAlpha(180),
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
 }
