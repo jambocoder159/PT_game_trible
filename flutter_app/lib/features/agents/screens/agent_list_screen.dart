@@ -27,12 +27,14 @@ class AgentListScreen extends StatelessWidget {
             builder: (_, provider, __) => Row(
               children: [
                 _CurrencyChip(
-                  icon: '🪙',
+                  iconPath: ImageAssets.coin,
+                  fallbackIcon: '🪙',
                   amount: provider.data.gold,
                 ),
                 const SizedBox(width: 8),
                 _CurrencyChip(
-                  icon: '💎',
+                  iconPath: ImageAssets.diamond,
+                  fallbackIcon: '💎',
                   amount: provider.data.diamonds,
                 ),
                 const SizedBox(width: 12),
@@ -308,8 +310,14 @@ class _AgentCard extends StatelessWidget {
             // 名稱
             Row(
               children: [
+                GameIcon(
+                  assetPath: ImageAssets.attributeIcon(def.attribute),
+                  fallbackEmoji: def.attribute.emoji,
+                  size: 22,
+                ),
+                const SizedBox(width: 6),
                 Text(
-                  '${def.attribute.emoji} ${def.name}',
+                  def.name,
                   style: const TextStyle(
                     fontSize: 22,
                     fontWeight: FontWeight.bold,
@@ -451,10 +459,15 @@ class _AgentCard extends StatelessWidget {
 // ─── 輔助 Widget ───
 
 class _CurrencyChip extends StatelessWidget {
-  final String icon;
+  final String iconPath;
+  final String fallbackIcon;
   final int amount;
 
-  const _CurrencyChip({required this.icon, required this.amount});
+  const _CurrencyChip({
+    required this.iconPath,
+    required this.fallbackIcon,
+    required this.amount,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -467,7 +480,7 @@ class _CurrencyChip extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(icon, style: const TextStyle(fontSize: 14)),
+          GameIcon(assetPath: iconPath, fallbackEmoji: fallbackIcon, size: 16),
           const SizedBox(width: 4),
           Text(
             '$amount',
@@ -529,10 +542,17 @@ class _AgentAvatar extends StatelessWidget {
                 ),
               )
             : Center(
-                child: Text(
-                  isUnlocked ? attribute.emoji : '🔒',
-                  style: const TextStyle(fontSize: 28),
-                ),
+                child: isUnlocked
+                    ? GameIcon(
+                        assetPath: ImageAssets.attributeIcon(attribute),
+                        fallbackEmoji: attribute.emoji,
+                        size: 28,
+                      )
+                    : GameIcon(
+                        assetPath: ImageAssets.lock,
+                        fallbackEmoji: '🔒',
+                        size: 28,
+                      ),
               ),
       ),
     );

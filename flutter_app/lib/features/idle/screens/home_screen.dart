@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../../../config/image_assets.dart';
 import '../../../config/theme.dart';
 import '../../agents/providers/player_provider.dart';
 import '../../agents/screens/agent_list_screen.dart';
@@ -325,6 +326,17 @@ class _HomeScreenState extends State<HomeScreen> {
       bottom: false,
       child: Stack(
         children: [
+          // 首頁背景圖
+          Positioned.fill(
+            child: Opacity(
+              opacity: 0.25,
+              child: Image.asset(
+                ImageAssets.homeBackground,
+                fit: BoxFit.cover,
+                errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+              ),
+            ),
+          ),
           Column(
             children: [
               // ─── 頂部玩家資訊列 ───

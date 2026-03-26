@@ -413,9 +413,10 @@ class _CharacterCard extends StatelessWidget {
 
   Widget _fallbackImage() {
     return Center(
-      child: Text(
-        definition.attribute.emoji,
-        style: const TextStyle(fontSize: 48),
+      child: GameIcon(
+        assetPath: ImageAssets.attributeIcon(definition.attribute),
+        fallbackEmoji: definition.attribute.emoji,
+        size: 48,
       ),
     );
   }

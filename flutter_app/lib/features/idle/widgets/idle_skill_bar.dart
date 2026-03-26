@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../../config/cat_agent_data.dart';
+import '../../../config/image_assets.dart';
 import '../../../config/theme.dart';
 import '../../../core/models/cat_agent.dart';
 import '../providers/idle_provider.dart';
@@ -112,9 +113,10 @@ class _SkillButton extends StatelessWidget {
                         : null,
                   ),
                   child: Center(
-                    child: Text(
-                      def.attribute.emoji,
-                      style: const TextStyle(fontSize: 14),
+                    child: GameIcon(
+                      assetPath: ImageAssets.attributeIcon(def.attribute),
+                      fallbackEmoji: def.attribute.emoji,
+                      size: 14,
                     ),
                   ),
                 ),

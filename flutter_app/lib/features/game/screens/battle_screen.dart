@@ -230,10 +230,26 @@ class _BattleScreenState extends State<BattleScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final bgPath = ImageAssets.battleBackground(widget.stage.chapter);
+
     return Scaffold(
       backgroundColor: const Color(0xFF2D3748),
       body: SafeArea(
-        child: Consumer<BattleProvider>(
+        child: Stack(
+          children: [
+            // 章節背景圖
+            if (bgPath != null)
+              Positioned.fill(
+                child: Opacity(
+                  opacity: 0.3,
+                  child: Image.asset(
+                    bgPath,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                  ),
+                ),
+              ),
+            Consumer<BattleProvider>(
           builder: (context, battle, _) {
             final battleState = battle.battleState;
 
@@ -414,6 +430,8 @@ class _BattleScreenState extends State<BattleScreen> {
               ],
             );
           },
+        ),
+          ],
         ),
       ),
     );
@@ -1677,7 +1695,11 @@ class _EnemyCard extends StatelessWidget {
             ),
             child: Row(
               children: [
-                Text(enemy.definition.emoji, style: const TextStyle(fontSize: 16)),
+                GameImage(
+                  assetPath: ImageAssets.enemyImage(enemy.definition.id),
+                  fallbackEmoji: enemy.definition.emoji,
+                  width: 16, height: 16,
+                ),
                 const SizedBox(width: 4),
                 Text(
                   '${enemy.definition.name} ✕',
@@ -1728,7 +1750,11 @@ class _EnemyCard extends StatelessWidget {
                   child: Container(
                     color: color.withAlpha(30),
                     child: Center(
-                      child: Text(enemy.definition.emoji, style: const TextStyle(fontSize: 20)),
+                      child: GameImage(
+                        assetPath: ImageAssets.enemyImage(enemy.definition.id),
+                        fallbackEmoji: enemy.definition.emoji,
+                        width: 28, height: 28,
+                      ),
                     ),
                   ),
                 ),

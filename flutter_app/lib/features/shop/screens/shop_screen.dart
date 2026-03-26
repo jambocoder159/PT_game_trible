@@ -2,6 +2,7 @@
 /// MVP：月卡 + 鑽石包 + 素材兌換
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../../../config/image_assets.dart';
 import '../../../config/theme.dart';
 import '../../../core/models/material.dart';
 import '../../agents/providers/player_provider.dart';
@@ -23,11 +24,23 @@ class ShopScreen extends StatelessWidget {
               padding: const EdgeInsets.only(right: 16),
               child: Row(
                 children: [
-                  Text('🪙 ${p.data.gold}',
-                      style: const TextStyle(fontSize: 14)),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      GameIcon(assetPath: ImageAssets.coin, fallbackEmoji: '🪙', size: 16),
+                      const SizedBox(width: 3),
+                      Text('${p.data.gold}', style: const TextStyle(fontSize: 14)),
+                    ],
+                  ),
                   const SizedBox(width: 12),
-                  Text('💎 ${p.data.diamonds}',
-                      style: const TextStyle(fontSize: 14)),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      GameIcon(assetPath: ImageAssets.diamond, fallbackEmoji: '💎', size: 16),
+                      const SizedBox(width: 3),
+                      Text('${p.data.diamonds}', style: const TextStyle(fontSize: 14)),
+                    ],
+                  ),
                 ],
               ),
             ),

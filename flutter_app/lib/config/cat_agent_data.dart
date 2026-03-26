@@ -223,7 +223,7 @@ class CatAgentData {
       ),
     ),
     passiveDescription: '護盾生效時，敵人攻擊速度降低 10%',
-    unlockCondition: UnlockCondition(stageRequirement: '1-12', goldCost: 1000),
+    unlockCondition: UnlockCondition(stageRequirement: '2-2', goldCost: 1000),
   );
 
   static const tsunamiAgent = CatAgentDefinition(
@@ -279,7 +279,7 @@ class CatAgentData {
       ),
     ),
     passiveDescription: '達成 5 連擊以上時，技能傷害額外 +15%',
-    unlockCondition: UnlockCondition(stageRequirement: '1-15'),
+    unlockCondition: UnlockCondition(stageRequirement: '3-5'),
   );
 
   static const sparkAgent = CatAgentDefinition(
@@ -331,7 +331,7 @@ class CatAgentData {
     ),
     passiveDescription: '暴擊傷害額外 +20%',
     unlockCondition: UnlockCondition(
-      stageRequirement: '2-12', requireAllStars: true, goldCost: 5000,
+      stageRequirement: '4-2', requireAllStars: true, goldCost: 5000,
     ),
   );
 
@@ -415,7 +415,7 @@ class CatAgentData {
       ),
     ),
     passiveDescription: '敵人 HP 越低，造成的傷害越高（最高 +15%）',
-    unlockCondition: UnlockCondition(stageRequirement: '1-18', goldCost: 1200),
+    unlockCondition: UnlockCondition(stageRequirement: '3-8', goldCost: 1200),
   );
 
   // ─── 全角色列表 ───
