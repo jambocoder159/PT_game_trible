@@ -81,7 +81,7 @@ class TalentTreeData {
     ),
   ];
 
-  // ─── 小波 Tide ───
+  // ─── 露露 Tide ───
 
   static const tideTalents = <TalentNodeDefinition>[
     // 攻擊分支

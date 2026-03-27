@@ -180,30 +180,30 @@ class SkillTierData {
     ),
   ];
 
-  // ─── 煉獄 Inferno — 地獄突襲 (infiltrator, execute) ───
+  // ─── 焦糖 Caramel — 極速外送！ (infiltrator, execute) ───
 
   static const infernoSkillTiers = <SkillTierDefinition>[
     SkillTierDefinition(
-      tier: 1, name: '地獄突襲', description: '3.2x 傷害，<30% HP +50%',
+      tier: 1, name: '極速外送！', description: '3.2x 傷害，<30% HP +50%',
       multiplierBonus: 0, goldCost: 0, materialCost: {},
     ),
     SkillTierDefinition(
-      tier: 2, name: '獄火強化', description: '3.5x 傷害',
+      tier: 2, name: '焦糖加速', description: '3.5x 傷害',
       multiplierBonus: 0.3,
       goldCost: 300, materialCost: {GameMaterial.commonShard: 5, GameMaterial.skillCore: 1},
     ),
     SkillTierDefinition(
-      tier: 3, name: '煉獄追殺', description: '3.8x 傷害，斬殺門檻提升至 40%',
+      tier: 3, name: '焦糖追擊', description: '3.8x 傷害，斬殺門檻提升至 40%',
       multiplierBonus: 0.3, newMechanic: SkillTierMechanic.executeThresholdUp, mechanicValue: 0.4,
       goldCost: 800, materialCost: {GameMaterial.advancedShard: 3, GameMaterial.skillCore: 2},
     ),
     SkillTierDefinition(
-      tier: 4, name: '地獄烙印', description: '4.2x 傷害 + 灼燒 2 回合 (20% ATK)',
+      tier: 4, name: '焦糖烙印', description: '4.2x 傷害 + 灼燒 2 回合 (20% ATK)',
       multiplierBonus: 0.4, newMechanic: SkillTierMechanic.dot, mechanicValue: 0.2,
       goldCost: 1500, materialCost: {GameMaterial.advancedShard: 5, GameMaterial.skillCore: 3, GameMaterial.rareShard: 1},
     ),
     SkillTierDefinition(
-      tier: 5, name: '煉獄終焉', description: '4.7x 傷害 + 擊殺全額退能量',
+      tier: 5, name: '極致焦糖外送', description: '4.7x 傷害 + 擊殺全額退能量',
       multiplierBonus: 0.5, newMechanic: SkillTierMechanic.energyRefund, mechanicValue: -1,
       goldCost: 3000, materialCost: {GameMaterial.rareShard: 3, GameMaterial.skillCore: 5},
     ),

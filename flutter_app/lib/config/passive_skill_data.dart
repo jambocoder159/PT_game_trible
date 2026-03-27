@@ -39,7 +39,7 @@ class PassiveSkillData {
     ),
   ];
 
-  // ─── 小波 Tide ───
+  // ─── 露露 Tide ───
 
   static const tidePassives = <PassiveSkillDefinition>[
     PassiveSkillDefinition(
