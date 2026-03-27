@@ -325,7 +325,7 @@ class _StageSelectScreenState extends State<StageSelectScreen>
                               ),
                               const SizedBox(height: 6),
                               SizedBox(
-                                height: 100,
+                                height: 130,
                                 child: ListView.builder(
                                   scrollDirection: Axis.horizontal,
                                   itemCount: stage.enemies.length,
@@ -334,68 +334,149 @@ class _StageSelectScreenState extends State<StageSelectScreen>
                                     final eColor =
                                         e.attribute.blockColor.color;
                                     return Container(
-                                      width: 95,
+                                      width: 110,
                                       margin:
-                                          const EdgeInsets.only(right: 8),
-                                      padding: const EdgeInsets.all(8),
+                                          const EdgeInsets.only(right: 10),
+                                      clipBehavior: Clip.antiAlias,
                                       decoration: BoxDecoration(
                                         color:
-                                            AppTheme.bgCard.withAlpha(200),
+                                            AppTheme.bgCard.withAlpha(220),
                                         borderRadius:
-                                            BorderRadius.circular(10),
+                                            BorderRadius.circular(12),
                                         border: Border.all(
-                                          color: eColor.withAlpha(80),
+                                          color: eColor.withAlpha(120),
+                                          width: 1.5,
                                         ),
+                                        boxShadow: [
+                                          BoxShadow(
+                                            color: eColor.withAlpha(30),
+                                            blurRadius: 8,
+                                          ),
+                                        ],
                                       ),
                                       child: Column(
-                                        mainAxisSize: MainAxisSize.min,
                                         children: [
-                                          GameImage(
-                                            assetPath:
-                                                ImageAssets.enemyImage(
-                                                    e.id),
-                                            fallbackEmoji: e.emoji,
-                                            width: 44,
-                                            height: 44,
-                                          ),
-                                          const SizedBox(height: 4),
-                                          Text(
-                                            e.name,
-                                            style: const TextStyle(
-                                              color: AppTheme.textPrimary,
-                                              fontSize: 11,
-                                              fontWeight: FontWeight.w600,
+                                          // 大圖區域
+                                          Expanded(
+                                            child: Container(
+                                              width: double.infinity,
+                                              decoration: BoxDecoration(
+                                                gradient: LinearGradient(
+                                                  begin: Alignment.topCenter,
+                                                  end: Alignment.bottomCenter,
+                                                  colors: [
+                                                    eColor.withAlpha(30),
+                                                    Colors.black26,
+                                                  ],
+                                                ),
+                                              ),
+                                              child: Stack(
+                                                children: [
+                                                  Center(
+                                                    child: GameImage(
+                                                      assetPath:
+                                                          ImageAssets.enemyImage(
+                                                              e.id),
+                                                      fallbackEmoji: e.emoji,
+                                                      width: 64,
+                                                      height: 64,
+                                                    ),
+                                                  ),
+                                                  // 屬性色帶
+                                                  Positioned(
+                                                    top: 0,
+                                                    left: 0,
+                                                    right: 0,
+                                                    child: Container(
+                                                      height: 3,
+                                                      color: eColor,
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
                                             ),
-                                            overflow:
-                                                TextOverflow.ellipsis,
                                           ),
-                                          const SizedBox(height: 2),
-                                          Row(
-                                            mainAxisAlignment:
-                                                MainAxisAlignment.center,
-                                            children: [
-                                              Text(
-                                                'HP${e.baseHp}',
-                                                style: TextStyle(
-                                                  color: Colors
-                                                      .green.shade300,
-                                                  fontSize: 9,
-                                                  fontWeight:
-                                                      FontWeight.bold,
+                                          // 底部資訊區
+                                          Container(
+                                            width: double.infinity,
+                                            padding: const EdgeInsets
+                                                .symmetric(
+                                                horizontal: 8,
+                                                vertical: 6),
+                                            decoration: BoxDecoration(
+                                              color: Colors.black38,
+                                            ),
+                                            child: Column(
+                                              mainAxisSize:
+                                                  MainAxisSize.min,
+                                              children: [
+                                                Text(
+                                                  e.name,
+                                                  style:
+                                                      const TextStyle(
+                                                    color: AppTheme
+                                                        .textPrimary,
+                                                    fontSize: 12,
+                                                    fontWeight:
+                                                        FontWeight.bold,
+                                                  ),
+                                                  overflow: TextOverflow
+                                                      .ellipsis,
                                                 ),
-                                              ),
-                                              const SizedBox(width: 6),
-                                              Text(
-                                                'ATK${e.baseAtk}',
-                                                style: TextStyle(
-                                                  color:
-                                                      Colors.red.shade300,
-                                                  fontSize: 9,
-                                                  fontWeight:
-                                                      FontWeight.bold,
+                                                const SizedBox(
+                                                    height: 3),
+                                                Row(
+                                                  mainAxisAlignment:
+                                                      MainAxisAlignment
+                                                          .center,
+                                                  children: [
+                                                    Icon(
+                                                        Icons.favorite,
+                                                        size: 10,
+                                                        color: Colors
+                                                            .green
+                                                            .shade300),
+                                                    const SizedBox(
+                                                        width: 2),
+                                                    Text(
+                                                      '${e.baseHp}',
+                                                      style: TextStyle(
+                                                        color: Colors
+                                                            .green
+                                                            .shade300,
+                                                        fontSize: 10,
+                                                        fontWeight:
+                                                            FontWeight
+                                                                .bold,
+                                                      ),
+                                                    ),
+                                                    const SizedBox(
+                                                        width: 8),
+                                                    Icon(
+                                                        Icons
+                                                            .flash_on,
+                                                        size: 10,
+                                                        color: Colors
+                                                            .red
+                                                            .shade300),
+                                                    const SizedBox(
+                                                        width: 2),
+                                                    Text(
+                                                      '${e.baseAtk}',
+                                                      style: TextStyle(
+                                                        color: Colors
+                                                            .red
+                                                            .shade300,
+                                                        fontSize: 10,
+                                                        fontWeight:
+                                                            FontWeight
+                                                                .bold,
+                                                      ),
+                                                    ),
+                                                  ],
                                                 ),
-                                              ),
-                                            ],
+                                              ],
+                                            ),
                                           ),
                                         ],
                                       ),

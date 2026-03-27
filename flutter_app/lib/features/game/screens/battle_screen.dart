@@ -1914,140 +1914,182 @@ class _EnemyCard extends StatelessWidget {
         ? enemy.attackCountdown / enemy.definition.attackInterval
         : 0.0;
 
+    // 外框顏色 — 遊戲王風格雙邊框
+    final outerBorderColor = isCurrent
+        ? Colors.red.withAlpha(200)
+        : color.withAlpha(100);
+    final innerBorderColor = isCurrent
+        ? Colors.red.withAlpha(100)
+        : color.withAlpha(50);
+
     return Padding(
-      padding: const EdgeInsets.only(bottom: 4),
+      padding: const EdgeInsets.only(bottom: 5),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 100),
         curve: Curves.easeInOut,
-        height: 70,
-        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+        height: 80,
+        clipBehavior: Clip.antiAlias,
         decoration: BoxDecoration(
           color: isHit
               ? Colors.white.withAlpha(120)
-              : isCurrent
-                  ? Colors.black38
-                  : Colors.black.withAlpha(50),
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(
-            color: isCurrent
-                ? Colors.red.withAlpha(150)
-                : color.withAlpha(60),
-            width: isCurrent ? 1.5 : 1,
-          ),
-          boxShadow: isCurrent
-              ? [BoxShadow(color: color.withAlpha(40), blurRadius: 8)]
-              : null,
+              : Colors.black.withAlpha(180),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: outerBorderColor, width: 2),
+          boxShadow: [
+            if (isCurrent)
+              BoxShadow(color: color.withAlpha(60), blurRadius: 10, spreadRadius: 1),
+            if (isHit)
+              BoxShadow(color: Colors.white.withAlpha(80), blurRadius: 12),
+          ],
         ),
-        child: Row(
-          children: [
-            // ─── 左側：角色圖 + 倒數弧 ───
-            Container(
-              width: 54,
-              height: 54,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(8),
-                color: color.withAlpha(30),
-                border: Border.all(color: color.withAlpha(60)),
-              ),
-              child: Stack(
-                children: [
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(7),
-                    child: GameImage(
-                      assetPath:
-                          ImageAssets.enemyImage(enemy.definition.id),
-                      fallbackEmoji: enemy.definition.emoji,
-                      width: 54,
-                      height: 54,
-                    ),
-                  ),
-                  // 右上角倒數弧形指示器
-                  Positioned(
-                    top: 0,
-                    right: 0,
-                    child: _MiniCountdownArc(
-                      progress: countdownPercent,
-                      color: color,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 8),
-            // ─── 右側：名稱 + HP 條 + ATK ───
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    enemy.definition.name,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 11,
-                      fontWeight: FontWeight.bold,
-                      shadows: [
-                        Shadow(color: Colors.black54, blurRadius: 2)
-                      ],
-                    ),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 3),
-                  // HP 條
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(3),
-                    child: LinearProgressIndicator(
-                      value: enemy.hpPercent,
-                      minHeight: 7,
-                      backgroundColor: Colors.black26,
-                      valueColor: AlwaysStoppedAnimation<Color>(
-                        enemy.hpPercent > 0.5
-                            ? Colors.green
-                            : enemy.hpPercent > 0.25
-                                ? Colors.orange
-                                : Colors.red,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 3),
-                  Row(
-                    children: [
-                      Text(
-                        'ATK ${enemy.atk}',
-                        style: TextStyle(
-                          color: Colors.red.shade200,
-                          fontSize: 9,
-                          fontWeight: FontWeight.bold,
+        child: Container(
+          decoration: BoxDecoration(
+            border: Border.all(color: innerBorderColor, width: 1),
+            borderRadius: BorderRadius.circular(6),
+          ),
+          child: Row(
+            children: [
+              // ─── 左側：大圖區域（遊戲王風格）───
+              SizedBox(
+                width: 72,
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    // 背景漸層
+                    Container(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [
+                            color.withAlpha(40),
+                            color.withAlpha(15),
+                          ],
+                        ),
+                        border: Border(
+                          right: BorderSide(color: color.withAlpha(80), width: 1.5),
                         ),
                       ),
-                      if (isCurrent) ...[
-                        if (battleState.defDebuffTurns > 0)
-                          _StatusIcon(
-                            icon: Icons.shield_outlined,
-                            color: Colors.orange,
-                            label: '${battleState.defDebuffTurns}',
-                            tooltip: '破防',
+                    ),
+                    // 角色大圖
+                    Padding(
+                      padding: const EdgeInsets.all(4),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(4),
+                        child: GameImage(
+                          assetPath: ImageAssets.enemyImage(enemy.definition.id),
+                          fallbackEmoji: enemy.definition.emoji,
+                          width: 64,
+                          height: 72,
+                        ),
+                      ),
+                    ),
+                    // 倒數弧形指示器
+                    Positioned(
+                      top: 2,
+                      right: 4,
+                      child: _MiniCountdownArc(
+                        progress: countdownPercent,
+                        color: color,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              // ─── 右側：名稱 + HP 條 + ATK + 狀態 ───
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 5),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      // 名稱列
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              enemy.definition.name,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                                shadows: [
+                                  Shadow(color: Colors.black87, blurRadius: 3)
+                                ],
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
                           ),
-                        if (battleState.activeDots.isNotEmpty)
-                          _StatusIcon(
-                            icon: Icons.local_fire_department,
-                            color: Colors.deepOrange,
-                            label:
-                                '${battleState.activeDots.first.turnsRemaining}',
-                            tooltip: 'DoT',
+                          _AttackIntent(
+                            countdown: enemy.attackCountdown,
+                            atk: enemy.atk,
                           ),
-                      ],
-                      const Spacer(),
-                      _AttackIntent(
-                        countdown: enemy.attackCountdown,
-                        atk: enemy.atk,
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      // HP 條
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(3),
+                        child: LinearProgressIndicator(
+                          value: enemy.hpPercent,
+                          minHeight: 8,
+                          backgroundColor: Colors.black38,
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            enemy.hpPercent > 0.5
+                                ? Colors.green
+                                : enemy.hpPercent > 0.25
+                                    ? Colors.orange
+                                    : Colors.red,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      // 數值列
+                      Row(
+                        children: [
+                          Text(
+                            '${enemy.currentHp}/${enemy.maxHp}',
+                            style: const TextStyle(
+                              color: Colors.white70,
+                              fontSize: 9,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            'ATK ${enemy.atk}',
+                            style: TextStyle(
+                              color: Colors.red.shade200,
+                              fontSize: 9,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          if (isCurrent) ...[
+                            if (battleState.defDebuffTurns > 0)
+                              _StatusIcon(
+                                icon: Icons.shield_outlined,
+                                color: Colors.orange,
+                                label: '${battleState.defDebuffTurns}',
+                                tooltip: '破防',
+                              ),
+                            if (battleState.activeDots.isNotEmpty)
+                              _StatusIcon(
+                                icon: Icons.local_fire_department,
+                                color: Colors.deepOrange,
+                                label:
+                                    '${battleState.activeDots.first.turnsRemaining}',
+                                tooltip: 'DoT',
+                              ),
+                          ],
+                        ],
                       ),
                     ],
                   ),
-                ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -2394,7 +2436,6 @@ class _CatAgentCard extends StatelessWidget {
                   _InfoStat('ATK', '${agent.atk}', Colors.orange),
                   _InfoStat('DEF', '${agent.def}', Colors.blue),
                   _InfoStat('HP', '${agent.hp}', Colors.green),
-                  _InfoStat('SPD', '${agent.speed}', Colors.purple),
                 ],
               ),
               const SizedBox(height: 16),
@@ -2473,120 +2514,192 @@ class _CatAgentCard extends StatelessWidget {
     final color = agent.definition.attribute.blockColor.color;
     final isReady = agent.isSkillReady;
 
+    // 外框顏色 — 遊戲王風格雙邊框
+    final outerBorderColor = isReady
+        ? Colors.amber.withAlpha(200)
+        : color.withAlpha(100);
+    final innerBorderColor = isReady
+        ? Colors.amber.withAlpha(100)
+        : color.withAlpha(50);
+
     return GestureDetector(
       onTap: isReady ? onTap : null,
       onLongPress: () => _showAgentInfo(context),
       child: Padding(
-        padding: const EdgeInsets.only(bottom: 4),
+        padding: const EdgeInsets.only(bottom: 5),
         child: Container(
-          height: 70,
-          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+          height: 80,
+          clipBehavior: Clip.antiAlias,
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(
-              color: isReady
-                  ? Colors.amber.withAlpha(150)
-                  : color.withAlpha(60),
-              width: isReady ? 1.5 : 1,
-            ),
-            color: isReady
-                ? Colors.black.withAlpha(60)
-                : Colors.black.withAlpha(30),
-            boxShadow: isReady
-                ? [
-                    BoxShadow(
-                        color: Colors.amber.withAlpha(50), blurRadius: 10)
-                  ]
-                : null,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: outerBorderColor, width: 2),
+            color: Colors.black.withAlpha(180),
+            boxShadow: [
+              if (isReady)
+                BoxShadow(
+                  color: Colors.amber.withAlpha(60),
+                  blurRadius: 10,
+                  spreadRadius: 1,
+                ),
+            ],
           ),
-          child: Row(
-            children: [
-              // ─── 左側：角色圖 ───
-              Container(
-                width: 54,
-                height: 54,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(8),
-                  color: color.withAlpha(30),
-                  border: Border.all(color: color.withAlpha(60)),
-                ),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(7),
-                  child: _buildAgentAvatar(
-                      agent.definition.id, color, 54),
-                ),
-              ),
-              const SizedBox(width: 8),
-              // ─── 右側：名稱 + ATK + 能量條 ───
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            agent.definition.name,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 11,
-                              fontWeight: FontWeight.bold,
-                              shadows: [
-                                Shadow(
-                                    color: Colors.black54, blurRadius: 2)
-                              ],
+          child: Container(
+            decoration: BoxDecoration(
+              border: Border.all(color: innerBorderColor, width: 1),
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Row(
+              children: [
+                // ─── 左側：角色大圖（遊戲王風格）───
+                SizedBox(
+                  width: 72,
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      // 背景漸層
+                      Container(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: [
+                              color.withAlpha(40),
+                              color.withAlpha(15),
+                            ],
+                          ),
+                          border: Border(
+                            right: BorderSide(color: color.withAlpha(80), width: 1.5),
+                          ),
+                        ),
+                      ),
+                      // 角色大圖
+                      Padding(
+                        padding: const EdgeInsets.all(4),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(4),
+                          child: _buildAgentAvatar(
+                            agent.definition.id, color, 64,
+                          ),
+                        ),
+                      ),
+                      // 技能就緒閃光
+                      if (isReady)
+                        Positioned.fill(
+                          child: Container(
+                            decoration: BoxDecoration(
+                              border: Border.all(
+                                color: Colors.amber.withAlpha(80),
+                                width: 1,
+                              ),
+                              borderRadius: BorderRadius.circular(3),
                             ),
-                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
-                        Text(
-                          'ATK ${agent.atk}',
-                          style: TextStyle(
-                            color: Colors.orange.shade200,
-                            fontSize: 10,
-                            fontWeight: FontWeight.bold,
+                    ],
+                  ),
+                ),
+                // ─── 右側：名稱 + ATK/DEF + 能量條 ───
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 5),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        // 名稱 + Lv
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                agent.definition.name,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                  shadows: [
+                                    Shadow(color: Colors.black87, blurRadius: 3)
+                                  ],
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                              decoration: BoxDecoration(
+                                color: color.withAlpha(40),
+                                borderRadius: BorderRadius.circular(3),
+                              ),
+                              child: Text(
+                                'Lv.${agent.level}',
+                                style: TextStyle(
+                                  color: color,
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 3),
+                        // ATK + DEF
+                        Row(
+                          children: [
+                            Text(
+                              'ATK ${agent.atk}',
+                              style: TextStyle(
+                                color: Colors.orange.shade200,
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              'DEF ${agent.def}',
+                              style: TextStyle(
+                                color: Colors.blue.shade200,
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        // 能量條
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(3),
+                          child: LinearProgressIndicator(
+                            value: agent.energyPercent,
+                            minHeight: 7,
+                            backgroundColor: Colors.black38,
+                            valueColor: AlwaysStoppedAnimation(
+                              isReady ? Colors.amber : color.withAlpha(150),
+                            ),
                           ),
                         ),
+                        const SizedBox(height: 2),
+                        if (isReady)
+                          const Text(
+                            '▶ 點擊施放技能',
+                            style: TextStyle(
+                              color: Colors.amber,
+                              fontSize: 9,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          )
+                        else
+                          Text(
+                            '能量 ${agent.currentEnergy}/${agent.maxEnergy}',
+                            style: const TextStyle(
+                              color: Colors.white54,
+                              fontSize: 9,
+                            ),
+                          ),
                       ],
                     ),
-                    const SizedBox(height: 3),
-                    // 能量條
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(3),
-                      child: LinearProgressIndicator(
-                        value: agent.energyPercent,
-                        minHeight: 6,
-                        backgroundColor: Colors.black26,
-                        valueColor: AlwaysStoppedAnimation(
-                          isReady
-                              ? Colors.amber
-                              : color.withAlpha(150),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    if (isReady)
-                      const Text(
-                        '▶ 點擊施放技能',
-                        style: TextStyle(
-                          color: Colors.amber,
-                          fontSize: 9,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      )
-                    else
-                      Text(
-                        'HP ${agent.hp}  能量 ${agent.currentEnergy}/${agent.maxEnergy}',
-                        style: const TextStyle(
-                          color: Colors.white54,
-                          fontSize: 9,
-                        ),
-                      ),
-                  ],
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
