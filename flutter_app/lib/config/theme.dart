@@ -28,9 +28,9 @@ class AppTheme {
   static const Color bgSecondary = Color(0xFF5C3A28);   // 牛奶巧克力 — 次背景/面板
   static const Color bgCard = Color(0xFF7A5240);        // 暖可可 — 卡片（浮起）
   static const Color accentPrimary = Color(0xFFE8823A);  // 亮焦糖橘 — 主強調/CTA
-  static const Color accentSecondary = Color(0xFFD4A574); // 淺焦糖 — 次強調/邊框
+  static const Color accentSecondary = Color(0xFFE8C9A0); // 亮焦糖 — 次強調/邊框（提亮）
   static const Color textPrimary = Color(0xFFFFFFFF);    // 白色 — 主文字（最高對比）
-  static const Color textSecondary = Color(0xFFD4B896);  // 奶油色 — 次文字
+  static const Color textSecondary = Color(0xFFEDD8BC);  // 亮奶油 — 次文字（提高對比）
 
   // ─── 圓角 ───
   static const double radiusSmall = 8.0;
