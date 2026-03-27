@@ -219,17 +219,17 @@ class CatAgentData {
       boardEffect: SkillBoardEffect(
         type: BoardEffectType.convertColor,
         value: 4,
-        description: '冰霜凝結：轉化 4 個方塊為🔵',
+        description: '急凍防線：轉化 4 個方塊為💧',
       ),
     ),
-    passiveDescription: '護盾生效時，敵人攻擊速度降低 10%',
+    passiveDescription: '冰淇淋護盾凍住搗蛋鬼，攻擊速度降低 10%',
     unlockCondition: UnlockCondition(stageRequirement: '2-2', goldCost: 1000),
   );
 
   static const tsunamiAgent = CatAgentDefinition(
     id: 'tsunami',
-    name: '海嘯',
-    codename: 'Agent Tsunami',
+    name: '蘇打',
+    codename: 'Drink Soda',
     breed: '俄羅斯藍貓',
     attribute: AgentAttribute.attributeC,
     role: AgentRole.destroyer,
@@ -237,30 +237,30 @@ class CatAgentData {
     baseAtk: 27, baseDef: 12, baseHp: 200,
     atkGrowth: 4.2, defGrowth: 1.5, hpGrowth: 10.0,
     skill: AgentSkill(
-      name: '怒濤沖擊',
-      description: '掀起海嘯，對全體敵人造成 ATK×{multiplier} 傷害',
+      name: '氣泡大爆發！',
+      description: '氣泡爆發，對全體搗蛋鬼造成 ATK×{multiplier} 傷害',
       energyCost: 7, effectType: SkillEffectType.aoe,
       baseMultiplier: 1.8, levelScaling: 0.08,
       boardEffect: SkillBoardEffect(
         type: BoardEffectType.eliminateRow,
         value: 0,
-        description: '海嘯沖刷：消除頂部一整排方塊',
+        description: '蘇打噴泉：消除頂部一整排方塊',
       ),
     ),
-    passiveDescription: '使用技能後，延遲敵人攻擊 1 回合',
+    passiveDescription: '氣泡衝擊波讓搗蛋鬼暈眩，延遲攻擊 1 回合',
     unlockCondition: UnlockCondition(
       stageRequirement: '2-8', requireAllStars: true, goldCost: 4500,
     ),
   );
 
   // ═══════════════════════════════════════
-  // 屬性D 🟡 (gold) — 雷系
+  // 屬性D ⭐ (gold) — 星星系
   // ═══════════════════════════════════════
 
   static const flashAgent = CatAgentDefinition(
     id: 'flash',
-    name: '閃光',
-    codename: 'Agent Flash',
+    name: '糖霜',
+    codename: 'Deco Frosting',
     breed: '暹羅貓',
     attribute: AgentAttribute.attributeD,
     role: AgentRole.destroyer,
@@ -268,17 +268,17 @@ class CatAgentData {
     baseAtk: 22, baseDef: 8, baseHp: 180,
     atkGrowth: 3.5, defGrowth: 1.0, hpGrowth: 10.0,
     skill: AgentSkill(
-      name: '雷光爪',
-      description: '釋放電擊波，對全體敵人造成 ATK×{multiplier} 傷害',
+      name: '糖霜風暴！',
+      description: '糖霜四濺，對全體搗蛋鬼造成 ATK×{multiplier} 傷害',
       energyCost: 7, effectType: SkillEffectType.aoe,
       baseMultiplier: 1.5, levelScaling: 0.06,
       boardEffect: SkillBoardEffect(
         type: BoardEffectType.eliminateRandom,
         value: 3,
-        description: '落雷擊破：隨機消除 3 個方塊',
+        description: '糖粉飛揚：隨機消除 3 個方塊',
       ),
     ),
-    passiveDescription: '達成 5 連擊以上時，技能傷害額外 +15%',
+    passiveDescription: '連續收集 5+ 食材後，糖霜技能華麗度 +15%',
     unlockCondition: UnlockCondition(stageRequirement: '3-5'),
   );
 
