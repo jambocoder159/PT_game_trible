@@ -289,7 +289,7 @@ class _MainButton extends StatelessWidget {
                     description,
                     style: TextStyle(
                       fontSize: 12,
-                      color: Colors.white.withAlpha(150),
+                      color: AppTheme.textSecondary,
                     ),
                   ),
                 ],
@@ -297,7 +297,7 @@ class _MainButton extends StatelessWidget {
             ),
             Icon(
               Icons.chevron_right,
-              color: Colors.white.withAlpha(120),
+              color: AppTheme.textSecondary.withAlpha(150),
             ),
           ],
         ),
@@ -326,7 +326,7 @@ class _SmallButton extends StatelessWidget {
         backgroundColor: AppTheme.bgCard,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-          side: BorderSide(color: Colors.white.withAlpha(30)),
+          side: BorderSide(color: AppTheme.accentSecondary.withAlpha(40)),
         ),
       ),
       child: Row(

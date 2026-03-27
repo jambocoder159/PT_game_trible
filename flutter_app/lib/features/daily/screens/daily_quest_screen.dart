@@ -300,7 +300,7 @@ class _WeeklyTab extends StatelessWidget {
                           ? Colors.green.withAlpha(120)
                           : isToday
                               ? AppTheme.accentSecondary.withAlpha(80)
-                              : Colors.white.withAlpha(15),
+                              : AppTheme.accentSecondary.withAlpha(25),
                       width: isToday ? 2 : 1,
                     ),
                   ),
@@ -454,7 +454,7 @@ class _NewbieTab extends StatelessWidget {
               decoration: BoxDecoration(
                 color: AppTheme.bgCard,
                 borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: Colors.white.withAlpha(15)),
+                border: Border.all(color: AppTheme.accentSecondary.withAlpha(25)),
               ),
               child: Row(
                 children: [
@@ -703,7 +703,7 @@ class _TaskCard extends StatelessWidget {
                     child: LinearProgressIndicator(
                       value: task.goal > 0 ? task.progress / task.goal : 0,
                       minHeight: 4,
-                      backgroundColor: Colors.white10,
+                      backgroundColor: AppTheme.bgSecondary,
                       valueColor: AlwaysStoppedAnimation(
                         task.isDone ? Colors.green : AppTheme.accentPrimary,
                       ),
@@ -760,7 +760,7 @@ class _BonusRewardCard extends StatelessWidget {
         border: Border.all(
           color: isReady || isClaimed
               ? Colors.amber.withAlpha(150)
-              : Colors.white12,
+              : AppTheme.accentSecondary.withAlpha(20),
         ),
       ),
       child: Column(

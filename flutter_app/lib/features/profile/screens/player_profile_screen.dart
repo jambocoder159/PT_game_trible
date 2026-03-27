@@ -188,7 +188,7 @@ class _ProfileHeader extends StatelessWidget {
                           child: LinearProgressIndicator(
                             value: expProgress,
                             minHeight: 8,
-                            backgroundColor: Colors.white.withAlpha(20),
+                            backgroundColor: AppTheme.bgSecondary,
                             valueColor: const AlwaysStoppedAnimation(
                                 AppTheme.accentSecondary),
                           ),
@@ -417,7 +417,7 @@ class _ChapterProgressList extends StatelessWidget {
           decoration: BoxDecoration(
             color: AppTheme.bgCard,
             borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-            border: Border.all(color: Colors.white.withAlpha(10)),
+            border: Border.all(color: AppTheme.accentSecondary.withAlpha(20)),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -476,7 +476,7 @@ class _ChapterProgressList extends StatelessWidget {
                       child: LinearProgressIndicator(
                         value: progress,
                         minHeight: 6,
-                        backgroundColor: Colors.white.withAlpha(15),
+                        backgroundColor: AppTheme.bgSecondary,
                         valueColor: AlwaysStoppedAnimation(
                           progress >= 1.0
                               ? AppTheme.stageCleared
@@ -540,7 +540,7 @@ class _AgentCollectionGrid extends StatelessWidget {
                 : AppTheme.bgCard.withAlpha(80),
             borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
             border: Border.all(
-              color: agent.isUnlocked ? color.withAlpha(120) : Colors.white.withAlpha(10),
+              color: agent.isUnlocked ? color.withAlpha(120) : AppTheme.accentSecondary.withAlpha(20),
               width: agent.isUnlocked ? 1.5 : 1,
             ),
           ),
@@ -566,7 +566,7 @@ class _AgentCollectionGrid extends StatelessWidget {
                         ),
                       )
                     : Icon(Icons.lock_rounded,
-                        color: Colors.white.withAlpha(40), size: 20),
+                        color: AppTheme.accentSecondary.withAlpha(60), size: 20),
               ),
               const SizedBox(height: 4),
               // 名稱
