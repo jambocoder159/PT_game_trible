@@ -25,13 +25,13 @@ import '../../agents/widgets/agent_unlock_animation.dart';
 import '../widgets/cat_placeholder.dart';
 import '../widgets/pause_menu.dart';
 
-// ─── 點心屋風格配色（暖色木質） ───
-const _woodLight = Color(0xFFD4A574);   // 淺焦糖
-const _woodMid = Color(0xFFB8865A);     // 烘焙棕
-const _woodDark = Color(0xFF9B6B42);    // 深焦糖
-const _woodBorder = Color(0xFF7A5230);  // 木質邊框
-const _panelBg = Color(0xFF5C3A28);     // 牛奶巧克力 (= AppTheme.bgSecondary)
-const _gamePanelBg = Color(0xFF7A5240); // 暖可可 (= AppTheme.bgCard)
+// ─── 點心屋風格配色（陽光鄉村木質） ───
+const _woodLight = Color(0xFFFFE4B5);   // 蜂蜜金
+const _woodMid = Color(0xFFDEB887);     // 小麥色
+const _woodDark = Color(0xFFC49A6C);    // 暖木色
+const _woodBorder = Color(0xFFA0764E);  // 深木邊框
+const _panelBg = Color(0xFFFFE4B5);     // 蜂蜜金 (= AppTheme.bgSecondary)
+const _gamePanelBg = Color(0xFFFFFFFF); // 純白 (= AppTheme.bgCard)
 
 /// 戰鬥畫面
 class BattleScreen extends StatefulWidget {

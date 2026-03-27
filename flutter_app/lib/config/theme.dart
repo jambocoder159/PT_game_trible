@@ -23,19 +23,19 @@ class AppTheme {
   // 方塊內的輔助符號（色盲友善）
   static const List<String> blockSymbols = ['●', '◆', '▲', '■', '★'];
 
-  // ─── 背景與 UI 色系（巧克力烘焙坊 — Candy Crush 風深色主題） ───
-  static const Color bgPrimary = Color(0xFF3E2218);    // 深巧克力 — 主背景
-  static const Color bgSecondary = Color(0xFF5C3A28);   // 牛奶巧克力 — 次背景/面板
-  static const Color bgCard = Color(0xFF7A5240);        // 暖可可 — 卡片（浮起）
-  static const Color accentPrimary = Color(0xFFE8823A);  // 亮焦糖橘 — 主強調/CTA
-  static const Color accentSecondary = Color(0xFFE8C9A0); // 亮焦糖 — 次強調/邊框（提亮）
-  static const Color textPrimary = Color(0xFFFFFFFF);    // 白色 — 主文字（最高對比）
-  static const Color textSecondary = Color(0xFFEDD8BC);  // 亮奶油 — 次文字（提高對比）
+  // ─── 背景與 UI 色系（陽光甜點街 — 鄉村明亮風） ───
+  static const Color bgPrimary = Color(0xFFFFF5E1);    // 陽光奶油 — 主背景
+  static const Color bgSecondary = Color(0xFFFFE4B5);   // 蜂蜜金 — 次背景/面板
+  static const Color bgCard = Color(0xFFFFFFFF);        // 純白 — 卡片（清爽浮起）
+  static const Color accentPrimary = Color(0xFFE86B30);  // 暖橘紅 — 主強調/CTA
+  static const Color accentSecondary = Color(0xFF7B4B2A); // 深木棕 — 次強調/邊框（飽和）
+  static const Color textPrimary = Color(0xFF2D1A0E);    // 深焦咖啡 — 主文字
+  static const Color textSecondary = Color(0xFF6B4226);  // 焦糖棕 — 次文字（飽和深色）
 
-  // ─── 圓角 ───
-  static const double radiusSmall = 8.0;
-  static const double radiusMedium = 12.0;
-  static const double radiusLarge = 16.0;
+  // ─── 圓角（加大，更可愛） ───
+  static const double radiusSmall = 10.0;
+  static const double radiusMedium = 14.0;
+  static const double radiusLarge = 20.0;
   static const double radiusBlock = 14.0;
 
   // ─── 方塊尺寸 ───
@@ -77,9 +77,9 @@ class AppTheme {
   // ─── 狀態顏色 ───
   static const Color stageCleared = Color(0xFF4CAF50);
   static const Color stageCurrent = Color(0xFF42A5F5);
-  static const Color stageLocked = Color(0xFF616161);
+  static const Color stageLocked = Color(0xFF9E9E9E);
   static const Color pathActive = Color(0xFF66BB6A);
-  static const Color pathInactive = Color(0xFF424242);
+  static const Color pathInactive = Color(0xFFBDBDBD);
 
   // ─── 間距 ───
   static const double spacingXs = 4.0;
@@ -99,14 +99,14 @@ class AppTheme {
   // ─── ThemeData ───
   static ThemeData get darkTheme {
     return ThemeData(
-      brightness: Brightness.dark,
+      brightness: Brightness.light,
       scaffoldBackgroundColor: bgPrimary,
-      colorScheme: const ColorScheme.dark(
+      colorScheme: const ColorScheme.light(
         primary: accentPrimary,
         secondary: accentSecondary,
         surface: bgSecondary,
       ),
-      fontFamily: 'NotoSansTC',
+      fontFamily: 'jf-openhuninn',
       textTheme: const TextTheme(
         headlineLarge: TextStyle(
           fontSize: 28,
@@ -124,7 +124,7 @@ class AppTheme {
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
           backgroundColor: accentPrimary,
-          foregroundColor: textPrimary,
+          foregroundColor: Colors.white,
           padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(radiusMedium),

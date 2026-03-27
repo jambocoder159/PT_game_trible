@@ -46,9 +46,7 @@ flutter:
     - assets/audio/bgm/
     - assets/fonts/
 
-  # fonts:
-  #   - family: NotoSansTC
-  #     fonts:
-  #       - asset: assets/fonts/NotoSansTC-Regular.ttf
-  #       - asset: assets/fonts/NotoSansTC-Bold.ttf
-  #         weight: 700
+  fonts:
+    - family: jf-openhuninn
+      fonts:
+        - asset: assets/fonts/jf-openhuninn.ttf

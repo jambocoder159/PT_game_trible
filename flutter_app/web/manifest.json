@@ -3,8 +3,8 @@
   "short_name": "貓咪點心屋",
   "start_url": ".",
   "display": "standalone",
-  "background_color": "#3E2218",
-  "theme_color": "#E8823A",
+  "background_color": "#FFF5E1",
+  "theme_color": "#E86B30",
   "orientation": "portrait",
   "description": "Kitty Pastry House - 甜點街三消冒險",
   "icons": [
