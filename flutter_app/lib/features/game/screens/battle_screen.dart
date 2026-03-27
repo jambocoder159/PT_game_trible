@@ -1024,7 +1024,7 @@ class _CatAgentPanelState extends State<_CatAgentPanel>
               // 分隔線
               Container(
                 height: 2,
-                color: AppTheme.accentSecondary.withAlpha(40),
+                color: AppTheme.accentSecondary.withAlpha(60),
                 margin: const EdgeInsets.symmetric(horizontal: 6),
               ),
               // ── 下半：我方角色 ──
@@ -1902,7 +1902,7 @@ class _EnemyCard extends StatelessWidget {
             height: 40,
             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
             decoration: BoxDecoration(
-              color: AppTheme.bgCard.withAlpha(120),
+              color: AppTheme.bgCard.withAlpha(200),
               borderRadius: BorderRadius.circular(8),
             ),
             child: Row(
@@ -1951,7 +1951,7 @@ class _EnemyCard extends StatelessWidget {
         decoration: BoxDecoration(
           color: isHit
               ? Colors.white.withAlpha(120)
-              : AppTheme.bgCard.withAlpha(200),
+              : AppTheme.bgCard,
           borderRadius: BorderRadius.circular(8),
           border: Border.all(color: outerBorderColor, width: 2),
           boxShadow: [
@@ -2552,7 +2552,7 @@ class _CatAgentCard extends StatelessWidget {
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(8),
             border: Border.all(color: outerBorderColor, width: 2),
-            color: AppTheme.bgCard.withAlpha(200),
+            color: AppTheme.bgCard,
             boxShadow: [
               if (isReady)
                 BoxShadow(
@@ -3028,7 +3028,7 @@ class _BattleEndOverlay extends StatelessWidget {
     final titleColor = isVictory ? Colors.amber : Colors.red;
 
     return Container(
-      color: AppTheme.bgSecondary.withAlpha(230),
+      color: AppTheme.bgSecondary,
       child: Center(
         child: Container(
           margin: const EdgeInsets.symmetric(horizontal: 28, vertical: 32),
@@ -3152,10 +3152,10 @@ class _BattleEndOverlay extends StatelessWidget {
                               padding: const EdgeInsets.symmetric(
                                   horizontal: 10, vertical: 5),
                               decoration: BoxDecoration(
-                                color: AppTheme.bgCard.withAlpha(100),
+                                color: AppTheme.bgCard.withAlpha(200),
                                 borderRadius: BorderRadius.circular(8),
                                 border: Border.all(
-                                    color: AppTheme.accentSecondary.withAlpha(40)),
+                                    color: AppTheme.accentSecondary.withAlpha(60)),
                               ),
                               child: Text(
                                 '${e.key.emoji} x${e.value}',
@@ -3551,7 +3551,7 @@ class _TeamStatusBar extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 3),
       decoration: BoxDecoration(
-        color: AppTheme.bgCard.withAlpha(180),
+        color: AppTheme.bgCard,
         borderRadius: BorderRadius.circular(4),
       ),
       child: Column(

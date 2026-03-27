@@ -199,7 +199,7 @@ class _StageSelectScreenState extends State<StageSelectScreen>
                       ? Colors.transparent
                       : AppTheme.bgSecondary,
                   borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
-                  border: Border.all(color: AppTheme.accentSecondary.withAlpha(40)),
+                  border: Border.all(color: AppTheme.accentSecondary.withAlpha(60)),
                 ),
                 child: Stack(
                   children: [
@@ -220,7 +220,7 @@ class _StageSelectScreenState extends State<StageSelectScreen>
                     if (bgPath != null)
                       Positioned.fill(
                         child: Container(
-                          color: AppTheme.accentSecondary.withAlpha(120),
+                          color: AppTheme.accentSecondary.withAlpha(160),
                         ),
                       ),
                     // ─── 前景內容 ───
@@ -235,7 +235,7 @@ class _StageSelectScreenState extends State<StageSelectScreen>
                           decoration: BoxDecoration(
                             gradient: LinearGradient(
                               colors: [
-                                AppTheme.accentPrimary.withAlpha(40),
+                                AppTheme.accentPrimary.withAlpha(60),
                                 Colors.transparent,
                               ],
                             ),
@@ -339,7 +339,7 @@ class _StageSelectScreenState extends State<StageSelectScreen>
                                       clipBehavior: Clip.antiAlias,
                                       decoration: BoxDecoration(
                                         color:
-                                            AppTheme.bgCard.withAlpha(220),
+                                            AppTheme.bgCard,
                                         borderRadius:
                                             BorderRadius.circular(12),
                                         border: Border.all(
@@ -365,7 +365,7 @@ class _StageSelectScreenState extends State<StageSelectScreen>
                                                   end: Alignment.bottomCenter,
                                                   colors: [
                                                     eColor.withAlpha(30),
-                                                    AppTheme.bgCard.withAlpha(100),
+                                                    AppTheme.bgCard.withAlpha(200),
                                                   ],
                                                 ),
                                               ),
@@ -403,7 +403,7 @@ class _StageSelectScreenState extends State<StageSelectScreen>
                                                 horizontal: 8,
                                                 vertical: 6),
                                             decoration: BoxDecoration(
-                                              color: AppTheme.bgCard.withAlpha(180),
+                                              color: AppTheme.bgCard,
                                             ),
                                             child: Column(
                                               mainAxisSize:
@@ -653,7 +653,7 @@ class _StageSelectScreenState extends State<StageSelectScreen>
                                               border: Border.all(
                                                 color: isInTeam
                                                     ? Colors.amber
-                                                    : AppTheme.accentSecondary.withAlpha(40),
+                                                    : AppTheme.accentSecondary.withAlpha(60),
                                                 width:
                                                     isInTeam ? 2 : 1,
                                               ),
@@ -987,9 +987,9 @@ class _ChapterBanner extends StatelessWidget {
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
                 colors: [
-                  AppTheme.accentSecondary.withAlpha(100),
-                  AppTheme.accentSecondary.withAlpha(50),
-                  AppTheme.bgPrimary.withAlpha(240),
+                  AppTheme.accentSecondary.withAlpha(140),
+                  AppTheme.accentSecondary.withAlpha(80),
+                  AppTheme.bgPrimary,
                   AppTheme.bgPrimary,
                 ],
                 stops: const [0.0, 0.4, 0.85, 1.0],
@@ -1022,7 +1022,7 @@ class _ChapterBanner extends StatelessWidget {
                         padding: const EdgeInsets.symmetric(
                             horizontal: 10, vertical: 4),
                         decoration: BoxDecoration(
-                          color: AppTheme.bgCard.withAlpha(180),
+                          color: AppTheme.bgCard,
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: Row(
@@ -1133,7 +1133,7 @@ class _NavArrow extends StatelessWidget {
         height: 32,
         decoration: BoxDecoration(
           color: onTap != null
-              ? AppTheme.bgCard.withAlpha(150)
+              ? AppTheme.bgCard
               : Colors.transparent,
           shape: BoxShape.circle,
         ),
@@ -1167,7 +1167,7 @@ class _ChapterProgress extends StatelessWidget {
             child: LinearProgressIndicator(
               value: progress,
               minHeight: 6,
-              backgroundColor: AppTheme.bgCard.withAlpha(150),
+              backgroundColor: AppTheme.bgCard,
               valueColor: AlwaysStoppedAnimation<Color>(
                 cleared == total
                     ? AppTheme.stageCleared

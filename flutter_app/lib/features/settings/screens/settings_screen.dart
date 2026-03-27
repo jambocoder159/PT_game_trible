@@ -72,7 +72,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     value: _settings.isMuted,
                     onChanged: (_) => _settings.toggleMute(),
                   ),
-                  Divider(color: AppTheme.accentSecondary.withAlpha(20), height: 1),
+                  Divider(color: AppTheme.accentSecondary.withAlpha(60), height: 1),
                   // BGM 音量
                   _SliderRow(
                     icon: Icons.music_note_rounded,
@@ -81,7 +81,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     enabled: !_settings.isMuted,
                     onChanged: (v) => _settings.setBgmVolume(v),
                   ),
-                  Divider(color: AppTheme.accentSecondary.withAlpha(20), height: 1),
+                  Divider(color: AppTheme.accentSecondary.withAlpha(60), height: 1),
                   // SFX 音量
                   _SliderRow(
                     icon: Icons.speaker_rounded,
@@ -110,7 +110,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       HapticFeedback.lightImpact();
                     },
                   ),
-                  Divider(color: AppTheme.accentSecondary.withAlpha(20), height: 1),
+                  Divider(color: AppTheme.accentSecondary.withAlpha(60), height: 1),
                   // 震動回饋
                   _ToggleRow(
                     icon: Icons.vibration_rounded,
@@ -144,7 +144,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       }
                     },
                   ),
-                  Divider(color: AppTheme.accentSecondary.withAlpha(20), height: 1),
+                  Divider(color: AppTheme.accentSecondary.withAlpha(60), height: 1),
                   // 遊戲資訊
                   _InfoRow(
                     icon: Icons.pets_rounded,
@@ -292,7 +292,7 @@ class _SettingsCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppTheme.bgCard,
         borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-        border: Border.all(color: AppTheme.accentSecondary.withAlpha(20)),
+        border: Border.all(color: AppTheme.accentSecondary.withAlpha(60)),
       ),
       child: Column(
         children: children,

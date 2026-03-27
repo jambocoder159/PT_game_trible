@@ -26,7 +26,7 @@ class AppTheme {
   // ─── 背景與 UI 色系（暖木烘焙坊） ───
   static const Color bgPrimary = Color(0xFFC9A882);    // 烤餅乾色 — 主背景
   static const Color bgSecondary = Color(0xFFB89468);   // 暖木色 — 次背景/面板
-  static const Color bgCard = Color(0xFFF5EBE0);        // 奶油白 — 卡片（浮起）
+  static const Color bgCard = Color(0xFFF2DCC8);        // 奶油杏仁 — 卡片（浮起）
   static const Color accentPrimary = Color(0xFFD4845A);  // 焦糖橘 — 主強調
   static const Color accentSecondary = Color(0xFF8B6F4E); // 巧克力棕 — 次強調
   static const Color textPrimary = Color(0xFF2C1810);    // 濃縮咖啡 — 主文字

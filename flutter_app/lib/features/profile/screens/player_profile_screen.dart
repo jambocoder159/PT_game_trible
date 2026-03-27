@@ -117,7 +117,7 @@ class _ProfileHeader extends StatelessWidget {
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   border: Border.all(
-                    color: AppTheme.accentSecondary.withAlpha(180),
+                    color: AppTheme.accentSecondary,
                     width: 3,
                   ),
                   boxShadow: [
@@ -417,7 +417,7 @@ class _ChapterProgressList extends StatelessWidget {
           decoration: BoxDecoration(
             color: AppTheme.bgCard,
             borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-            border: Border.all(color: AppTheme.accentSecondary.withAlpha(20)),
+            border: Border.all(color: AppTheme.accentSecondary.withAlpha(60)),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -537,10 +537,10 @@ class _AgentCollectionGrid extends StatelessWidget {
           decoration: BoxDecoration(
             color: agent.isUnlocked
                 ? AppTheme.bgCard
-                : AppTheme.bgCard.withAlpha(80),
+                : AppTheme.bgCard.withAlpha(200),
             borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
             border: Border.all(
-              color: agent.isUnlocked ? color.withAlpha(120) : AppTheme.accentSecondary.withAlpha(20),
+              color: agent.isUnlocked ? color.withAlpha(120) : AppTheme.accentSecondary.withAlpha(60),
               width: agent.isUnlocked ? 1.5 : 1,
             ),
           ),

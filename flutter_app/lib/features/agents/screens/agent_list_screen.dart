@@ -178,7 +178,7 @@ class _FilterSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      color: AppTheme.bgSecondary.withAlpha(200),
+      color: AppTheme.bgSecondary,
       padding: const EdgeInsets.only(bottom: 8),
       child: Column(
         children: [
@@ -281,10 +281,10 @@ class _FilterPill extends StatelessWidget {
         duration: const Duration(milliseconds: 150),
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
         decoration: BoxDecoration(
-          color: isSelected ? c.withAlpha(50) : AppTheme.bgCard.withAlpha(80),
+          color: isSelected ? c.withAlpha(50) : AppTheme.bgCard.withAlpha(200),
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: isSelected ? c.withAlpha(180) : AppTheme.accentSecondary.withAlpha(40),
+            color: isSelected ? c.withAlpha(180) : AppTheme.accentSecondary.withAlpha(60),
           ),
         ),
         child: Text(
@@ -319,7 +319,7 @@ class _SortChip extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
         decoration: BoxDecoration(
           color: isSelected
-              ? AppTheme.accentSecondary.withAlpha(40)
+              ? AppTheme.accentSecondary.withAlpha(60)
               : Colors.transparent,
           borderRadius: BorderRadius.circular(10),
         ),
@@ -374,7 +374,7 @@ class _AgentPortraitCard extends StatelessWidget {
                 ? Colors.amber.withAlpha(200)
                 : isUnlocked
                     ? glowColor.withAlpha(100)
-                    : AppTheme.accentSecondary.withAlpha(30),
+                    : AppTheme.accentSecondary.withAlpha(60),
             width: isInTeam ? 2.5 : 1.5,
           ),
           boxShadow: isUnlocked
@@ -405,7 +405,7 @@ class _AgentPortraitCard extends StatelessWidget {
                           ]
                         : [
                             Colors.grey.withAlpha(20),
-                            AppTheme.bgCard.withAlpha(150),
+                            AppTheme.bgCard,
                           ],
                   ),
                 ),
@@ -1011,7 +1011,7 @@ class _BottomTeamBar extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppTheme.bgSecondary,
         border: Border(
-          top: BorderSide(color: AppTheme.accentPrimary.withAlpha(40)),
+          top: BorderSide(color: AppTheme.accentPrimary.withAlpha(60)),
         ),
         boxShadow: [
           BoxShadow(
@@ -1056,7 +1056,7 @@ class _BottomTeamBar extends StatelessWidget {
                   color: AppTheme.textSecondary.withAlpha(100),
                   size: 20,
                 ),
-                borderColor: AppTheme.accentSecondary.withAlpha(50),
+                borderColor: AppTheme.accentSecondary.withAlpha(60),
               );
             }),
 
