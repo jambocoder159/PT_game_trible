@@ -104,24 +104,24 @@ class CatAgentData {
     atkGrowth: 1.5, defGrowth: 3.5, hpGrowth: 18.0,
     baseSpeed: 4, // defender: 慢但硬
     skill: AgentSkill(
-      name: '鋼鐵毛球',
-      description: '捲成毛球形成護盾，減少受到的傷害 {multiplier}%，持續 2 回合',
+      name: '抹茶結界！',
+      description: '濃郁抹茶形成結界，減少受到的傷害 {multiplier}%，持續 2 回合',
       energyCost: 5, effectType: SkillEffectType.shield,
       baseMultiplier: 50.0, levelScaling: 0.8,
       boardEffect: SkillBoardEffect(
         type: BoardEffectType.convertColor,
         value: 4,
-        description: '大地凝聚：轉化 4 個方塊為🟢',
+        description: '茶香瀰漫：轉化 4 個方塊為🍃',
       ),
     ),
-    passiveDescription: '每次被攻擊後，下次消除🟢方塊的能量 +20%',
+    passiveDescription: '被搗蛋鬼攻擊後，下次收集香草葉的能量 +20%',
     unlockCondition: UnlockCondition(goldCost: 500),
   );
 
   static const sproutAgent = CatAgentDefinition(
     id: 'sprout',
-    name: '小芽',
-    codename: 'Agent Sprout',
+    name: '薄荷',
+    codename: 'Herb Mint',
     breed: '蘇格蘭摺耳貓',
     attribute: AgentAttribute.attributeB,
     role: AgentRole.supporter,
@@ -129,24 +129,24 @@ class CatAgentData {
     baseAtk: 13, baseDef: 16, baseHp: 260,
     atkGrowth: 1.8, defGrowth: 2.8, hpGrowth: 16.0,
     skill: AgentSkill(
-      name: '新芽治癒',
-      description: '綻放新芽回復隊伍 {multiplier}% HP',
+      name: '薄荷清風～',
+      description: '清涼薄荷風回復夥伴 {multiplier}% HP',
       energyCost: 5, effectType: SkillEffectType.heal,
       baseMultiplier: 18.0, levelScaling: 0.5,
       boardEffect: SkillBoardEffect(
         type: BoardEffectType.convertColor,
         value: 3,
-        description: '新芽生長：轉化 3 個方塊為🟢',
+        description: '清新香氣：轉化 3 個方塊為🍃',
       ),
     ),
-    passiveDescription: '每 3 回合自動恢復隊伍 2% HP',
+    passiveDescription: '每 3 回合，薄荷香氣自動恢復夥伴 2% HP',
     unlockCondition: UnlockCondition(stageRequirement: '1-5'),
   );
 
   static const gaiaAgent = CatAgentDefinition(
     id: 'gaia',
-    name: '蓋亞',
-    codename: 'Agent Gaia',
+    name: '肉桂',
+    codename: 'Herb Cinnamon',
     breed: '挪威森林貓',
     attribute: AgentAttribute.attributeB,
     role: AgentRole.striker,
@@ -155,30 +155,30 @@ class CatAgentData {
     atkGrowth: 4.0, defGrowth: 2.5, hpGrowth: 14.0,
     baseSpeed: 2, // striker: 快攻
     skill: AgentSkill(
-      name: '大地裂擊',
-      description: '以大地之力猛擊敵人，造成 ATK×{multiplier} 傷害',
+      name: '肉桂重擊！',
+      description: '肉桂棒全力揮擊，造成 ATK×{multiplier} 傷害',
       energyCost: 6, effectType: SkillEffectType.damage,
       baseMultiplier: 2.5, levelScaling: 0.1,
       boardEffect: SkillBoardEffect(
         type: BoardEffectType.eliminateRow,
         value: -1,
-        description: '大地震裂：消除底部一整排方塊',
+        description: '香料炸裂：消除底部一整排方塊',
       ),
     ),
-    passiveDescription: '護盾持續期間，ATK +15%',
+    passiveDescription: '在抹茶結界保護下，攻擊力 +15%',
     unlockCondition: UnlockCondition(
       stageRequirement: '2-10', goldCost: 5000,
     ),
   );
 
   // ═══════════════════════════════════════
-  // 屬性C 🔵 (teal) — 水系
+  // 屬性C 💧 (teal) — 水滴系
   // ═══════════════════════════════════════
 
   static const tideAgent = CatAgentDefinition(
     id: 'tide',
-    name: '小波',
-    codename: 'Agent Tide',
+    name: '露露',
+    codename: 'Drink Dew',
     breed: '曼赤肯',
     attribute: AgentAttribute.attributeC,
     role: AgentRole.supporter,
@@ -186,24 +186,24 @@ class CatAgentData {
     baseAtk: 15, baseDef: 15, baseHp: 250,
     atkGrowth: 2.0, defGrowth: 2.5, hpGrowth: 15.0,
     skill: AgentSkill(
-      name: '水霧屏障',
-      description: '釋放水霧回復隊伍 {multiplier}% HP，並延遲敵人攻擊 1 回合',
+      name: '果汁補給站～',
+      description: '新鮮果汁補給，回復夥伴 {multiplier}% HP，並延遲搗蛋鬼攻擊 1 回合',
       energyCost: 6, effectType: SkillEffectType.heal,
       baseMultiplier: 20.0, levelScaling: 0.5,
       boardEffect: SkillBoardEffect(
         type: BoardEffectType.convertColor,
         value: 3,
-        description: '潮汐轉化：轉化 3 個方塊為🔵',
+        description: '清涼水霧：轉化 3 個方塊為💧',
       ),
     ),
-    passiveDescription: '隊伍 HP 低於 30% 時，能量累積速度 +25%',
+    passiveDescription: '夥伴們疲憊時，露露加快調配飲料，能量累積 +25%',
     unlockCondition: UnlockCondition(stageRequirement: '1-3'),
   );
 
   static const frostAgent = CatAgentDefinition(
     id: 'frost',
-    name: '冰霜',
-    codename: 'Agent Frost',
+    name: '奶昔',
+    codename: 'Drink Shake',
     breed: '布偶貓',
     attribute: AgentAttribute.attributeC,
     role: AgentRole.defender,
@@ -212,8 +212,8 @@ class CatAgentData {
     atkGrowth: 1.8, defGrowth: 3.2, hpGrowth: 17.0,
     baseSpeed: 4, // defender: 慢但硬
     skill: AgentSkill(
-      name: '冰晶護壁',
-      description: '凝結冰晶形成護盾，減少受到的傷害 {multiplier}%，持續 2 回合',
+      name: '冰淇淋護盾！',
+      description: '冰涼奶昔凝結護盾，減少受到的傷害 {multiplier}%，持續 2 回合',
       energyCost: 5, effectType: SkillEffectType.shield,
       baseMultiplier: 45.0, levelScaling: 0.7,
       boardEffect: SkillBoardEffect(
