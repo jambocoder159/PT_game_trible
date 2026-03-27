@@ -23,14 +23,14 @@ class AppTheme {
   // 方塊內的輔助符號（色盲友善）
   static const List<String> blockSymbols = ['●', '◆', '▲', '■', '★'];
 
-  // ─── 背景與 UI 色系（暖木烘焙坊） ───
-  static const Color bgPrimary = Color(0xFFC9A882);    // 烤餅乾色 — 主背景
-  static const Color bgSecondary = Color(0xFFB89468);   // 暖木色 — 次背景/面板
-  static const Color bgCard = Color(0xFFF2DCC8);        // 奶油杏仁 — 卡片（浮起）
-  static const Color accentPrimary = Color(0xFFD4845A);  // 焦糖橘 — 主強調
-  static const Color accentSecondary = Color(0xFF8B6F4E); // 巧克力棕 — 次強調
-  static const Color textPrimary = Color(0xFF2C1810);    // 濃縮咖啡 — 主文字
-  static const Color textSecondary = Color(0xFF5D4037);  // 摩卡 — 次文字
+  // ─── 背景與 UI 色系（巧克力烘焙坊 — Candy Crush 風深色主題） ───
+  static const Color bgPrimary = Color(0xFF3E2218);    // 深巧克力 — 主背景
+  static const Color bgSecondary = Color(0xFF5C3A28);   // 牛奶巧克力 — 次背景/面板
+  static const Color bgCard = Color(0xFF7A5240);        // 暖可可 — 卡片（浮起）
+  static const Color accentPrimary = Color(0xFFE8823A);  // 亮焦糖橘 — 主強調/CTA
+  static const Color accentSecondary = Color(0xFFD4A574); // 淺焦糖 — 次強調/邊框
+  static const Color textPrimary = Color(0xFFFFFFFF);    // 白色 — 主文字（最高對比）
+  static const Color textSecondary = Color(0xFFD4B896);  // 奶油色 — 次文字
 
   // ─── 圓角 ───
   static const double radiusSmall = 8.0;
@@ -99,9 +99,9 @@ class AppTheme {
   // ─── ThemeData ───
   static ThemeData get darkTheme {
     return ThemeData(
-      brightness: Brightness.light,
+      brightness: Brightness.dark,
       scaffoldBackgroundColor: bgPrimary,
-      colorScheme: const ColorScheme.light(
+      colorScheme: const ColorScheme.dark(
         primary: accentPrimary,
         secondary: accentSecondary,
         surface: bgSecondary,
