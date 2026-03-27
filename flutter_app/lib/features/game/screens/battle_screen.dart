@@ -30,8 +30,8 @@ const _woodLight = Color(0xFFD4A574);   // 淺焦糖
 const _woodMid = Color(0xFFB8865A);     // 烘焙棕
 const _woodDark = Color(0xFF9B6B42);    // 深焦糖
 const _woodBorder = Color(0xFF7A5230);  // 木質邊框
-const _panelBg = Color(0xFFF5E6D3);     // Almond (= AppTheme.bgSecondary)
-const _gamePanelBg = Color(0xFFE8D5B7); // Warm Wheat (= AppTheme.bgCard)
+const _panelBg = Color(0xFF5C3A28);     // 牛奶巧克力 (= AppTheme.bgSecondary)
+const _gamePanelBg = Color(0xFF7A5240); // 暖可可 (= AppTheme.bgCard)
 
 /// 戰鬥畫面
 class BattleScreen extends StatefulWidget {
@@ -3213,7 +3213,7 @@ class _BattleEndOverlay extends StatelessWidget {
                                 Text(
                                   '新夥伴加入！點擊查看',
                                   style: TextStyle(
-                                    color: Colors.amber.shade800,
+                                    color: Colors.amber,
                                     fontWeight: FontWeight.bold,
                                     fontSize: 15,
                                   ),

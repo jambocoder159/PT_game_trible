@@ -16,9 +16,9 @@ import '../widgets/skill_enhance_widget.dart';
 import '../widgets/passive_skill_widget.dart';
 
 // ─── 配色常數（暖色點心屋風格） ───
-const _cardBg = Color(0xFFE8D5B7);      // Warm Wheat (= AppTheme.bgCard)
-const _cardBorder = Color(0xFFF5E6D3);  // Almond (= AppTheme.bgSecondary)
-const _statBarBg = Color(0xFFD7C4A8);   // 淺麥色（搭配暖色主題）
+const _cardBg = Color(0xFF7A5240);      // 暖可可 (= AppTheme.bgCard)
+const _cardBorder = Color(0xFF5C3A28);  // 牛奶巧克力 (= AppTheme.bgSecondary)
+const _statBarBg = Color(0xFF5C3A28);   // 深棕色（搭配深色主題）
 const _statBarHp = Color(0xFF4CAF50);
 const _statBarAtk = Color(0xFFFF9800);
 const _statBarDef = Color(0xFF42A5F5);
@@ -645,7 +645,7 @@ class _TrainingBar extends StatelessWidget {
             child: Text(
               'EXP',
               style: TextStyle(
-                color: Colors.green.shade700,
+                color: Colors.green.shade300,
                 fontSize: 10,
                 fontWeight: FontWeight.bold,
               ),
