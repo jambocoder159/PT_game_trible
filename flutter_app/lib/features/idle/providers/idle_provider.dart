@@ -11,17 +11,41 @@ import '../../../core/models/auto_eliminate_config.dart';
 import '../../../core/engine/match_detector.dart';
 import '../../../core/services/local_storage.dart';
 
-/// 飼料產出事件（給 CatProvider 消費）
-class FoodEvent {
-  final Map<BlockColor, int> foodByColor;
+/// 能量產出事件（給 BottleProvider 消費）
+class EnergyEvent {
+  final Map<BlockColor, int> energyByColor;
   final int combo;
   final EliminationSource source;
 
-  const FoodEvent({
-    required this.foodByColor,
+  const EnergyEvent({
+    required this.energyByColor,
     required this.combo,
     this.source = EliminationSource.manual,
   });
+}
+
+/// 能量計算：全加成制，無懲罰
+class EnergyCalculator {
+  static const int baseEnergy = 10;
+  static const int matchBonus = 5;
+  static const int maxComboBonus = 5;
+  static const int maxVolumeExtraBlocks = 6;
+
+  /// 計算單次消除的每顆能量
+  /// [isMatch] 是否為三消匹配（而非單點消除）
+  /// [combo] 當前連擊數
+  /// [totalBlocksInOperation] 本次操作消除的總方塊數
+  static int perBlockEnergy({
+    required bool isMatch,
+    required int combo,
+    required int totalBlocksInOperation,
+  }) {
+    int energy = baseEnergy;
+    if (isMatch) energy += matchBonus;
+    energy += combo.clamp(0, maxComboBonus) * 3;
+    energy += (totalBlocksInOperation - 4).clamp(0, maxVolumeExtraBlocks) * 2;
+    return energy;
+  }
 }
 
 /// 放置模式遊戲 Provider — 簡化版 GameProvider
@@ -51,19 +75,22 @@ class IdleProvider extends ChangeNotifier {
   int _autoCountdownMs = 0;
   int get autoCountdownMs => _autoCountdownMs;
 
-  // 飼料事件佇列
-  final List<FoodEvent> _foodEvents = [];
-  List<FoodEvent> consumeFoodEvents() {
-    final events = List<FoodEvent>.from(_foodEvents);
-    _foodEvents.clear();
+  // 能量事件佇列（取代舊的飼料事件）
+  final List<EnergyEvent> _energyEvents = [];
+  List<EnergyEvent> consumeEnergyEvents() {
+    final events = List<EnergyEvent>.from(_energyEvents);
+    _energyEvents.clear();
     return events;
   }
+
+  // 向後兼容：保留 consumeFoodEvents 別名
+  List<EnergyEvent> consumeFoodEvents() => consumeEnergyEvents();
 
   /// 啟動放置模式遊戲
   void startIdleGame() {
     _gameGeneration++;
     _isProcessing = false;
-    _foodEvents.clear();
+    _energyEvents.clear();
 
     _state = GameState.initial(GameModes.idle);
     _state!.status = GameStatus.playing;
@@ -102,15 +129,18 @@ class IdleProvider extends ChangeNotifier {
     await Future.delayed(const Duration(milliseconds: 80));
     if (_gameGeneration != gen) return;
 
-    // 產出 1 份飼料（點擊消除的方塊）
-    final tapFood = {tappedColor: 1};
-    _foodEvents.add(FoodEvent(
-      foodByColor: tapFood,
+    // 產出能量（點擊消除的方塊，非三消，基礎能量）
+    final perBlock = EnergyCalculator.perBlockEnergy(
+      isMatch: false, combo: 0, totalBlocksInOperation: 1,
+    );
+    final tapEnergy = {tappedColor: perBlock};
+    _energyEvents.add(EnergyEvent(
+      energyByColor: tapEnergy,
       combo: 0,
       source: EliminationSource.manual,
     ));
     onBlocksEliminated?.call(1);
-    _accumulateEnergy(tapFood, multiplier: AutoEliminateConfig.manualMultiplier);
+    _accumulateSkillEnergy(tapEnergy);
 
     // 重力 + 補充
     _applyGravity();
@@ -203,9 +233,8 @@ class IdleProvider extends ChangeNotifier {
 
   GameModeConfig get mode => GameModes.idle;
 
-  /// 連鎖消除迴圈 — 產出飼料
-  /// [energyMultiplier] 控制此次連鎖的能量倍率（自動消除傳 0.5，手動傳 1.0）
-  Future<bool> _processMatchLoop({double energyMultiplier = 1.0}) async {
+  /// 連鎖消除迴圈 — 產出能量（全加成制）
+  Future<bool> _processMatchLoop() async {
     final s = _state!;
     final gen = _gameGeneration;
     bool everHadMatch = false;
@@ -226,35 +255,36 @@ class IdleProvider extends ChangeNotifier {
       s.combo++;
       if (s.combo > s.maxCombo) s.maxCombo = s.combo;
 
-      // 統計消除的方塊顏色 → 轉換為飼料
-      final foodMap = <BlockColor, int>{};
+      // 統計消除的方塊顏色
+      final colorCount = <BlockColor, int>{};
       for (final match in matches) {
         for (final block in match.blocks) {
-          foodMap[block.color] = (foodMap[block.color] ?? 0) + 1;
+          colorCount[block.color] = (colorCount[block.color] ?? 0) + 1;
         }
       }
 
-      // 連擊倍率：foodAmount = base * (1 + combo * 0.3)
-      final multiplier = 1.0 + s.combo * 0.3;
-      final boostedFood = <BlockColor, int>{};
-      for (final entry in foodMap.entries) {
-        boostedFood[entry.key] = (entry.value * multiplier).round();
+      // 用新加成公式計算能量
+      final totalBlocks = colorCount.values.fold(0, (a, b) => a + b);
+      final perBlock = EnergyCalculator.perBlockEnergy(
+        isMatch: true,
+        combo: s.combo,
+        totalBlocksInOperation: totalBlocks,
+      );
+      final energyMap = <BlockColor, int>{};
+      for (final entry in colorCount.entries) {
+        energyMap[entry.key] = entry.value * perBlock;
       }
 
-      final source = energyMultiplier < 1.0
-          ? EliminationSource.chain
-          : EliminationSource.manual;
-      _foodEvents.add(FoodEvent(
-        foodByColor: boostedFood,
+      _energyEvents.add(EnergyEvent(
+        energyByColor: energyMap,
         combo: s.combo,
-        source: source,
+        source: EliminationSource.chain,
       ));
-      _accumulateEnergy(foodMap, multiplier: energyMultiplier);
+      _accumulateSkillEnergy(energyMap);
 
       // 分數（僅用於展示）
-      final eliminatedCount = foodMap.values.fold(0, (a, b) => a + b);
-      s.score += eliminatedCount;
-      onBlocksEliminated?.call(eliminatedCount);
+      s.score += totalBlocks;
+      onBlocksEliminated?.call(totalBlocks);
 
       // 消除動畫
       final idsToRemove = MatchDetector.getBlockIdsToEliminate(matches);
@@ -417,21 +447,19 @@ class IdleProvider extends ChangeNotifier {
     return null;
   }
 
-  /// 消除方塊時累積能量
-  /// [multiplier] 能量倍率：手動 1.0 / 自動單顆 0.3 / 自動連鎖 0.5
-  void _accumulateEnergy(Map<BlockColor, int> foodByColor, {double multiplier = 1.0}) {
+  /// 消除方塊時累積角色技能能量（與瓶子能量獨立）
+  void _accumulateSkillEnergy(Map<BlockColor, int> energyByColor) {
     for (final agentId in _teamIds) {
       final def = _findAgent(agentId);
       if (def == null) continue;
 
       final agentColor = def.attribute.blockColor;
-      final matched = foodByColor[agentColor] ?? 0;
-      // 每消除 1 個同色方塊 = +1 能量，其他色 = +0.5（取整）
-      final otherBlocks = foodByColor.entries
+      final matched = energyByColor[agentColor] ?? 0;
+      final otherBlocks = energyByColor.entries
           .where((e) => e.key != agentColor)
           .fold(0, (sum, e) => sum + e.value);
-      final baseGain = matched + (otherBlocks * 0.5).round();
-      final gain = (baseGain * multiplier).round();
+      // 技能能量：同色 +1，異色 +0.5（簡化計算，不受瓶子能量影響）
+      final gain = matched + (otherBlocks * 0.5).round();
 
       if (gain > 0) {
         final cost = def.skill.energyCost;
@@ -737,15 +765,18 @@ class IdleProvider extends ChangeNotifier {
     await Future.delayed(const Duration(milliseconds: 80));
     if (_gameGeneration != gen) { _isProcessing = false; return; }
 
-    // 產出飼料（飼料不打折，能量打折）
-    final autoFood = {eliminatedColor: 1};
-    _foodEvents.add(FoodEvent(
-      foodByColor: autoFood,
+    // 產出能量（自動消除也給完整能量，不打折）
+    final perBlock = EnergyCalculator.perBlockEnergy(
+      isMatch: false, combo: 0, totalBlocksInOperation: 1,
+    );
+    final autoEnergy = {eliminatedColor: perBlock};
+    _energyEvents.add(EnergyEvent(
+      energyByColor: autoEnergy,
       combo: 0,
       source: EliminationSource.auto_,
     ));
     onBlocksEliminated?.call(1);
-    _accumulateEnergy(autoFood, multiplier: AutoEliminateConfig.autoSingleMultiplier);
+    _accumulateSkillEnergy(autoEnergy);
 
     // 重力 + 補充
     _applyGravity();
@@ -758,8 +789,8 @@ class IdleProvider extends ChangeNotifier {
     await Future.delayed(const Duration(milliseconds: 250));
     if (_gameGeneration != gen) { _isProcessing = false; return; }
 
-    // 連鎖消除（能量倍率 0.5）
-    await _processMatchLoop(energyMultiplier: AutoEliminateConfig.autoChainMultiplier);
+    // 連鎖消除（自動消除觸發的連鎖也給完整能量）
+    await _processMatchLoop();
     if (_gameGeneration != gen) { _isProcessing = false; return; }
 
     // 自動消除後重置 combo

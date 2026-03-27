@@ -10,15 +10,17 @@ import '../../shop/screens/shop_screen.dart';
 import '../../daily/screens/daily_quest_screen.dart';
 import '../../settings/screens/settings_screen.dart';
 import '../../profile/screens/player_profile_screen.dart';
-import '../../../core/services/local_storage.dart';
-import '../../../core/models/cat_data.dart';
 import '../../../core/models/block.dart';
 import '../providers/idle_provider.dart';
-import '../providers/cat_provider.dart';
+import '../providers/bottle_provider.dart';
 import '../widgets/player_info_bar.dart';
 import '../widgets/bottom_nav_bar.dart';
 import '../widgets/idle_mini_game.dart';
-import '../widgets/cat_panel.dart';
+import '../widgets/character_display.dart';
+import '../widgets/bottle_row.dart';
+import '../widgets/cta_button_bar.dart';
+import '../widgets/ingredient_panel.dart';
+import '../widgets/crafting_panel.dart';
 import '../widgets/energy_orb_overlay.dart';
 import '../../../core/models/cat_agent.dart';
 
@@ -32,7 +34,6 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   int _currentNavIndex = 2; // 放置（首頁）為預設
-  bool _boardOnLeft = true;
 
   // 能量球動畫
   final EnergyOrbController _orbController = EnergyOrbController();
@@ -42,8 +43,8 @@ class _HomeScreenState extends State<HomeScreen> {
   AgentAttribute? _skillVfxAttribute;
   String? _skillVfxAgentName;
 
-  // 貓咪 GlobalKey（用於定位能量球目標位置）
-  final Map<String, GlobalKey> _catKeys = {};
+  // 瓶子 GlobalKey（用於定位能量球目標位置）
+  final Map<BlockColor, GlobalKey> _bottleKeys = {};
 
   // 遊戲區域 GlobalKey（用於定位能量球起點）
   final GlobalKey _gameAreaKey = GlobalKey();
@@ -52,23 +53,9 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _loadBoardPosition();
       _startIdleGame();
-      _setupFoodListener();
+      _setupEnergyListener();
     });
-  }
-
-  void _loadBoardPosition() {
-    final storage = LocalStorageService.instance;
-    final saved = storage.getJson('board_on_left');
-    if (saved is bool) {
-      setState(() => _boardOnLeft = saved);
-    }
-  }
-
-  void _toggleBoardPosition() {
-    setState(() => _boardOnLeft = !_boardOnLeft);
-    LocalStorageService.instance.setJson('board_on_left', _boardOnLeft);
   }
 
   void _startIdleGame() {
@@ -93,7 +80,7 @@ class _HomeScreenState extends State<HomeScreen> {
     idle.setTeam(team);
   }
 
-  void _setupFoodListener() {
+  void _setupEnergyListener() {
     final idle = context.read<IdleProvider>();
     idle.addListener(_onIdleUpdate);
   }
@@ -113,33 +100,30 @@ class _HomeScreenState extends State<HomeScreen> {
       idle.consumeSkillVfx();
     }
 
-    final catProvider = context.read<CatProvider>();
+    final bottleProvider = context.read<BottleProvider>();
     final playerProvider = context.read<PlayerProvider>();
 
-    if (!playerProvider.isInitialized || !catProvider.isInitialized) return;
+    if (!playerProvider.isInitialized || !bottleProvider.isInitialized) return;
 
-    final events = idle.consumeFoodEvents();
+    final events = idle.consumeEnergyEvents();
     if (events.isEmpty) return;
 
-    final playerLevel = playerProvider.data.playerLevel;
-
-    // 為每個食物事件發射能量球
+    // 為每個能量事件發射能量球（飛向瓶子）
     for (final event in events) {
-      _spawnEnergyOrbs(event.foodByColor);
+      _spawnEnergyOrbs(event.energyByColor);
     }
 
-    // 餵食（延遲一點，讓能量球先飛一會兒）
+    // 延遲一點讓能量球先飛，再填充瓶子
     Future.delayed(const Duration(milliseconds: 350), () {
       if (!mounted) return;
       for (final event in events) {
-        catProvider.feedMultiple(event.foodByColor, playerLevel);
+        bottleProvider.addEnergyBatch(event.energyByColor);
       }
     });
   }
 
-  /// 發射能量球：從遊戲區中心飛向對應貓咪
-  void _spawnEnergyOrbs(Map<BlockColor, int> foodByColor) {
-    // 取得遊戲區域中心位置（螢幕座標）
+  /// 發射能量球：從遊戲區中心飛向對應顏色的瓶子
+  void _spawnEnergyOrbs(Map<BlockColor, int> energyByColor) {
     final gameBox =
         _gameAreaKey.currentContext?.findRenderObject() as RenderBox?;
     if (gameBox == null) return;
@@ -147,29 +131,24 @@ class _HomeScreenState extends State<HomeScreen> {
       Offset(gameBox.size.width / 2, gameBox.size.height / 2),
     );
 
-    for (final entry in foodByColor.entries) {
+    for (final entry in energyByColor.entries) {
       final color = entry.key;
-      final amount = entry.value;
 
-      // 找到對應貓咪的位置
-      final catDef = CatDefinitions.getByColor(color);
-      if (catDef == null) continue;
-      final catKey = _catKeys[catDef.id];
-      if (catKey == null) continue;
+      final bottleKey = _bottleKeys[color];
+      if (bottleKey == null) continue;
 
-      final catBox =
-          catKey.currentContext?.findRenderObject() as RenderBox?;
-      if (catBox == null) continue;
-      final catCenter = catBox.localToGlobal(
-        Offset(catBox.size.width / 2, catBox.size.height / 2),
+      final bottleBox =
+          bottleKey.currentContext?.findRenderObject() as RenderBox?;
+      if (bottleBox == null) continue;
+      final bottleCenter = bottleBox.localToGlobal(
+        Offset(bottleBox.size.width / 2, bottleBox.size.height / 2),
       );
 
-      // 發射能量球（最多顯示 3 顆，避免太多）
       _orbController.spawnOrbs(
         color: color,
         start: gameCenter,
-        end: catCenter,
-        count: amount.clamp(1, 3),
+        end: bottleCenter,
+        count: 1,
       );
     }
   }
@@ -190,10 +169,7 @@ class _HomeScreenState extends State<HomeScreen> {
   void _showSettingsModal() {
     Navigator.of(context).push(
       MaterialPageRoute(builder: (_) => const SettingsScreen()),
-    ).then((_) {
-      // 返回時重新載入棋盤位置（可能在設定頁被更改）
-      _loadBoardPosition();
-    });
+    );
   }
 
   void _showCareerStatsModal() {
@@ -274,36 +250,36 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
               const SizedBox(height: 2),
 
-              // ─── 主體：遊戲 + 貓咪（可切換左右） ───
+              // ─── 角色展示（單一角色放大） ───
+              const CharacterDisplay(),
+
+              // ─── 遊戲棋盤（全寬置中） ───
               Expanded(
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 6),
-                  child: Row(
-                    children: _boardOnLeft
-                        ? [
-                            Expanded(
-                              flex: 6,
-                              child: IdleMiniGame(key: _gameAreaKey),
-                            ),
-                            const SizedBox(width: 4),
-                            Expanded(
-                              flex: 4,
-                              child: CatPanel(catKeys: _catKeys),
-                            ),
-                          ]
-                        : [
-                            Expanded(
-                              flex: 4,
-                              child: CatPanel(catKeys: _catKeys),
-                            ),
-                            const SizedBox(width: 4),
-                            Expanded(
-                              flex: 6,
-                              child: IdleMiniGame(key: _gameAreaKey),
-                            ),
-                          ],
-                  ),
+                  child: IdleMiniGame(key: _gameAreaKey),
                 ),
+              ),
+
+              // ─── 魔法瓶橫排 ───
+              BottleRow(
+                bottleKeys: _bottleKeys,
+                onBottleTap: (color) {
+                  IngredientPanel.show(context, initialColor: color);
+                },
+              ),
+
+              // ─── CTA 按鈕列 ───
+              CtaButtonBar(
+                onMatchBlocks: () {
+                  // 滾動到棋盤（已在視野中，可加視覺提示）
+                },
+                onConvertIngredient: () {
+                  IngredientPanel.show(context);
+                },
+                onCraftDessert: () {
+                  CraftingPanel.show(context);
+                },
               ),
             ],
           ),
