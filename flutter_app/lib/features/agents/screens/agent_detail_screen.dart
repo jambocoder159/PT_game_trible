@@ -642,10 +642,10 @@ class _TrainingBar extends StatelessWidget {
               color: Colors.green.withAlpha(30),
               borderRadius: BorderRadius.circular(4),
             ),
-            child: const Text(
+            child: Text(
               'EXP',
               style: TextStyle(
-                color: Colors.greenAccent,
+                color: Colors.green.shade700,
                 fontSize: 10,
                 fontWeight: FontWeight.bold,
               ),
@@ -758,10 +758,10 @@ class _ActionButton extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
         decoration: BoxDecoration(
-          color: enabled ? const Color(0xFF2A5030) : Colors.grey.shade800,
+          color: enabled ? Colors.green.shade700 : AppTheme.bgCard,
           borderRadius: BorderRadius.circular(6),
           border: Border.all(
-            color: enabled ? Colors.green.withAlpha(120) : Colors.grey.shade600,
+            color: enabled ? Colors.green.shade800 : AppTheme.accentSecondary.withAlpha(60),
           ),
         ),
         child: Column(
@@ -770,7 +770,7 @@ class _ActionButton extends StatelessWidget {
             Text(
               label,
               style: TextStyle(
-                color: enabled ? Colors.white : Colors.grey,
+                color: enabled ? Colors.white : AppTheme.textSecondary,
                 fontSize: 11,
                 fontWeight: FontWeight.bold,
               ),
@@ -784,7 +784,7 @@ class _ActionButton extends StatelessWidget {
                   Text(
                     '$cost',
                     style: TextStyle(
-                      color: enabled ? Colors.greenAccent : Colors.grey,
+                      color: enabled ? Colors.white70 : AppTheme.textSecondary,
                       fontSize: 10,
                       fontWeight: FontWeight.bold,
                     ),

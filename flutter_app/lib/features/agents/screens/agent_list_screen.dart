@@ -281,10 +281,10 @@ class _FilterPill extends StatelessWidget {
         duration: const Duration(milliseconds: 150),
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
         decoration: BoxDecoration(
-          color: isSelected ? c.withAlpha(50) : Colors.white.withAlpha(8),
+          color: isSelected ? c.withAlpha(50) : AppTheme.bgCard.withAlpha(80),
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: isSelected ? c.withAlpha(180) : Colors.white.withAlpha(20),
+            color: isSelected ? c.withAlpha(180) : AppTheme.accentSecondary.withAlpha(40),
           ),
         ),
         child: Text(
@@ -374,7 +374,7 @@ class _AgentPortraitCard extends StatelessWidget {
                 ? Colors.amber.withAlpha(200)
                 : isUnlocked
                     ? glowColor.withAlpha(100)
-                    : Colors.white.withAlpha(15),
+                    : AppTheme.accentSecondary.withAlpha(30),
             width: isInTeam ? 2.5 : 1.5,
           ),
           boxShadow: isUnlocked
@@ -691,7 +691,7 @@ class _QuickPreviewSheet extends StatelessWidget {
               width: 36,
               height: 4,
               decoration: BoxDecoration(
-                color: Colors.white24,
+                color: AppTheme.accentSecondary.withAlpha(60),
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
@@ -886,7 +886,7 @@ class _LockedAgentSheet extends StatelessWidget {
               width: 36,
               height: 4,
               decoration: BoxDecoration(
-                color: Colors.white24,
+                color: AppTheme.accentSecondary.withAlpha(60),
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
@@ -1011,7 +1011,7 @@ class _BottomTeamBar extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppTheme.bgSecondary,
         border: Border(
-          top: BorderSide(color: Colors.white.withAlpha(15)),
+          top: BorderSide(color: AppTheme.accentPrimary.withAlpha(40)),
         ),
         boxShadow: [
           BoxShadow(
@@ -1053,10 +1053,10 @@ class _BottomTeamBar extends StatelessWidget {
               return _TeamSlot(
                 child: Icon(
                   Icons.add,
-                  color: Colors.white.withAlpha(60),
+                  color: AppTheme.textSecondary.withAlpha(100),
                   size: 20,
                 ),
-                borderColor: Colors.white.withAlpha(30),
+                borderColor: AppTheme.accentSecondary.withAlpha(50),
               );
             }),
 
@@ -1164,7 +1164,7 @@ class _CurrencyChip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: Colors.black26,
+        color: AppTheme.bgCard.withAlpha(180),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Row(

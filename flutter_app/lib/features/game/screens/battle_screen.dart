@@ -25,13 +25,13 @@ import '../../agents/widgets/agent_unlock_animation.dart';
 import '../widgets/cat_placeholder.dart';
 import '../widgets/pause_menu.dart';
 
-// ─── 木質風格配色 ───
-const _woodLight = Color(0xFFC4A24E);
-const _woodMid = Color(0xFFA0852B);
-const _woodDark = Color(0xFF8B6914);
-const _woodBorder = Color(0xFF6B4F0E);
-const _panelBg = Color(0xFF4A5568);
-const _gamePanelBg = Color(0xFF5BA8A0);
+// ─── 點心屋風格配色（暖色木質） ───
+const _woodLight = Color(0xFFD4A574);   // 淺焦糖
+const _woodMid = Color(0xFFB8865A);     // 烘焙棕
+const _woodDark = Color(0xFF9B6B42);    // 深焦糖
+const _woodBorder = Color(0xFF7A5230);  // 木質邊框
+const _panelBg = Color(0xFFF5E6D3);     // Almond (= AppTheme.bgSecondary)
+const _gamePanelBg = Color(0xFFE8D5B7); // Warm Wheat (= AppTheme.bgCard)
 
 /// 戰鬥畫面
 class BattleScreen extends StatefulWidget {
@@ -624,9 +624,9 @@ class _WoodButton extends StatelessWidget {
         width: 34,
         height: 34,
         decoration: BoxDecoration(
-          color: Colors.black26,
+          color: _woodDark.withAlpha(80),
           borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: Colors.white30, width: 1.5),
+          border: Border.all(color: _woodBorder.withAlpha(120), width: 1.5),
         ),
         child: Center(child: child),
       ),
@@ -1002,10 +1002,10 @@ class _CatAgentPanelState extends State<_CatAgentPanel>
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
               colors: [
-                Color(0xCC7BA0C4),
-                Color(0xBBA8C4D9),
-                Color(0xAAD4C5A9),
-                Color(0x999E9E9E),
+                Color(0xCCE8D5B7),  // Warm Wheat
+                Color(0xBBF5E6D3),  // Almond
+                Color(0xAAE8D5B7),  // Warm Wheat
+                Color(0x99D7C4A8),  // Muted wheat
               ],
               stops: [0.0, 0.3, 0.75, 1.0],
             ),
@@ -1024,7 +1024,7 @@ class _CatAgentPanelState extends State<_CatAgentPanel>
               // 分隔線
               Container(
                 height: 2,
-                color: Colors.white24,
+                color: AppTheme.accentSecondary.withAlpha(40),
                 margin: const EdgeInsets.symmetric(horizontal: 6),
               ),
               // ── 下半：我方角色 ──
@@ -1902,7 +1902,7 @@ class _EnemyCard extends StatelessWidget {
             height: 40,
             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
             decoration: BoxDecoration(
-              color: Colors.black26,
+              color: AppTheme.bgCard.withAlpha(120),
               borderRadius: BorderRadius.circular(8),
             ),
             child: Row(
@@ -1915,8 +1915,8 @@ class _EnemyCard extends StatelessWidget {
                 const SizedBox(width: 6),
                 Text(
                   '${enemy.definition.name} ✕',
-                  style: const TextStyle(
-                    color: Colors.white38,
+                  style: TextStyle(
+                    color: AppTheme.textSecondary.withAlpha(100),
                     fontSize: 10,
                     decoration: TextDecoration.lineThrough,
                   ),
@@ -3152,10 +3152,10 @@ class _BattleEndOverlay extends StatelessWidget {
                               padding: const EdgeInsets.symmetric(
                                   horizontal: 10, vertical: 5),
                               decoration: BoxDecoration(
-                                color: Colors.white.withAlpha(15),
+                                color: AppTheme.bgCard.withAlpha(100),
                                 borderRadius: BorderRadius.circular(8),
                                 border: Border.all(
-                                    color: Colors.white.withAlpha(30)),
+                                    color: AppTheme.accentSecondary.withAlpha(40)),
                               ),
                               child: Text(
                                 '${e.key.emoji} x${e.value}',
@@ -3213,7 +3213,7 @@ class _BattleEndOverlay extends StatelessWidget {
                                 Text(
                                   '新夥伴加入！點擊查看',
                                   style: TextStyle(
-                                    color: Colors.amber.shade300,
+                                    color: Colors.amber.shade800,
                                     fontWeight: FontWeight.bold,
                                     fontSize: 15,
                                   ),

@@ -66,7 +66,7 @@ class _SkillTierCard extends StatelessWidget {
             ? Colors.green
             : isNext
                 ? Colors.blue
-                : Colors.white24;
+                : AppTheme.textSecondary.withAlpha(40);
 
     return Card(
       margin: const EdgeInsets.only(bottom: 10),
@@ -205,7 +205,7 @@ class _UpgradeButton extends StatelessWidget {
             Text(
               '(${_costText()})',
               style: TextStyle(
-                  fontSize: 11, color: Colors.white.withValues(alpha: 0.8)),
+                  fontSize: 11, color: AppTheme.textSecondary),
             ),
           ],
         ),

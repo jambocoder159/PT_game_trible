@@ -125,7 +125,7 @@ class _SkillButtonState extends State<_SkillButton>
                   child: CircularProgressIndicator(
                     value: progress,
                     strokeWidth: 3,
-                    backgroundColor: Colors.white.withAlpha(20),
+                    backgroundColor: AppTheme.bgSecondary,
                     valueColor: AlwaysStoppedAnimation(
                       isReady ? attrColor : attrColor.withAlpha(120),
                     ),
@@ -141,7 +141,7 @@ class _SkillButtonState extends State<_SkillButton>
                         : AppTheme.bgCard.withAlpha(180),
                     shape: BoxShape.circle,
                     border: Border.all(
-                      color: isReady ? attrColor : Colors.white.withAlpha(30),
+                      color: isReady ? attrColor : AppTheme.accentSecondary.withAlpha(40),
                       width: isReady ? 2 : 1,
                     ),
                     boxShadow: isReady

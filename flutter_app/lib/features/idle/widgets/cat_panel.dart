@@ -184,7 +184,7 @@ class CatPanel extends StatelessWidget {
                       onPressed: () => Navigator.pop(ctx),
                       style: OutlinedButton.styleFrom(
                         foregroundColor: AppTheme.textSecondary,
-                        side: BorderSide(color: Colors.white.withAlpha(30)),
+                        side: BorderSide(color: AppTheme.accentSecondary.withAlpha(60)),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(10),
                         ),
@@ -244,7 +244,7 @@ class CatPanel extends StatelessWidget {
                 width: 36,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: Colors.white24,
+                  color: AppTheme.accentSecondary.withAlpha(60),
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
@@ -314,7 +314,7 @@ class CatPanel extends StatelessWidget {
                       borderRadius: BorderRadius.circular(10),
                       border: Border.all(
                         color: inTeam
-                            ? Colors.white.withAlpha(10)
+                            ? AppTheme.accentSecondary.withAlpha(20)
                             : attrColor.withAlpha(80),
                       ),
                     ),
@@ -610,7 +610,7 @@ class _AgentCardState extends State<_AgentCard>
               borderRadius: BorderRadius.circular(8),
               border: isReady
                   ? Border.all(color: attrColor.withAlpha(180), width: 1.5)
-                  : Border.all(color: Colors.white.withAlpha(10), width: 0.5),
+                  : Border.all(color: AppTheme.accentSecondary.withAlpha(20), width: 0.5),
               boxShadow: isReady
                   ? [
                       BoxShadow(
@@ -653,7 +653,7 @@ class _AgentCardState extends State<_AgentCard>
                         child: LinearProgressIndicator(
                           value: progress,
                           minHeight: 4,
-                          backgroundColor: Colors.white.withAlpha(15),
+                          backgroundColor: AppTheme.bgSecondary,
                           valueColor: AlwaysStoppedAnimation(
                             isReady ? attrColor : attrColor.withAlpha(120),
                           ),
@@ -718,7 +718,7 @@ class _EmptySlot extends StatelessWidget {
           color: AppTheme.bgCard.withAlpha(60),
           borderRadius: BorderRadius.circular(8),
           border: Border.all(
-            color: Colors.white.withAlpha(15),
+            color: AppTheme.accentSecondary.withAlpha(30),
             width: 0.5,
           ),
         ),
@@ -729,7 +729,7 @@ class _EmptySlot extends StatelessWidget {
               height: 20,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                border: Border.all(color: Colors.white.withAlpha(30)),
+                border: Border.all(color: AppTheme.accentSecondary.withAlpha(50)),
               ),
               child: const Icon(
                 Icons.add,
@@ -793,7 +793,7 @@ class _FoodOverview extends StatelessWidget {
                     child: LinearProgressIndicator(
                       value: isFull ? 1.0 : progress,
                       minHeight: 3,
-                      backgroundColor: Colors.white.withAlpha(10),
+                      backgroundColor: AppTheme.bgSecondary.withAlpha(120),
                       valueColor: AlwaysStoppedAnimation(
                         isFull ? blockColor : blockColor.withAlpha(100),
                       ),

@@ -358,7 +358,7 @@ class _TopIconButton extends StatelessWidget {
         decoration: BoxDecoration(
           color: AppTheme.bgCard.withAlpha(120),
           borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: Colors.white.withAlpha(20)),
+          border: Border.all(color: AppTheme.accentSecondary.withAlpha(40)),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,

@@ -86,7 +86,7 @@ class _BranchRow extends StatelessWidget {
                       height: 2,
                       color: unlockedTalentIds.contains(nodes[i].id)
                           ? Colors.green
-                          : Colors.white24,
+                          : AppTheme.textSecondary.withAlpha(40),
                     ),
                 ],
               ],

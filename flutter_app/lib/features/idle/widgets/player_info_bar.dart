@@ -68,7 +68,7 @@ class PlayerInfoBar extends StatelessWidget {
                           child: LinearProgressIndicator(
                             value: expProgress,
                             minHeight: 6,
-                            backgroundColor: Colors.white.withAlpha(20),
+                            backgroundColor: AppTheme.bgSecondary,
                             valueColor: const AlwaysStoppedAnimation(
                               AppTheme.accentSecondary,
                             ),
