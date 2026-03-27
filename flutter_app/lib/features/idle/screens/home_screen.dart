@@ -232,17 +232,6 @@ class _HomeScreenState extends State<HomeScreen> {
       bottom: false,
       child: Stack(
         children: [
-          // 首頁背景圖
-          Positioned.fill(
-            child: Opacity(
-              opacity: 0.25,
-              child: Image.asset(
-                ImageAssets.homeBackground,
-                fit: BoxFit.cover,
-                errorBuilder: (_, __, ___) => const SizedBox.shrink(),
-              ),
-            ),
-          ),
           Column(
             children: [
               // ─── 頂部玩家資訊列 ───
