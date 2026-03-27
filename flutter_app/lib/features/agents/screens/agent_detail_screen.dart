@@ -133,7 +133,7 @@ class _NameBanner extends StatelessWidget {
         children: [
           // 返回按鈕
           IconButton(
-            icon: const Icon(Icons.arrow_back, color: Colors.white, size: 22),
+            icon: const Icon(Icons.arrow_back, color: AppTheme.textPrimary, size: 22),
             onPressed: onBack,
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
@@ -144,11 +144,10 @@ class _NameBanner extends StatelessWidget {
               child: Text(
                 displayName,
                 style: const TextStyle(
-                  color: Colors.white,
+                  color: AppTheme.textPrimary,
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
                   letterSpacing: 2,
-                  shadows: [Shadow(color: Colors.black54, blurRadius: 4)],
                 ),
               ),
             ),
@@ -157,13 +156,13 @@ class _NameBanner extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
             decoration: BoxDecoration(
-              color: Colors.black26,
+              color: AppTheme.bgCard.withAlpha(180),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Text(
               'Lv.$level',
               style: const TextStyle(
-                color: Colors.white,
+                color: AppTheme.textPrimary,
                 fontSize: 13,
                 fontWeight: FontWeight.bold,
               ),
@@ -363,7 +362,7 @@ class _CharacterCard extends StatelessWidget {
                       width: double.infinity,
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        color: Colors.black26,
+                        color: AppTheme.bgSecondary,
                         borderRadius: BorderRadius.circular(8),
                         border: Border.all(
                           color: attrColor.withAlpha(40),
