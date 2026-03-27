@@ -199,7 +199,7 @@ class _StageSelectScreenState extends State<StageSelectScreen>
                       ? Colors.transparent
                       : AppTheme.bgSecondary,
                   borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
-                  border: Border.all(color: Colors.white.withAlpha(20)),
+                  border: Border.all(color: AppTheme.accentSecondary.withAlpha(60)),
                 ),
                 child: Stack(
                   children: [
@@ -220,7 +220,7 @@ class _StageSelectScreenState extends State<StageSelectScreen>
                     if (bgPath != null)
                       Positioned.fill(
                         child: Container(
-                          color: Colors.black.withAlpha(160),
+                          color: AppTheme.accentSecondary.withAlpha(160),
                         ),
                       ),
                     // ─── 前景內容 ───
@@ -235,7 +235,7 @@ class _StageSelectScreenState extends State<StageSelectScreen>
                           decoration: BoxDecoration(
                             gradient: LinearGradient(
                               colors: [
-                                AppTheme.accentPrimary.withAlpha(40),
+                                AppTheme.accentPrimary.withAlpha(60),
                                 Colors.transparent,
                               ],
                             ),
@@ -339,7 +339,7 @@ class _StageSelectScreenState extends State<StageSelectScreen>
                                       clipBehavior: Clip.antiAlias,
                                       decoration: BoxDecoration(
                                         color:
-                                            AppTheme.bgCard.withAlpha(220),
+                                            AppTheme.bgCard,
                                         borderRadius:
                                             BorderRadius.circular(12),
                                         border: Border.all(
@@ -365,7 +365,7 @@ class _StageSelectScreenState extends State<StageSelectScreen>
                                                   end: Alignment.bottomCenter,
                                                   colors: [
                                                     eColor.withAlpha(30),
-                                                    Colors.black26,
+                                                    AppTheme.bgCard,
                                                   ],
                                                 ),
                                               ),
@@ -403,7 +403,7 @@ class _StageSelectScreenState extends State<StageSelectScreen>
                                                 horizontal: 8,
                                                 vertical: 6),
                                             decoration: BoxDecoration(
-                                              color: Colors.black38,
+                                              color: AppTheme.bgCard,
                                             ),
                                             child: Column(
                                               mainAxisSize:
@@ -546,7 +546,7 @@ class _StageSelectScreenState extends State<StageSelectScreen>
                                               TextStyle(fontSize: 16)),
                                       const SizedBox(width: 8),
                                       Text(
-                                        '首次通關可解鎖新特工！',
+                                        '首次通關可解鎖新夥伴！',
                                         style: TextStyle(
                                           color: Colors.amber.shade300,
                                           fontSize: 12,
@@ -653,7 +653,7 @@ class _StageSelectScreenState extends State<StageSelectScreen>
                                               border: Border.all(
                                                 color: isInTeam
                                                     ? Colors.amber
-                                                    : Colors.white24,
+                                                    : AppTheme.accentSecondary.withAlpha(60),
                                                 width:
                                                     isInTeam ? 2 : 1,
                                               ),
@@ -987,9 +987,9 @@ class _ChapterBanner extends StatelessWidget {
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
                 colors: [
-                  Colors.black.withAlpha(120),
-                  Colors.black.withAlpha(60),
-                  AppTheme.bgPrimary.withAlpha(240),
+                  AppTheme.accentSecondary.withAlpha(140),
+                  AppTheme.accentSecondary.withAlpha(80),
+                  AppTheme.bgPrimary,
                   AppTheme.bgPrimary,
                 ],
                 stops: const [0.0, 0.4, 0.85, 1.0],
@@ -1011,7 +1011,7 @@ class _ChapterBanner extends StatelessWidget {
                       const Text(
                         '任務選擇',
                         style: TextStyle(
-                          color: Colors.white,
+                          color: AppTheme.textPrimary,
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
                         ),
@@ -1022,7 +1022,7 @@ class _ChapterBanner extends StatelessWidget {
                         padding: const EdgeInsets.symmetric(
                             horizontal: 10, vertical: 4),
                         decoration: BoxDecoration(
-                          color: Colors.black.withAlpha(100),
+                          color: AppTheme.bgCard,
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: Row(
@@ -1037,7 +1037,7 @@ class _ChapterBanner extends StatelessWidget {
                             Text(
                               '$stamina/$maxStamina',
                               style: const TextStyle(
-                                color: Colors.white,
+                                color: AppTheme.textPrimary,
                                 fontSize: 13,
                                 fontWeight: FontWeight.bold,
                               ),
@@ -1066,30 +1066,24 @@ class _ChapterBanner extends StatelessWidget {
                           children: [
                             Text(
                               '第${chapter.number}章',
-                              style: TextStyle(
-                                color: Colors.white.withAlpha(180),
+                              style: const TextStyle(
+                                color: AppTheme.textSecondary,
                                 fontSize: 12,
                               ),
                             ),
                             Text(
                               chapter.name,
                               style: const TextStyle(
-                                color: Colors.white,
+                                color: AppTheme.textPrimary,
                                 fontSize: 22,
                                 fontWeight: FontWeight.bold,
-                                shadows: [
-                                  Shadow(
-                                    color: Colors.black,
-                                    blurRadius: 6,
-                                  ),
-                                ],
                               ),
                             ),
                             const SizedBox(height: 2),
                             Text(
                               chapter.description,
-                              style: TextStyle(
-                                color: Colors.white.withAlpha(150),
+                              style: const TextStyle(
+                                color: AppTheme.textSecondary,
                                 fontSize: 11,
                               ),
                             ),
@@ -1139,15 +1133,15 @@ class _NavArrow extends StatelessWidget {
         height: 32,
         decoration: BoxDecoration(
           color: onTap != null
-              ? Colors.white.withAlpha(25)
+              ? AppTheme.bgCard
               : Colors.transparent,
           shape: BoxShape.circle,
         ),
         child: Icon(
           icon,
           color: onTap != null
-              ? Colors.white.withAlpha(200)
-              : Colors.white.withAlpha(40),
+              ? AppTheme.textPrimary
+              : AppTheme.textSecondary.withAlpha(80),
           size: 24,
         ),
       ),
@@ -1173,7 +1167,7 @@ class _ChapterProgress extends StatelessWidget {
             child: LinearProgressIndicator(
               value: progress,
               minHeight: 6,
-              backgroundColor: Colors.white.withAlpha(30),
+              backgroundColor: AppTheme.bgCard,
               valueColor: AlwaysStoppedAnimation<Color>(
                 cleared == total
                     ? AppTheme.stageCleared
@@ -1186,7 +1180,7 @@ class _ChapterProgress extends StatelessWidget {
         Text(
           '$cleared/$total',
           style: TextStyle(
-            color: Colors.white.withAlpha(180),
+            color: AppTheme.textPrimary,
             fontSize: 12,
             fontWeight: FontWeight.bold,
           ),
@@ -1553,14 +1547,14 @@ class _StageNode extends StatelessWidget {
     if (isCleared) {
       bgColor = AppTheme.stageCleared.withAlpha(40);
       borderColor = AppTheme.stageCleared;
-      content = const Icon(Icons.check, color: Colors.white, size: 24);
+      content = Icon(Icons.check, color: AppTheme.stageCleared, size: 24);
     } else if (isCurrent) {
       bgColor = AppTheme.stageCurrent.withAlpha(40);
       borderColor = AppTheme.stageCurrent;
       content = Text(
         '${stage.stageNumber}',
         style: const TextStyle(
-          color: Colors.white,
+          color: AppTheme.textPrimary,
           fontWeight: FontWeight.bold,
           fontSize: 18,
         ),
@@ -1625,7 +1619,7 @@ class _StageNode extends StatelessWidget {
                 decoration: BoxDecoration(
                   color: Colors.red.shade700,
                   shape: BoxShape.circle,
-                  border: Border.all(color: Colors.white, width: 1),
+                  border: Border.all(color: AppTheme.bgPrimary, width: 1),
                 ),
                 child: const Text(
                   '👑',

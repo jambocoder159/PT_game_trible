@@ -70,7 +70,7 @@ class FilterChipBar<T> extends StatelessWidget {
           border: Border.all(
             color: isSelected
                 ? (color ?? AppTheme.accentPrimary).withAlpha(180)
-                : Colors.white.withAlpha(20),
+                : AppTheme.accentSecondary.withAlpha(30),
             width: isSelected ? 1.5 : 1,
           ),
         ),

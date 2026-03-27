@@ -212,7 +212,7 @@ class _WeeklyTab extends StatelessWidget {
                 border: Border.all(
                   color: todayChecked
                       ? Colors.green.withAlpha(100)
-                      : AppTheme.accentSecondary.withAlpha(100),
+                      : AppTheme.accentSecondary.withAlpha(120),
                 ),
               ),
               child: Column(
@@ -300,7 +300,7 @@ class _WeeklyTab extends StatelessWidget {
                           ? Colors.green.withAlpha(120)
                           : isToday
                               ? AppTheme.accentSecondary.withAlpha(80)
-                              : Colors.white.withAlpha(15),
+                              : AppTheme.accentSecondary.withAlpha(60),
                       width: isToday ? 2 : 1,
                     ),
                   ),
@@ -379,7 +379,7 @@ const _newbieQuests = [
   _NewbieQuestDef(
     id: 'unlock_agent',
     title: '招募夥伴',
-    description: '解鎖第 2 個特工角色',
+    description: '解鎖第 2 個點心夥伴',
     icon: Icons.person_add,
     reward: '💎 10',
     diamonds: 10,
@@ -418,7 +418,7 @@ const _newbieQuests = [
   ),
   _NewbieQuestDef(
     id: 'daily_all',
-    title: '勤奮特工',
+    title: '勤奮烘焙師',
     description: '完成一次每日全任務並領取獎勵',
     icon: Icons.task_alt,
     reward: '💎 20',
@@ -454,7 +454,7 @@ class _NewbieTab extends StatelessWidget {
               decoration: BoxDecoration(
                 color: AppTheme.bgCard,
                 borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: Colors.white.withAlpha(15)),
+                border: Border.all(color: AppTheme.accentSecondary.withAlpha(60)),
               ),
               child: Row(
                 children: [
@@ -703,7 +703,7 @@ class _TaskCard extends StatelessWidget {
                     child: LinearProgressIndicator(
                       value: task.goal > 0 ? task.progress / task.goal : 0,
                       minHeight: 4,
-                      backgroundColor: Colors.white10,
+                      backgroundColor: AppTheme.bgSecondary,
                       valueColor: AlwaysStoppedAnimation(
                         task.isDone ? Colors.green : AppTheme.accentPrimary,
                       ),
@@ -760,7 +760,7 @@ class _BonusRewardCard extends StatelessWidget {
         border: Border.all(
           color: isReady || isClaimed
               ? Colors.amber.withAlpha(150)
-              : Colors.white12,
+              : AppTheme.accentSecondary.withAlpha(60),
         ),
       ),
       child: Column(

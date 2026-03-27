@@ -1,4 +1,4 @@
-/// 貓咪特工列表畫面 — 全新設計
+/// 貓咪點心屋夥伴列表畫面 — 全新設計
 /// 2列肖像網格 + 篩選/排序 + 底部固定隊伍欄
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -76,7 +76,7 @@ class _AgentListScreenState extends State<AgentListScreen> {
                     // ─── SliverAppBar ───
                     SliverAppBar(
                       automaticallyImplyLeading: false,
-                      title: const Text('特工名冊'),
+                      title: const Text('點心夥伴'),
                       backgroundColor: AppTheme.bgSecondary,
                       pinned: true,
                       floating: true,
@@ -178,7 +178,7 @@ class _FilterSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      color: AppTheme.bgSecondary.withAlpha(200),
+      color: AppTheme.bgSecondary,
       padding: const EdgeInsets.only(bottom: 8),
       child: Column(
         children: [
@@ -281,10 +281,10 @@ class _FilterPill extends StatelessWidget {
         duration: const Duration(milliseconds: 150),
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
         decoration: BoxDecoration(
-          color: isSelected ? c.withAlpha(50) : Colors.white.withAlpha(8),
+          color: isSelected ? c.withAlpha(50) : AppTheme.bgCard,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: isSelected ? c.withAlpha(180) : Colors.white.withAlpha(20),
+            color: isSelected ? c.withAlpha(180) : AppTheme.accentSecondary.withAlpha(60),
           ),
         ),
         child: Text(
@@ -319,7 +319,7 @@ class _SortChip extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
         decoration: BoxDecoration(
           color: isSelected
-              ? AppTheme.accentSecondary.withAlpha(40)
+              ? AppTheme.accentSecondary.withAlpha(60)
               : Colors.transparent,
           borderRadius: BorderRadius.circular(10),
         ),
@@ -374,7 +374,7 @@ class _AgentPortraitCard extends StatelessWidget {
                 ? Colors.amber.withAlpha(200)
                 : isUnlocked
                     ? glowColor.withAlpha(100)
-                    : Colors.white.withAlpha(15),
+                    : AppTheme.accentSecondary.withAlpha(60),
             width: isInTeam ? 2.5 : 1.5,
           ),
           boxShadow: isUnlocked
@@ -405,7 +405,7 @@ class _AgentPortraitCard extends StatelessWidget {
                           ]
                         : [
                             Colors.grey.withAlpha(20),
-                            AppTheme.bgCard.withAlpha(150),
+                            AppTheme.bgCard,
                           ],
                   ),
                 ),
@@ -691,7 +691,7 @@ class _QuickPreviewSheet extends StatelessWidget {
               width: 36,
               height: 4,
               decoration: BoxDecoration(
-                color: Colors.white24,
+                color: AppTheme.accentSecondary.withAlpha(60),
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
@@ -886,7 +886,7 @@ class _LockedAgentSheet extends StatelessWidget {
               width: 36,
               height: 4,
               decoration: BoxDecoration(
-                color: Colors.white24,
+                color: AppTheme.accentSecondary.withAlpha(60),
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
@@ -1011,7 +1011,7 @@ class _BottomTeamBar extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppTheme.bgSecondary,
         border: Border(
-          top: BorderSide(color: Colors.white.withAlpha(15)),
+          top: BorderSide(color: AppTheme.accentPrimary.withAlpha(60)),
         ),
         boxShadow: [
           BoxShadow(
@@ -1053,10 +1053,10 @@ class _BottomTeamBar extends StatelessWidget {
               return _TeamSlot(
                 child: Icon(
                   Icons.add,
-                  color: Colors.white.withAlpha(60),
+                  color: AppTheme.textSecondary.withAlpha(100),
                   size: 20,
                 ),
-                borderColor: Colors.white.withAlpha(30),
+                borderColor: AppTheme.accentSecondary.withAlpha(60),
               );
             }),
 
@@ -1164,7 +1164,7 @@ class _CurrencyChip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: Colors.black26,
+        color: AppTheme.bgCard,
         borderRadius: BorderRadius.circular(12),
       ),
       child: Row(

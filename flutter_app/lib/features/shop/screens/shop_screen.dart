@@ -34,117 +34,102 @@ class _ShopScreenState extends State<ShopScreen>
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppTheme.bgPrimary,
-      body: Stack(
-        children: [
-          // 商店背景圖
-          Positioned.fill(
-            child: Opacity(
-              opacity: 0.2,
-              child: Image.asset(
-                ImageAssets.shopBackground,
-                fit: BoxFit.cover,
-                errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+      body: SafeArea(
+        bottom: false,
+        child: Column(
+          children: [
+            // ─── 頂部標題列 ───
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+              child: Row(
+                children: [
+                  const Text(
+                    '商城',
+                    style: TextStyle(
+                      color: AppTheme.textPrimary,
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const Spacer(),
+                  // 貨幣顯示
+                  Consumer<PlayerProvider>(
+                    builder: (_, p, __) => Row(
+                      children: [
+                        _CurrencyChip(
+                          assetPath: ImageAssets.coin,
+                          fallback: '🪙',
+                          value: p.data.gold,
+                        ),
+                        const SizedBox(width: 10),
+                        _CurrencyChip(
+                          assetPath: ImageAssets.diamond,
+                          fallback: '💎',
+                          value: p.data.diamonds,
+                        ),
+                        const SizedBox(width: 10),
+                        Consumer<PlayerProvider>(
+                          builder: (_, pp, __) => _DustChip(
+                            value: pp.getMaterialCount(
+                                GameMaterial.crystalDust),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
             ),
-          ),
-          SafeArea(
-            bottom: false,
-            child: Column(
-              children: [
-                // ─── 頂部標題列 ───
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-                  child: Row(
-                    children: [
-                      const Text(
-                        '商城',
-                        style: TextStyle(
-                          color: AppTheme.textPrimary,
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const Spacer(),
-                      // 貨幣顯示
-                      Consumer<PlayerProvider>(
-                        builder: (_, p, __) => Row(
-                          children: [
-                            _CurrencyChip(
-                              assetPath: ImageAssets.coin,
-                              fallback: '🪙',
-                              value: p.data.gold,
-                            ),
-                            const SizedBox(width: 10),
-                            _CurrencyChip(
-                              assetPath: ImageAssets.diamond,
-                              fallback: '💎',
-                              value: p.data.diamonds,
-                            ),
-                            const SizedBox(width: 10),
-                            Consumer<PlayerProvider>(
-                              builder: (_, pp, __) => _DustChip(
-                                value: pp.getMaterialCount(
-                                    GameMaterial.crystalDust),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
+
+            const SizedBox(height: 12),
+
+            // ─── TabBar ───
+            Container(
+              margin: const EdgeInsets.symmetric(horizontal: 16),
+              decoration: BoxDecoration(
+                color: AppTheme.bgCard,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: TabBar(
+                controller: _tabController,
+                indicator: BoxDecoration(
+                  color: AppTheme.accentSecondary.withAlpha(50),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: AppTheme.accentSecondary,
                   ),
                 ),
-
-                const SizedBox(height: 12),
-
-                // ─── TabBar ───
-                Container(
-                  margin: const EdgeInsets.symmetric(horizontal: 16),
-                  decoration: BoxDecoration(
-                    color: AppTheme.bgCard.withAlpha(120),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: TabBar(
-                    controller: _tabController,
-                    indicator: BoxDecoration(
-                      color: AppTheme.accentSecondary.withAlpha(50),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: AppTheme.accentSecondary.withAlpha(150),
-                      ),
-                    ),
-                    indicatorSize: TabBarIndicatorSize.tab,
-                    dividerHeight: 0,
-                    labelColor: AppTheme.accentSecondary,
-                    unselectedLabelColor: AppTheme.textSecondary,
-                    labelStyle: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 13,
-                    ),
-                    tabs: const [
-                      Tab(text: '精選推薦'),
-                      Tab(text: '鑽石商店'),
-                      Tab(text: '素材兌換'),
-                    ],
-                  ),
+                indicatorSize: TabBarIndicatorSize.tab,
+                dividerHeight: 0,
+                labelColor: AppTheme.accentSecondary,
+                unselectedLabelColor: AppTheme.textSecondary,
+                labelStyle: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 13,
                 ),
-
-                const SizedBox(height: 12),
-
-                // ─── Tab 內容 ───
-                Expanded(
-                  child: TabBarView(
-                    controller: _tabController,
-                    children: const [
-                      _FeaturedTab(),
-                      _DiamondShopTab(),
-                      _MaterialExchangeTab(),
-                    ],
-                  ),
-                ),
-              ],
+                tabs: const [
+                  Tab(text: '精選推薦'),
+                  Tab(text: '鑽石商店'),
+                  Tab(text: '素材兌換'),
+                ],
+              ),
             ),
-          ),
-        ],
+
+            const SizedBox(height: 12),
+
+            // ─── Tab 內容 ───
+            Expanded(
+              child: TabBarView(
+                controller: _tabController,
+                children: const [
+                  _FeaturedTab(),
+                  _DiamondShopTab(),
+                  _MaterialExchangeTab(),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -869,7 +854,7 @@ class _CurrencyChip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
-        color: AppTheme.bgCard.withAlpha(150),
+        color: AppTheme.bgCard,
         borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
@@ -905,7 +890,7 @@ class _DustChip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
-        color: AppTheme.bgCard.withAlpha(150),
+        color: AppTheme.bgCard,
         borderRadius: BorderRadius.circular(12),
       ),
       child: Row(

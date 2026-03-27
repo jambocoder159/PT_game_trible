@@ -150,7 +150,7 @@ class _CurrentStageCard extends StatelessWidget {
             children: List.generate(2, (i) {
               return Icon(
                 i < currentStage ? Icons.star : Icons.star_border,
-                color: i < currentStage ? Colors.amber : Colors.white24,
+                color: i < currentStage ? Colors.amber : AppTheme.textSecondary.withAlpha(60),
                 size: 24,
               );
             }),
@@ -200,7 +200,7 @@ class _EvolutionStageCard extends StatelessWidget {
         ? Colors.green
         : canEvolve
             ? Colors.amber
-            : Colors.white24;
+            : AppTheme.textSecondary.withAlpha(40);
 
     return Card(
       margin: const EdgeInsets.only(bottom: 10),
@@ -343,7 +343,7 @@ class _EvolutionStageCard extends StatelessWidget {
                         '(${_costText()})',
                         style: TextStyle(
                             fontSize: 11,
-                            color: Colors.white.withValues(alpha: 0.8)),
+                            color: AppTheme.textSecondary),
                       ),
                     ],
                   ),

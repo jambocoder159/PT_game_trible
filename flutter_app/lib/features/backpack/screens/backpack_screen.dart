@@ -233,9 +233,9 @@ class _CategoryTabBar extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: AppTheme.bgSecondary.withAlpha(120),
+        color: AppTheme.bgSecondary,
         border: Border(
-          bottom: BorderSide(color: Colors.white.withAlpha(10)),
+          bottom: BorderSide(color: AppTheme.accentSecondary.withAlpha(60)),
         ),
       ),
       child: SingleChildScrollView(
@@ -316,12 +316,12 @@ class _CategoryPill extends StatelessWidget {
         decoration: BoxDecoration(
           color: isSelected
               ? AppTheme.accentPrimary.withAlpha(50)
-              : AppTheme.bgCard.withAlpha(120),
+              : AppTheme.bgCard,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
             color: isSelected
                 ? AppTheme.accentPrimary.withAlpha(160)
-                : Colors.white.withAlpha(15),
+                : AppTheme.accentSecondary.withAlpha(60),
             width: isSelected ? 1.5 : 1,
           ),
           boxShadow: isSelected
@@ -356,14 +356,14 @@ class _CategoryPill extends StatelessWidget {
                 decoration: BoxDecoration(
                   color: isSelected
                       ? AppTheme.accentPrimary.withAlpha(80)
-                      : Colors.white.withAlpha(15),
+                      : AppTheme.accentSecondary.withAlpha(60),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Text(
                   '$count',
                   style: TextStyle(
                     color: isSelected
-                        ? Colors.white
+                        ? AppTheme.textPrimary
                         : AppTheme.textSecondary.withAlpha(150),
                     fontSize: 10,
                     fontWeight: FontWeight.bold,
@@ -402,13 +402,11 @@ class _MaterialCard extends StatelessWidget {
       onTap: onTap,
       child: Container(
         decoration: BoxDecoration(
-          color: isEmpty
-              ? AppTheme.bgCard.withAlpha(60)
-              : AppTheme.bgCard,
+          color: AppTheme.bgCard,
           borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
           border: Border.all(
             color: isEmpty
-                ? Colors.white.withAlpha(8)
+                ? AppTheme.accentSecondary.withAlpha(60)
                 : rarityColor.withAlpha(80),
             width: isEmpty ? 0.5 : 1.5,
           ),
@@ -447,7 +445,7 @@ class _MaterialCard extends StatelessWidget {
                 ),
                 border: Border.all(
                   color: isEmpty
-                      ? Colors.white.withAlpha(10)
+                      ? AppTheme.accentSecondary.withAlpha(60)
                       : material.iconColor.withAlpha(100),
                   width: 2,
                 ),
@@ -464,7 +462,7 @@ class _MaterialCard extends StatelessWidget {
                 material.iconData,
                 size: 24,
                 color: isEmpty
-                    ? Colors.white.withAlpha(40)
+                    ? AppTheme.accentSecondary.withAlpha(60)
                     : material.iconColor,
               ),
             ),
@@ -616,7 +614,7 @@ class _MaterialDetailSheet extends StatelessWidget {
               width: 36,
               height: 4,
               decoration: BoxDecoration(
-                color: Colors.white24,
+                color: AppTheme.accentSecondary.withAlpha(80),
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
@@ -678,7 +676,7 @@ class _MaterialDetailSheet extends StatelessWidget {
                 const SizedBox(width: 8),
                 _InfoTag(
                   label: '${material.category.emoji} ${material.category.label}',
-                  color: Colors.white,
+                  color: AppTheme.textSecondary,
                   filled: false,
                 ),
               ],
@@ -702,7 +700,7 @@ class _MaterialDetailSheet extends StatelessWidget {
               decoration: BoxDecoration(
                 color: AppTheme.bgCard,
                 borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-                border: Border.all(color: Colors.white.withAlpha(15)),
+                border: Border.all(color: AppTheme.accentSecondary.withAlpha(60)),
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
@@ -735,7 +733,7 @@ class _MaterialDetailSheet extends StatelessWidget {
               width: double.infinity,
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: Colors.white.withAlpha(5),
+                color: AppTheme.accentSecondary.withAlpha(20),
                 borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
               ),
               child: Row(
@@ -801,10 +799,10 @@ class _InfoTag extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
       decoration: BoxDecoration(
-        color: filled ? color.withAlpha(30) : Colors.white.withAlpha(8),
+        color: filled ? color.withAlpha(30) : AppTheme.accentSecondary.withAlpha(20),
         borderRadius: BorderRadius.circular(8),
         border: Border.all(
-          color: filled ? color.withAlpha(80) : Colors.white.withAlpha(20),
+          color: filled ? color.withAlpha(80) : AppTheme.accentSecondary.withAlpha(60),
         ),
       ),
       child: Text(

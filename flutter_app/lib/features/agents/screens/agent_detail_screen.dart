@@ -15,10 +15,10 @@ import '../widgets/talent_tree_widget.dart';
 import '../widgets/skill_enhance_widget.dart';
 import '../widgets/passive_skill_widget.dart';
 
-// ─── 配色常數 ───
-const _cardBg = Color(0xFF1E2A3A);
-const _cardBorder = Color(0xFF2A3F55);
-const _statBarBg = Color(0xFF0D1520);
+// ─── 配色常數（暖色點心屋風格） ───
+const _cardBg = Color(0xFF7A5240);      // 暖可可 (= AppTheme.bgCard)
+const _cardBorder = Color(0xFF5C3A28);  // 牛奶巧克力 (= AppTheme.bgSecondary)
+const _statBarBg = Color(0xFF5C3A28);   // 深棕色（搭配深色主題）
 const _statBarHp = Color(0xFF4CAF50);
 const _statBarAtk = Color(0xFFFF9800);
 const _statBarDef = Color(0xFF42A5F5);
@@ -133,7 +133,7 @@ class _NameBanner extends StatelessWidget {
         children: [
           // 返回按鈕
           IconButton(
-            icon: const Icon(Icons.arrow_back, color: Colors.white, size: 22),
+            icon: const Icon(Icons.arrow_back, color: AppTheme.textPrimary, size: 22),
             onPressed: onBack,
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
@@ -144,11 +144,10 @@ class _NameBanner extends StatelessWidget {
               child: Text(
                 displayName,
                 style: const TextStyle(
-                  color: Colors.white,
+                  color: AppTheme.textPrimary,
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
                   letterSpacing: 2,
-                  shadows: [Shadow(color: Colors.black54, blurRadius: 4)],
                 ),
               ),
             ),
@@ -157,13 +156,13 @@ class _NameBanner extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
             decoration: BoxDecoration(
-              color: Colors.black26,
+              color: AppTheme.bgCard.withAlpha(180),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Text(
               'Lv.$level',
               style: const TextStyle(
-                color: Colors.white,
+                color: AppTheme.textPrimary,
                 fontSize: 13,
                 fontWeight: FontWeight.bold,
               ),
@@ -363,7 +362,7 @@ class _CharacterCard extends StatelessWidget {
                       width: double.infinity,
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        color: Colors.black26,
+                        color: AppTheme.bgSecondary,
                         borderRadius: BorderRadius.circular(8),
                         border: Border.all(
                           color: attrColor.withAlpha(40),
@@ -392,7 +391,7 @@ class _CharacterCard extends StatelessWidget {
                                 padding: const EdgeInsets.symmetric(
                                     horizontal: 5, vertical: 1),
                                 decoration: BoxDecoration(
-                                  color: Colors.amber.withAlpha(30),
+                                  color: Colors.amber.withAlpha(50),
                                   borderRadius: BorderRadius.circular(4),
                                 ),
                                 child: Text(
@@ -643,10 +642,10 @@ class _TrainingBar extends StatelessWidget {
               color: Colors.green.withAlpha(30),
               borderRadius: BorderRadius.circular(4),
             ),
-            child: const Text(
+            child: Text(
               'EXP',
               style: TextStyle(
-                color: Colors.greenAccent,
+                color: Colors.green.shade300,
                 fontSize: 10,
                 fontWeight: FontWeight.bold,
               ),
@@ -759,10 +758,10 @@ class _ActionButton extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
         decoration: BoxDecoration(
-          color: enabled ? const Color(0xFF2A5030) : Colors.grey.shade800,
+          color: enabled ? Colors.green.shade700 : AppTheme.bgCard,
           borderRadius: BorderRadius.circular(6),
           border: Border.all(
-            color: enabled ? Colors.green.withAlpha(120) : Colors.grey.shade600,
+            color: enabled ? Colors.green.shade800 : AppTheme.accentSecondary.withAlpha(60),
           ),
         ),
         child: Column(
@@ -771,7 +770,7 @@ class _ActionButton extends StatelessWidget {
             Text(
               label,
               style: TextStyle(
-                color: enabled ? Colors.white : Colors.grey,
+                color: enabled ? Colors.white : AppTheme.textSecondary,
                 fontSize: 11,
                 fontWeight: FontWeight.bold,
               ),
@@ -785,7 +784,7 @@ class _ActionButton extends StatelessWidget {
                   Text(
                     '$cost',
                     style: TextStyle(
-                      color: enabled ? Colors.greenAccent : Colors.grey,
+                      color: enabled ? Colors.white70 : AppTheme.textSecondary,
                       fontSize: 10,
                       fontWeight: FontWeight.bold,
                     ),

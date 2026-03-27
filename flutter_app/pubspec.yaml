@@ -1,5 +1,5 @@
 name: match3_puzzle
-description: 三消挑戰 - Match-3 Puzzle Mobile Game
+description: 貓咪點心屋 - Kitty Pastry House Match-3 Puzzle Mobile Game
 publish_to: 'none'
 version: 1.0.0+1
 
@@ -46,9 +46,7 @@ flutter:
     - assets/audio/bgm/
     - assets/fonts/
 
-  # fonts:
-  #   - family: NotoSansTC
-  #     fonts:
-  #       - asset: assets/fonts/NotoSansTC-Regular.ttf
-  #       - asset: assets/fonts/NotoSansTC-Bold.ttf
-  #         weight: 700
+  fonts:
+    - family: jf-openhuninn
+      fonts:
+        - asset: assets/fonts/jf-openhuninn.ttf

@@ -1,26 +1,26 @@
-/// 貓咪特工角色模型
+/// 貓咪點心屋角色模型
 ///
 /// 屬性系統：5 屬性（剪刀石頭布式相剋）
-/// - 三角相剋：A(🔴) → 剋 B(🟢) → 剋 C(🔵) → 剋 A
-/// - 互相剋制：D(🟡) ⟷ E(🟣)
+/// - 三角相剋：A(☀️太陽) → 剋 B(🍃葉子) → 剋 C(💧水滴) → 剋 A
+/// - 互相剋制：D(⭐星星) ⟷ E(🌙月亮)
 /// - 剋制倍率：被剋 1.5x，剋制 0.75x
 import 'block.dart';
 
 /// 角色屬性（對應 5 種方塊顏色）
 enum AgentAttribute {
-  /// 🔴 屬性A — 對應 BlockColor.coral
+  /// ☀️ 屬性A（太陽）— 對應 BlockColor.coral
   attributeA,
 
-  /// 🟢 屬性B — 對應 BlockColor.mint
+  /// 🍃 屬性B（葉子）— 對應 BlockColor.mint
   attributeB,
 
-  /// 🔵 屬性C — 對應 BlockColor.teal
+  /// 💧 屬性C（水滴）— 對應 BlockColor.teal
   attributeC,
 
-  /// 🟡 屬性D — 對應 BlockColor.gold
+  /// ⭐ 屬性D（星星）— 對應 BlockColor.gold
   attributeD,
 
-  /// 🟣 屬性E — 對應 BlockColor.rose
+  /// 🌙 屬性E（月亮）— 對應 BlockColor.rose
   attributeE;
 
   /// 對應的方塊顏色
@@ -85,30 +85,30 @@ enum AgentAttribute {
   String get label {
     switch (this) {
       case AgentAttribute.attributeA:
-        return '屬性A';
+        return '太陽';
       case AgentAttribute.attributeB:
-        return '屬性B';
+        return '葉子';
       case AgentAttribute.attributeC:
-        return '屬性C';
+        return '水滴';
       case AgentAttribute.attributeD:
-        return '屬性D';
+        return '星星';
       case AgentAttribute.attributeE:
-        return '屬性E';
+        return '月亮';
     }
   }
 
   String get emoji {
     switch (this) {
       case AgentAttribute.attributeA:
-        return '🔴';
+        return '☀️';
       case AgentAttribute.attributeB:
-        return '🟢';
+        return '🍃';
       case AgentAttribute.attributeC:
-        return '🔵';
+        return '💧';
       case AgentAttribute.attributeD:
-        return '🟡';
+        return '⭐';
       case AgentAttribute.attributeE:
-        return '🟣';
+        return '🌙';
     }
   }
 }

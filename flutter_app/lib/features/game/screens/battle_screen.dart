@@ -25,13 +25,13 @@ import '../../agents/widgets/agent_unlock_animation.dart';
 import '../widgets/cat_placeholder.dart';
 import '../widgets/pause_menu.dart';
 
-// ─── 木質風格配色 ───
-const _woodLight = Color(0xFFC4A24E);
-const _woodMid = Color(0xFFA0852B);
-const _woodDark = Color(0xFF8B6914);
-const _woodBorder = Color(0xFF6B4F0E);
-const _panelBg = Color(0xFF4A5568);
-const _gamePanelBg = Color(0xFF5BA8A0);
+// ─── 點心屋風格配色（陽光鄉村木質） ───
+const _woodLight = Color(0xFFFFE4B5);   // 蜂蜜金
+const _woodMid = Color(0xFFDEB887);     // 小麥色
+const _woodDark = Color(0xFFC49A6C);    // 暖木色
+const _woodBorder = Color(0xFFA0764E);  // 深木邊框
+const _panelBg = Color(0xFFFFE4B5);     // 蜂蜜金 (= AppTheme.bgSecondary)
+const _gamePanelBg = Color(0xFFFFFFFF); // 純白 (= AppTheme.bgCard)
 
 /// 戰鬥畫面
 class BattleScreen extends StatefulWidget {
@@ -297,7 +297,7 @@ class _BattleScreenState extends State<BattleScreen> {
     final bgPath = ImageAssets.battleBackground(widget.stage.chapter);
 
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: AppTheme.bgPrimary,
       body: SafeArea(
         child: Stack(
           children: [
@@ -624,9 +624,9 @@ class _WoodButton extends StatelessWidget {
         width: 34,
         height: 34,
         decoration: BoxDecoration(
-          color: Colors.black26,
+          color: _woodDark.withAlpha(80),
           borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: Colors.white30, width: 1.5),
+          border: Border.all(color: _woodBorder.withAlpha(120), width: 1.5),
         ),
         child: Center(child: child),
       ),
@@ -1002,10 +1002,10 @@ class _CatAgentPanelState extends State<_CatAgentPanel>
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
               colors: [
-                Color(0xCC7BA0C4),
-                Color(0xBBA8C4D9),
-                Color(0xAAD4C5A9),
-                Color(0x999E9E9E),
+                Color(0xCCE8D5B7),  // Warm Wheat
+                Color(0xBBF5E6D3),  // Almond
+                Color(0xAAE8D5B7),  // Warm Wheat
+                Color(0x99D7C4A8),  // Muted wheat
               ],
               stops: [0.0, 0.3, 0.75, 1.0],
             ),
@@ -1024,7 +1024,7 @@ class _CatAgentPanelState extends State<_CatAgentPanel>
               // 分隔線
               Container(
                 height: 2,
-                color: Colors.white24,
+                color: AppTheme.accentSecondary.withAlpha(60),
                 margin: const EdgeInsets.symmetric(horizontal: 6),
               ),
               // ── 下半：我方角色 ──
@@ -1536,7 +1536,7 @@ class _RushAttackWidgetState extends State<_RushAttackWidget>
       width: _cardSize,
       height: _cardSize,
       decoration: BoxDecoration(
-        color: Colors.black87,
+        color: AppTheme.bgCard,
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: data.color, width: 2),
         boxShadow: [
@@ -1902,7 +1902,7 @@ class _EnemyCard extends StatelessWidget {
             height: 40,
             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
             decoration: BoxDecoration(
-              color: Colors.black26,
+              color: AppTheme.bgCard,
               borderRadius: BorderRadius.circular(8),
             ),
             child: Row(
@@ -1915,8 +1915,8 @@ class _EnemyCard extends StatelessWidget {
                 const SizedBox(width: 6),
                 Text(
                   '${enemy.definition.name} ✕',
-                  style: const TextStyle(
-                    color: Colors.white38,
+                  style: TextStyle(
+                    color: AppTheme.textSecondary.withAlpha(100),
                     fontSize: 10,
                     decoration: TextDecoration.lineThrough,
                   ),
@@ -1951,7 +1951,7 @@ class _EnemyCard extends StatelessWidget {
         decoration: BoxDecoration(
           color: isHit
               ? Colors.white.withAlpha(120)
-              : Colors.black.withAlpha(180),
+              : AppTheme.bgCard,
           borderRadius: BorderRadius.circular(8),
           border: Border.all(color: outerBorderColor, width: 2),
           boxShadow: [
@@ -2053,7 +2053,7 @@ class _EnemyCard extends StatelessWidget {
                         child: LinearProgressIndicator(
                           value: enemy.hpPercent,
                           minHeight: 8,
-                          backgroundColor: Colors.black38,
+                          backgroundColor: AppTheme.bgCard,
                           valueColor: AlwaysStoppedAnimation<Color>(
                             enemy.hpPercent > 0.5
                                 ? Colors.green
@@ -2552,7 +2552,7 @@ class _CatAgentCard extends StatelessWidget {
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(8),
             border: Border.all(color: outerBorderColor, width: 2),
-            color: Colors.black.withAlpha(180),
+            color: AppTheme.bgCard,
             boxShadow: [
               if (isReady)
                 BoxShadow(
@@ -2689,7 +2689,7 @@ class _CatAgentCard extends StatelessWidget {
                           child: LinearProgressIndicator(
                             value: agent.energyPercent,
                             minHeight: 7,
-                            backgroundColor: Colors.black38,
+                            backgroundColor: AppTheme.bgCard,
                             valueColor: AlwaysStoppedAnimation(
                               isReady ? Colors.amber : color.withAlpha(150),
                             ),
@@ -3028,7 +3028,7 @@ class _BattleEndOverlay extends StatelessWidget {
     final titleColor = isVictory ? Colors.amber : Colors.red;
 
     return Container(
-      color: Colors.black.withAlpha(180),
+      color: AppTheme.bgSecondary,
       child: Center(
         child: Container(
           margin: const EdgeInsets.symmetric(horizontal: 28, vertical: 32),
@@ -3152,10 +3152,10 @@ class _BattleEndOverlay extends StatelessWidget {
                               padding: const EdgeInsets.symmetric(
                                   horizontal: 10, vertical: 5),
                               decoration: BoxDecoration(
-                                color: Colors.white.withAlpha(15),
+                                color: AppTheme.bgCard,
                                 borderRadius: BorderRadius.circular(8),
                                 border: Border.all(
-                                    color: Colors.white.withAlpha(30)),
+                                    color: AppTheme.accentSecondary.withAlpha(60)),
                               ),
                               child: Text(
                                 '${e.key.emoji} x${e.value}',
@@ -3169,7 +3169,7 @@ class _BattleEndOverlay extends StatelessWidget {
                         ),
                       ],
 
-                      // 新特工解鎖
+                      // 新夥伴解鎖
                       if (reward!.agentUnlocked &&
                           reward!.unlockedAgentId != null) ...[
                         const SizedBox(height: 12),
@@ -3211,9 +3211,9 @@ class _BattleEndOverlay extends StatelessWidget {
                                 const Text('🎉', style: TextStyle(fontSize: 20)),
                                 const SizedBox(width: 8),
                                 Text(
-                                  '新特工加入！點擊查看',
+                                  '新夥伴加入！點擊查看',
                                   style: TextStyle(
-                                    color: Colors.amber.shade300,
+                                    color: Colors.amber,
                                     fontWeight: FontWeight.bold,
                                     fontSize: 15,
                                   ),
@@ -3551,7 +3551,7 @@ class _TeamStatusBar extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 3),
       decoration: BoxDecoration(
-        color: Colors.black26,
+        color: AppTheme.bgCard,
         borderRadius: BorderRadius.circular(4),
       ),
       child: Column(
@@ -3568,7 +3568,7 @@ class _TeamStatusBar extends StatelessWidget {
                   child: LinearProgressIndicator(
                     value: hpPercent,
                     minHeight: 5,
-                    backgroundColor: Colors.black26,
+                    backgroundColor: AppTheme.bgCard,
                     valueColor: AlwaysStoppedAnimation<Color>(
                       hpPercent > 0.5
                           ? Colors.green

@@ -72,7 +72,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     value: _settings.isMuted,
                     onChanged: (_) => _settings.toggleMute(),
                   ),
-                  const Divider(color: Colors.white10, height: 1),
+                  Divider(color: AppTheme.accentSecondary.withAlpha(60), height: 1),
                   // BGM 音量
                   _SliderRow(
                     icon: Icons.music_note_rounded,
@@ -81,7 +81,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     enabled: !_settings.isMuted,
                     onChanged: (v) => _settings.setBgmVolume(v),
                   ),
-                  const Divider(color: Colors.white10, height: 1),
+                  Divider(color: AppTheme.accentSecondary.withAlpha(60), height: 1),
                   // SFX 音量
                   _SliderRow(
                     icon: Icons.speaker_rounded,
@@ -110,7 +110,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       HapticFeedback.lightImpact();
                     },
                   ),
-                  const Divider(color: Colors.white10, height: 1),
+                  Divider(color: AppTheme.accentSecondary.withAlpha(60), height: 1),
                   // 震動回饋
                   _ToggleRow(
                     icon: Icons.vibration_rounded,
@@ -144,12 +144,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       }
                     },
                   ),
-                  const Divider(color: Colors.white10, height: 1),
+                  Divider(color: AppTheme.accentSecondary.withAlpha(60), height: 1),
                   // 遊戲資訊
                   _InfoRow(
                     icon: Icons.pets_rounded,
                     label: '遊戲',
-                    value: '貓咪特工三消挑戰',
+                    value: '貓咪點心屋三消挑戰',
                   ),
                 ],
               ),
@@ -292,7 +292,7 @@ class _SettingsCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppTheme.bgCard,
         borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-        border: Border.all(color: Colors.white.withAlpha(10)),
+        border: Border.all(color: AppTheme.accentSecondary.withAlpha(60)),
       ),
       child: Column(
         children: children,
@@ -386,7 +386,7 @@ class _SliderRow extends StatelessWidget {
                 activeTrackColor: enabled
                     ? AppTheme.accentSecondary
                     : AppTheme.accentSecondary.withAlpha(40),
-                inactiveTrackColor: Colors.white.withAlpha(15),
+                inactiveTrackColor: AppTheme.bgSecondary,
                 thumbColor: enabled
                     ? AppTheme.accentSecondary
                     : Colors.grey,
@@ -455,7 +455,7 @@ class _OptionRow extends StatelessWidget {
             Text(
               value,
               style: TextStyle(
-                color: AppTheme.accentSecondary.withAlpha(200),
+                color: AppTheme.accentSecondary,
                 fontSize: 13,
               ),
             ),

@@ -232,17 +232,6 @@ class _HomeScreenState extends State<HomeScreen> {
       bottom: false,
       child: Stack(
         children: [
-          // 首頁背景圖
-          Positioned.fill(
-            child: Opacity(
-              opacity: 0.25,
-              child: Image.asset(
-                ImageAssets.homeBackground,
-                fit: BoxFit.cover,
-                errorBuilder: (_, __, ___) => const SizedBox.shrink(),
-              ),
-            ),
-          ),
           Column(
             children: [
               // ─── 頂部玩家資訊列 ───
@@ -356,9 +345,9 @@ class _TopIconButton extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         decoration: BoxDecoration(
-          color: AppTheme.bgCard.withAlpha(120),
+          color: AppTheme.bgCard,
           borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: Colors.white.withAlpha(20)),
+          border: Border.all(color: AppTheme.accentSecondary.withAlpha(60)),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,

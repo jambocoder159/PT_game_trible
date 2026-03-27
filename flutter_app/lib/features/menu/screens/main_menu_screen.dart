@@ -37,7 +37,7 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
 
                 // 遊戲標題
                 const Text(
-                  '貓咪特工',
+                  '貓咪點心屋',
                   style: TextStyle(
                     fontSize: 40,
                     fontWeight: FontWeight.bold,
@@ -47,7 +47,7 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Cat Agent Puzzle',
+                  'Kitty Pastry House',
                   style: TextStyle(
                     fontSize: 16,
                     color: AppTheme.textSecondary.withAlpha(180),
@@ -97,7 +97,7 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                 _MainButton(
                   icon: '⚔️',
                   label: '任務闖關',
-                  description: '6 章 60 關 — 瓦解暗影組織',
+                  description: '6 章 60 關 — 淨化搗蛋鬼',
                   color: AppTheme.accentPrimary,
                   onTap: () {
                     Navigator.of(context).push(
@@ -109,10 +109,10 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                 ),
                 const SizedBox(height: 12),
 
-                // 特工名冊
+                // 點心夥伴
                 _MainButton(
                   icon: '🐱',
-                  label: '特工名冊',
+                  label: '點心夥伴',
                   description: '查看 / 升級 / 編排隊伍',
                   color: AppTheme.accentSecondary,
                   onTap: () {
@@ -131,7 +131,7 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                   label: '自由對戰',
                   description: '三排模式 — 練習消除技巧',
                   color: AppTheme.bgCard,
-                  borderColor: AppTheme.accentPrimary.withAlpha(100),
+                  borderColor: AppTheme.accentPrimary.withAlpha(120),
                   onTap: () {
                     context.read<GameProvider>().startGame(GameModes.triple);
                     Navigator.of(context).push(
@@ -289,7 +289,7 @@ class _MainButton extends StatelessWidget {
                     description,
                     style: TextStyle(
                       fontSize: 12,
-                      color: Colors.white.withAlpha(150),
+                      color: AppTheme.textSecondary,
                     ),
                   ),
                 ],
@@ -297,7 +297,7 @@ class _MainButton extends StatelessWidget {
             ),
             Icon(
               Icons.chevron_right,
-              color: Colors.white.withAlpha(120),
+              color: AppTheme.textSecondary.withAlpha(150),
             ),
           ],
         ),
@@ -326,7 +326,7 @@ class _SmallButton extends StatelessWidget {
         backgroundColor: AppTheme.bgCard,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-          side: BorderSide(color: Colors.white.withAlpha(30)),
+          side: BorderSide(color: AppTheme.accentSecondary.withAlpha(60)),
         ),
       ),
       child: Row(

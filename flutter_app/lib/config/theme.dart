@@ -5,14 +5,12 @@ import 'package:flutter/material.dart';
 class AppTheme {
   AppTheme._();
 
-  // ─── 方塊顏色（Coolors Palette 1 + 微調） ───
-  // 原始: ff6f59-254441-43aa8b-b2b09b-ef3054
-  // 調整: 254441→3A7D6E（提亮暗青）、B2B09B→D4C96A（飽和卡其）
-  static const Color blockCoral = Color(0xFFFF6F59);   // 珊瑚橘紅
-  static const Color blockTeal = Color(0xFF2B82D9);    // 天藍（原翡翠青改為藍色，避免與薄荷綠太相近）
-  static const Color blockMint = Color(0xFF43AA8B);    // 薄荷綠
-  static const Color blockGold = Color(0xFFD4C96A);    // 琥珀金（原 #B2B09B 飽和）
-  static const Color blockRose = Color(0xFFEF3054);    // 玫瑰紅
+  // ─── 方塊顏色（貓咪點心屋配色） ───
+  static const Color blockCoral = Color(0xFFE8723A);   // 烘焙橘紅 ☀️太陽
+  static const Color blockTeal = Color(0xFF5BA4CF);    // 清泉藍 💧水滴
+  static const Color blockMint = Color(0xFF6BAF5B);    // 香草綠 🍃葉子
+  static const Color blockGold = Color(0xFFF0B0C8);    // 蜜桃粉 ⭐星星
+  static const Color blockRose = Color(0xFF9B7EC8);    // 月光紫 🌙月亮
 
   static const List<Color> blockColors = [
     blockCoral,
@@ -25,19 +23,19 @@ class AppTheme {
   // 方塊內的輔助符號（色盲友善）
   static const List<String> blockSymbols = ['●', '◆', '▲', '■', '★'];
 
-  // ─── 背景與 UI 色系 ───
-  static const Color bgPrimary = Color(0xFF1A1A2E);
-  static const Color bgSecondary = Color(0xFF16213E);
-  static const Color bgCard = Color(0xFF0F3460);
-  static const Color accentPrimary = Color(0xFF533483);
-  static const Color accentSecondary = Color(0xFFE94560);
-  static const Color textPrimary = Color(0xFFFFFFFF);
-  static const Color textSecondary = Color(0xFFB0B0B0);
+  // ─── 背景與 UI 色系（陽光甜點街 — 鄉村明亮風） ───
+  static const Color bgPrimary = Color(0xFFFFF5E1);    // 陽光奶油 — 主背景
+  static const Color bgSecondary = Color(0xFFFFE4B5);   // 蜂蜜金 — 次背景/面板
+  static const Color bgCard = Color(0xFFFFFFFF);        // 純白 — 卡片（清爽浮起）
+  static const Color accentPrimary = Color(0xFFE86B30);  // 暖橘紅 — 主強調/CTA
+  static const Color accentSecondary = Color(0xFF7B4B2A); // 深木棕 — 次強調/邊框（飽和）
+  static const Color textPrimary = Color(0xFF2D1A0E);    // 深焦咖啡 — 主文字
+  static const Color textSecondary = Color(0xFF6B4226);  // 焦糖棕 — 次文字（飽和深色）
 
-  // ─── 圓角 ───
-  static const double radiusSmall = 8.0;
-  static const double radiusMedium = 12.0;
-  static const double radiusLarge = 16.0;
+  // ─── 圓角（加大，更可愛） ───
+  static const double radiusSmall = 10.0;
+  static const double radiusMedium = 14.0;
+  static const double radiusLarge = 20.0;
   static const double radiusBlock = 14.0;
 
   // ─── 方塊尺寸 ───
@@ -79,9 +77,9 @@ class AppTheme {
   // ─── 狀態顏色 ───
   static const Color stageCleared = Color(0xFF4CAF50);
   static const Color stageCurrent = Color(0xFF42A5F5);
-  static const Color stageLocked = Color(0xFF616161);
+  static const Color stageLocked = Color(0xFF9E9E9E);
   static const Color pathActive = Color(0xFF66BB6A);
-  static const Color pathInactive = Color(0xFF424242);
+  static const Color pathInactive = Color(0xFFBDBDBD);
 
   // ─── 間距 ───
   static const double spacingXs = 4.0;
@@ -101,14 +99,14 @@ class AppTheme {
   // ─── ThemeData ───
   static ThemeData get darkTheme {
     return ThemeData(
-      brightness: Brightness.dark,
+      brightness: Brightness.light,
       scaffoldBackgroundColor: bgPrimary,
-      colorScheme: const ColorScheme.dark(
+      colorScheme: const ColorScheme.light(
         primary: accentPrimary,
         secondary: accentSecondary,
         surface: bgSecondary,
       ),
-      fontFamily: 'NotoSansTC',
+      fontFamily: 'jf-openhuninn',
       textTheme: const TextTheme(
         headlineLarge: TextStyle(
           fontSize: 28,
@@ -126,7 +124,7 @@ class AppTheme {
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
           backgroundColor: accentPrimary,
-          foregroundColor: textPrimary,
+          foregroundColor: Colors.white,
           padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(radiusMedium),

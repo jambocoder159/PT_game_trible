@@ -16,58 +16,58 @@ class BossDialogue {
 
 const Map<int, BossDialogue> bossDialogues = {
   1: BossDialogue(
-    bossId: 'rat_boss',
-    bossName: '鼠幫老大',
+    bossId: 'moldy_bread_king',
+    bossName: '黴菌麵包王',
     chapter: 1,
     introLines: [
-      '哼，又是一隻多管閒事的貓...',
-      '這條後巷是我的地盤！\n給我滾出去！',
+      '哈啾！誰來打擾我的發酵王國！',
+      '這些黴菌花了我好久才種出來的！\n你們不准碰！',
     ],
   ),
   2: BossDialogue(
-    bossId: 'shop_owner',
-    bossName: '可疑店長',
+    bossId: 'melting_icecream',
+    bossName: '融化冰淇淋怪',
     chapter: 2,
     introLines: [
-      '你知道太多了...',
-      '我不會讓你活著離開這家店！',
+      '嗚嗚～好熱好熱～我在融化了～',
+      '如果我要消失的話……\n就讓所有東西都跟我一起融化吧！',
     ],
   ),
   3: BossDialogue(
-    bossId: 'seagull_boss',
-    bossName: '海鷗王',
+    bossId: 'burnt_chocolate',
+    bossName: '烤焦巧克力魔',
     chapter: 3,
     introLines: [
-      '嘎嘎嘎！這片港口歸我統治！',
-      '讓你見識海鷗王的力量！',
+      '苦！苦才是真正的味道！',
+      '你們這些只愛甜食的傢伙不會懂的！\n讓我把一切都烤成焦炭！',
     ],
   ),
   4: BossDialogue(
-    bossId: 'ceo',
-    bossName: '幕後金主',
+    bossId: 'sour_cream',
+    bossName: '酸掉鮮奶油怪',
     chapter: 4,
     introLines: [
-      '你以為到了這裡就結束了？',
-      '我才是這一切的幕後推手...\n你不過是棋盤上的一顆棋子。',
+      '我……曾經是最漂亮的生日蛋糕……',
+      '既然沒有人記得我的味道……\n那就讓所有蛋糕都酸掉吧！',
     ],
   ),
   5: BossDialogue(
-    bossId: 'shadow_commander',
-    bossName: '暗影指揮官',
+    bossId: 'hard_mochi_king',
+    bossName: '變硬麻糬大王',
     chapter: 5,
     introLines: [
-      '暗影組織的力量，超乎你的想像...',
-      '準備迎接你的末日吧！',
+      '……硬邦邦……好久沒人來泡茶了……',
+      '如果沒有人願意重新蒸我的話……\n那你們也一起變硬吧！',
     ],
   ),
   6: BossDialogue(
-    bossId: 'final_boss',
-    bossName: '暗影組織首領',
+    bossId: 'dark_cuisine_king',
+    bossName: '黑暗料理王',
     chapter: 6,
     introLines: [
-      '終於來了嗎，小貓咪？',
-      '讓我親自結束這場鬧劇...',
-      '這世界的秩序，由我來重新書寫！',
+      '終於有貓來了嗎……',
+      '我是被遺棄的食材、被遺忘的味道……',
+      '甜點街的一切痛苦，都在我身上！\n讓我結束這個假裝幸福的地方！',
     ],
   ),
 };

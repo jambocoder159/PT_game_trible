@@ -73,7 +73,7 @@ class _PassiveCard extends StatelessWidget {
             ? Colors.green
             : canUnlock
                 ? Colors.blue
-                : Colors.white24;
+                : AppTheme.textSecondary.withAlpha(40);
 
     return Card(
       margin: const EdgeInsets.only(bottom: 10),
@@ -267,7 +267,7 @@ class _UnlockButton extends StatelessWidget {
           Text(
             '(${_costText()})',
             style: TextStyle(
-                fontSize: 10, color: Colors.white.withValues(alpha: 0.8)),
+                fontSize: 10, color: AppTheme.textSecondary),
           ),
         ],
       ),

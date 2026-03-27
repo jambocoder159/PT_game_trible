@@ -28,7 +28,7 @@ class GameBottomNavBar extends StatelessWidget {
         color: AppTheme.bgSecondary,
         border: Border(
           top: BorderSide(
-            color: AppTheme.accentPrimary.withAlpha(40),
+            color: AppTheme.accentPrimary.withAlpha(60),
             width: 1,
           ),
         ),

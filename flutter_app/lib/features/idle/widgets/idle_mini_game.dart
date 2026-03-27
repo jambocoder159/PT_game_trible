@@ -261,7 +261,7 @@ class _IdleMiniGameState extends State<IdleMiniGame>
                       child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
                         decoration: BoxDecoration(
-                          color: AppTheme.accentSecondary.withAlpha(200),
+                          color: AppTheme.accentSecondary,
                           borderRadius: BorderRadius.circular(10),
                         ),
                         child: Text(
@@ -299,7 +299,7 @@ class _IdleMiniGameState extends State<IdleMiniGame>
                   width: layout.boardWidth,
                   height: layout.boardHeight,
                   decoration: BoxDecoration(
-                    color: AppTheme.bgSecondary.withAlpha(200),
+                    color: AppTheme.bgSecondary,
                     borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
                     border: Border.all(
                       color: AppTheme.accentPrimary.withAlpha(80),

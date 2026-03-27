@@ -129,7 +129,7 @@ class _GameOverOverlay extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      color: Colors.black.withAlpha(180),
+      color: AppTheme.bgSecondary.withAlpha(220),
       child: Center(
         child: Container(
           margin: const EdgeInsets.all(32),
