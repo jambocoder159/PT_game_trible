@@ -15,10 +15,10 @@ import '../widgets/talent_tree_widget.dart';
 import '../widgets/skill_enhance_widget.dart';
 import '../widgets/passive_skill_widget.dart';
 
-// ─── 配色常數 ───
-const _cardBg = Color(0xFF1E2A3A);
-const _cardBorder = Color(0xFF2A3F55);
-const _statBarBg = Color(0xFF0D1520);
+// ─── 配色常數（暖色點心屋風格） ───
+const _cardBg = Color(0xFFE8D5B7);      // Warm Wheat (= AppTheme.bgCard)
+const _cardBorder = Color(0xFFF5E6D3);  // Almond (= AppTheme.bgSecondary)
+const _statBarBg = Color(0xFFD7C4A8);   // 淺麥色（搭配暖色主題）
 const _statBarHp = Color(0xFF4CAF50);
 const _statBarAtk = Color(0xFFFF9800);
 const _statBarDef = Color(0xFF42A5F5);
@@ -392,13 +392,13 @@ class _CharacterCard extends StatelessWidget {
                                 padding: const EdgeInsets.symmetric(
                                     horizontal: 5, vertical: 1),
                                 decoration: BoxDecoration(
-                                  color: Colors.amber.withAlpha(30),
+                                  color: Colors.amber.withAlpha(50),
                                   borderRadius: BorderRadius.circular(4),
                                 ),
                                 child: Text(
                                   '${definition.skill.energyCost}',
                                   style: TextStyle(
-                                    color: Colors.amber.shade300,
+                                    color: Colors.amber.shade800,
                                     fontSize: 10,
                                     fontWeight: FontWeight.bold,
                                   ),

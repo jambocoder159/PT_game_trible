@@ -333,7 +333,7 @@ class BattleState {
       }
     }
 
-    // 被動：急救本能（小波的一次性自動治療）
+    // 被動：急救本能（露露的一次性自動治療）
     if (teamCurrentHp > 0 && teamCurrentHp < teamMaxHp * 0.4) {
       for (final agent in team) {
         if (agent.definition.id == 'tide') {

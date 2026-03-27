@@ -1,4 +1,4 @@
-/// 貓咪特工列表畫面 — 全新設計
+/// 貓咪點心屋夥伴列表畫面 — 全新設計
 /// 2列肖像網格 + 篩選/排序 + 底部固定隊伍欄
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -76,7 +76,7 @@ class _AgentListScreenState extends State<AgentListScreen> {
                     // ─── SliverAppBar ───
                     SliverAppBar(
                       automaticallyImplyLeading: false,
-                      title: const Text('特工名冊'),
+                      title: const Text('點心夥伴'),
                       backgroundColor: AppTheme.bgSecondary,
                       pinned: true,
                       floating: true,

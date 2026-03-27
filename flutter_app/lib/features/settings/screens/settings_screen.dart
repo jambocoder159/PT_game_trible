@@ -149,7 +149,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   _InfoRow(
                     icon: Icons.pets_rounded,
                     label: '遊戲',
-                    value: '貓咪特工三消挑戰',
+                    value: '貓咪點心屋三消挑戰',
                   ),
                 ],
               ),

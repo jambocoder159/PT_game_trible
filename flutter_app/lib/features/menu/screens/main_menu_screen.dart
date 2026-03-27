@@ -37,7 +37,7 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
 
                 // 遊戲標題
                 const Text(
-                  '貓咪特工',
+                  '貓咪點心屋',
                   style: TextStyle(
                     fontSize: 40,
                     fontWeight: FontWeight.bold,
@@ -47,7 +47,7 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Cat Agent Puzzle',
+                  'Kitty Pastry House',
                   style: TextStyle(
                     fontSize: 16,
                     color: AppTheme.textSecondary.withAlpha(180),
@@ -97,7 +97,7 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                 _MainButton(
                   icon: '⚔️',
                   label: '任務闖關',
-                  description: '6 章 60 關 — 瓦解暗影組織',
+                  description: '6 章 60 關 — 淨化搗蛋鬼',
                   color: AppTheme.accentPrimary,
                   onTap: () {
                     Navigator.of(context).push(
@@ -112,7 +112,7 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                 // 特工名冊
                 _MainButton(
                   icon: '🐱',
-                  label: '特工名冊',
+                  label: '點心夥伴',
                   description: '查看 / 升級 / 編排隊伍',
                   color: AppTheme.accentSecondary,
                   onTap: () {

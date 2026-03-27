@@ -26,10 +26,10 @@ class _TutorialScreenState extends State<TutorialScreen> {
   static const _steps = [
     // Step 0: 歡迎
     TutorialStep(
-      title: '歡迎來到貓咪特工！',
+      title: '歡迎來到貓咪點心屋！',
       description: '這是一個充滿策略性的三消遊戲。\n\n'
-          '在 3×10 的棋盤上消除方塊、'
-          '製造連鎖來擊敗敵人。\n'
+          '在 3×10 的棋盤上採集食材、'
+          '製造連鎖來擊退搗蛋鬼。\n'
           '讓我們花一分鐘學習基本操作！',
       buttonText: '開始學習',
     ),
@@ -78,7 +78,7 @@ class _TutorialScreenState extends State<TutorialScreen> {
           '• 長按 + 上拖 → 移到頂部\n'
           '• 長按 + 下拖 → 移到底部\n'
           '• 三消 → 大量分數！\n\n'
-          '準備好開始冒險了嗎？',
+          '準備好開始烘焙了嗎？',
       buttonText: '開始遊戲！',
       showSkip: false,
     ),

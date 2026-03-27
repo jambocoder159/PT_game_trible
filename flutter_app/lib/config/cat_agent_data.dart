@@ -284,8 +284,8 @@ class CatAgentData {
 
   static const sparkAgent = CatAgentDefinition(
     id: 'spark',
-    name: '火花',
-    codename: 'Agent Spark',
+    name: '棉花糖',
+    codename: 'Deco Cotton',
     breed: '日本短尾貓',
     attribute: AgentAttribute.attributeD,
     role: AgentRole.supporter,
@@ -293,24 +293,24 @@ class CatAgentData {
     baseAtk: 16, baseDef: 14, baseHp: 230,
     atkGrowth: 2.2, defGrowth: 2.0, hpGrowth: 14.0,
     skill: AgentSkill(
-      name: '電弧治療',
-      description: '以微弱電流刺激恢復，回復隊伍 {multiplier}% HP',
+      name: '棉花糖擁抱～',
+      description: '柔軟棉花糖的溫暖擁抱，回復夥伴 {multiplier}% HP',
       energyCost: 5, effectType: SkillEffectType.heal,
       baseMultiplier: 16.0, levelScaling: 0.4,
       boardEffect: SkillBoardEffect(
         type: BoardEffectType.convertColor,
         value: 3,
-        description: '電弧充能：轉化 3 個方塊為🟡',
+        description: '柔軟呵護：轉化 3 個方塊為⭐',
       ),
     ),
-    passiveDescription: '隊伍受到傷害時，有 15% 機率恢復 3% HP',
+    passiveDescription: '夥伴受傷時，棉花糖有 15% 機率送上暖心點心（恢復 3%HP）',
     unlockCondition: UnlockCondition(stageRequirement: '1-6'),
   );
 
   static const thunderAgent = CatAgentDefinition(
     id: 'thunder',
-    name: '雷霆',
-    codename: 'Agent Thunder',
+    name: '可頌',
+    codename: 'Deco Croissant',
     breed: '緬因貓',
     attribute: AgentAttribute.attributeD,
     role: AgentRole.striker,
@@ -319,30 +319,30 @@ class CatAgentData {
     atkGrowth: 5.0, defGrowth: 1.0, hpGrowth: 8.0,
     baseSpeed: 2, // striker: 快攻
     skill: AgentSkill(
-      name: '雷神一擊',
-      description: '匯聚雷電之力猛擊，造成 ATK×{multiplier} 傷害',
+      name: '可頌重錘！',
+      description: '千層可頌的層層重擊，造成 ATK×{multiplier} 傷害',
       energyCost: 6, effectType: SkillEffectType.damage,
       baseMultiplier: 2.8, levelScaling: 0.12,
       boardEffect: SkillBoardEffect(
         type: BoardEffectType.eliminateColumn,
         value: 0,
-        description: '雷霆貫穿：消除隨機一列方塊',
+        description: '千層碎裂：消除隨機一列方塊',
       ),
     ),
-    passiveDescription: '暴擊傷害額外 +20%',
+    passiveDescription: '可頌的千層力量——暴擊傷害額外 +20%',
     unlockCondition: UnlockCondition(
       stageRequirement: '4-2', requireAllStars: true, goldCost: 5000,
     ),
   );
 
   // ═══════════════════════════════════════
-  // 屬性E 🟣 (rose) — 暗系
+  // 屬性E 🌙 (rose) — 月亮系
   // ═══════════════════════════════════════
 
   static const shadowAgent = CatAgentDefinition(
     id: 'shadow',
-    name: '影子',
-    codename: 'Agent Shadow',
+    name: '可可',
+    codename: 'Night Cocoa',
     breed: '黑貓',
     attribute: AgentAttribute.attributeE,
     role: AgentRole.infiltrator,
@@ -351,17 +351,17 @@ class CatAgentData {
     atkGrowth: 4.5, defGrowth: 1.5, hpGrowth: 8.0,
     baseSpeed: 2, // infiltrator: 快攻
     skill: AgentSkill(
-      name: '暗殺突襲',
-      description: '從暗處突襲，造成 ATK×{multiplier} 傷害。敵人 HP 低於 30% 時額外 +50%',
+      name: '深夜特製巧克力！',
+      description: '深夜特製的濃郁巧克力，造成 ATK×{multiplier} 傷害。搗蛋鬼 HP 低於 30% 時額外 +50%',
       energyCost: 6, effectType: SkillEffectType.execute,
       baseMultiplier: 3.0, levelScaling: 0.1,
       boardEffect: SkillBoardEffect(
         type: BoardEffectType.convertColor,
         value: 4,
-        description: '暗影侵蝕：轉化 4 個方塊為🟣',
+        description: '可可風暴：轉化 4 個方塊為🌙',
       ),
     ),
-    passiveDescription: '首次攻擊必定暴擊（傷害 ×1.5）',
+    passiveDescription: '深夜的第一份巧克力特別濃郁——首次攻擊必定暴擊（×1.5）',
     unlockCondition: UnlockCondition(
       stageRequirement: '1-10', requireAllStars: true, goldCost: 3000,
     ),
@@ -369,8 +369,8 @@ class CatAgentData {
 
   static const phantomAgent = CatAgentDefinition(
     id: 'phantom',
-    name: '幻影',
-    codename: 'Agent Phantom',
+    name: '布丁',
+    codename: 'Night Pudding',
     breed: '科拉特貓',
     attribute: AgentAttribute.attributeE,
     role: AgentRole.defender,
@@ -379,24 +379,24 @@ class CatAgentData {
     atkGrowth: 2.0, defGrowth: 3.0, hpGrowth: 16.0,
     baseSpeed: 4, // defender: 慢但硬
     skill: AgentSkill(
-      name: '暗影壁壘',
-      description: '以暗影凝聚護盾，減少受到的傷害 {multiplier}%，持續 2 回合',
+      name: '布丁彈力盾！',
+      description: '彈彈布丁形成護盾，減少受到的傷害 {multiplier}%，持續 2 回合',
       energyCost: 5, effectType: SkillEffectType.shield,
       baseMultiplier: 40.0, levelScaling: 0.6,
       boardEffect: SkillBoardEffect(
         type: BoardEffectType.shuffleBoard,
         value: 0,
-        description: '幻影錯亂：重新排列所有方塊',
+        description: '搖搖晃晃：重新排列所有方塊',
       ),
     ),
-    passiveDescription: '護盾期間受到攻擊時，有 10% 機率使敵人攻擊延遲 1 回合',
+    passiveDescription: '布丁盾的彈力太強，搗蛋鬼有 10% 機率被彈飛（延遲 1 回合）',
     unlockCondition: UnlockCondition(stageRequirement: '1-7'),
   );
 
   static const eclipseAgent = CatAgentDefinition(
     id: 'eclipse',
-    name: '蝕月',
-    codename: 'Agent Eclipse',
+    name: '藍莓',
+    codename: 'Night Berry',
     breed: '孟買貓',
     attribute: AgentAttribute.attributeE,
     role: AgentRole.destroyer,
@@ -404,32 +404,32 @@ class CatAgentData {
     baseAtk: 24, baseDef: 10, baseHp: 195,
     atkGrowth: 3.8, defGrowth: 1.2, hpGrowth: 11.0,
     skill: AgentSkill(
-      name: '蝕月陰影',
-      description: '釋放暗月之力，對全體敵人造成 ATK×{multiplier} 傷害',
+      name: '莓果大轟炸！',
+      description: '莓果傾盆而出，對全體搗蛋鬼造成 ATK×{multiplier} 傷害',
       energyCost: 7, effectType: SkillEffectType.aoe,
       baseMultiplier: 1.6, levelScaling: 0.07,
       boardEffect: SkillBoardEffect(
         type: BoardEffectType.eliminateRandom,
         value: 5,
-        description: '蝕月吞噬：隨機消除 5 個方塊',
+        description: '莓果雨：隨機消除 5 個方塊',
       ),
     ),
-    passiveDescription: '敵人 HP 越低，造成的傷害越高（最高 +15%）',
+    passiveDescription: '莓果的酸味越濃越致命——搗蛋鬼越虛弱，傷害越高（最高 +15%）',
     unlockCondition: UnlockCondition(stageRequirement: '3-8', goldCost: 1200),
   );
 
   // ─── 全角色列表 ───
 
   static const List<CatAgentDefinition> allAgents = [
-    // 🔴 火系
+    // ☀️ 太陽系
     blazeAgent, emberAgent, infernoAgent,
-    // 🟢 大地系
+    // 🍃 葉子系
     terraAgent, sproutAgent, gaiaAgent,
-    // 🔵 水系
+    // 💧 水滴系
     tideAgent, frostAgent, tsunamiAgent,
-    // 🟡 雷系
+    // ⭐ 星星系
     flashAgent, sparkAgent, thunderAgent,
-    // 🟣 暗系
+    // 🌙 月亮系
     shadowAgent, phantomAgent, eclipseAgent,
   ];
 
