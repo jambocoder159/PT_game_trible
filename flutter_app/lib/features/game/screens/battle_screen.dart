@@ -49,6 +49,7 @@ class _BattleScreenState extends State<BattleScreen> {
   bool _boardOnLeft = false; // 預設棋盤在右側（截圖佈局）
   bool _victoryAnimPlaying = false; // 勝利爆炸演出中
   bool _showResult = false; // 顯示結算畫面
+  final ValueNotifier<bool> _attackAnimPlaying = ValueNotifier(false);
 
   // Boss 對話演出
   bool _showBossIntro = false;
@@ -287,6 +288,7 @@ class _BattleScreenState extends State<BattleScreen> {
     gameProvider.onMatchTurnComplete = null;
     gameProvider.onTurnEnd = null;
     battleProvider.onBoardEffectRequested = null;
+    _attackAnimPlaying.dispose();
     super.dispose();
   }
 
@@ -373,6 +375,7 @@ class _BattleScreenState extends State<BattleScreen> {
                                       child: _CatAgentPanel(
                                         battleState: battleState,
                                         battleProvider: battle,
+                                        attackAnimPlaying: _attackAnimPlaying,
                                       ),
                                     ),
                                   ),
@@ -386,6 +389,7 @@ class _BattleScreenState extends State<BattleScreen> {
                                       child: _CatAgentPanel(
                                         battleState: battleState,
                                         battleProvider: battle,
+                                        attackAnimPlaying: _attackAnimPlaying,
                                       ),
                                     ),
                                   ),
@@ -431,21 +435,24 @@ class _BattleScreenState extends State<BattleScreen> {
                   },
                 ),
 
-                // 戰鬥結束 — 先播放爆炸演出，再顯示結算
-                Consumer<GameProvider>(
-                  builder: (_, game, __) {
-                    final gameState = game.state;
-                    if ((battle.isBattleOver || (gameState?.status == GameStatus.gameOver && !battle.isBattleOver)) &&
-                        !_victoryAnimPlaying && !_showResult &&
-                        !_isPlayingSequence && _activeRushAnims.isEmpty) {
-                      final isVictory = battle.isBattleOver && battle.isVictory;
-                      WidgetsBinding.instance.addPostFrameCallback((_) {
-                        _saveResult(isVictory, gameState?.score ?? 0);
-                        _startEndAnimation(isVictory);
-                      });
-                    }
-                    return const SizedBox.shrink();
-                  },
+                // 戰鬥結束 — 等攻擊動畫播完，再播爆炸演出＋結算
+                ValueListenableBuilder<bool>(
+                  valueListenable: _attackAnimPlaying,
+                  builder: (_, animPlaying, __) => Consumer<GameProvider>(
+                    builder: (_, game, __) {
+                      final gameState = game.state;
+                      if ((battle.isBattleOver || (gameState?.status == GameStatus.gameOver && !battle.isBattleOver)) &&
+                          !_victoryAnimPlaying && !_showResult &&
+                          !animPlaying) {
+                        final isVictory = battle.isBattleOver && battle.isVictory;
+                        WidgetsBinding.instance.addPostFrameCallback((_) {
+                          _saveResult(isVictory, gameState?.score ?? 0);
+                          _startEndAnimation(isVictory);
+                        });
+                      }
+                      return const SizedBox.shrink();
+                    },
+                  ),
                 ),
 
                 // 技能施放橫幅動畫（寶可夢藍寶石版飛天風格）
@@ -706,10 +713,12 @@ class _DamagePopupData {
 class _CatAgentPanel extends StatefulWidget {
   final BattleState battleState;
   final BattleProvider battleProvider;
+  final ValueNotifier<bool> attackAnimPlaying;
 
   const _CatAgentPanel({
     required this.battleState,
     required this.battleProvider,
+    required this.attackAnimPlaying,
   });
 
   @override
@@ -868,6 +877,7 @@ class _CatAgentPanelState extends State<_CatAgentPanel>
   Future<void> _playAttackSequence() async {
     if (_isPlayingSequence) return;
     _isPlayingSequence = true;
+    widget.attackAnimPlaying.value = true;
 
     while (_pendingAttacks.isNotEmpty) {
       if (!mounted) break;
@@ -924,6 +934,9 @@ class _CatAgentPanelState extends State<_CatAgentPanel>
           _anticipationAlpha = 0.0;
           _isPlayingSequence = false;
         });
+        if (_activeRushAnims.isEmpty) {
+          widget.attackAnimPlaying.value = false;
+        }
       }
     }
   }
@@ -963,7 +976,12 @@ class _CatAgentPanelState extends State<_CatAgentPanel>
   }
 
   void _removeRush(_RushAnimData data) {
-    if (mounted) setState(() => _activeRushAnims.remove(data));
+    if (mounted) {
+      setState(() => _activeRushAnims.remove(data));
+      if (_activeRushAnims.isEmpty && !_isPlayingSequence) {
+        widget.attackAnimPlaying.value = false;
+      }
+    }
   }
 
   void _removePopup(_DamagePopupData data) {
