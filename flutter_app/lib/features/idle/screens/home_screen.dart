@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../../config/image_assets.dart';
+import '../../../config/cat_agent_data.dart';
 import '../../../config/theme.dart';
 import '../../agents/providers/player_provider.dart';
 import '../../agents/screens/agent_list_screen.dart';
@@ -11,14 +13,12 @@ import '../../daily/screens/daily_quest_screen.dart';
 import '../../settings/screens/settings_screen.dart';
 import '../../profile/screens/player_profile_screen.dart';
 import '../../../core/models/block.dart';
+import '../../../core/models/bottle_data.dart';
 import '../providers/idle_provider.dart';
 import '../providers/bottle_provider.dart';
 import '../widgets/player_info_bar.dart';
 import '../widgets/bottom_nav_bar.dart';
 import '../widgets/idle_mini_game.dart';
-import '../widgets/character_display.dart';
-import '../widgets/bottle_row.dart';
-import '../widgets/cta_button_bar.dart';
 import '../widgets/ingredient_panel.dart';
 import '../widgets/crafting_panel.dart';
 import '../widgets/energy_orb_overlay.dart';
@@ -250,36 +250,46 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
               const SizedBox(height: 2),
 
-              // ─── 角色展示（單一角色放大） ───
-              const CharacterDisplay(),
-
-              // ─── 遊戲棋盤（全寬置中） ───
+              // ─── 主體：左側角色+瓶子+CTA / 右側棋盤 ───
               Expanded(
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 6),
-                  child: IdleMiniGame(key: _gameAreaKey),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      // ─── 左側面板：角色 + 瓶子 + CTA ───
+                      SizedBox(
+                        width: 110,
+                        child: Column(
+                          children: [
+                            // 角色展示（緊湊版）
+                            const _CompactCharacterDisplay(),
+                            const Spacer(),
+                            // 魔法瓶（垂直排列）
+                            _VerticalBottleColumn(
+                              bottleKeys: _bottleKeys,
+                              onBottleTap: (color) {
+                                IngredientPanel.show(context, initialColor: color);
+                              },
+                            ),
+                            const Spacer(),
+                            // CTA 按鈕（垂直排列）
+                            _VerticalCtaButtons(
+                              onConvertIngredient: () => IngredientPanel.show(context),
+                              onCraftDessert: () => CraftingPanel.show(context),
+                            ),
+                            const SizedBox(height: 4),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      // ─── 右側棋盤（佔滿剩餘高度） ───
+                      Expanded(
+                        child: IdleMiniGame(key: _gameAreaKey),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-
-              // ─── 魔法瓶橫排 ───
-              BottleRow(
-                bottleKeys: _bottleKeys,
-                onBottleTap: (color) {
-                  IngredientPanel.show(context, initialColor: color);
-                },
-              ),
-
-              // ─── CTA 按鈕列 ───
-              CtaButtonBar(
-                onMatchBlocks: () {
-                  // 滾動到棋盤（已在視野中，可加視覺提示）
-                },
-                onConvertIngredient: () {
-                  IngredientPanel.show(context);
-                },
-                onCraftDessert: () {
-                  CraftingPanel.show(context);
-                },
               ),
             ],
           ),
@@ -503,5 +513,338 @@ class _SkillVfxOverlayState extends State<_SkillVfxOverlay>
         );
       },
     );
+  }
+}
+
+// ═══════════════════════════════════════════
+// 左側面板用的緊湊版角色展示
+// ═══════════════════════════════════════════
+
+class _CompactCharacterDisplay extends StatelessWidget {
+  const _CompactCharacterDisplay();
+
+  @override
+  Widget build(BuildContext context) {
+    return Consumer2<PlayerProvider, IdleProvider>(
+      builder: (context, playerProvider, idleProvider, _) {
+        if (!playerProvider.isInitialized) return const SizedBox.shrink();
+
+        final team = playerProvider.data.team;
+        if (team.isEmpty) {
+          return const SizedBox(
+            height: 100,
+            child: Center(
+              child: Text('?', style: TextStyle(fontSize: 24, color: AppTheme.textSecondary)),
+            ),
+          );
+        }
+
+        final agentId = team.first;
+        final agentDef = _findAgentDef(agentId);
+        if (agentDef == null) return const SizedBox.shrink();
+
+        final isReady = idleProvider.isSkillReady(agentId);
+        final energy = idleProvider.getEnergy(agentId);
+        final cost = agentDef.skill.energyCost;
+        final attrColor = _attrColorFor(agentDef.attribute);
+
+        return GestureDetector(
+          onTap: isReady
+              ? () {
+                  HapticFeedback.mediumImpact();
+                  idleProvider.activateSkill(agentId);
+                }
+              : null,
+          child: Column(
+            children: [
+              // 角色圖像
+              Container(
+                width: 80,
+                height: 80,
+                decoration: BoxDecoration(
+                  color: attrColor.withAlpha(25),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: isReady ? attrColor.withAlpha(200) : attrColor.withAlpha(60),
+                    width: isReady ? 2.0 : 1.0,
+                  ),
+                  boxShadow: isReady
+                      ? [BoxShadow(color: attrColor.withAlpha(60), blurRadius: 8)]
+                      : null,
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(11),
+                  child: _buildAgentImg(agentId, agentDef, 80),
+                ),
+              ),
+              const SizedBox(height: 4),
+              // 名稱
+              Text(
+                agentDef.name,
+                style: const TextStyle(
+                  color: AppTheme.textPrimary,
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                ),
+                overflow: TextOverflow.ellipsis,
+              ),
+              const SizedBox(height: 3),
+              // 能量條
+              SizedBox(
+                width: 80,
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(3),
+                  child: LinearProgressIndicator(
+                    value: (energy / cost).clamp(0.0, 1.0),
+                    minHeight: 5,
+                    backgroundColor: AppTheme.bgSecondary,
+                    valueColor: AlwaysStoppedAnimation(
+                      isReady ? attrColor : attrColor.withAlpha(120),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 2),
+              if (isReady)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: attrColor,
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: const Text(
+                    '施放！',
+                    style: TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold),
+                  ),
+                )
+              else
+                Text(
+                  '$energy/$cost',
+                  style: TextStyle(color: AppTheme.textSecondary.withAlpha(130), fontSize: 9),
+                ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  static Widget _buildAgentImg(String agentId, CatAgentDefinition agentDef, double size) {
+    final iconPath = ImageAssets.iconImage(agentId);
+    if (iconPath == null) {
+      return Center(
+        child: GameIcon(
+          assetPath: ImageAssets.attributeIcon(agentDef.attribute),
+          fallbackEmoji: agentDef.attribute.emoji,
+          size: size * 0.5,
+        ),
+      );
+    }
+    return Image.asset(
+      iconPath, width: size, height: size, fit: BoxFit.cover,
+      errorBuilder: (_, __, ___) => Center(
+        child: GameIcon(
+          assetPath: ImageAssets.attributeIcon(agentDef.attribute),
+          fallbackEmoji: agentDef.attribute.emoji,
+          size: size * 0.5,
+        ),
+      ),
+    );
+  }
+}
+
+// ═══════════════════════════════════════════
+// 左側垂直瓶子列
+// ═══════════════════════════════════════════
+
+class _VerticalBottleColumn extends StatelessWidget {
+  final Map<BlockColor, GlobalKey> bottleKeys;
+  final void Function(BlockColor color)? onBottleTap;
+
+  const _VerticalBottleColumn({
+    required this.bottleKeys,
+    this.onBottleTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Consumer<BottleProvider>(
+      builder: (context, bottleProvider, _) {
+        if (!bottleProvider.isInitialized) return const SizedBox.shrink();
+
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          children: BottleDefinitions.all.map((def) {
+            final bottle = bottleProvider.getBottle(def.color);
+            bottleKeys.putIfAbsent(def.color, () => GlobalKey());
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 3),
+              child: GestureDetector(
+                key: bottleKeys[def.color],
+                onTap: () {
+                  HapticFeedback.lightImpact();
+                  onBottleTap?.call(def.color);
+                },
+                child: Container(
+                  width: 90,
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: AppTheme.bgCard,
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(
+                      color: def.color.color.withAlpha(bottle.isFull ? 180 : 60),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Text(def.emoji, style: const TextStyle(fontSize: 14)),
+                      const SizedBox(width: 4),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // 填充進度條
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(2),
+                              child: LinearProgressIndicator(
+                                value: bottle.fillProgress,
+                                minHeight: 4,
+                                backgroundColor: AppTheme.bgSecondary,
+                                valueColor: AlwaysStoppedAnimation(
+                                  def.color.color.withAlpha(bottle.isFull ? 200 : 100),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 1),
+                            Text(
+                              '${bottle.currentEnergy}',
+                              style: TextStyle(
+                                color: AppTheme.textSecondary.withAlpha(130),
+                                fontSize: 8,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      // 等級徽章
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 1),
+                        decoration: BoxDecoration(
+                          color: def.color.color.withAlpha(180),
+                          borderRadius: BorderRadius.circular(3),
+                        ),
+                        child: Text(
+                          '${bottle.level}',
+                          style: const TextStyle(
+                            color: Colors.white, fontSize: 7, fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          }).toList(),
+        );
+      },
+    );
+  }
+}
+
+// ═══════════════════════════════════════════
+// 左側垂直 CTA 按鈕
+// ═══════════════════════════════════════════
+
+class _VerticalCtaButtons extends StatelessWidget {
+  final VoidCallback onConvertIngredient;
+  final VoidCallback onCraftDessert;
+
+  const _VerticalCtaButtons({
+    required this.onConvertIngredient,
+    required this.onCraftDessert,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _SmallCtaButton(
+          label: '轉換食材',
+          emoji: '🧪',
+          color: const Color(0xFF6BAF5B),
+          onTap: onConvertIngredient,
+        ),
+        const SizedBox(height: 4),
+        _SmallCtaButton(
+          label: '製作甜點',
+          emoji: '🧁',
+          color: const Color(0xFFF0B0C8),
+          onTap: onCraftDessert,
+        ),
+      ],
+    );
+  }
+}
+
+class _SmallCtaButton extends StatelessWidget {
+  final String label;
+  final String emoji;
+  final Color color;
+  final VoidCallback onTap;
+
+  const _SmallCtaButton({
+    required this.label,
+    required this.emoji,
+    required this.color,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: () {
+        HapticFeedback.lightImpact();
+        onTap();
+      },
+      child: Container(
+        width: 90,
+        padding: const EdgeInsets.symmetric(vertical: 6),
+        decoration: BoxDecoration(
+          color: color.withAlpha(25),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: color.withAlpha(100)),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(emoji, style: const TextStyle(fontSize: 12)),
+            const SizedBox(width: 3),
+            Text(
+              label,
+              style: TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.bold),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+CatAgentDefinition? _findAgentDef(String agentId) {
+  for (final a in CatAgentData.allAgents) {
+    if (a.id == agentId) return a;
+  }
+  return null;
+}
+
+Color _attrColorFor(AgentAttribute attr) {
+  switch (attr) {
+    case AgentAttribute.attributeA: return const Color(0xFFFF6B6B);
+    case AgentAttribute.attributeB: return const Color(0xFF51CF66);
+    case AgentAttribute.attributeC: return const Color(0xFF4DABF7);
+    case AgentAttribute.attributeD: return const Color(0xFFFFD43B);
+    case AgentAttribute.attributeE: return const Color(0xFFCC5DE8);
   }
 }
