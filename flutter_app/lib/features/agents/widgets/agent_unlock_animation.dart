@@ -354,9 +354,9 @@ class _AgentUnlockAnimationState extends State<AgentUnlockAnimation>
                             opacity: _textFade.value,
                             child: Column(
                               children: [
-                                // 「新特工加入」
+                                // 「新夥伴加入」
                                 Text(
-                                  '— 新特工加入 —',
+                                  '— 新夥伴加入 —',
                                   style: TextStyle(
                                     color: attrColor.withAlpha(200),
                                     fontSize: 12,

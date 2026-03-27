@@ -379,7 +379,7 @@ const _newbieQuests = [
   _NewbieQuestDef(
     id: 'unlock_agent',
     title: '招募夥伴',
-    description: '解鎖第 2 個特工角色',
+    description: '解鎖第 2 個點心夥伴',
     icon: Icons.person_add,
     reward: '💎 10',
     diamonds: 10,
@@ -418,7 +418,7 @@ const _newbieQuests = [
   ),
   _NewbieQuestDef(
     id: 'daily_all',
-    title: '勤奮特工',
+    title: '勤奮烘焙師',
     description: '完成一次每日全任務並領取獎勵',
     icon: Icons.task_alt,
     reward: '💎 20',

@@ -109,7 +109,7 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                 ),
                 const SizedBox(height: 12),
 
-                // 特工名冊
+                // 點心夥伴
                 _MainButton(
                   icon: '🐱',
                   label: '點心夥伴',

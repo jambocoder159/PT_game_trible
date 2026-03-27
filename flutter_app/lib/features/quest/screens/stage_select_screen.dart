@@ -546,7 +546,7 @@ class _StageSelectScreenState extends State<StageSelectScreen>
                                               TextStyle(fontSize: 16)),
                                       const SizedBox(width: 8),
                                       Text(
-                                        '首次通關可解鎖新特工！',
+                                        '首次通關可解鎖新夥伴！',
                                         style: TextStyle(
                                           color: Colors.amber.shade300,
                                           fontSize: 12,

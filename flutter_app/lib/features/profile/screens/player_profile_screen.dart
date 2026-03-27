@@ -1,4 +1,4 @@
-/// 玩家資訊頁面 — 特工檔案風格
+/// 玩家資訊頁面 — 點心屋風格
 /// 個人資料卡 + 2×3 統計網格 + 章節進度 + 角色收集進度
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -57,7 +57,7 @@ class PlayerProfileScreen extends StatelessWidget {
                     const SizedBox(height: 24),
 
                     // ═══ 角色收集 ═══
-                    _SectionTitle(icon: Icons.people_rounded, title: '特工收集'),
+                    _SectionTitle(icon: Icons.people_rounded, title: '夥伴收集'),
                     const SizedBox(height: 8),
                     _AgentCollectionGrid(provider: provider),
 

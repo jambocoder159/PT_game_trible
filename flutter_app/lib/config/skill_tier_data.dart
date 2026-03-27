@@ -209,233 +209,233 @@ class SkillTierData {
     ),
   ];
 
-  // ─── 新芽 Sprout — 新芽治癒 (supporter, heal) ───
+  // ─── 薄荷 Mint — 薄荷清風～ (supporter, heal) ───
 
   static const sproutSkillTiers = <SkillTierDefinition>[
     SkillTierDefinition(
-      tier: 1, name: '新芽治癒', description: '回復隊伍 18% HP',
+      tier: 1, name: '薄荷清風～', description: '回復隊伍 18% HP',
       multiplierBonus: 0, goldCost: 0, materialCost: {},
     ),
     SkillTierDefinition(
-      tier: 2, name: '嫩芽滋養', description: '回復 20% HP',
+      tier: 2, name: '清涼薄荷', description: '回復 20% HP',
       multiplierBonus: 2,
       goldCost: 300, materialCost: {GameMaterial.commonShard: 5, GameMaterial.skillCore: 1},
     ),
     SkillTierDefinition(
-      tier: 3, name: '根系延伸', description: '回復 23% HP + 延遲敵人 1 回合',
+      tier: 3, name: '薄荷蔓延', description: '回復 23% HP + 延遲敵人 1 回合',
       multiplierBonus: 3, newMechanic: SkillTierMechanic.delayAdded, mechanicValue: 1,
       goldCost: 800, materialCost: {GameMaterial.advancedShard: 3, GameMaterial.skillCore: 2},
     ),
     SkillTierDefinition(
-      tier: 4, name: '生命綻放', description: '回復 26% HP + HoT 5%/回合 2 回合',
+      tier: 4, name: '薄荷綻放', description: '回復 26% HP + HoT 5%/回合 2 回合',
       multiplierBonus: 3, newMechanic: SkillTierMechanic.durationExtend, mechanicValue: 0.05,
       goldCost: 1500, materialCost: {GameMaterial.advancedShard: 5, GameMaterial.skillCore: 3, GameMaterial.rareShard: 1},
     ),
     SkillTierDefinition(
-      tier: 5, name: '世界樹祝福', description: '回復 30% HP + 退還 2 能量',
+      tier: 5, name: '極致薄荷清風', description: '回復 30% HP + 退還 2 能量',
       multiplierBonus: 4, newMechanic: SkillTierMechanic.energyRefund, mechanicValue: 2,
       goldCost: 3000, materialCost: {GameMaterial.rareShard: 3, GameMaterial.skillCore: 5},
     ),
   ];
 
-  // ─── 蓋亞 Gaia — 大地裂擊 (striker, damage) ───
+  // ─── 肉桂 Cinnamon — 肉桂重擊！ (striker, damage) ───
 
   static const gaiaSkillTiers = <SkillTierDefinition>[
     SkillTierDefinition(
-      tier: 1, name: '大地裂擊', description: '2.5x 單體傷害',
+      tier: 1, name: '肉桂重擊！', description: '2.5x 單體傷害',
       multiplierBonus: 0, goldCost: 0, materialCost: {},
     ),
     SkillTierDefinition(
-      tier: 2, name: '裂地強化', description: '2.8x 傷害，地脈增幅',
+      tier: 2, name: '肉桂強化', description: '2.8x 傷害，香料增幅',
       multiplierBonus: 0.3,
       goldCost: 300, materialCost: {GameMaterial.commonShard: 5, GameMaterial.skillCore: 1},
     ),
     SkillTierDefinition(
-      tier: 3, name: '地裂餘震', description: '3.1x 傷害 + 碎石灼傷 2 回合 (15% ATK)',
+      tier: 3, name: '肉桂餘韻', description: '3.1x 傷害 + 香料灼傷 2 回合 (15% ATK)',
       multiplierBonus: 0.3, newMechanic: SkillTierMechanic.dot, mechanicValue: 0.15,
       goldCost: 800, materialCost: {GameMaterial.advancedShard: 3, GameMaterial.skillCore: 2},
     ),
     SkillTierDefinition(
-      tier: 4, name: '地震擴散', description: '3.5x 傷害 + 30% 濺射傷害',
+      tier: 4, name: '肉桂擴散', description: '3.5x 傷害 + 30% 濺射傷害',
       multiplierBonus: 0.4, newMechanic: SkillTierMechanic.aoeSplash, mechanicValue: 0.3,
       goldCost: 1500, materialCost: {GameMaterial.advancedShard: 5, GameMaterial.skillCore: 3, GameMaterial.rareShard: 1},
     ),
     SkillTierDefinition(
-      tier: 5, name: '天崩地裂', description: '4.0x 傷害 + 破防 (DEF -20%, 2 回合)',
+      tier: 5, name: '極致肉桂重擊', description: '4.0x 傷害 + 破防 (DEF -20%, 2 回合)',
       multiplierBonus: 0.5, newMechanic: SkillTierMechanic.defBreak, mechanicValue: 0.2,
       goldCost: 3000, materialCost: {GameMaterial.rareShard: 3, GameMaterial.skillCore: 5},
     ),
   ];
 
-  // ─── 冰霜 Frost — 冰晶護壁 (defender, shield) ───
+  // ─── 奶昔 Shake — 冰淇淋護盾！ (defender, shield) ───
 
   static const frostSkillTiers = <SkillTierDefinition>[
     SkillTierDefinition(
-      tier: 1, name: '冰晶護壁', description: '減傷 45%，持續 2 回合',
+      tier: 1, name: '冰淇淋護盾！', description: '減傷 45%，持續 2 回合',
       multiplierBonus: 0, goldCost: 0, materialCost: {},
     ),
     SkillTierDefinition(
-      tier: 2, name: '寒冰強化', description: '減傷 50%',
+      tier: 2, name: '奶昔強化', description: '減傷 50%',
       multiplierBonus: 5,
       goldCost: 300, materialCost: {GameMaterial.commonShard: 5, GameMaterial.skillCore: 1},
     ),
     SkillTierDefinition(
-      tier: 3, name: '永凍護盾', description: '減傷 55%，持續 3 回合',
+      tier: 3, name: '冰凍奶昔', description: '減傷 55%，持續 3 回合',
       multiplierBonus: 5, newMechanic: SkillTierMechanic.durationExtend, mechanicValue: 1,
       goldCost: 800, materialCost: {GameMaterial.advancedShard: 3, GameMaterial.skillCore: 2},
     ),
     SkillTierDefinition(
-      tier: 4, name: '冰刺反擊', description: '減傷 60% + 反射 20% 傷害',
+      tier: 4, name: '奶昔反擊', description: '減傷 60% + 反射 20% 傷害',
       multiplierBonus: 5, newMechanic: SkillTierMechanic.reflect, mechanicValue: 0.2,
       goldCost: 1500, materialCost: {GameMaterial.advancedShard: 5, GameMaterial.skillCore: 3, GameMaterial.rareShard: 1},
     ),
     SkillTierDefinition(
-      tier: 5, name: '極寒結界', description: '減傷 65% + 受擊凍傷 10% ATK',
+      tier: 5, name: '極致冰淇淋護盾', description: '減傷 65% + 受擊凍傷 10% ATK',
       multiplierBonus: 5, newMechanic: SkillTierMechanic.dot, mechanicValue: 0.1,
       goldCost: 3000, materialCost: {GameMaterial.rareShard: 3, GameMaterial.skillCore: 5},
     ),
   ];
 
-  // ─── 海嘯 Tsunami — 怒濤沖擊 (destroyer, AOE) ───
+  // ─── 蘇打 Soda — 氣泡大爆發！ (destroyer, AOE) ───
 
   static const tsunamiSkillTiers = <SkillTierDefinition>[
     SkillTierDefinition(
-      tier: 1, name: '怒濤沖擊', description: '1.8x 全體傷害',
+      tier: 1, name: '氣泡大爆發！', description: '1.8x 全體傷害',
       multiplierBonus: 0, goldCost: 0, materialCost: {},
     ),
     SkillTierDefinition(
-      tier: 2, name: '巨浪強化', description: '2.0x 全體傷害',
+      tier: 2, name: '氣泡強化', description: '2.0x 全體傷害',
       multiplierBonus: 0.2,
       goldCost: 300, materialCost: {GameMaterial.commonShard: 5, GameMaterial.skillCore: 1},
     ),
     SkillTierDefinition(
-      tier: 3, name: '水壓破防', description: '2.2x 全體傷害 + 全體破防 -15%',
+      tier: 3, name: '氣泡破防', description: '2.2x 全體傷害 + 全體破防 -15%',
       multiplierBonus: 0.2, newMechanic: SkillTierMechanic.defBreak, mechanicValue: 0.15,
       goldCost: 800, materialCost: {GameMaterial.advancedShard: 3, GameMaterial.skillCore: 2},
     ),
     SkillTierDefinition(
-      tier: 4, name: '漩渦連鎖', description: '2.5x 全體 + 漩渦追擊 0.5x',
+      tier: 4, name: '蘇打連鎖', description: '2.5x 全體 + 氣泡追擊 0.5x',
       multiplierBonus: 0.3, newMechanic: SkillTierMechanic.aoeSplash, mechanicValue: 0.5,
       goldCost: 1500, materialCost: {GameMaterial.advancedShard: 5, GameMaterial.skillCore: 3, GameMaterial.rareShard: 1},
     ),
     SkillTierDefinition(
-      tier: 5, name: '滅世海嘯', description: '2.8x 全體 + 擊殺退 3 能量',
+      tier: 5, name: '極致氣泡爆發', description: '2.8x 全體 + 擊殺退 3 能量',
       multiplierBonus: 0.3, newMechanic: SkillTierMechanic.energyRefund, mechanicValue: 3,
       goldCost: 3000, materialCost: {GameMaterial.rareShard: 3, GameMaterial.skillCore: 5},
     ),
   ];
 
-  // ─── 火花 Spark — 電弧治療 (supporter, heal) ───
+  // ─── 棉花糖 Cotton — 棉花糖擁抱～ (supporter, heal) ───
 
   static const sparkSkillTiers = <SkillTierDefinition>[
     SkillTierDefinition(
-      tier: 1, name: '電弧治療', description: '回復隊伍 16% HP',
+      tier: 1, name: '棉花糖擁抱～', description: '回復隊伍 16% HP',
       multiplierBonus: 0, goldCost: 0, materialCost: {},
     ),
     SkillTierDefinition(
-      tier: 2, name: '電流刺激', description: '回復 18% HP',
+      tier: 2, name: '棉花糖膨脹', description: '回復 18% HP',
       multiplierBonus: 2,
       goldCost: 300, materialCost: {GameMaterial.commonShard: 5, GameMaterial.skillCore: 1},
     ),
     SkillTierDefinition(
-      tier: 3, name: '靜電干擾', description: '回復 21% HP + 延遲敵人 1 回合',
+      tier: 3, name: '棉花糖干擾', description: '回復 21% HP + 延遲敵人 1 回合',
       multiplierBonus: 3, newMechanic: SkillTierMechanic.delayAdded, mechanicValue: 1,
       goldCost: 800, materialCost: {GameMaterial.advancedShard: 3, GameMaterial.skillCore: 2},
     ),
     SkillTierDefinition(
-      tier: 4, name: '電磁再生', description: '回復 24% HP + HoT 5%/回合 2 回合',
+      tier: 4, name: '棉花糖再生', description: '回復 24% HP + HoT 5%/回合 2 回合',
       multiplierBonus: 3, newMechanic: SkillTierMechanic.durationExtend, mechanicValue: 0.05,
       goldCost: 1500, materialCost: {GameMaterial.advancedShard: 5, GameMaterial.skillCore: 3, GameMaterial.rareShard: 1},
     ),
     SkillTierDefinition(
-      tier: 5, name: '超載治癒', description: '回復 28% HP + 退還 2 能量',
+      tier: 5, name: '極致棉花糖擁抱', description: '回復 28% HP + 退還 2 能量',
       multiplierBonus: 4, newMechanic: SkillTierMechanic.energyRefund, mechanicValue: 2,
       goldCost: 3000, materialCost: {GameMaterial.rareShard: 3, GameMaterial.skillCore: 5},
     ),
   ];
 
-  // ─── 雷霆 Thunder — 雷神一擊 (striker, damage) ───
+  // ─── 可頌 Croissant — 可頌重錘！ (striker, damage) ───
 
   static const thunderSkillTiers = <SkillTierDefinition>[
     SkillTierDefinition(
-      tier: 1, name: '雷神一擊', description: '2.8x 單體傷害',
+      tier: 1, name: '可頌重錘！', description: '2.8x 單體傷害',
       multiplierBonus: 0, goldCost: 0, materialCost: {},
     ),
     SkillTierDefinition(
-      tier: 2, name: '蓄雷強化', description: '3.1x 傷害，雷能增幅',
+      tier: 2, name: '可頌強化', description: '3.1x 傷害，酥皮增幅',
       multiplierBonus: 0.3,
       goldCost: 300, materialCost: {GameMaterial.commonShard: 5, GameMaterial.skillCore: 1},
     ),
     SkillTierDefinition(
-      tier: 3, name: '雷擊麻痺', description: '3.4x 傷害 + 麻痺灼傷 2 回合 (15% ATK)',
+      tier: 3, name: '可頌碎裂', description: '3.4x 傷害 + 酥皮灼傷 2 回合 (15% ATK)',
       multiplierBonus: 0.3, newMechanic: SkillTierMechanic.dot, mechanicValue: 0.15,
       goldCost: 800, materialCost: {GameMaterial.advancedShard: 3, GameMaterial.skillCore: 2},
     ),
     SkillTierDefinition(
-      tier: 4, name: '雷電擴散', description: '3.8x 傷害 + 30% 濺射傷害',
+      tier: 4, name: '可頌擴散', description: '3.8x 傷害 + 30% 濺射傷害',
       multiplierBonus: 0.4, newMechanic: SkillTierMechanic.aoeSplash, mechanicValue: 0.3,
       goldCost: 1500, materialCost: {GameMaterial.advancedShard: 5, GameMaterial.skillCore: 3, GameMaterial.rareShard: 1},
     ),
     SkillTierDefinition(
-      tier: 5, name: '天雷滅世', description: '4.3x 傷害 + 破防 (DEF -20%, 2 回合)',
+      tier: 5, name: '極致可頌重錘', description: '4.3x 傷害 + 破防 (DEF -20%, 2 回合)',
       multiplierBonus: 0.5, newMechanic: SkillTierMechanic.defBreak, mechanicValue: 0.2,
       goldCost: 3000, materialCost: {GameMaterial.rareShard: 3, GameMaterial.skillCore: 5},
     ),
   ];
 
-  // ─── 幻影 Phantom — 暗影壁壘 (defender, shield) ───
+  // ─── 布丁 Pudding — 布丁彈力盾！ (defender, shield) ───
 
   static const phantomSkillTiers = <SkillTierDefinition>[
     SkillTierDefinition(
-      tier: 1, name: '暗影壁壘', description: '減傷 40%，持續 2 回合',
+      tier: 1, name: '布丁彈力盾！', description: '減傷 40%，持續 2 回合',
       multiplierBonus: 0, goldCost: 0, materialCost: {},
     ),
     SkillTierDefinition(
-      tier: 2, name: '暗幕強化', description: '減傷 45%',
+      tier: 2, name: '布丁強化', description: '減傷 45%',
       multiplierBonus: 5,
       goldCost: 300, materialCost: {GameMaterial.commonShard: 5, GameMaterial.skillCore: 1},
     ),
     SkillTierDefinition(
-      tier: 3, name: '幻影持續', description: '減傷 50%，持續 3 回合',
+      tier: 3, name: '布丁持續', description: '減傷 50%，持續 3 回合',
       multiplierBonus: 5, newMechanic: SkillTierMechanic.durationExtend, mechanicValue: 1,
       goldCost: 800, materialCost: {GameMaterial.advancedShard: 3, GameMaterial.skillCore: 2},
     ),
     SkillTierDefinition(
-      tier: 4, name: '暗影反噬', description: '減傷 55% + 反射 20% 傷害',
+      tier: 4, name: '布丁彈射', description: '減傷 55% + 反射 20% 傷害',
       multiplierBonus: 5, newMechanic: SkillTierMechanic.reflect, mechanicValue: 0.2,
       goldCost: 1500, materialCost: {GameMaterial.advancedShard: 5, GameMaterial.skillCore: 3, GameMaterial.rareShard: 1},
     ),
     SkillTierDefinition(
-      tier: 5, name: '虛無結界', description: '減傷 60% + 受擊暗蝕 10% ATK',
+      tier: 5, name: '極致布丁彈力盾', description: '減傷 60% + 受擊反彈 10% ATK',
       multiplierBonus: 5, newMechanic: SkillTierMechanic.dot, mechanicValue: 0.1,
       goldCost: 3000, materialCost: {GameMaterial.rareShard: 3, GameMaterial.skillCore: 5},
     ),
   ];
 
-  // ─── 蝕月 Eclipse — 蝕月陰影 (destroyer, AOE) ───
+  // ─── 藍莓 Berry — 莓果大轟炸！ (destroyer, AOE) ───
 
   static const eclipseSkillTiers = <SkillTierDefinition>[
     SkillTierDefinition(
-      tier: 1, name: '蝕月陰影', description: '1.6x 全體傷害',
+      tier: 1, name: '莓果大轟炸！', description: '1.6x 全體傷害',
       multiplierBonus: 0, goldCost: 0, materialCost: {},
     ),
     SkillTierDefinition(
-      tier: 2, name: '暗月增幅', description: '1.8x 全體傷害',
+      tier: 2, name: '莓果增幅', description: '1.8x 全體傷害',
       multiplierBonus: 0.2,
       goldCost: 300, materialCost: {GameMaterial.commonShard: 5, GameMaterial.skillCore: 1},
     ),
     SkillTierDefinition(
-      tier: 3, name: '月蝕破防', description: '2.0x 全體傷害 + 全體破防 -10%',
+      tier: 3, name: '莓果破防', description: '2.0x 全體傷害 + 全體破防 -10%',
       multiplierBonus: 0.2, newMechanic: SkillTierMechanic.defBreak, mechanicValue: 0.1,
       goldCost: 800, materialCost: {GameMaterial.advancedShard: 3, GameMaterial.skillCore: 2},
     ),
     SkillTierDefinition(
-      tier: 4, name: '蝕影連鎖', description: '2.3x 全體 + 暗影追擊 0.4x',
+      tier: 4, name: '莓果連鎖', description: '2.3x 全體 + 莓果追擊 0.4x',
       multiplierBonus: 0.3, newMechanic: SkillTierMechanic.aoeSplash, mechanicValue: 0.4,
       goldCost: 1500, materialCost: {GameMaterial.advancedShard: 5, GameMaterial.skillCore: 3, GameMaterial.rareShard: 1},
     ),
     SkillTierDefinition(
-      tier: 5, name: '永夜吞噬', description: '2.6x 全體 + 擊殺退 3 能量',
+      tier: 5, name: '極致莓果轟炸', description: '2.6x 全體 + 擊殺退 3 能量',
       multiplierBonus: 0.3, newMechanic: SkillTierMechanic.energyRefund, mechanicValue: 3,
       goldCost: 3000, materialCost: {GameMaterial.rareShard: 3, GameMaterial.skillCore: 5},
     ),

@@ -3169,7 +3169,7 @@ class _BattleEndOverlay extends StatelessWidget {
                         ),
                       ],
 
-                      // 新特工解鎖
+                      // 新夥伴解鎖
                       if (reward!.agentUnlocked &&
                           reward!.unlockedAgentId != null) ...[
                         const SizedBox(height: 12),
@@ -3211,7 +3211,7 @@ class _BattleEndOverlay extends StatelessWidget {
                                 const Text('🎉', style: TextStyle(fontSize: 20)),
                                 const SizedBox(width: 8),
                                 Text(
-                                  '新特工加入！點擊查看',
+                                  '新夥伴加入！點擊查看',
                                   style: TextStyle(
                                     color: Colors.amber.shade300,
                                     fontWeight: FontWeight.bold,
