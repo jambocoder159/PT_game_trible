@@ -402,7 +402,7 @@ class _StageChip extends StatelessWidget {
             color: isCurrent
                 ? AppTheme.accentSecondary.withAlpha(100)
                 : isUnlocked
-                    ? AppTheme.accentPrimary.withAlpha(50)
+                    ? AppTheme.accentPrimary.withAlpha(60)
                     : Colors.white.withAlpha(15),
           ),
         ),

@@ -365,7 +365,7 @@ class _StageSelectScreenState extends State<StageSelectScreen>
                                                   end: Alignment.bottomCenter,
                                                   colors: [
                                                     eColor.withAlpha(30),
-                                                    AppTheme.bgCard.withAlpha(200),
+                                                    AppTheme.bgCard,
                                                   ],
                                                 ),
                                               ),

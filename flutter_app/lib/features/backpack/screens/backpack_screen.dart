@@ -316,7 +316,7 @@ class _CategoryPill extends StatelessWidget {
         decoration: BoxDecoration(
           color: isSelected
               ? AppTheme.accentPrimary.withAlpha(50)
-              : AppTheme.bgCard.withAlpha(200),
+              : AppTheme.bgCard,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
             color: isSelected
@@ -402,9 +402,7 @@ class _MaterialCard extends StatelessWidget {
       onTap: onTap,
       child: Container(
         decoration: BoxDecoration(
-          color: isEmpty
-              ? AppTheme.bgCard.withAlpha(200)
-              : AppTheme.bgCard,
+          color: AppTheme.bgCard,
           borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
           border: Border.all(
             color: isEmpty

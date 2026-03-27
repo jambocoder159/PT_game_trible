@@ -22,7 +22,7 @@ class PlayerInfoBar extends StatelessWidget {
         return Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           decoration: BoxDecoration(
-            color: AppTheme.bgCard.withAlpha(180),
+            color: AppTheme.bgCard,
             borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
             border: Border.all(
               color: AppTheme.accentPrimary.withAlpha(60),

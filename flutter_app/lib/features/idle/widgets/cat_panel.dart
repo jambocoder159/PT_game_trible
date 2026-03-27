@@ -309,12 +309,12 @@ class CatPanel extends StatelessWidget {
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                     decoration: BoxDecoration(
                       color: inTeam
-                          ? AppTheme.bgCard.withAlpha(80)
+                          ? AppTheme.bgCard.withAlpha(200)
                           : AppTheme.bgCard,
                       borderRadius: BorderRadius.circular(10),
                       border: Border.all(
                         color: inTeam
-                            ? AppTheme.accentSecondary.withAlpha(20)
+                            ? AppTheme.accentSecondary.withAlpha(60)
                             : attrColor.withAlpha(80),
                       ),
                     ),
@@ -606,11 +606,11 @@ class _AgentCardState extends State<_AgentCard>
             margin: const EdgeInsets.only(bottom: 3),
             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
             decoration: BoxDecoration(
-              color: AppTheme.bgCard.withAlpha(isReady ? 220 : 140),
+              color: isReady ? AppTheme.bgCard : AppTheme.bgCard.withAlpha(200),
               borderRadius: BorderRadius.circular(8),
               border: isReady
                   ? Border.all(color: attrColor.withAlpha(180), width: 1.5)
-                  : Border.all(color: AppTheme.accentSecondary.withAlpha(20), width: 0.5),
+                  : Border.all(color: AppTheme.accentSecondary.withAlpha(60), width: 0.5),
               boxShadow: isReady
                   ? [
                       BoxShadow(
@@ -715,10 +715,10 @@ class _EmptySlot extends StatelessWidget {
         margin: const EdgeInsets.only(bottom: 3),
         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
         decoration: BoxDecoration(
-          color: AppTheme.bgCard.withAlpha(60),
+          color: AppTheme.bgCard.withAlpha(200),
           borderRadius: BorderRadius.circular(8),
           border: Border.all(
-            color: AppTheme.accentSecondary.withAlpha(30),
+            color: AppTheme.accentSecondary.withAlpha(60),
             width: 0.5,
           ),
         ),
@@ -729,7 +729,7 @@ class _EmptySlot extends StatelessWidget {
               height: 20,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                border: Border.all(color: AppTheme.accentSecondary.withAlpha(50)),
+                border: Border.all(color: AppTheme.accentSecondary.withAlpha(60)),
               ),
               child: const Icon(
                 Icons.add,
@@ -770,7 +770,7 @@ class _FoodOverview extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 3),
       decoration: BoxDecoration(
-        color: AppTheme.bgCard.withAlpha(60),
+        color: AppTheme.bgCard.withAlpha(200),
         borderRadius: BorderRadius.circular(6),
       ),
       child: Column(

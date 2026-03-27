@@ -100,7 +100,7 @@ class _ShopScreenState extends State<ShopScreen>
                 Container(
                   margin: const EdgeInsets.symmetric(horizontal: 16),
                   decoration: BoxDecoration(
-                    color: AppTheme.bgCard.withAlpha(120),
+                    color: AppTheme.bgCard.withAlpha(200),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: TabBar(
@@ -109,7 +109,7 @@ class _ShopScreenState extends State<ShopScreen>
                       color: AppTheme.accentSecondary.withAlpha(50),
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(
-                        color: AppTheme.accentSecondary.withAlpha(150),
+                        color: AppTheme.accentSecondary,
                       ),
                     ),
                     indicatorSize: TabBarIndicatorSize.tab,
@@ -869,7 +869,7 @@ class _CurrencyChip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
-        color: AppTheme.bgCard.withAlpha(150),
+        color: AppTheme.bgCard,
         borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
@@ -905,7 +905,7 @@ class _DustChip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
-        color: AppTheme.bgCard.withAlpha(150),
+        color: AppTheme.bgCard,
         borderRadius: BorderRadius.circular(12),
       ),
       child: Row(

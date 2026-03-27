@@ -455,7 +455,7 @@ class _OptionRow extends StatelessWidget {
             Text(
               value,
               style: TextStyle(
-                color: AppTheme.accentSecondary.withAlpha(200),
+                color: AppTheme.accentSecondary,
                 fontSize: 13,
               ),
             ),

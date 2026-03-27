@@ -356,9 +356,9 @@ class _TopIconButton extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         decoration: BoxDecoration(
-          color: AppTheme.bgCard.withAlpha(120),
+          color: AppTheme.bgCard,
           borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: AppTheme.accentSecondary.withAlpha(40)),
+          border: Border.all(color: AppTheme.accentSecondary.withAlpha(60)),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,

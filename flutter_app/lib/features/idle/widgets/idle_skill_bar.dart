@@ -23,7 +23,7 @@ class IdleSkillBar extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
           clipBehavior: Clip.none,
           decoration: BoxDecoration(
-            color: AppTheme.bgSecondary.withAlpha(150),
+            color: AppTheme.bgSecondary,
             borderRadius: BorderRadius.circular(8),
           ),
           child: Row(
@@ -138,7 +138,7 @@ class _SkillButtonState extends State<_SkillButton>
                   decoration: BoxDecoration(
                     color: isReady
                         ? attrColor.withAlpha(50)
-                        : AppTheme.bgCard.withAlpha(180),
+                        : AppTheme.bgCard,
                     shape: BoxShape.circle,
                     border: Border.all(
                       color: isReady ? attrColor : AppTheme.accentSecondary.withAlpha(40),

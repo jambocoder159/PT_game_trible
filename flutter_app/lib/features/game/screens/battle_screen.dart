@@ -1902,7 +1902,7 @@ class _EnemyCard extends StatelessWidget {
             height: 40,
             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
             decoration: BoxDecoration(
-              color: AppTheme.bgCard.withAlpha(200),
+              color: AppTheme.bgCard,
               borderRadius: BorderRadius.circular(8),
             ),
             child: Row(
@@ -3152,7 +3152,7 @@ class _BattleEndOverlay extends StatelessWidget {
                               padding: const EdgeInsets.symmetric(
                                   horizontal: 10, vertical: 5),
                               decoration: BoxDecoration(
-                                color: AppTheme.bgCard.withAlpha(200),
+                                color: AppTheme.bgCard,
                                 borderRadius: BorderRadius.circular(8),
                                 border: Border.all(
                                     color: AppTheme.accentSecondary.withAlpha(60)),

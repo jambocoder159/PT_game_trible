@@ -131,7 +131,7 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                   label: '自由對戰',
                   description: '三排模式 — 練習消除技巧',
                   color: AppTheme.bgCard,
-                  borderColor: AppTheme.accentPrimary.withAlpha(100),
+                  borderColor: AppTheme.accentPrimary.withAlpha(120),
                   onTap: () {
                     context.read<GameProvider>().startGame(GameModes.triple);
                     Navigator.of(context).push(
@@ -326,7 +326,7 @@ class _SmallButton extends StatelessWidget {
         backgroundColor: AppTheme.bgCard,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-          side: BorderSide(color: AppTheme.accentSecondary.withAlpha(40)),
+          side: BorderSide(color: AppTheme.accentSecondary.withAlpha(60)),
         ),
       ),
       child: Row(

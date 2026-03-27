@@ -100,7 +100,7 @@ class _ProfileHeader extends StatelessWidget {
           end: Alignment.bottomCenter,
           colors: [
             AppTheme.bgSecondary,
-            AppTheme.bgPrimary.withAlpha(200),
+            AppTheme.bgPrimary,
           ],
         ),
       ),
@@ -535,9 +535,7 @@ class _AgentCollectionGrid extends StatelessWidget {
 
         return Container(
           decoration: BoxDecoration(
-            color: agent.isUnlocked
-                ? AppTheme.bgCard
-                : AppTheme.bgCard.withAlpha(200),
+            color: AppTheme.bgCard,
             borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
             border: Border.all(
               color: agent.isUnlocked ? color.withAlpha(120) : AppTheme.accentSecondary.withAlpha(60),
