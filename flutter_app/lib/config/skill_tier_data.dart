@@ -122,59 +122,59 @@ class SkillTierData {
     ),
   ];
 
-  // ─── 影子 Shadow — 暗殺突襲 ───
+  // ─── 可可 Cocoa — 深夜特製巧克力！ ───
 
   static const shadowSkillTiers = <SkillTierDefinition>[
     SkillTierDefinition(
-      tier: 1, name: '暗殺突襲', description: '3.0x 傷害，<30% HP +50%',
+      tier: 1, name: '深夜特製巧克力！', description: '3.0x 傷害，<30% HP +50%',
       multiplierBonus: 0, goldCost: 0, materialCost: {},
     ),
     SkillTierDefinition(
-      tier: 2, name: '暗殺強化', description: '3.3x 傷害',
+      tier: 2, name: '濃醇可可', description: '3.3x 傷害',
       multiplierBonus: 0.3,
       goldCost: 300, materialCost: {GameMaterial.commonShard: 5, GameMaterial.skillCore: 1},
     ),
     SkillTierDefinition(
-      tier: 3, name: '致命追蹤', description: '3.6x 傷害，斬殺門檻提升至 40%',
+      tier: 3, name: '深夜追蹤', description: '3.6x 傷害，斬殺門檻提升至 40%',
       multiplierBonus: 0.3, newMechanic: SkillTierMechanic.executeThresholdUp, mechanicValue: 0.4,
       goldCost: 800, materialCost: {GameMaterial.advancedShard: 3, GameMaterial.skillCore: 2},
     ),
     SkillTierDefinition(
-      tier: 4, name: '流血刺殺', description: '4.0x 傷害 + 流血 2 回合 (20% ATK)',
+      tier: 4, name: '熔岩巧克力', description: '4.0x 傷害 + 灼燒 2 回合 (20% ATK)',
       multiplierBonus: 0.4, newMechanic: SkillTierMechanic.dot, mechanicValue: 0.2,
       goldCost: 1500, materialCost: {GameMaterial.advancedShard: 5, GameMaterial.skillCore: 3, GameMaterial.rareShard: 1},
     ),
     SkillTierDefinition(
-      tier: 5, name: '終結暗殺', description: '4.5x 傷害 + 擊殺全額退能量',
+      tier: 5, name: '極致深夜巧克力', description: '4.5x 傷害 + 擊殺全額退能量',
       multiplierBonus: 0.5, newMechanic: SkillTierMechanic.energyRefund, mechanicValue: -1,
       goldCost: 3000, materialCost: {GameMaterial.rareShard: 3, GameMaterial.skillCore: 5},
     ),
   ];
 
-  // ─── 餘燼 Ember — 烈焰風暴 (destroyer, AOE) ───
+  // ─── 窯窯 Kiln — 窯烤大爆發！ (destroyer, AOE) ───
 
   static const emberSkillTiers = <SkillTierDefinition>[
     SkillTierDefinition(
-      tier: 1, name: '烈焰風暴', description: '1.6x 全體傷害',
+      tier: 1, name: '窯烤大爆發！', description: '1.6x 全體傷害',
       multiplierBonus: 0, goldCost: 0, materialCost: {},
     ),
     SkillTierDefinition(
-      tier: 2, name: '風暴升級', description: '1.8x 全體傷害',
+      tier: 2, name: '窯火升溫', description: '1.8x 全體傷害',
       multiplierBonus: 0.2,
       goldCost: 300, materialCost: {GameMaterial.commonShard: 5, GameMaterial.skillCore: 1},
     ),
     SkillTierDefinition(
-      tier: 3, name: '焰風破甲', description: '2.0x 全體傷害 + 全體破防 -15%',
+      tier: 3, name: '窯烤破酥', description: '2.0x 全體傷害 + 全體破防 -15%',
       multiplierBonus: 0.2, newMechanic: SkillTierMechanic.defBreak, mechanicValue: 0.15,
       goldCost: 800, materialCost: {GameMaterial.advancedShard: 3, GameMaterial.skillCore: 2},
     ),
     SkillTierDefinition(
-      tier: 4, name: '業火連鎖', description: '2.3x 全體 + 連鎖灼燒 0.4x',
+      tier: 4, name: '連鎖窯烤', description: '2.3x 全體 + 連鎖灼燒 0.4x',
       multiplierBonus: 0.3, newMechanic: SkillTierMechanic.aoeSplash, mechanicValue: 0.4,
       goldCost: 1500, materialCost: {GameMaterial.advancedShard: 5, GameMaterial.skillCore: 3, GameMaterial.rareShard: 1},
     ),
     SkillTierDefinition(
-      tier: 5, name: '滅世烈焰', description: '2.6x 全體 + 擊殺退 3 能量',
+      tier: 5, name: '極致窯烤', description: '2.6x 全體 + 擊殺退 3 能量',
       multiplierBonus: 0.3, newMechanic: SkillTierMechanic.energyRefund, mechanicValue: 3,
       goldCost: 3000, materialCost: {GameMaterial.rareShard: 3, GameMaterial.skillCore: 5},
     ),
