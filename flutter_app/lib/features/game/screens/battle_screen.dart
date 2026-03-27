@@ -297,7 +297,7 @@ class _BattleScreenState extends State<BattleScreen> {
     final bgPath = ImageAssets.battleBackground(widget.stage.chapter);
 
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: AppTheme.bgPrimary,
       body: SafeArea(
         child: Stack(
           children: [
@@ -1536,7 +1536,7 @@ class _RushAttackWidgetState extends State<_RushAttackWidget>
       width: _cardSize,
       height: _cardSize,
       decoration: BoxDecoration(
-        color: Colors.black87,
+        color: AppTheme.bgCard,
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: data.color, width: 2),
         boxShadow: [
@@ -1951,7 +1951,7 @@ class _EnemyCard extends StatelessWidget {
         decoration: BoxDecoration(
           color: isHit
               ? Colors.white.withAlpha(120)
-              : Colors.black.withAlpha(180),
+              : AppTheme.bgCard.withAlpha(200),
           borderRadius: BorderRadius.circular(8),
           border: Border.all(color: outerBorderColor, width: 2),
           boxShadow: [
@@ -2053,7 +2053,7 @@ class _EnemyCard extends StatelessWidget {
                         child: LinearProgressIndicator(
                           value: enemy.hpPercent,
                           minHeight: 8,
-                          backgroundColor: Colors.black38,
+                          backgroundColor: AppTheme.bgCard,
                           valueColor: AlwaysStoppedAnimation<Color>(
                             enemy.hpPercent > 0.5
                                 ? Colors.green
@@ -2552,7 +2552,7 @@ class _CatAgentCard extends StatelessWidget {
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(8),
             border: Border.all(color: outerBorderColor, width: 2),
-            color: Colors.black.withAlpha(180),
+            color: AppTheme.bgCard.withAlpha(200),
             boxShadow: [
               if (isReady)
                 BoxShadow(
@@ -2689,7 +2689,7 @@ class _CatAgentCard extends StatelessWidget {
                           child: LinearProgressIndicator(
                             value: agent.energyPercent,
                             minHeight: 7,
-                            backgroundColor: Colors.black38,
+                            backgroundColor: AppTheme.bgCard,
                             valueColor: AlwaysStoppedAnimation(
                               isReady ? Colors.amber : color.withAlpha(150),
                             ),
@@ -3028,7 +3028,7 @@ class _BattleEndOverlay extends StatelessWidget {
     final titleColor = isVictory ? Colors.amber : Colors.red;
 
     return Container(
-      color: Colors.black.withAlpha(180),
+      color: AppTheme.bgSecondary.withAlpha(230),
       child: Center(
         child: Container(
           margin: const EdgeInsets.symmetric(horizontal: 28, vertical: 32),
@@ -3551,7 +3551,7 @@ class _TeamStatusBar extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 3),
       decoration: BoxDecoration(
-        color: Colors.black26,
+        color: AppTheme.bgCard.withAlpha(180),
         borderRadius: BorderRadius.circular(4),
       ),
       child: Column(
@@ -3568,7 +3568,7 @@ class _TeamStatusBar extends StatelessWidget {
                   child: LinearProgressIndicator(
                     value: hpPercent,
                     minHeight: 5,
-                    backgroundColor: Colors.black26,
+                    backgroundColor: AppTheme.bgCard,
                     valueColor: AlwaysStoppedAnimation<Color>(
                       hpPercent > 0.5
                           ? Colors.green

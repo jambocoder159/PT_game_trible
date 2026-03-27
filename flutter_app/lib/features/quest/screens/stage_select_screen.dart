@@ -220,7 +220,7 @@ class _StageSelectScreenState extends State<StageSelectScreen>
                     if (bgPath != null)
                       Positioned.fill(
                         child: Container(
-                          color: Colors.black.withAlpha(160),
+                          color: AppTheme.accentSecondary.withAlpha(120),
                         ),
                       ),
                     // ─── 前景內容 ───
@@ -365,7 +365,7 @@ class _StageSelectScreenState extends State<StageSelectScreen>
                                                   end: Alignment.bottomCenter,
                                                   colors: [
                                                     eColor.withAlpha(30),
-                                                    Colors.black26,
+                                                    AppTheme.bgCard.withAlpha(100),
                                                   ],
                                                 ),
                                               ),
@@ -403,7 +403,7 @@ class _StageSelectScreenState extends State<StageSelectScreen>
                                                 horizontal: 8,
                                                 vertical: 6),
                                             decoration: BoxDecoration(
-                                              color: Colors.black38,
+                                              color: AppTheme.bgCard.withAlpha(180),
                                             ),
                                             child: Column(
                                               mainAxisSize:
@@ -987,8 +987,8 @@ class _ChapterBanner extends StatelessWidget {
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
                 colors: [
-                  Colors.black.withAlpha(120),
-                  Colors.black.withAlpha(60),
+                  AppTheme.accentSecondary.withAlpha(100),
+                  AppTheme.accentSecondary.withAlpha(50),
                   AppTheme.bgPrimary.withAlpha(240),
                   AppTheme.bgPrimary,
                 ],
