@@ -23,7 +23,7 @@ class AutoEliminateBar extends StatelessWidget {
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
             decoration: BoxDecoration(
-              color: AppTheme.bgCard.withAlpha(isUnlocked ? 255 : 200),
+              color: isUnlocked ? AppTheme.bgCard : AppTheme.bgCard.withAlpha(200),
               borderRadius: BorderRadius.circular(8),
               border: Border.all(
                 color: config.isAutoActive

@@ -100,7 +100,7 @@ class _ShopScreenState extends State<ShopScreen>
                 Container(
                   margin: const EdgeInsets.symmetric(horizontal: 16),
                   decoration: BoxDecoration(
-                    color: AppTheme.bgCard.withAlpha(200),
+                    color: AppTheme.bgCard,
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: TabBar(

@@ -141,7 +141,7 @@ class _SkillButtonState extends State<_SkillButton>
                         : AppTheme.bgCard,
                     shape: BoxShape.circle,
                     border: Border.all(
-                      color: isReady ? attrColor : AppTheme.accentSecondary.withAlpha(40),
+                      color: isReady ? attrColor : AppTheme.accentSecondary.withAlpha(60),
                       width: isReady ? 2 : 1,
                     ),
                     boxShadow: isReady
