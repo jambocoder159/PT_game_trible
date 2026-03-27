@@ -1,12 +1,12 @@
 {
-  "name": "三消挑戰",
-  "short_name": "三消挑戰",
+  "name": "貓咪點心屋",
+  "short_name": "貓咪點心屋",
   "start_url": ".",
   "display": "standalone",
-  "background_color": "#1A1A2E",
-  "theme_color": "#533483",
+  "background_color": "#FFF8F0",
+  "theme_color": "#D4845A",
   "orientation": "portrait",
-  "description": "Match-3 Puzzle Game",
+  "description": "Kitty Pastry House - 甜點街三消冒險",
   "icons": [
     {
       "src": "icons/Icon-192.png",

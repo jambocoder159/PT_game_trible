@@ -1,4 +1,4 @@
-/// 貓咪特工靜態數據
+/// 貓咪點心屋角色數據
 /// 15 個角色（每屬性 3 個）
 import '../core/models/cat_agent.dart';
 
@@ -6,13 +6,13 @@ class CatAgentData {
   CatAgentData._();
 
   // ═══════════════════════════════════════
-  // 屬性A 🔴 (coral) — 火系
+  // 屬性A ☀️ (coral) — 太陽系
   // ═══════════════════════════════════════
 
   static const blazeAgent = CatAgentDefinition(
     id: 'blaze',
-    name: '阿焰',
-    codename: 'Agent Blaze',
+    name: '小麥',
+    codename: 'Baker Wheat',
     breed: '橘貓',
     attribute: AgentAttribute.attributeA,
     role: AgentRole.striker,
@@ -21,24 +21,24 @@ class CatAgentData {
     atkGrowth: 4.0, defGrowth: 1.5, hpGrowth: 12.0,
     baseSpeed: 2, // striker: 快攻
     skill: AgentSkill(
-      name: '爆裂爪擊',
-      description: '以燃燒的爪子猛擊敵人，造成 ATK×{multiplier} 傷害',
+      name: '熱騰騰出爐！',
+      description: '新鮮出爐的麵包重擊，造成 ATK×{multiplier} 傷害',
       energyCost: 5, effectType: SkillEffectType.damage,
       baseMultiplier: 2.0, levelScaling: 0.08,
       boardEffect: SkillBoardEffect(
         type: BoardEffectType.convertColor,
         value: 3,
-        description: '爆裂能量：轉化 3 個方塊為🔴',
+        description: '麵包香氣：轉化 3 個方塊為☀️',
       ),
     ),
-    passiveDescription: '消除🔴方塊時，額外累積 10% 能量',
+    passiveDescription: '收集陽光麥穗時，額外累積 10% 烘焙能量',
     unlockCondition: UnlockCondition.free,
   );
 
   static const emberAgent = CatAgentDefinition(
     id: 'ember',
-    name: '小燼',
-    codename: 'Agent Ember',
+    name: '窯窯',
+    codename: 'Baker Kiln',
     breed: '孟加拉貓',
     attribute: AgentAttribute.attributeA,
     role: AgentRole.destroyer,
@@ -46,24 +46,24 @@ class CatAgentData {
     baseAtk: 24, baseDef: 10, baseHp: 190,
     atkGrowth: 3.8, defGrowth: 1.2, hpGrowth: 11.0,
     skill: AgentSkill(
-      name: '烈焰風暴',
-      description: '召喚火焰風暴，對全體敵人造成 ATK×{multiplier} 傷害',
+      name: '窯烤大爆發！',
+      description: '窯火全開，對全體搗蛋鬼造成 ATK×{multiplier} 傷害',
       energyCost: 7, effectType: SkillEffectType.aoe,
       baseMultiplier: 1.6, levelScaling: 0.07,
       boardEffect: SkillBoardEffect(
         type: BoardEffectType.eliminateRandom,
         value: 4,
-        description: '烈焰燃燒：隨機消除 4 個方塊',
+        description: '窯火四散：隨機消除 4 個方塊',
       ),
     ),
-    passiveDescription: '消除 4+ 方塊時，對全體敵人造成額外 5% ATK 傷害',
+    passiveDescription: '大量收集食材時，窯火溫度上升，全體額外 5% ATK 傷害',
     unlockCondition: UnlockCondition(stageRequirement: '1-8', goldCost: 800),
   );
 
   static const infernoAgent = CatAgentDefinition(
     id: 'inferno',
-    name: '獄炎',
-    codename: 'Agent Inferno',
+    name: '焦糖',
+    codename: 'Baker Caramel',
     breed: '阿比西尼亞貓',
     attribute: AgentAttribute.attributeA,
     role: AgentRole.infiltrator,
@@ -72,30 +72,30 @@ class CatAgentData {
     atkGrowth: 5.0, defGrowth: 1.0, hpGrowth: 8.0,
     baseSpeed: 2, // infiltrator: 快攻
     skill: AgentSkill(
-      name: '地獄突襲',
-      description: '從熔岩中突襲，造成 ATK×{multiplier} 傷害。敵人 HP<30% 時 +50%',
+      name: '極速外送！',
+      description: '極速送達的焦糖風暴，造成 ATK×{multiplier} 傷害。搗蛋鬼 HP<30% 時 +50%',
       energyCost: 6, effectType: SkillEffectType.execute,
       baseMultiplier: 3.2, levelScaling: 0.12,
       boardEffect: SkillBoardEffect(
         type: BoardEffectType.eliminateColumn,
         value: 0,
-        description: '地獄烈柱：消除隨機一列方塊',
+        description: '焦糖瀑布：消除隨機一列方塊',
       ),
     ),
-    passiveDescription: '擊殺敵人時，下次技能傷害 +20%',
+    passiveDescription: '淨化搗蛋鬼後，下次料理技能威力 +20%',
     unlockCondition: UnlockCondition(
       stageRequirement: '2-5', requireAllStars: true, goldCost: 4000,
     ),
   );
 
   // ═══════════════════════════════════════
-  // 屬性B 🟢 (mint) — 大地系
+  // 屬性B 🍃 (mint) — 葉子系
   // ═══════════════════════════════════════
 
   static const terraAgent = CatAgentDefinition(
     id: 'terra',
-    name: '大地',
-    codename: 'Agent Terra',
+    name: '抹抹',
+    codename: 'Herb Matcha',
     breed: '美國短毛貓',
     attribute: AgentAttribute.attributeB,
     role: AgentRole.defender,

@@ -1,5 +1,5 @@
 /// 關卡數據
-/// MVP：第 1 章（後巷區）10 關 + 第 2 章（商店街）10 關 + 第 3 章（港口區）10 關
+/// MVP：第 1 章（麵包店）10 關 + 第 2 章（冰淇淋舖）10 關 + 第 3 章（巧克力工坊）10 關
 import '../core/models/enemy.dart';
 import '../core/models/cat_agent.dart';
 
@@ -68,49 +68,49 @@ class StageData {
   static const chapters = [
     ChapterInfo(
       number: 1,
-      name: '後巷區',
-      location: '秘密組織總部附近的後巷',
-      description: '新人特工訓練 + 首次實戰任務',
+      name: '爺爺的老麵包店',
+      location: '甜點街上爺爺留下的老麵包店',
+      description: '初次踏入地下室，清理發霉的麵包精靈',
     ),
     ChapterInfo(
       number: 2,
-      name: '商店街',
-      location: '市中心的繁華商店街',
-      description: '調查可疑的寵物店',
+      name: '冰淇淋小舖',
+      location: '甜點街上的冰品專賣店',
+      description: '冷凍庫失控，地下室變成了冰晶洞窟',
     ),
     ChapterInfo(
       number: 3,
-      name: '港口區',
-      location: '城市南端的貨運碼頭',
-      description: '攔截走私貨物',
+      name: '巧克力工坊',
+      location: '甜點街上的可可巧克力工坊',
+      description: '過熱的可可倉庫變成了焦糖熔岩地帶',
     ),
     ChapterInfo(
       number: 4,
-      name: '摩天大樓',
-      location: '市中心的企業總部',
-      description: '潛入企業總部調查幕後黑手',
+      name: '蛋糕塔',
+      location: '甜點街最高的建築——蛋糕塔',
+      description: '堆滿硬邦邦老蛋糕的巨塔',
     ),
     ChapterInfo(
       number: 5,
-      name: '地下鐵',
-      location: '城市地下的廢棄車站',
-      description: '追蹤邪惡組織線索',
+      name: '和菓子茶屋',
+      location: '甜點街尾的古風和菓子茶屋',
+      description: '瀰漫過期茶葉氣息的神秘地下室',
     ),
     ChapterInfo(
       number: 6,
-      name: '秘密基地',
-      location: '郊區的隱藏地堡',
-      description: '最終決戰 — 瓦解暗影組織',
+      name: '甜點街大廣場',
+      location: '甜點街中心廣場下方的神秘地窖',
+      description: '最終決戰 — 淨化黑暗料理王',
     ),
   ];
 
   // ─── 敵人定義 ───
 
-  // 第 1 章：後巷區
+  // 第 1 章：爺爺的老麵包店
   static const _rat = EnemyDefinition(
     id: 'rat',
-    name: '鼠幫小嘍囉',
-    emoji: '🐀',
+    name: '發霉小餐包',
+    emoji: '🍞',
     attribute: AgentAttribute.attributeB,
     baseHp: 100,
     baseAtk: 8,
@@ -119,8 +119,8 @@ class StageData {
 
   static const _bigRat = EnemyDefinition(
     id: 'big_rat',
-    name: '鼠幫打手',
-    emoji: '🐀',
+    name: '焦黑法棍',
+    emoji: '🥖',
     attribute: AgentAttribute.attributeB,
     baseHp: 200,
     baseAtk: 15,
@@ -129,8 +129,8 @@ class StageData {
 
   static const _strayDog = EnemyDefinition(
     id: 'stray_dog',
-    name: '流浪惡犬',
-    emoji: '🐕',
+    name: '酸掉牛角包',
+    emoji: '🥐',
     attribute: AgentAttribute.attributeA,
     baseHp: 250,
     baseAtk: 20,
@@ -139,19 +139,19 @@ class StageData {
 
   static const _ratBoss = EnemyDefinition(
     id: 'rat_boss',
-    name: '鼠幫老大',
-    emoji: '🐀',
+    name: '黴菌麵包王',
+    emoji: '👑',
     attribute: AgentAttribute.attributeB,
     baseHp: 500,
     baseAtk: 25,
     attackInterval: 3,
   );
 
-  // 第 2 章：商店街
+  // 第 2 章：冰淇淋小舖
   static const _petShopGuard = EnemyDefinition(
     id: 'pet_shop_guard',
-    name: '寵物店打手',
-    emoji: '🦝',
+    name: '融化冰棒',
+    emoji: '🍦',
     attribute: AgentAttribute.attributeC,
     baseHp: 200,
     baseAtk: 15,
@@ -160,8 +160,8 @@ class StageData {
 
   static const _trapDevice = EnemyDefinition(
     id: 'trap_device',
-    name: '捕獸陷阱',
-    emoji: '⚙️',
+    name: '結冰糖漿',
+    emoji: '🧊',
     attribute: AgentAttribute.attributeD,
     baseHp: 150,
     baseAtk: 25,
@@ -170,19 +170,19 @@ class StageData {
 
   static const _shopOwner = EnemyDefinition(
     id: 'shop_owner',
-    name: '可疑店長',
-    emoji: '🦊',
+    name: '融化冰淇淋怪',
+    emoji: '🍨',
     attribute: AgentAttribute.attributeE,
     baseHp: 600,
     baseAtk: 22,
     attackInterval: 3,
   );
 
-  // 第 3 章：港口區
+  // 第 3 章：巧克力工坊
   static const _dockWorker = EnemyDefinition(
     id: 'dock_worker',
-    name: '碼頭幫派',
-    emoji: '🦦',
+    name: '烤焦可可豆',
+    emoji: '🫘',
     attribute: AgentAttribute.attributeA,
     baseHp: 300,
     baseAtk: 20,
@@ -191,8 +191,8 @@ class StageData {
 
   static const _seagull = EnemyDefinition(
     id: 'seagull',
-    name: '暴躁海鷗',
-    emoji: '🦅',
+    name: '爆裂糖果',
+    emoji: '🍬',
     attribute: AgentAttribute.attributeD,
     baseHp: 180,
     baseAtk: 30,
@@ -201,19 +201,19 @@ class StageData {
 
   static const _seagullBoss = EnemyDefinition(
     id: 'seagull_boss',
-    name: '海鷗王',
-    emoji: '🦅',
+    name: '烤焦巧克力魔',
+    emoji: '🍫',
     attribute: AgentAttribute.attributeD,
     baseHp: 800,
     baseAtk: 35,
     attackInterval: 3,
   );
 
-  // 第 4 章：摩天大樓
+  // 第 4 章：蛋糕塔
   static const _securityBot = EnemyDefinition(
     id: 'security_bot',
-    name: '保全機器人',
-    emoji: '🤖',
+    name: '硬掉的蛋糕',
+    emoji: '🎂',
     attribute: AgentAttribute.attributeD,
     baseHp: 350,
     baseAtk: 28,
@@ -222,8 +222,8 @@ class StageData {
 
   static const _laserTrap = EnemyDefinition(
     id: 'laser_trap',
-    name: '雷射陷阱',
-    emoji: '⚡',
+    name: '噴射鮮奶油',
+    emoji: '🧁',
     attribute: AgentAttribute.attributeD,
     baseHp: 200,
     baseAtk: 40,
@@ -232,8 +232,8 @@ class StageData {
 
   static const _eliteSecurity = EnemyDefinition(
     id: 'elite_security',
-    name: '精英保全',
-    emoji: '🦾',
+    name: '結塊奶油怪',
+    emoji: '🧈',
     attribute: AgentAttribute.attributeC,
     baseHp: 500,
     baseAtk: 30,
@@ -242,19 +242,19 @@ class StageData {
 
   static const _ceo = EnemyDefinition(
     id: 'ceo',
-    name: '幕後金主',
-    emoji: '🦊',
+    name: '酸掉鮮奶油怪',
+    emoji: '🎂',
     attribute: AgentAttribute.attributeE,
     baseHp: 1000,
     baseAtk: 35,
     attackInterval: 3,
   );
 
-  // 第 5 章：地下鐵
+  // 第 5 章：和菓子茶屋
   static const _shadowAgent = EnemyDefinition(
     id: 'shadow_agent_enemy',
-    name: '暗影特工',
-    emoji: '🐱',
+    name: '變硬麻糬',
+    emoji: '🍡',
     attribute: AgentAttribute.attributeE,
     baseHp: 400,
     baseAtk: 32,
@@ -263,8 +263,8 @@ class StageData {
 
   static const _shadowSniper = EnemyDefinition(
     id: 'shadow_sniper',
-    name: '暗影狙擊手',
-    emoji: '🎯',
+    name: '爆炸紅豆',
+    emoji: '🫘',
     attribute: AgentAttribute.attributeA,
     baseHp: 280,
     baseAtk: 45,
@@ -273,19 +273,19 @@ class StageData {
 
   static const _shadowCommander = EnemyDefinition(
     id: 'shadow_commander',
-    name: '暗影指揮官',
-    emoji: '🐾',
+    name: '變硬麻糬大王',
+    emoji: '🍡',
     attribute: AgentAttribute.attributeE,
     baseHp: 800,
     baseAtk: 38,
     attackInterval: 3,
   );
 
-  // 第 6 章：秘密基地
+  // 第 6 章：甜點街大廣場
   static const _eliteGuard = EnemyDefinition(
     id: 'elite_guard',
-    name: '基地守衛',
-    emoji: '🛡️',
+    name: '腐壞水果塔',
+    emoji: '🥧',
     attribute: AgentAttribute.attributeB,
     baseHp: 500,
     baseAtk: 35,
@@ -294,8 +294,8 @@ class StageData {
 
   static const _heavyBot = EnemyDefinition(
     id: 'heavy_bot',
-    name: '重裝機器人',
-    emoji: '🤖',
+    name: '石化千層派',
+    emoji: '🧱',
     attribute: AgentAttribute.attributeC,
     baseHp: 700,
     baseAtk: 40,
@@ -304,7 +304,7 @@ class StageData {
 
   static const _finalBoss = EnemyDefinition(
     id: 'final_boss',
-    name: '暗影組織首領',
+    name: '黑暗料理王',
     emoji: '😈',
     attribute: AgentAttribute.attributeE,
     baseHp: 1500,
@@ -315,10 +315,10 @@ class StageData {
   // ─── 關卡定義 ───
 
   static final List<StageDefinition> allStages = [
-    // ═══ 第 1 章：後巷區 ═══
+    // ═══ 第 1 章：爺爺的老麵包店 ═══
     StageDefinition(
       id: '1-1',
-      name: '新人報到',
+      name: '推開店門',
       chapter: 1,
       stageNumber: 1,
       staminaCost: 4,
@@ -330,7 +330,7 @@ class StageData {
     ),
     StageDefinition(
       id: '1-2',
-      name: '後巷巡邏',
+      name: '麵粉倉巡查',
       chapter: 1,
       stageNumber: 2,
       staminaCost: 4,
@@ -342,7 +342,7 @@ class StageData {
     ),
     StageDefinition(
       id: '1-3',
-      name: '解救同伴',
+      name: '發現第一位夥伴',
       chapter: 1,
       stageNumber: 3,
       staminaCost: 5,
@@ -354,7 +354,7 @@ class StageData {
     ),
     StageDefinition(
       id: '1-4',
-      name: '垃圾場突襲',
+      name: '清理烤箱',
       chapter: 1,
       stageNumber: 4,
       staminaCost: 5,
@@ -366,7 +366,7 @@ class StageData {
     ),
     StageDefinition(
       id: '1-5',
-      name: '惡犬來襲',
+      name: '酸麵團來了！',
       chapter: 1,
       stageNumber: 5,
       staminaCost: 5,
@@ -378,7 +378,7 @@ class StageData {
     ),
     StageDefinition(
       id: '1-6',
-      name: '追蹤線索',
+      name: '追蹤黴菌源頭',
       chapter: 1,
       stageNumber: 6,
       staminaCost: 5,
@@ -390,7 +390,7 @@ class StageData {
     ),
     StageDefinition(
       id: '1-7',
-      name: '地下通道',
+      name: '地下室深處',
       chapter: 1,
       stageNumber: 7,
       staminaCost: 6,
@@ -402,7 +402,7 @@ class StageData {
     ),
     StageDefinition(
       id: '1-8',
-      name: '埋伏圈套',
+      name: '麵包堆裡的陷阱',
       chapter: 1,
       stageNumber: 8,
       staminaCost: 6,
@@ -414,7 +414,7 @@ class StageData {
     ),
     StageDefinition(
       id: '1-9',
-      name: '直搗巢穴',
+      name: '穀倉最深處',
       chapter: 1,
       stageNumber: 9,
       staminaCost: 6,
@@ -426,7 +426,7 @@ class StageData {
     ),
     StageDefinition(
       id: '1-10',
-      name: '鼠幫老大',
+      name: '黴菌麵包王！',
       chapter: 1,
       stageNumber: 10,
       staminaCost: 8,
@@ -437,10 +437,10 @@ class StageData {
       threeStarScore: 3000,
     ),
 
-    // ═══ 第 2 章：商店街 ═══
+    // ═══ 第 2 章：冰淇淋小舖 ═══
     StageDefinition(
       id: '2-1',
-      name: '可疑的寵物店',
+      name: '冰櫃打開了',
       chapter: 2,
       stageNumber: 1,
       staminaCost: 5,
@@ -452,7 +452,7 @@ class StageData {
     ),
     StageDefinition(
       id: '2-2',
-      name: '店後調查',
+      name: '冷凍庫入口',
       chapter: 2,
       stageNumber: 2,
       staminaCost: 5,
@@ -464,7 +464,7 @@ class StageData {
     ),
     StageDefinition(
       id: '2-3',
-      name: '陷阱走廊',
+      name: '滑溜溜的走道',
       chapter: 2,
       stageNumber: 3,
       staminaCost: 6,
@@ -476,7 +476,7 @@ class StageData {
     ),
     StageDefinition(
       id: '2-4',
-      name: '倉庫搜索',
+      name: '冰晶洞窟探索',
       chapter: 2,
       stageNumber: 4,
       staminaCost: 6,
@@ -488,7 +488,7 @@ class StageData {
     ),
     StageDefinition(
       id: '2-5',
-      name: '暗巷追逐',
+      name: '追著融化的冰棒跑',
       chapter: 2,
       stageNumber: 5,
       staminaCost: 6,
@@ -500,7 +500,7 @@ class StageData {
     ),
     StageDefinition(
       id: '2-6',
-      name: '密室突入',
+      name: '冰霜結界',
       chapter: 2,
       stageNumber: 6,
       staminaCost: 6,
@@ -512,7 +512,7 @@ class StageData {
     ),
     StageDefinition(
       id: '2-7',
-      name: '保全室',
+      name: '冰箱最裡層',
       chapter: 2,
       stageNumber: 7,
       staminaCost: 7,
@@ -524,7 +524,7 @@ class StageData {
     ),
     StageDefinition(
       id: '2-8',
-      name: '地下通道',
+      name: '融化的甜筒河',
       chapter: 2,
       stageNumber: 8,
       staminaCost: 7,
@@ -536,7 +536,7 @@ class StageData {
     ),
     StageDefinition(
       id: '2-9',
-      name: '證據確保',
+      name: '搶救最後的食材',
       chapter: 2,
       stageNumber: 9,
       staminaCost: 7,
@@ -548,7 +548,7 @@ class StageData {
     ),
     StageDefinition(
       id: '2-10',
-      name: '可疑店長',
+      name: '融化冰淇淋怪！',
       chapter: 2,
       stageNumber: 10,
       staminaCost: 8,
@@ -559,10 +559,10 @@ class StageData {
       threeStarScore: 3600,
     ),
 
-    // ═══ 第 3 章：港口區 ═══
+    // ═══ 第 3 章：巧克力工坊 ═══
     StageDefinition(
       id: '3-1',
-      name: '碼頭偵察',
+      name: '可可倉庫門口',
       chapter: 3,
       stageNumber: 1,
       staminaCost: 6,
@@ -574,7 +574,7 @@ class StageData {
     ),
     StageDefinition(
       id: '3-2',
-      name: '貨櫃迷宮',
+      name: '可可豆迷宮',
       chapter: 3,
       stageNumber: 2,
       staminaCost: 6,
@@ -586,7 +586,7 @@ class StageData {
     ),
     StageDefinition(
       id: '3-3',
-      name: '海鷗騷擾',
+      name: '跳跳糖大亂鬥',
       chapter: 3,
       stageNumber: 3,
       staminaCost: 6,

@@ -1,4 +1,4 @@
-// PT Game Trible - 貓咪特工三消手遊
+// 貓咪點心屋 — 甜點街三消冒險
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -61,7 +61,7 @@ class Match3App extends StatelessWidget {
         }),
       ],
       child: MaterialApp(
-        title: '貓咪特工',
+        title: '貓咪點心屋',
         debugShowCheckedModeBanner: false,
         theme: AppTheme.darkTheme,
         home: Consumer<PlayerProvider>(

@@ -5,14 +5,12 @@ import 'package:flutter/material.dart';
 class AppTheme {
   AppTheme._();
 
-  // ─── 方塊顏色（Coolors Palette 1 + 微調） ───
-  // 原始: ff6f59-254441-43aa8b-b2b09b-ef3054
-  // 調整: 254441→3A7D6E（提亮暗青）、B2B09B→D4C96A（飽和卡其）
-  static const Color blockCoral = Color(0xFFFF6F59);   // 珊瑚橘紅
-  static const Color blockTeal = Color(0xFF2B82D9);    // 天藍（原翡翠青改為藍色，避免與薄荷綠太相近）
-  static const Color blockMint = Color(0xFF43AA8B);    // 薄荷綠
-  static const Color blockGold = Color(0xFFD4C96A);    // 琥珀金（原 #B2B09B 飽和）
-  static const Color blockRose = Color(0xFFEF3054);    // 玫瑰紅
+  // ─── 方塊顏色（貓咪點心屋配色） ───
+  static const Color blockCoral = Color(0xFFE8723A);   // 烘焙橘紅 ☀️太陽
+  static const Color blockTeal = Color(0xFF5BA4CF);    // 清泉藍 💧水滴
+  static const Color blockMint = Color(0xFF6BAF5B);    // 香草綠 🍃葉子
+  static const Color blockGold = Color(0xFFF0B0C8);    // 蜜桃粉 ⭐星星
+  static const Color blockRose = Color(0xFF9B7EC8);    // 月光紫 🌙月亮
 
   static const List<Color> blockColors = [
     blockCoral,
@@ -26,13 +24,13 @@ class AppTheme {
   static const List<String> blockSymbols = ['●', '◆', '▲', '■', '★'];
 
   // ─── 背景與 UI 色系 ───
-  static const Color bgPrimary = Color(0xFF1A1A2E);
-  static const Color bgSecondary = Color(0xFF16213E);
-  static const Color bgCard = Color(0xFF0F3460);
-  static const Color accentPrimary = Color(0xFF533483);
-  static const Color accentSecondary = Color(0xFFE94560);
-  static const Color textPrimary = Color(0xFFFFFFFF);
-  static const Color textSecondary = Color(0xFFB0B0B0);
+  static const Color bgPrimary = Color(0xFFFFF8F0);
+  static const Color bgSecondary = Color(0xFFF5E6D3);
+  static const Color bgCard = Color(0xFFE8D5B7);
+  static const Color accentPrimary = Color(0xFFD4845A);
+  static const Color accentSecondary = Color(0xFF8B6F4E);
+  static const Color textPrimary = Color(0xFF3E2723);
+  static const Color textSecondary = Color(0xFF8D6E63);
 
   // ─── 圓角 ───
   static const double radiusSmall = 8.0;
@@ -101,9 +99,9 @@ class AppTheme {
   // ─── ThemeData ───
   static ThemeData get darkTheme {
     return ThemeData(
-      brightness: Brightness.dark,
+      brightness: Brightness.light,
       scaffoldBackgroundColor: bgPrimary,
-      colorScheme: const ColorScheme.dark(
+      colorScheme: const ColorScheme.light(
         primary: accentPrimary,
         secondary: accentSecondary,
         surface: bgSecondary,
