@@ -397,7 +397,7 @@ class _CharacterCard extends StatelessWidget {
                                 child: Text(
                                   '${definition.skill.energyCost}',
                                   style: TextStyle(
-                                    color: Colors.amber.shade800,
+                                    color: Colors.amber.shade300,
                                     fontSize: 10,
                                     fontWeight: FontWeight.bold,
                                   ),
