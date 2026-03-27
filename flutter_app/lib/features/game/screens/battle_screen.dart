@@ -436,7 +436,8 @@ class _BattleScreenState extends State<BattleScreen> {
                   builder: (_, game, __) {
                     final gameState = game.state;
                     if ((battle.isBattleOver || (gameState?.status == GameStatus.gameOver && !battle.isBattleOver)) &&
-                        !_victoryAnimPlaying && !_showResult) {
+                        !_victoryAnimPlaying && !_showResult &&
+                        !_isPlayingSequence && _activeRushAnims.isEmpty) {
                       final isVictory = battle.isBattleOver && battle.isVictory;
                       WidgetsBinding.instance.addPostFrameCallback((_) {
                         _saveResult(isVictory, gameState?.score ?? 0);

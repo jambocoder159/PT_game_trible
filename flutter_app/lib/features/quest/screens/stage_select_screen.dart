@@ -181,17 +181,16 @@ class _StageSelectScreenState extends State<StageSelectScreen>
       context: context,
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
-      builder: (ctx) => Consumer<PlayerProvider>(
-        builder: (_, playerProv, __) {
-          final teamAgents = playerProv.teamAgents;
-          final hasEnoughStamina =
-              playerProv.data.stamina >= stage.staminaCost;
-          final hasTeam = playerProv.data.team.isNotEmpty;
-
-          // 使用 ValueNotifier 來持久化編輯狀態
-          var isEditingTeam = false;
-          return StatefulBuilder(
-            builder: (context, setModalState) {
+      builder: (ctx) {
+        var isEditingTeam = false;
+        return StatefulBuilder(
+        builder: (context, setModalState) {
+          return Consumer<PlayerProvider>(
+            builder: (_, playerProv, __) {
+              final teamAgents = playerProv.teamAgents;
+              final hasEnoughStamina =
+                  playerProv.data.stamina >= stage.staminaCost;
+              final hasTeam = playerProv.data.team.isNotEmpty;
               return Container(
                 margin: const EdgeInsets.fromLTRB(12, 0, 12, 12),
                 clipBehavior: Clip.antiAlias,
@@ -908,7 +907,8 @@ class _StageSelectScreenState extends State<StageSelectScreen>
             },
           );
         },
-      ),
+      );
+      },
     );
   }
 

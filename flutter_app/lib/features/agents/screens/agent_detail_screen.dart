@@ -707,19 +707,23 @@ class _TrainingBar extends StatelessWidget {
                 HapticFeedback.lightImpact();
                 provider.addGold(-50);
                 provider.levelUpAgent(definition.id, 30);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('獲得 30 EXP！(消耗 50 金幣)'),
-                    backgroundColor: Colors.green,
-                  ),
-                );
+                ScaffoldMessenger.of(context)
+                  ..clearSnackBars()
+                  ..showSnackBar(
+                    const SnackBar(
+                      content: Text('獲得 30 EXP！(消耗 50 金幣)'),
+                      backgroundColor: Colors.green,
+                    ),
+                  );
               } else {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('金幣不足！'),
-                    backgroundColor: Colors.red,
-                  ),
-                );
+                ScaffoldMessenger.of(context)
+                  ..clearSnackBars()
+                  ..showSnackBar(
+                    const SnackBar(
+                      content: Text('金幣不足！'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
               }
             },
           ),
