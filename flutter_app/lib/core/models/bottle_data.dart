@@ -36,10 +36,14 @@ class BottleStatus {
   int level;
   int currentEnergy;
 
+  /// 預設兌換食材 ID（一鍵兌換時使用）
+  String? defaultIngredientId;
+
   BottleStatus({
     required this.color,
     this.level = 1,
     this.currentEnergy = 0,
+    this.defaultIngredientId,
   });
 
   /// 當前等級的容量上限
@@ -70,6 +74,7 @@ class BottleStatus {
       color: BlockColor.values[json['colorIndex'] as int? ?? 0],
       level: json['level'] as int? ?? 1,
       currentEnergy: json['currentEnergy'] as int? ?? 0,
+      defaultIngredientId: json['defaultIngredientId'] as String?,
     );
   }
 
@@ -77,6 +82,7 @@ class BottleStatus {
     'colorIndex': color.index,
     'level': level,
     'currentEnergy': currentEnergy,
+    if (defaultIngredientId != null) 'defaultIngredientId': defaultIngredientId,
   };
 }
 

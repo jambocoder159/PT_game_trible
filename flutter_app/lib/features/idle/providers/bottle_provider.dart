@@ -192,6 +192,59 @@ class BottleProvider extends ChangeNotifier {
     return true;
   }
 
+  /// 設定某瓶的預設兌換食材
+  void setDefaultIngredient(BlockColor color, String? ingredientId) {
+    final bottle = _bottles[color];
+    if (bottle == null) return;
+    bottle.defaultIngredientId = ingredientId;
+    notifyListeners();
+    _save();
+  }
+
+  /// 取得某瓶的預設兌換食材（若未設定，回傳該瓶等級內能量消耗最低的食材）
+  IngredientDefinition? getDefaultIngredient(BlockColor color) {
+    final bottle = _bottles[color];
+    if (bottle == null) return null;
+
+    if (bottle.defaultIngredientId != null) {
+      final def = IngredientDefinitions.getById(bottle.defaultIngredientId!);
+      if (def != null && def.bottleLevelRequired <= bottle.level) return def;
+    }
+    // 回退：取能量消耗最低的可用食材
+    final available = getAvailableIngredients(color);
+    if (available.isEmpty) return null;
+    available.sort((a, b) => a.energyCost.compareTo(b.energyCost));
+    return available.first;
+  }
+
+  /// 一鍵兌換：遍歷所有瓶子，用預設食材連續兌換至能量不足
+  /// 回傳兌換結果摘要 {ingredientName: count}
+  Map<String, int> convertAllDefault(PlayerData playerData) {
+    final results = <String, int>{};
+    int totalCrits = 0;
+
+    for (final color in BlockColor.values) {
+      final bottle = _bottles[color];
+      if (bottle == null || bottle.currentEnergy <= 0) continue;
+
+      final defaultIngredient = getDefaultIngredient(color);
+      if (defaultIngredient == null) continue;
+
+      while (bottle.currentEnergy >= defaultIngredient.energyCost) {
+        final result = convertIngredient(color, defaultIngredient.id, playerData);
+        if (result == null) break;
+        results[defaultIngredient.name] =
+            (results[defaultIngredient.name] ?? 0) + 1;
+        if (result.isCritical && result.bonusIngredient != null) {
+          results[result.bonusIngredient!.name] =
+              (results[result.bonusIngredient!.name] ?? 0) + 1;
+          totalCrits++;
+        }
+      }
+    }
+    return results;
+  }
+
   /// 檢查瓶子是否可升級
   bool canUpgrade(BlockColor color, PlayerData playerData) {
     final bottle = _bottles[color];

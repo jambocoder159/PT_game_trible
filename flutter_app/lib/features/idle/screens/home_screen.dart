@@ -20,6 +20,7 @@ import '../widgets/player_info_bar.dart';
 import '../widgets/bottom_nav_bar.dart';
 import '../widgets/idle_mini_game.dart';
 import '../widgets/ingredient_panel.dart';
+import '../widgets/auto_eliminate_bar.dart';
 import '../widgets/crafting_panel.dart';
 import '../widgets/energy_orb_overlay.dart';
 import '../../../core/models/cat_agent.dart';
@@ -202,6 +203,25 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  /// 一鍵兌換
+  void _onConvertAll() {
+    final bottleProvider = context.read<BottleProvider>();
+    final playerProvider = context.read<PlayerProvider>();
+    final results = bottleProvider.convertAllDefault(playerProvider.data);
+    if (results.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('能量不足，無法兌換'), duration: Duration(seconds: 1)),
+      );
+      return;
+    }
+    HapticFeedback.mediumImpact();
+    playerProvider.notifyAndSave();
+    final summary = results.entries.map((e) => '${e.key} x${e.value}').join('、');
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('兌換完成：$summary'), duration: const Duration(seconds: 2)),
+    );
+  }
+
   /// 放置頁（首頁）內容
   Widget _buildIdleContent() {
     return SafeArea(
@@ -216,74 +236,32 @@ class _HomeScreenState extends State<HomeScreen> {
                 child: PlayerInfoBar(),
               ),
 
-              // ─── 頂部功能圖示列 ───
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    _TopIconButton(
-                      icon: Icons.settings_rounded,
-                      label: '設置',
-                      onTap: _showSettingsModal,
-                    ),
-                    const SizedBox(width: 8),
-                    _TopIconButton(
-                      icon: Icons.bar_chart_rounded,
-                      label: '數據',
-                      onTap: _showCareerStatsModal,
-                    ),
-                    const SizedBox(width: 8),
-                    _TopIconButton(
-                      icon: Icons.task_alt_rounded,
-                      label: '任務',
-                      onTap: () {
-                        Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (_) => const DailyQuestScreen(),
-                          ),
-                        );
-                      },
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 2),
-
-              // ─── 主體：左側角色+瓶子+CTA / 右側棋盤 ───
+              // ─── 主體：左面板 + 右棋盤 ───
               Expanded(
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 6),
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      // ─── 左側面板：角色 + 瓶子 + CTA ───
+                      // ════ 左側面板 ════
                       SizedBox(
-                        width: 110,
-                        child: Column(
-                          children: [
-                            // 角色展示（緊湊版）
-                            const _CompactCharacterDisplay(),
-                            const Spacer(),
-                            // 魔法瓶（垂直排列）
-                            _VerticalBottleColumn(
-                              bottleKeys: _bottleKeys,
-                              onBottleTap: (color) {
-                                IngredientPanel.show(context, initialColor: color);
-                              },
-                            ),
-                            const Spacer(),
-                            // CTA 按鈕（垂直排列）
-                            _VerticalCtaButtons(
-                              onConvertIngredient: () => IngredientPanel.show(context),
-                              onCraftDessert: () => CraftingPanel.show(context),
-                            ),
-                            const SizedBox(height: 4),
-                          ],
+                        width: 120,
+                        child: _LeftPanel(
+                          bottleKeys: _bottleKeys,
+                          onConvertAll: _onConvertAll,
+                          onConvertIngredient: () => IngredientPanel.show(context),
+                          onCraftDessert: () => CraftingPanel.show(context),
+                          onSettings: _showSettingsModal,
+                          onStats: _showCareerStatsModal,
+                          onDailyQuest: () {
+                            Navigator.of(context).push(
+                              MaterialPageRoute(builder: (_) => const DailyQuestScreen()),
+                            );
+                          },
                         ),
                       ),
                       const SizedBox(width: 4),
-                      // ─── 右側棋盤（佔滿剩餘高度） ───
+                      // ════ 右側棋盤 ════
                       Expanded(
                         child: IdleMiniGame(key: _gameAreaKey),
                       ),
@@ -311,49 +289,6 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 }
-
-/// 頂部功能圖示按鈕
-class _TopIconButton extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final VoidCallback onTap;
-
-  const _TopIconButton({
-    required this.icon,
-    required this.label,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-        decoration: BoxDecoration(
-          color: AppTheme.bgCard,
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: AppTheme.accentSecondary.withAlpha(60)),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, color: AppTheme.textSecondary, size: 14),
-            const SizedBox(width: 4),
-            Text(
-              label,
-              style: TextStyle(
-                color: AppTheme.textSecondary.withAlpha(180),
-                fontSize: 10,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
 
 /// 技能施放 VFX 全屏覆蓋特效
 class _SkillVfxOverlay extends StatefulWidget {
@@ -517,115 +452,259 @@ class _SkillVfxOverlayState extends State<_SkillVfxOverlay>
 }
 
 // ═══════════════════════════════════════════
-// 左側面板用的緊湊版角色展示
+// 左側面板 — CTA 優先、功能集中
 // ═══════════════════════════════════════════
 
-class _CompactCharacterDisplay extends StatelessWidget {
-  const _CompactCharacterDisplay();
+class _LeftPanel extends StatelessWidget {
+  final Map<BlockColor, GlobalKey> bottleKeys;
+  final VoidCallback onConvertAll;
+  final VoidCallback onConvertIngredient;
+  final VoidCallback onCraftDessert;
+  final VoidCallback onSettings;
+  final VoidCallback onStats;
+  final VoidCallback onDailyQuest;
+
+  const _LeftPanel({
+    required this.bottleKeys,
+    required this.onConvertAll,
+    required this.onConvertIngredient,
+    required this.onCraftDessert,
+    required this.onSettings,
+    required this.onStats,
+    required this.onDailyQuest,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return Consumer2<PlayerProvider, IdleProvider>(
-      builder: (context, playerProvider, idleProvider, _) {
+    return Consumer3<PlayerProvider, IdleProvider, BottleProvider>(
+      builder: (context, playerProvider, idleProvider, bottleProvider, _) {
         if (!playerProvider.isInitialized) return const SizedBox.shrink();
 
-        final team = playerProvider.data.team;
-        if (team.isEmpty) {
-          return const SizedBox(
-            height: 100,
-            child: Center(
-              child: Text('?', style: TextStyle(fontSize: 24, color: AppTheme.textSecondary)),
+        return Column(
+          children: [
+            // ── 1. 角色區（緊湊） ──
+            _buildCharacterSection(playerProvider, idleProvider),
+            const SizedBox(height: 6),
+
+            // ── 2. 瓶子區 ──
+            _buildBottleSection(bottleProvider),
+            const SizedBox(height: 8),
+
+            // ── 3. CTA 區（核心操作） ──
+            _buildCtaSection(),
+
+            const Spacer(),
+
+            // ── 4. 功能列（設定/數據/任務） ──
+            _buildToolbar(),
+            const SizedBox(height: 4),
+
+            // ── 5. 自動消除開關 ──
+            const AutoEliminateBar(),
+            const SizedBox(height: 4),
+          ],
+        );
+      },
+    );
+  }
+
+  /// 角色：圖像 + 名稱 + 技能條
+  Widget _buildCharacterSection(PlayerProvider pp, IdleProvider idle) {
+    final team = pp.data.team;
+    if (team.isEmpty) {
+      return const SizedBox(height: 64, child: Center(child: Text('?', style: TextStyle(fontSize: 20, color: AppTheme.textSecondary))));
+    }
+    final agentId = team.first;
+    final agentDef = _findAgentDef(agentId);
+    if (agentDef == null) return const SizedBox.shrink();
+
+    final isReady = idle.isSkillReady(agentId);
+    final energy = idle.getEnergy(agentId);
+    final cost = agentDef.skill.energyCost;
+    final attrColor = _attrColorFor(agentDef.attribute);
+
+    return GestureDetector(
+      onTap: isReady
+          ? () { HapticFeedback.mediumImpact(); idle.activateSkill(agentId); }
+          : null,
+      child: Row(
+        children: [
+          // 角色圖
+          Container(
+            width: 56, height: 56,
+            decoration: BoxDecoration(
+              color: attrColor.withAlpha(25),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(
+                color: isReady ? attrColor.withAlpha(200) : attrColor.withAlpha(60),
+                width: isReady ? 2 : 1,
+              ),
+              boxShadow: isReady ? [BoxShadow(color: attrColor.withAlpha(60), blurRadius: 6)] : null,
             ),
-          );
-        }
-
-        final agentId = team.first;
-        final agentDef = _findAgentDef(agentId);
-        if (agentDef == null) return const SizedBox.shrink();
-
-        final isReady = idleProvider.isSkillReady(agentId);
-        final energy = idleProvider.getEnergy(agentId);
-        final cost = agentDef.skill.energyCost;
-        final attrColor = _attrColorFor(agentDef.attribute);
-
-        return GestureDetector(
-          onTap: isReady
-              ? () {
-                  HapticFeedback.mediumImpact();
-                  idleProvider.activateSkill(agentId);
-                }
-              : null,
-          child: Column(
-            children: [
-              // 角色圖像
-              Container(
-                width: 80,
-                height: 80,
-                decoration: BoxDecoration(
-                  color: attrColor.withAlpha(25),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: isReady ? attrColor.withAlpha(200) : attrColor.withAlpha(60),
-                    width: isReady ? 2.0 : 1.0,
-                  ),
-                  boxShadow: isReady
-                      ? [BoxShadow(color: attrColor.withAlpha(60), blurRadius: 8)]
-                      : null,
-                ),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(11),
-                  child: _buildAgentImg(agentId, agentDef, 80),
-                ),
-              ),
-              const SizedBox(height: 4),
-              // 名稱
-              Text(
-                agentDef.name,
-                style: const TextStyle(
-                  color: AppTheme.textPrimary,
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                ),
-                overflow: TextOverflow.ellipsis,
-              ),
-              const SizedBox(height: 3),
-              // 能量條
-              SizedBox(
-                width: 80,
-                child: ClipRRect(
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(9),
+              child: _buildAgentImg(agentId, agentDef, 56),
+            ),
+          ),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(agentDef.name, style: const TextStyle(color: AppTheme.textPrimary, fontSize: 11, fontWeight: FontWeight.bold), overflow: TextOverflow.ellipsis),
+                const SizedBox(height: 3),
+                ClipRRect(
                   borderRadius: BorderRadius.circular(3),
                   child: LinearProgressIndicator(
-                    value: (energy / cost).clamp(0.0, 1.0),
-                    minHeight: 5,
+                    value: (energy / cost).clamp(0.0, 1.0), minHeight: 5,
                     backgroundColor: AppTheme.bgSecondary,
-                    valueColor: AlwaysStoppedAnimation(
-                      isReady ? attrColor : attrColor.withAlpha(120),
+                    valueColor: AlwaysStoppedAnimation(isReady ? attrColor : attrColor.withAlpha(120)),
+                  ),
+                ),
+                const SizedBox(height: 2),
+                if (isReady)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                    decoration: BoxDecoration(color: attrColor, borderRadius: BorderRadius.circular(4)),
+                    child: const Text('施放！', style: TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold)),
+                  )
+                else
+                  Text('$energy/$cost', style: TextStyle(color: AppTheme.textSecondary.withAlpha(130), fontSize: 8)),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 5 個瓶子進度條
+  Widget _buildBottleSection(BottleProvider bp) {
+    if (!bp.isInitialized) return const SizedBox.shrink();
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: BottleDefinitions.all.map((def) {
+        final bottle = bp.getBottle(def.color);
+        bottleKeys.putIfAbsent(def.color, () => GlobalKey());
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 2),
+          child: GestureDetector(
+            key: bottleKeys[def.color],
+            onTap: () {
+              HapticFeedback.lightImpact();
+              onConvertIngredient();
+            },
+            child: Row(
+              children: [
+                Text(def.emoji, style: const TextStyle(fontSize: 12)),
+                const SizedBox(width: 3),
+                Expanded(
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(2),
+                    child: LinearProgressIndicator(
+                      value: bottle.fillProgress, minHeight: 6,
+                      backgroundColor: AppTheme.bgSecondary,
+                      valueColor: AlwaysStoppedAnimation(def.color.color.withAlpha(bottle.isFull ? 200 : 100)),
                     ),
                   ),
                 ),
-              ),
-              const SizedBox(height: 2),
-              if (isReady)
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: attrColor,
-                    borderRadius: BorderRadius.circular(6),
+                const SizedBox(width: 3),
+                SizedBox(
+                  width: 16,
+                  child: Text(
+                    '${bottle.level}',
+                    style: TextStyle(color: def.color.color, fontSize: 9, fontWeight: FontWeight.bold),
+                    textAlign: TextAlign.center,
                   ),
-                  child: const Text(
-                    '施放！',
-                    style: TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold),
-                  ),
-                )
-              else
-                Text(
-                  '$energy/$cost',
-                  style: TextStyle(color: AppTheme.textSecondary.withAlpha(130), fontSize: 9),
                 ),
-            ],
+              ],
+            ),
           ),
         );
-      },
+      }).toList(),
+    );
+  }
+
+  /// CTA 按鈕區
+  Widget _buildCtaSection() {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // ★ 一鍵兌換 — 最大 CTA
+        GestureDetector(
+          onTap: () { HapticFeedback.mediumImpact(); onConvertAll(); },
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(vertical: 10),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [const Color(0xFF6BAF5B), const Color(0xFF4CAF50)],
+              ),
+              borderRadius: BorderRadius.circular(10),
+              boxShadow: [BoxShadow(color: const Color(0xFF6BAF5B).withAlpha(60), blurRadius: 6)],
+            ),
+            child: const Column(
+              children: [
+                Text('🧪', style: TextStyle(fontSize: 18)),
+                SizedBox(height: 2),
+                Text('一鍵兌換', style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 6),
+        // 選擇兌換（詳細面板）
+        GestureDetector(
+          onTap: () { HapticFeedback.lightImpact(); onConvertIngredient(); },
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(vertical: 5),
+            decoration: BoxDecoration(
+              color: const Color(0xFF6BAF5B).withAlpha(20),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: const Color(0xFF6BAF5B).withAlpha(80)),
+            ),
+            child: const Center(
+              child: Text('選擇兌換...', style: TextStyle(color: Color(0xFF6BAF5B), fontSize: 10)),
+            ),
+          ),
+        ),
+        const SizedBox(height: 6),
+        // 製作甜點
+        GestureDetector(
+          onTap: () { HapticFeedback.lightImpact(); onCraftDessert(); },
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(vertical: 10),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [const Color(0xFFF0B0C8), const Color(0xFFE8A0B8)],
+              ),
+              borderRadius: BorderRadius.circular(10),
+              boxShadow: [BoxShadow(color: const Color(0xFFF0B0C8).withAlpha(60), blurRadius: 6)],
+            ),
+            child: const Column(
+              children: [
+                Text('🧁', style: TextStyle(fontSize: 18)),
+                SizedBox(height: 2),
+                Text('製作甜點', style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// 功能圖示列
+  Widget _buildToolbar() {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+      children: [
+        _ToolbarIcon(icon: Icons.settings_rounded, label: '設置', onTap: onSettings),
+        _ToolbarIcon(icon: Icons.bar_chart_rounded, label: '數據', onTap: onStats),
+        _ToolbarIcon(icon: Icons.task_alt_rounded, label: '任務', onTap: onDailyQuest),
+      ],
     );
   }
 
@@ -653,178 +732,31 @@ class _CompactCharacterDisplay extends StatelessWidget {
   }
 }
 
-// ═══════════════════════════════════════════
-// 左側垂直瓶子列
-// ═══════════════════════════════════════════
-
-class _VerticalBottleColumn extends StatelessWidget {
-  final Map<BlockColor, GlobalKey> bottleKeys;
-  final void Function(BlockColor color)? onBottleTap;
-
-  const _VerticalBottleColumn({
-    required this.bottleKeys,
-    this.onBottleTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Consumer<BottleProvider>(
-      builder: (context, bottleProvider, _) {
-        if (!bottleProvider.isInitialized) return const SizedBox.shrink();
-
-        return Column(
-          mainAxisSize: MainAxisSize.min,
-          children: BottleDefinitions.all.map((def) {
-            final bottle = bottleProvider.getBottle(def.color);
-            bottleKeys.putIfAbsent(def.color, () => GlobalKey());
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 3),
-              child: GestureDetector(
-                key: bottleKeys[def.color],
-                onTap: () {
-                  HapticFeedback.lightImpact();
-                  onBottleTap?.call(def.color);
-                },
-                child: Container(
-                  width: 90,
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-                  decoration: BoxDecoration(
-                    color: AppTheme.bgCard,
-                    borderRadius: BorderRadius.circular(6),
-                    border: Border.all(
-                      color: def.color.color.withAlpha(bottle.isFull ? 180 : 60),
-                    ),
-                  ),
-                  child: Row(
-                    children: [
-                      Text(def.emoji, style: const TextStyle(fontSize: 14)),
-                      const SizedBox(width: 4),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            // 填充進度條
-                            ClipRRect(
-                              borderRadius: BorderRadius.circular(2),
-                              child: LinearProgressIndicator(
-                                value: bottle.fillProgress,
-                                minHeight: 4,
-                                backgroundColor: AppTheme.bgSecondary,
-                                valueColor: AlwaysStoppedAnimation(
-                                  def.color.color.withAlpha(bottle.isFull ? 200 : 100),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(height: 1),
-                            Text(
-                              '${bottle.currentEnergy}',
-                              style: TextStyle(
-                                color: AppTheme.textSecondary.withAlpha(130),
-                                fontSize: 8,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      // 等級徽章
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 1),
-                        decoration: BoxDecoration(
-                          color: def.color.color.withAlpha(180),
-                          borderRadius: BorderRadius.circular(3),
-                        ),
-                        child: Text(
-                          '${bottle.level}',
-                          style: const TextStyle(
-                            color: Colors.white, fontSize: 7, fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            );
-          }).toList(),
-        );
-      },
-    );
-  }
-}
-
-// ═══════════════════════════════════════════
-// 左側垂直 CTA 按鈕
-// ═══════════════════════════════════════════
-
-class _VerticalCtaButtons extends StatelessWidget {
-  final VoidCallback onConvertIngredient;
-  final VoidCallback onCraftDessert;
-
-  const _VerticalCtaButtons({
-    required this.onConvertIngredient,
-    required this.onCraftDessert,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        _SmallCtaButton(
-          label: '轉換食材',
-          emoji: '🧪',
-          color: const Color(0xFF6BAF5B),
-          onTap: onConvertIngredient,
-        ),
-        const SizedBox(height: 4),
-        _SmallCtaButton(
-          label: '製作甜點',
-          emoji: '🧁',
-          color: const Color(0xFFF0B0C8),
-          onTap: onCraftDessert,
-        ),
-      ],
-    );
-  }
-}
-
-class _SmallCtaButton extends StatelessWidget {
+/// 功能列小圖示
+class _ToolbarIcon extends StatelessWidget {
+  final IconData icon;
   final String label;
-  final String emoji;
-  final Color color;
   final VoidCallback onTap;
 
-  const _SmallCtaButton({
-    required this.label,
-    required this.emoji,
-    required this.color,
-    required this.onTap,
-  });
+  const _ToolbarIcon({required this.icon, required this.label, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: () {
-        HapticFeedback.lightImpact();
-        onTap();
-      },
+      onTap: onTap,
       child: Container(
-        width: 90,
-        padding: const EdgeInsets.symmetric(vertical: 6),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
         decoration: BoxDecoration(
-          color: color.withAlpha(25),
+          color: AppTheme.bgCard,
           borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: color.withAlpha(100)),
+          border: Border.all(color: AppTheme.accentSecondary.withAlpha(40)),
         ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Text(emoji, style: const TextStyle(fontSize: 12)),
-            const SizedBox(width: 3),
-            Text(
-              label,
-              style: TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.bold),
-            ),
+            Icon(icon, color: AppTheme.textSecondary, size: 16),
+            const SizedBox(height: 1),
+            Text(label, style: TextStyle(color: AppTheme.textSecondary.withAlpha(150), fontSize: 8)),
           ],
         ),
       ),

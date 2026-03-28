@@ -129,17 +129,25 @@ class _IngredientPanelState extends State<IngredientPanel> {
                   final isUnlocked = availableIds.contains(ingredient.id);
                   final canAfford = bottle.currentEnergy >= ingredient.energyCost;
                   final owned = playerProvider.data.ingredients[ingredient.id] ?? 0;
+                  final isDefault = bottle.defaultIngredientId == ingredient.id;
 
-                  return Container(
+                  return GestureDetector(
+                    onLongPress: isUnlocked
+                        ? () => _setDefault(context, bottleProvider, ingredient)
+                        : null,
+                    child: Container(
                     margin: const EdgeInsets.only(bottom: 6),
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                     decoration: BoxDecoration(
                       color: isUnlocked ? AppTheme.bgCard : AppTheme.bgCard.withAlpha(150),
                       borderRadius: BorderRadius.circular(10),
                       border: Border.all(
-                        color: isUnlocked
-                            ? _tierColor(ingredient.tier).withAlpha(80)
-                            : AppTheme.accentSecondary.withAlpha(30),
+                        color: isDefault
+                            ? const Color(0xFF6BAF5B).withAlpha(180)
+                            : isUnlocked
+                                ? _tierColor(ingredient.tier).withAlpha(80)
+                                : AppTheme.accentSecondary.withAlpha(30),
+                        width: isDefault ? 1.5 : 1.0,
                       ),
                     ),
                     child: Row(
@@ -152,6 +160,16 @@ class _IngredientPanelState extends State<IngredientPanel> {
                             children: [
                               Row(
                                 children: [
+                                  if (isDefault)
+                                    Container(
+                                      margin: const EdgeInsets.only(right: 4),
+                                      padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 1),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFF6BAF5B).withAlpha(30),
+                                        borderRadius: BorderRadius.circular(3),
+                                      ),
+                                      child: const Text('預設', style: TextStyle(color: Color(0xFF6BAF5B), fontSize: 8)),
+                                    ),
                                   Text(
                                     ingredient.name,
                                     style: TextStyle(
@@ -223,6 +241,7 @@ class _IngredientPanelState extends State<IngredientPanel> {
                           ),
                       ],
                     ),
+                  ),
                   );
                 }),
 
@@ -241,6 +260,22 @@ class _IngredientPanelState extends State<IngredientPanel> {
         );
       },
     );
+  }
+
+  void _setDefault(
+    BuildContext context,
+    BottleProvider bottleProvider,
+    IngredientDefinition ingredient,
+  ) {
+    bottleProvider.setDefaultIngredient(_selectedColor, ingredient.id);
+    HapticFeedback.lightImpact();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('已設 ${ingredient.name} 為 ${_selectedColor.label}瓶的預設兌換'),
+        duration: const Duration(seconds: 1),
+      ),
+    );
+    setState(() {});
   }
 
   void _convert(
