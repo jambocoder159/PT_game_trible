@@ -486,20 +486,18 @@ class _LeftPanel extends StatelessWidget {
             _buildCharacterSection(playerProvider, idleProvider),
             const SizedBox(height: 6),
 
-            // ── 2. 瓶子區 ──
+            // ── 2. 瓶子區（放大，顯示預設食材）──
             _buildBottleSection(bottleProvider),
-            const SizedBox(height: 8),
+            const SizedBox(height: 6),
 
-            // ── 3. CTA 區（核心操作） ──
-            _buildCtaSection(),
+            // ── 3. CTA 組合鍵：一鍵兌換 + 製作甜點 ──
+            _buildCtaGroup(),
 
             const Spacer(),
 
-            // ── 4. 功能列（設定/數據/任務） ──
+            // ── 4. 功能列 + 自動消除 ──
             _buildToolbar(),
-            const SizedBox(height: 4),
-
-            // ── 5. 自動消除開關 ──
+            const SizedBox(height: 3),
             const AutoEliminateBar(),
             const SizedBox(height: 4),
           ],
@@ -512,7 +510,7 @@ class _LeftPanel extends StatelessWidget {
   Widget _buildCharacterSection(PlayerProvider pp, IdleProvider idle) {
     final team = pp.data.team;
     if (team.isEmpty) {
-      return const SizedBox(height: 64, child: Center(child: Text('?', style: TextStyle(fontSize: 20, color: AppTheme.textSecondary))));
+      return const SizedBox(height: 48, child: Center(child: Text('?', style: TextStyle(fontSize: 20, color: AppTheme.textSecondary))));
     }
     final agentId = team.first;
     final agentDef = _findAgentDef(agentId);
@@ -529,9 +527,8 @@ class _LeftPanel extends StatelessWidget {
           : null,
       child: Row(
         children: [
-          // 角色圖
           Container(
-            width: 56, height: 56,
+            width: 44, height: 44,
             decoration: BoxDecoration(
               color: attrColor.withAlpha(25),
               borderRadius: BorderRadius.circular(10),
@@ -543,16 +540,16 @@ class _LeftPanel extends StatelessWidget {
             ),
             child: ClipRRect(
               borderRadius: BorderRadius.circular(9),
-              child: _buildAgentImg(agentId, agentDef, 56),
+              child: _buildAgentImg(agentId, agentDef, 44),
             ),
           ),
-          const SizedBox(width: 6),
+          const SizedBox(width: 5),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(agentDef.name, style: const TextStyle(color: AppTheme.textPrimary, fontSize: 11, fontWeight: FontWeight.bold), overflow: TextOverflow.ellipsis),
-                const SizedBox(height: 3),
+                Text(agentDef.name, style: const TextStyle(color: AppTheme.textPrimary, fontSize: 10, fontWeight: FontWeight.bold), overflow: TextOverflow.ellipsis),
+                const SizedBox(height: 2),
                 ClipRRect(
                   borderRadius: BorderRadius.circular(3),
                   child: LinearProgressIndicator(
@@ -564,7 +561,7 @@ class _LeftPanel extends StatelessWidget {
                 const SizedBox(height: 2),
                 if (isReady)
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
                     decoration: BoxDecoration(color: attrColor, borderRadius: BorderRadius.circular(4)),
                     child: const Text('施放！', style: TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold)),
                   )
@@ -578,46 +575,86 @@ class _LeftPanel extends StatelessWidget {
     );
   }
 
-  /// 5 個瓶子進度條
+  /// 5 個瓶子（放大版 — 每瓶一行，顯示預設食材）
   Widget _buildBottleSection(BottleProvider bp) {
     if (!bp.isInitialized) return const SizedBox.shrink();
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: BottleDefinitions.all.map((def) {
         final bottle = bp.getBottle(def.color);
+        final defaultIng = bp.getDefaultIngredient(def.color);
         bottleKeys.putIfAbsent(def.color, () => GlobalKey());
         return Padding(
-          padding: const EdgeInsets.only(bottom: 2),
+          padding: const EdgeInsets.only(bottom: 3),
           child: GestureDetector(
             key: bottleKeys[def.color],
             onTap: () {
               HapticFeedback.lightImpact();
               onConvertIngredient();
             },
-            child: Row(
-              children: [
-                Text(def.emoji, style: const TextStyle(fontSize: 12)),
-                const SizedBox(width: 3),
-                Expanded(
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(2),
-                    child: LinearProgressIndicator(
-                      value: bottle.fillProgress, minHeight: 6,
-                      backgroundColor: AppTheme.bgSecondary,
-                      valueColor: AlwaysStoppedAnimation(def.color.color.withAlpha(bottle.isFull ? 200 : 100)),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 4),
+              decoration: BoxDecoration(
+                color: AppTheme.bgCard,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: def.color.color.withAlpha(bottle.isFull ? 180 : 50)),
+              ),
+              child: Row(
+                children: [
+                  // 瓶子圖示
+                  Text(def.emoji, style: const TextStyle(fontSize: 16)),
+                  const SizedBox(width: 4),
+                  // 中間區：進度條 + 預設食材
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // 進度條
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(3),
+                          child: LinearProgressIndicator(
+                            value: bottle.fillProgress, minHeight: 8,
+                            backgroundColor: AppTheme.bgSecondary,
+                            valueColor: AlwaysStoppedAnimation(def.color.color.withAlpha(bottle.isFull ? 220 : 120)),
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        // 預設食材 + 能量值
+                        Row(
+                          children: [
+                            if (defaultIng != null)
+                              Text(
+                                '${defaultIng.emoji}${defaultIng.name}',
+                                style: TextStyle(color: AppTheme.textSecondary.withAlpha(150), fontSize: 8),
+                                overflow: TextOverflow.ellipsis,
+                              )
+                            else
+                              Text('點擊選擇', style: TextStyle(color: AppTheme.textSecondary.withAlpha(100), fontSize: 8)),
+                            const Spacer(),
+                            Text(
+                              '${bottle.currentEnergy}',
+                              style: TextStyle(color: AppTheme.textSecondary.withAlpha(130), fontSize: 8),
+                            ),
+                          ],
+                        ),
+                      ],
                     ),
                   ),
-                ),
-                const SizedBox(width: 3),
-                SizedBox(
-                  width: 16,
-                  child: Text(
-                    '${bottle.level}',
-                    style: TextStyle(color: def.color.color, fontSize: 9, fontWeight: FontWeight.bold),
-                    textAlign: TextAlign.center,
+                  const SizedBox(width: 3),
+                  // 等級
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: def.color.color.withAlpha(180),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text(
+                      '${bottle.level}',
+                      style: const TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold),
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         );
@@ -625,74 +662,76 @@ class _LeftPanel extends StatelessWidget {
     );
   }
 
-  /// CTA 按鈕區
-  Widget _buildCtaSection() {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        // ★ 一鍵兌換 — 最大 CTA
-        GestureDetector(
-          onTap: () { HapticFeedback.mediumImpact(); onConvertAll(); },
-          child: Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(vertical: 10),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [const Color(0xFF6BAF5B), const Color(0xFF4CAF50)],
+  /// CTA 組合鍵：一鍵兌換 + 製作甜點
+  Widget _buildCtaGroup() {
+    return Container(
+      decoration: BoxDecoration(
+        color: AppTheme.bgCard.withAlpha(200),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppTheme.accentSecondary.withAlpha(40)),
+      ),
+      child: Column(
+        children: [
+          // 一鍵兌換
+          GestureDetector(
+            onTap: () { HapticFeedback.mediumImpact(); onConvertAll(); },
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 10),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [const Color(0xFF6BAF5B), const Color(0xFF4CAF50)],
+                ),
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(11)),
               ),
-              borderRadius: BorderRadius.circular(10),
-              boxShadow: [BoxShadow(color: const Color(0xFF6BAF5B).withAlpha(60), blurRadius: 6)],
-            ),
-            child: const Column(
-              children: [
-                Text('🧪', style: TextStyle(fontSize: 18)),
-                SizedBox(height: 2),
-                Text('一鍵兌換', style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
-              ],
-            ),
-          ),
-        ),
-        const SizedBox(height: 6),
-        // 選擇兌換（詳細面板）
-        GestureDetector(
-          onTap: () { HapticFeedback.lightImpact(); onConvertIngredient(); },
-          child: Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(vertical: 5),
-            decoration: BoxDecoration(
-              color: const Color(0xFF6BAF5B).withAlpha(20),
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: const Color(0xFF6BAF5B).withAlpha(80)),
-            ),
-            child: const Center(
-              child: Text('選擇兌換...', style: TextStyle(color: Color(0xFF6BAF5B), fontSize: 10)),
-            ),
-          ),
-        ),
-        const SizedBox(height: 6),
-        // 製作甜點
-        GestureDetector(
-          onTap: () { HapticFeedback.lightImpact(); onCraftDessert(); },
-          child: Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(vertical: 10),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [const Color(0xFFF0B0C8), const Color(0xFFE8A0B8)],
+              child: const Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text('🧪', style: TextStyle(fontSize: 16)),
+                  SizedBox(width: 4),
+                  Text('一鍵兌換', style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold)),
+                ],
               ),
-              borderRadius: BorderRadius.circular(10),
-              boxShadow: [BoxShadow(color: const Color(0xFFF0B0C8).withAlpha(60), blurRadius: 6)],
-            ),
-            child: const Column(
-              children: [
-                Text('🧁', style: TextStyle(fontSize: 18)),
-                SizedBox(height: 2),
-                Text('製作甜點', style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
-              ],
             ),
           ),
-        ),
-      ],
+          // 分隔：選擇兌換
+          GestureDetector(
+            onTap: () { HapticFeedback.lightImpact(); onConvertIngredient(); },
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              color: const Color(0xFF6BAF5B).withAlpha(15),
+              child: const Center(
+                child: Text('選擇兌換 ▸', style: TextStyle(color: Color(0xFF6BAF5B), fontSize: 9)),
+              ),
+            ),
+          ),
+          // 分隔線
+          Container(height: 1, color: AppTheme.accentSecondary.withAlpha(30)),
+          // 製作甜點
+          GestureDetector(
+            onTap: () { HapticFeedback.lightImpact(); onCraftDessert(); },
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 10),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [const Color(0xFFF0B0C8), const Color(0xFFE8A0B8)],
+                ),
+                borderRadius: const BorderRadius.vertical(bottom: Radius.circular(11)),
+              ),
+              child: const Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text('🧁', style: TextStyle(fontSize: 16)),
+                  SizedBox(width: 4),
+                  Text('製作甜點', style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold)),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 

@@ -50,12 +50,12 @@ class _IdleMiniGameState extends State<IdleMiniGame>
   }
 
   _BoardLayout _calcLayout(BoxConstraints constraints, int numCols, int numRows) {
-    final gap = 3.0;
+    final gap = 4.0;
     final availableWidth = constraints.maxWidth - (numCols + 1) * gap;
     final availableHeight = constraints.maxHeight - (numRows + 1) * gap;
     final blockByWidth = availableWidth / numCols;
     final blockByHeight = availableHeight / numRows;
-    final blockSize = blockByWidth.clamp(28.0, blockByHeight.clamp(28.0, 48.0));
+    final blockSize = blockByWidth.clamp(36.0, blockByHeight.clamp(36.0, 56.0));
     final cellSize = blockSize + gap;
     return _BoardLayout(
       blockSize: blockSize,
