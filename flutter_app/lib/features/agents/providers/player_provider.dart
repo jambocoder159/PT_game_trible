@@ -745,9 +745,19 @@ class PlayerProvider extends ChangeNotifier {
 
   // ─── 教學相關 ───
 
-  /// 完成教學
+  /// 完成教學（發放新手獎勵）
   Future<void> completeTutorial() async {
     _data.tutorialCompleted = true;
+    // 教學完成獎勵
+    _data.gold += 300;
+    _data.diamonds += 20;
+    await _save();
+    notifyListeners();
+  }
+
+  /// 完成首頁導覽
+  Future<void> completeHomeGuide() async {
+    _data.homeGuideCompleted = true;
     await _save();
     notifyListeners();
   }
@@ -755,6 +765,7 @@ class PlayerProvider extends ChangeNotifier {
   /// 重置教學（GM 用）
   Future<void> gmResetTutorial() async {
     _data.tutorialCompleted = false;
+    _data.homeGuideCompleted = false;
     await _save();
     notifyListeners();
   }

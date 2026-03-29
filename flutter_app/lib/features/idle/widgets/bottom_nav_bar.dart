@@ -4,7 +4,7 @@ import '../../../config/theme.dart';
 /// 底部遊戲導航列
 class GameBottomNavBar extends StatelessWidget {
   final int currentIndex;
-  final ValueChanged<int> onTap;
+  final ValueChanged<int>? onTap;
 
   const GameBottomNavBar({
     super.key,
@@ -47,7 +47,7 @@ class GameBottomNavBar extends StatelessWidget {
 
           return Expanded(
             child: GestureDetector(
-              onTap: () => onTap(index),
+              onTap: onTap != null ? () => onTap!(index) : null,
               behavior: HitTestBehavior.opaque,
               child: _NavBarItem(
                 icon: item.icon,

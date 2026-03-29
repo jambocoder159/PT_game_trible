@@ -23,6 +23,7 @@ import '../widgets/ingredient_panel.dart';
 import '../widgets/auto_eliminate_bar.dart';
 import '../widgets/crafting_panel.dart';
 import '../widgets/energy_orb_overlay.dart';
+import '../widgets/home_guide_overlay.dart';
 import '../../../core/models/cat_agent.dart';
 
 /// 首頁 — 放置型遊戲大廳
@@ -50,12 +51,18 @@ class _HomeScreenState extends State<HomeScreen> {
   // 遊戲區域 GlobalKey（用於定位能量球起點）
   final GlobalKey _gameAreaKey = GlobalKey();
 
+  // 首頁導覽用 GlobalKey
+  final GlobalKey _guideBottleAreaKey = GlobalKey();
+  final GlobalKey _guideNavBarKey = GlobalKey();
+  bool _showHomeGuide = false;
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _startIdleGame();
       _setupEnergyListener();
+      _checkHomeGuide();
     });
   }
 
@@ -79,6 +86,23 @@ class _HomeScreenState extends State<HomeScreen> {
     // 設定隊伍（技能系統用）
     final team = context.read<PlayerProvider>().data.team;
     idle.setTeam(team);
+  }
+
+  void _checkHomeGuide() {
+    final player = context.read<PlayerProvider>();
+    if (player.isInitialized && !player.data.homeGuideCompleted) {
+      // 延遲一幀讓 UI 完全渲染後再顯示導覽
+      Future.delayed(const Duration(milliseconds: 600), () {
+        if (mounted) {
+          setState(() => _showHomeGuide = true);
+        }
+      });
+    }
+  }
+
+  void _onHomeGuideComplete() {
+    context.read<PlayerProvider>().completeHomeGuide();
+    setState(() => _showHomeGuide = false);
   }
 
   void _setupEnergyListener() {
@@ -181,25 +205,64 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      // ─── 固定底部導航列 ───
-      bottomNavigationBar: SafeArea(
-        top: false,
-        child: GameBottomNavBar(
-          currentIndex: _currentNavIndex,
-          onTap: _onNavTap,
+    return Stack(
+      children: [
+        Scaffold(
+          // ─── 固定底部導航列 ───
+          bottomNavigationBar: SafeArea(
+            top: false,
+            child: KeyedSubtree(
+              key: _guideNavBarKey,
+              child: GameBottomNavBar(
+                currentIndex: _currentNavIndex,
+                onTap: _showHomeGuide ? null : _onNavTap,
+              ),
+            ),
+          ),
+          body: IndexedStack(
+            index: _currentNavIndex,
+            children: [
+              const BackpackScreen(),       // 0: 背包
+              const AgentListScreen(),      // 1: 角色
+              _buildIdleContent(),          // 2: 放置
+              const StageSelectScreen(),    // 3: 闖關
+              const ShopScreen(),           // 4: 商店
+            ],
+          ),
         ),
-      ),
-      body: IndexedStack(
-        index: _currentNavIndex,
-        children: [
-          const BackpackScreen(),       // 0: 背包
-          const AgentListScreen(),      // 1: 角色
-          _buildIdleContent(),          // 2: 放置
-          const StageSelectScreen(),    // 3: 闖關
-          const ShopScreen(),           // 4: 商店
-        ],
-      ),
+
+        // ─── 首頁導覽 Overlay ───
+        if (_showHomeGuide)
+          HomeGuideOverlay(
+            steps: [
+              HomeGuideStep(
+                title: '🎮 這是你的採集棋盤！',
+                description: '方塊會自動掉落，你可以點擊消除它們。\n'
+                    '消除方塊會產生能量，餵養左邊的瓶子！',
+                buttonText: '原來如此！',
+                highlightKey: _gameAreaKey,
+              ),
+              HomeGuideStep(
+                title: '🧪 能量瓶子系統',
+                description: '5 個顏色的瓶子會收集對應的能量。\n'
+                    '瓶子滿了就能兌換食材，製作甜點！',
+                buttonText: '了解！',
+                highlightKey: _guideBottleAreaKey,
+              ),
+              HomeGuideStep(
+                title: '⚔️ 去闖關吧！',
+                description: '闖關可以解鎖新夥伴、獲得金幣和經驗！\n'
+                    '先來挑戰第一關，看看你的實力！',
+                buttonText: '出發闖關！',
+                highlightKey: _guideNavBarKey,
+              ),
+            ],
+            onComplete: _onHomeGuideComplete,
+            onSwitchTab: (index) {
+              setState(() => _currentNavIndex = index);
+            },
+          ),
+      ],
     );
   }
 
@@ -248,6 +311,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         width: 120,
                         child: _LeftPanel(
                           bottleKeys: _bottleKeys,
+                          bottleAreaKey: _guideBottleAreaKey,
                           onConvertAll: _onConvertAll,
                           onConvertIngredient: () => IngredientPanel.show(context),
                           onCraftDessert: () => CraftingPanel.show(context),
@@ -457,6 +521,7 @@ class _SkillVfxOverlayState extends State<_SkillVfxOverlay>
 
 class _LeftPanel extends StatelessWidget {
   final Map<BlockColor, GlobalKey> bottleKeys;
+  final GlobalKey? bottleAreaKey;
   final VoidCallback onConvertAll;
   final VoidCallback onConvertIngredient;
   final VoidCallback onCraftDessert;
@@ -466,6 +531,7 @@ class _LeftPanel extends StatelessWidget {
 
   const _LeftPanel({
     required this.bottleKeys,
+    this.bottleAreaKey,
     required this.onConvertAll,
     required this.onConvertIngredient,
     required this.onCraftDessert,
@@ -487,7 +553,7 @@ class _LeftPanel extends StatelessWidget {
             const SizedBox(height: 6),
 
             // ── 2. 瓶子區（放大，顯示預設食材）──
-            _buildBottleSection(bottleProvider),
+            _wrapWithKey(bottleAreaKey, _buildBottleSection(bottleProvider)),
             const SizedBox(height: 6),
 
             // ── 3. CTA 組合鍵：一鍵兌換 + 製作甜點 ──
@@ -507,6 +573,12 @@ class _LeftPanel extends StatelessWidget {
   }
 
   /// 角色：圖像 + 名稱 + 技能條
+  /// 用 Key 包裝 widget（null 時不包）
+  Widget _wrapWithKey(GlobalKey? key, Widget child) {
+    if (key == null) return child;
+    return KeyedSubtree(key: key, child: child);
+  }
+
   Widget _buildCharacterSection(PlayerProvider pp, IdleProvider idle) {
     final team = pp.data.team;
     if (team.isEmpty) {
