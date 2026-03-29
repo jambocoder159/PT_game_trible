@@ -56,6 +56,9 @@ class _HomeScreenState extends State<HomeScreen> {
   final GlobalKey _guideNavBarKey = GlobalKey();
   bool _showHomeGuide = false;
 
+  // 瓶子滿提示節流（避免重複提醒）
+  final Set<BlockColor> _notifiedFullBottles = {};
+
   @override
   void initState() {
     super.initState();
@@ -144,7 +147,37 @@ class _HomeScreenState extends State<HomeScreen> {
       for (final event in events) {
         bottleProvider.addEnergyBatch(event.energyByColor);
       }
+      _checkBottleFull(bottleProvider);
     });
+  }
+
+  /// 檢查瓶子是否滿了 → 首次滿時顯示 SnackBar 提示
+  void _checkBottleFull(BottleProvider bp) {
+    if (_showHomeGuide || _currentNavIndex != 2) return;
+
+    for (final color in BlockColor.values) {
+      final bottle = bp.getBottle(color);
+      if (bottle.isFull && !_notifiedFullBottles.contains(color)) {
+        _notifiedFullBottles.add(color);
+        final def = BottleDefinitions.all.firstWhere((d) => d.color == color);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('${def.emoji} 瓶子滿了！點擊「一鍵兌換」獲得食材！'),
+            duration: const Duration(seconds: 3),
+            behavior: SnackBarBehavior.floating,
+            action: SnackBarAction(
+              label: '兌換',
+              onPressed: _onConvertAll,
+            ),
+          ),
+        );
+        return; // 一次只提示一個瓶子
+      }
+      // 瓶子被兌換後（不再滿），移除記錄以便下次再提醒
+      if (!bottle.isFull) {
+        _notifiedFullBottles.remove(color);
+      }
+    }
   }
 
   /// 發射能量球：從遊戲區中心飛向對應顏色的瓶子
@@ -213,9 +246,30 @@ class _HomeScreenState extends State<HomeScreen> {
             top: false,
             child: KeyedSubtree(
               key: _guideNavBarKey,
-              child: GameBottomNavBar(
-                currentIndex: _currentNavIndex,
-                onTap: _showHomeGuide ? null : _onNavTap,
+              child: Consumer<PlayerProvider>(
+                builder: (_, player, __) {
+                  final badges = <int>{};
+                  if (player.isInitialized) {
+                    // 新手任務有可領取獎勵 → 闖關 Tab 紅點
+                    player.refreshNewbieQuests();
+                    final nq = player.data.newbieQuests;
+                    final hasUnclaimedNewbie = nq.completedIds.any(
+                      (id) => !nq.claimedIds.contains(id),
+                    );
+                    if (hasUnclaimedNewbie) badges.add(3);
+
+                    // 每日任務有可領取 → 也在闖關 Tab（引導玩家進入任務中心）
+                    final dq = player.data.dailyQuests;
+                    if (!dq.needsReset && dq.allCompleted && !dq.rewardsClaimed) {
+                      badges.add(3);
+                    }
+                  }
+                  return GameBottomNavBar(
+                    currentIndex: _currentNavIndex,
+                    onTap: _showHomeGuide ? null : _onNavTap,
+                    badges: badges,
+                  );
+                },
               ),
             ),
           ),

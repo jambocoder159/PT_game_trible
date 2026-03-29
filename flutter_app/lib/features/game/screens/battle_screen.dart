@@ -61,6 +61,10 @@ class _BattleScreenState extends State<BattleScreen> {
   String? _skillBannerSkillName;
   Color? _skillBannerColor;
 
+  // 首戰引導
+  int _battleGuideStep = -1; // -1=不顯示, 0=第一步, 1=第二步
+  bool _isFirstBattle = false;
+
   @override
   void initState() {
     super.initState();
@@ -70,6 +74,13 @@ class _BattleScreenState extends State<BattleScreen> {
         bossDialogues.containsKey(widget.stage.chapter)) {
       _showBossIntro = true;
     }
+    // 首戰引導：1-1 且從未通過任何關卡
+    final progress = context.read<PlayerProvider>().data.stageProgress;
+    if (widget.stage.id == '1-1' && !progress.values.any((p) => p.cleared)) {
+      _isFirstBattle = true;
+      _battleGuideStep = 0;
+    }
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _initBattle();
     });
@@ -476,6 +487,19 @@ class _BattleScreenState extends State<BattleScreen> {
                     onComplete: () {
                       if (mounted) {
                         setState(() => _showBossIntro = false);
+                      }
+                    },
+                  ),
+
+                // 首戰引導 Overlay
+                if (_battleGuideStep >= 0)
+                  _FirstBattleGuide(
+                    step: _battleGuideStep,
+                    onNext: () {
+                      if (_battleGuideStep >= 1) {
+                        setState(() => _battleGuideStep = -1);
+                      } else {
+                        setState(() => _battleGuideStep++);
                       }
                     },
                   ),
@@ -4522,6 +4546,143 @@ class _BossIntroOverlayState extends State<_BossIntroOverlay>
           ),
         );
       },
+    );
+  }
+}
+
+// ═══════════════════════════════════════════
+// 首戰引導 Overlay（1-1 首次進入時顯示）
+// ═══════════════════════════════════════════
+
+class _FirstBattleGuide extends StatelessWidget {
+  final int step;
+  final VoidCallback onNext;
+
+  const _FirstBattleGuide({
+    required this.step,
+    required this.onNext,
+  });
+
+  static const _steps = [
+    (
+      title: '⚔️ 消除方塊攻擊搗蛋鬼！',
+      description: '消除棋盤上的方塊就能對搗蛋鬼造成傷害。\n'
+          '消除越多、連鎖越長，傷害越高！\n\n'
+          '注意左上方搗蛋鬼的血量條！',
+      buttonText: '了解！',
+    ),
+    (
+      title: '🐱 夥伴技能',
+      description: '消除方塊時，左側夥伴的技能條會充能。\n'
+          '充滿後會自動施放技能 — 造成大量傷害！\n\n'
+          '準備好了嗎？開始戰鬥吧！',
+      buttonText: '開始戰鬥！',
+    ),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    final s = _steps[step.clamp(0, _steps.length - 1)];
+
+    return Stack(
+      children: [
+        // 半透明遮罩
+        Positioned.fill(
+          child: GestureDetector(
+            onTap: () {},
+            child: Container(color: Colors.black.withAlpha(140)),
+          ),
+        ),
+
+        // 對話框
+        Positioned(
+          left: 20,
+          right: 20,
+          bottom: MediaQuery.of(context).padding.bottom + 24,
+          child: Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: _panelBg,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: _woodBorder, width: 2),
+              boxShadow: [
+                BoxShadow(
+                  color: _woodDark.withAlpha(60),
+                  blurRadius: 16,
+                  spreadRadius: 2,
+                ),
+              ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  s.title,
+                  style: const TextStyle(
+                    color: Color(0xFF5D4037),
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  s.description,
+                  style: TextStyle(
+                    color: const Color(0xFF5D4037).withAlpha(200),
+                    fontSize: 14,
+                    height: 1.5,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: onNext,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: _woodDark,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                    child: Text(
+                      s.buttonText,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+
+        // 步驟指示器
+        Positioned(
+          left: 0,
+          right: 0,
+          bottom: MediaQuery.of(context).padding.bottom + 8,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: List.generate(_steps.length, (i) {
+              final active = i == step;
+              return Container(
+                margin: const EdgeInsets.symmetric(horizontal: 3),
+                width: active ? 20 : 8,
+                height: 8,
+                decoration: BoxDecoration(
+                  color: active ? _woodDark : _woodMid.withAlpha(120),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+              );
+            }),
+          ),
+        ),
+      ],
     );
   }
 }
