@@ -5,7 +5,9 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import '../../../config/cat_agent_data.dart';
 import '../../../config/image_assets.dart';
+import '../../../core/models/cat_agent.dart';
 import '../../../config/stage_data.dart';
 import '../../../config/theme.dart';
 import '../../../core/models/player_data.dart';
@@ -175,6 +177,215 @@ class _StageSelectScreenState extends State<StageSelectScreen>
   ) {
     final progress = playerProvider.data.stageProgress[stage.id];
     final isFirstClear = progress?.cleared != true;
+
+    // 首次進入且有解鎖夥伴 → 先彈出解鎖提醒
+    if (isFirstClear && stage.reward.unlockAgentId != null) {
+      final agentDef = CatAgentData.getById(stage.reward.unlockAgentId!);
+      if (agentDef != null) {
+        _showUnlockReminderDialog(context, stage, agentDef, playerProvider);
+        return;
+      }
+    }
+
+    _showStageSummarySheet(context, stage, playerProvider);
+  }
+
+  /// 解鎖夥伴提醒彈窗
+  void _showUnlockReminderDialog(
+    BuildContext context,
+    StageDefinition stage,
+    CatAgentDefinition agentDef,
+    PlayerProvider playerProvider,
+  ) {
+    final attrColor = agentDef.attribute.blockColor.color;
+    final avatarPath = ImageAssets.avatarImage(agentDef.id);
+    final hasEnoughStamina = playerProvider.data.stamina >= stage.staminaCost;
+    final hasTeam = playerProvider.data.team.isNotEmpty;
+    final canBattle = hasEnoughStamina && hasTeam;
+
+    showDialog(
+      context: context,
+      barrierColor: Colors.black54,
+      builder: (ctx) => Dialog(
+        backgroundColor: AppTheme.bgCard,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+          side: BorderSide(color: attrColor.withAlpha(100), width: 1.5),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(24, 20, 24, 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // 標題
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Text('🎉', style: TextStyle(fontSize: 22)),
+                  const SizedBox(width: 8),
+                  const Text(
+                    '可解鎖新夥伴！',
+                    style: TextStyle(
+                      color: AppTheme.textPrimary,
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+
+              // 角色預覽
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: attrColor.withAlpha(20),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: attrColor.withAlpha(60)),
+                ),
+                child: Row(
+                  children: [
+                    // 頭像
+                    Container(
+                      width: 56,
+                      height: 56,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: attrColor.withAlpha(120)),
+                        color: AppTheme.bgCard,
+                      ),
+                      clipBehavior: Clip.antiAlias,
+                      child: avatarPath != null
+                          ? Image.asset(avatarPath, fit: BoxFit.cover,
+                              errorBuilder: (_, __, ___) => Center(
+                                child: Text(agentDef.attribute.emoji,
+                                    style: const TextStyle(fontSize: 24)),
+                              ))
+                          : Center(
+                              child: Text(agentDef.attribute.emoji,
+                                  style: const TextStyle(fontSize: 24)),
+                            ),
+                    ),
+                    const SizedBox(width: 12),
+                    // 名稱 + 資訊
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            agentDef.name,
+                            style: TextStyle(
+                              color: attrColor,
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            '${agentDef.rarity.display} · ${agentDef.role.label}型',
+                            style: const TextStyle(
+                              color: AppTheme.textSecondary,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 12),
+
+              // 關卡資訊
+              Text(
+                '通關 ${stage.id}「${stage.name}」即可解鎖',
+                style: const TextStyle(
+                  color: AppTheme.textSecondary,
+                  fontSize: 13,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              if (!canBattle) ...[
+                const SizedBox(height: 6),
+                Text(
+                  !hasTeam ? '（需先編排隊伍）' : '（體力不足）',
+                  style: TextStyle(
+                    color: Colors.red.shade400,
+                    fontSize: 11,
+                  ),
+                ),
+              ],
+              const SizedBox(height: 18),
+
+              // 按鈕
+              Row(
+                children: [
+                  // 稍後
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () {
+                        Navigator.pop(ctx);
+                        _showStageSummarySheet(context, stage, playerProvider);
+                      },
+                      style: OutlinedButton.styleFrom(
+                        side: BorderSide(color: AppTheme.accentSecondary.withAlpha(80)),
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: const Text(
+                        '查看詳情',
+                        style: TextStyle(
+                          color: AppTheme.textSecondary,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  // 馬上出戰
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: canBattle
+                          ? () {
+                              Navigator.pop(ctx);
+                              _launchBattle(context, stage, playerProvider);
+                            }
+                          : null,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: attrColor,
+                        disabledBackgroundColor: Colors.grey.shade400,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: const Text(
+                        '馬上解鎖！',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showStageSummarySheet(
+    BuildContext context,
+    StageDefinition stage,
+    PlayerProvider playerProvider,
+  ) {
+    final progress = playerProvider.data.stageProgress[stage.id];
+    final isFirstClear = progress?.cleared != true;
     final bgPath = ImageAssets.battleBackground(stage.chapter);
 
     showModalBottomSheet(
@@ -220,7 +431,7 @@ class _StageSelectScreenState extends State<StageSelectScreen>
                     if (bgPath != null)
                       Positioned.fill(
                         child: Container(
-                          color: AppTheme.accentSecondary.withAlpha(160),
+                          color: AppTheme.bgPrimary.withAlpha(220),
                         ),
                       ),
                     // ─── 前景內容 ───
@@ -522,41 +733,6 @@ class _StageSelectScreenState extends State<StageSelectScreen>
                                   ),
                                 ],
                               ),
-
-                              // 解鎖角色提示
-                              if (stage.reward.unlockAgentId != null &&
-                                  isFirstClear) ...[
-                                const SizedBox(height: 10),
-                                Container(
-                                  width: double.infinity,
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 12, vertical: 8),
-                                  decoration: BoxDecoration(
-                                    color: Colors.amber.withAlpha(20),
-                                    borderRadius:
-                                        BorderRadius.circular(8),
-                                    border: Border.all(
-                                        color:
-                                            Colors.amber.withAlpha(60)),
-                                  ),
-                                  child: Row(
-                                    children: [
-                                      const Text('🎉',
-                                          style:
-                                              TextStyle(fontSize: 16)),
-                                      const SizedBox(width: 8),
-                                      Text(
-                                        '首次通關可解鎖新夥伴！',
-                                        style: TextStyle(
-                                          color: Colors.amber.shade300,
-                                          fontSize: 12,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ],
 
                               const SizedBox(height: 14),
 
@@ -884,7 +1060,7 @@ class _StageSelectScreenState extends State<StageSelectScreen>
                                     backgroundColor:
                                         AppTheme.accentSecondary,
                                     disabledBackgroundColor:
-                                        Colors.grey.shade800,
+                                        Colors.grey.shade400,
                                     padding:
                                         const EdgeInsets.symmetric(
                                             vertical: 14),
