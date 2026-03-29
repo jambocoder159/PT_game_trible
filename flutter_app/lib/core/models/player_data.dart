@@ -38,6 +38,20 @@ class PlayerData {
   // 素材庫存（GameMaterial.name → 數量）
   Map<String, int> materials;
 
+  // ── 放置模式：瓶子 / 食材 / 甜點 ──
+
+  // 食材庫存（ingredientId → 數量）
+  Map<String, int> ingredients;
+
+  // 甜點庫存（dessertId → 數量）
+  Map<String, int> desserts;
+
+  // 瓶子狀態（colorIndex 字串 → serialized BottleStatus）
+  Map<String, dynamic> bottleStates;
+
+  // 已解鎖的食譜 ID（purchase 類型需手動解鎖）
+  Set<String> unlockedRecipes;
+
   PlayerData({
     this.playerLevel = 1,
     this.playerExp = 0,
@@ -54,6 +68,10 @@ class PlayerData {
     WeeklyCheckInData? weeklyCheckIn,
     NewbieQuestData? newbieQuests,
     Map<String, int>? materials,
+    Map<String, int>? ingredients,
+    Map<String, int>? desserts,
+    Map<String, dynamic>? bottleStates,
+    Set<String>? unlockedRecipes,
   })  : lastStaminaRecover = lastStaminaRecover ?? DateTime.now(),
         agents = agents ?? {},
         team = team ?? [],
@@ -61,7 +79,11 @@ class PlayerData {
         dailyQuests = dailyQuests ?? DailyQuestData(),
         weeklyCheckIn = weeklyCheckIn ?? WeeklyCheckInData(),
         newbieQuests = newbieQuests ?? NewbieQuestData(),
-        materials = materials ?? {};
+        materials = materials ?? {},
+        ingredients = ingredients ?? {},
+        desserts = desserts ?? {},
+        bottleStates = bottleStates ?? {},
+        unlockedRecipes = unlockedRecipes ?? {};
 
   /// 建立新玩家的初始資料
   factory PlayerData.newPlayer() {
@@ -99,6 +121,16 @@ class PlayerData {
       (k, v) => MapEntry(k, v as int),
     );
 
+    final ingredientsJson = json['ingredients'] as Map<String, dynamic>? ?? {};
+    final ingredients = ingredientsJson.map(
+      (k, v) => MapEntry(k, v as int),
+    );
+
+    final dessertsJson = json['desserts'] as Map<String, dynamic>? ?? {};
+    final desserts = dessertsJson.map(
+      (k, v) => MapEntry(k, v as int),
+    );
+
     return PlayerData(
       playerLevel: json['playerLevel'] as int? ?? 1,
       playerExp: json['playerExp'] as int? ?? 0,
@@ -123,6 +155,10 @@ class PlayerData {
           ? NewbieQuestData.fromJson(json['newbieQuests'] as Map<String, dynamic>)
           : NewbieQuestData(),
       materials: materials,
+      ingredients: ingredients,
+      desserts: desserts,
+      bottleStates: json['bottleStates'] as Map<String, dynamic>? ?? {},
+      unlockedRecipes: (json['unlockedRecipes'] as List<dynamic>?)?.cast<String>().toSet() ?? {},
     );
   }
 
@@ -144,6 +180,10 @@ class PlayerData {
       'weeklyCheckIn': weeklyCheckIn.toJson(),
       'newbieQuests': newbieQuests.toJson(),
       'materials': materials,
+      'ingredients': ingredients,
+      'desserts': desserts,
+      'bottleStates': bottleStates,
+      'unlockedRecipes': unlockedRecipes.toList(),
     };
   }
 

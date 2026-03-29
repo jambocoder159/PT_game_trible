@@ -10,6 +10,8 @@ import 'features/game/providers/battle_provider.dart';
 import 'features/agents/providers/player_provider.dart';
 import 'features/idle/providers/idle_provider.dart';
 import 'features/idle/providers/cat_provider.dart';
+import 'features/idle/providers/bottle_provider.dart';
+import 'features/idle/providers/crafting_provider.dart';
 import 'features/idle/screens/home_screen.dart';
 import 'features/tutorial/screens/tutorial_screen.dart';
 
@@ -59,6 +61,12 @@ class Match3App extends StatelessWidget {
           provider.init();
           return provider;
         }),
+        ChangeNotifierProvider(create: (_) {
+          final provider = BottleProvider();
+          provider.init();
+          return provider;
+        }),
+        ChangeNotifierProvider(create: (_) => CraftingProvider()),
       ],
       child: MaterialApp(
         title: '貓咪點心屋',

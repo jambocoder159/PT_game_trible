@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../../config/image_assets.dart';
+import '../../../config/cat_agent_data.dart';
 import '../../../config/theme.dart';
 import '../../agents/providers/player_provider.dart';
 import '../../agents/screens/agent_list_screen.dart';
@@ -10,15 +12,16 @@ import '../../shop/screens/shop_screen.dart';
 import '../../daily/screens/daily_quest_screen.dart';
 import '../../settings/screens/settings_screen.dart';
 import '../../profile/screens/player_profile_screen.dart';
-import '../../../core/services/local_storage.dart';
-import '../../../core/models/cat_data.dart';
 import '../../../core/models/block.dart';
+import '../../../core/models/bottle_data.dart';
 import '../providers/idle_provider.dart';
-import '../providers/cat_provider.dart';
+import '../providers/bottle_provider.dart';
 import '../widgets/player_info_bar.dart';
 import '../widgets/bottom_nav_bar.dart';
 import '../widgets/idle_mini_game.dart';
-import '../widgets/cat_panel.dart';
+import '../widgets/ingredient_panel.dart';
+import '../widgets/auto_eliminate_bar.dart';
+import '../widgets/crafting_panel.dart';
 import '../widgets/energy_orb_overlay.dart';
 import '../../../core/models/cat_agent.dart';
 
@@ -32,7 +35,6 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   int _currentNavIndex = 2; // 放置（首頁）為預設
-  bool _boardOnLeft = true;
 
   // 能量球動畫
   final EnergyOrbController _orbController = EnergyOrbController();
@@ -42,8 +44,8 @@ class _HomeScreenState extends State<HomeScreen> {
   AgentAttribute? _skillVfxAttribute;
   String? _skillVfxAgentName;
 
-  // 貓咪 GlobalKey（用於定位能量球目標位置）
-  final Map<String, GlobalKey> _catKeys = {};
+  // 瓶子 GlobalKey（用於定位能量球目標位置）
+  final Map<BlockColor, GlobalKey> _bottleKeys = {};
 
   // 遊戲區域 GlobalKey（用於定位能量球起點）
   final GlobalKey _gameAreaKey = GlobalKey();
@@ -52,23 +54,9 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _loadBoardPosition();
       _startIdleGame();
-      _setupFoodListener();
+      _setupEnergyListener();
     });
-  }
-
-  void _loadBoardPosition() {
-    final storage = LocalStorageService.instance;
-    final saved = storage.getJson('board_on_left');
-    if (saved is bool) {
-      setState(() => _boardOnLeft = saved);
-    }
-  }
-
-  void _toggleBoardPosition() {
-    setState(() => _boardOnLeft = !_boardOnLeft);
-    LocalStorageService.instance.setJson('board_on_left', _boardOnLeft);
   }
 
   void _startIdleGame() {
@@ -93,7 +81,7 @@ class _HomeScreenState extends State<HomeScreen> {
     idle.setTeam(team);
   }
 
-  void _setupFoodListener() {
+  void _setupEnergyListener() {
     final idle = context.read<IdleProvider>();
     idle.addListener(_onIdleUpdate);
   }
@@ -113,33 +101,30 @@ class _HomeScreenState extends State<HomeScreen> {
       idle.consumeSkillVfx();
     }
 
-    final catProvider = context.read<CatProvider>();
+    final bottleProvider = context.read<BottleProvider>();
     final playerProvider = context.read<PlayerProvider>();
 
-    if (!playerProvider.isInitialized || !catProvider.isInitialized) return;
+    if (!playerProvider.isInitialized || !bottleProvider.isInitialized) return;
 
-    final events = idle.consumeFoodEvents();
+    final events = idle.consumeEnergyEvents();
     if (events.isEmpty) return;
 
-    final playerLevel = playerProvider.data.playerLevel;
-
-    // 為每個食物事件發射能量球
+    // 為每個能量事件發射能量球（飛向瓶子）
     for (final event in events) {
-      _spawnEnergyOrbs(event.foodByColor);
+      _spawnEnergyOrbs(event.energyByColor);
     }
 
-    // 餵食（延遲一點，讓能量球先飛一會兒）
+    // 延遲一點讓能量球先飛，再填充瓶子
     Future.delayed(const Duration(milliseconds: 350), () {
       if (!mounted) return;
       for (final event in events) {
-        catProvider.feedMultiple(event.foodByColor, playerLevel);
+        bottleProvider.addEnergyBatch(event.energyByColor);
       }
     });
   }
 
-  /// 發射能量球：從遊戲區中心飛向對應貓咪
-  void _spawnEnergyOrbs(Map<BlockColor, int> foodByColor) {
-    // 取得遊戲區域中心位置（螢幕座標）
+  /// 發射能量球：從遊戲區中心飛向對應顏色的瓶子
+  void _spawnEnergyOrbs(Map<BlockColor, int> energyByColor) {
     final gameBox =
         _gameAreaKey.currentContext?.findRenderObject() as RenderBox?;
     if (gameBox == null) return;
@@ -147,29 +132,24 @@ class _HomeScreenState extends State<HomeScreen> {
       Offset(gameBox.size.width / 2, gameBox.size.height / 2),
     );
 
-    for (final entry in foodByColor.entries) {
+    for (final entry in energyByColor.entries) {
       final color = entry.key;
-      final amount = entry.value;
 
-      // 找到對應貓咪的位置
-      final catDef = CatDefinitions.getByColor(color);
-      if (catDef == null) continue;
-      final catKey = _catKeys[catDef.id];
-      if (catKey == null) continue;
+      final bottleKey = _bottleKeys[color];
+      if (bottleKey == null) continue;
 
-      final catBox =
-          catKey.currentContext?.findRenderObject() as RenderBox?;
-      if (catBox == null) continue;
-      final catCenter = catBox.localToGlobal(
-        Offset(catBox.size.width / 2, catBox.size.height / 2),
+      final bottleBox =
+          bottleKey.currentContext?.findRenderObject() as RenderBox?;
+      if (bottleBox == null) continue;
+      final bottleCenter = bottleBox.localToGlobal(
+        Offset(bottleBox.size.width / 2, bottleBox.size.height / 2),
       );
 
-      // 發射能量球（最多顯示 3 顆，避免太多）
       _orbController.spawnOrbs(
         color: color,
         start: gameCenter,
-        end: catCenter,
-        count: amount.clamp(1, 3),
+        end: bottleCenter,
+        count: 1,
       );
     }
   }
@@ -190,10 +170,7 @@ class _HomeScreenState extends State<HomeScreen> {
   void _showSettingsModal() {
     Navigator.of(context).push(
       MaterialPageRoute(builder: (_) => const SettingsScreen()),
-    ).then((_) {
-      // 返回時重新載入棋盤位置（可能在設定頁被更改）
-      _loadBoardPosition();
-    });
+    );
   }
 
   void _showCareerStatsModal() {
@@ -226,6 +203,25 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  /// 一鍵兌換
+  void _onConvertAll() {
+    final bottleProvider = context.read<BottleProvider>();
+    final playerProvider = context.read<PlayerProvider>();
+    final results = bottleProvider.convertAllDefault(playerProvider.data);
+    if (results.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('能量不足，無法兌換'), duration: Duration(seconds: 1)),
+      );
+      return;
+    }
+    HapticFeedback.mediumImpact();
+    playerProvider.notifyAndSave();
+    final summary = results.entries.map((e) => '${e.key} x${e.value}').join('、');
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('兌換完成：$summary'), duration: const Duration(seconds: 2)),
+    );
+  }
+
   /// 放置頁（首頁）內容
   Widget _buildIdleContent() {
     return SafeArea(
@@ -240,68 +236,36 @@ class _HomeScreenState extends State<HomeScreen> {
                 child: PlayerInfoBar(),
               ),
 
-              // ─── 頂部功能圖示列 ───
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    _TopIconButton(
-                      icon: Icons.settings_rounded,
-                      label: '設置',
-                      onTap: _showSettingsModal,
-                    ),
-                    const SizedBox(width: 8),
-                    _TopIconButton(
-                      icon: Icons.bar_chart_rounded,
-                      label: '數據',
-                      onTap: _showCareerStatsModal,
-                    ),
-                    const SizedBox(width: 8),
-                    _TopIconButton(
-                      icon: Icons.task_alt_rounded,
-                      label: '任務',
-                      onTap: () {
-                        Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (_) => const DailyQuestScreen(),
-                          ),
-                        );
-                      },
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 2),
-
-              // ─── 主體：遊戲 + 貓咪（可切換左右） ───
+              // ─── 主體：左面板 + 右棋盤 ───
               Expanded(
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 6),
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
                   child: Row(
-                    children: _boardOnLeft
-                        ? [
-                            Expanded(
-                              flex: 6,
-                              child: IdleMiniGame(key: _gameAreaKey),
-                            ),
-                            const SizedBox(width: 4),
-                            Expanded(
-                              flex: 4,
-                              child: CatPanel(catKeys: _catKeys),
-                            ),
-                          ]
-                        : [
-                            Expanded(
-                              flex: 4,
-                              child: CatPanel(catKeys: _catKeys),
-                            ),
-                            const SizedBox(width: 4),
-                            Expanded(
-                              flex: 6,
-                              child: IdleMiniGame(key: _gameAreaKey),
-                            ),
-                          ],
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      // ════ 左側面板 ════
+                      SizedBox(
+                        width: 120,
+                        child: _LeftPanel(
+                          bottleKeys: _bottleKeys,
+                          onConvertAll: _onConvertAll,
+                          onConvertIngredient: () => IngredientPanel.show(context),
+                          onCraftDessert: () => CraftingPanel.show(context),
+                          onSettings: _showSettingsModal,
+                          onStats: _showCareerStatsModal,
+                          onDailyQuest: () {
+                            Navigator.of(context).push(
+                              MaterialPageRoute(builder: (_) => const DailyQuestScreen()),
+                            );
+                          },
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      // ════ 右側棋盤 ════
+                      Expanded(
+                        child: IdleMiniGame(key: _gameAreaKey),
+                      ),
+                    ],
                   ),
                 ),
               ),
@@ -325,49 +289,6 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 }
-
-/// 頂部功能圖示按鈕
-class _TopIconButton extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final VoidCallback onTap;
-
-  const _TopIconButton({
-    required this.icon,
-    required this.label,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-        decoration: BoxDecoration(
-          color: AppTheme.bgCard,
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: AppTheme.accentSecondary.withAlpha(60)),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, color: AppTheme.textSecondary, size: 14),
-            const SizedBox(width: 4),
-            Text(
-              label,
-              style: TextStyle(
-                color: AppTheme.textSecondary.withAlpha(180),
-                fontSize: 10,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
 
 /// 技能施放 VFX 全屏覆蓋特效
 class _SkillVfxOverlay extends StatefulWidget {
@@ -527,5 +448,374 @@ class _SkillVfxOverlayState extends State<_SkillVfxOverlay>
         );
       },
     );
+  }
+}
+
+// ═══════════════════════════════════════════
+// 左側面板 — CTA 優先、功能集中
+// ═══════════════════════════════════════════
+
+class _LeftPanel extends StatelessWidget {
+  final Map<BlockColor, GlobalKey> bottleKeys;
+  final VoidCallback onConvertAll;
+  final VoidCallback onConvertIngredient;
+  final VoidCallback onCraftDessert;
+  final VoidCallback onSettings;
+  final VoidCallback onStats;
+  final VoidCallback onDailyQuest;
+
+  const _LeftPanel({
+    required this.bottleKeys,
+    required this.onConvertAll,
+    required this.onConvertIngredient,
+    required this.onCraftDessert,
+    required this.onSettings,
+    required this.onStats,
+    required this.onDailyQuest,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Consumer3<PlayerProvider, IdleProvider, BottleProvider>(
+      builder: (context, playerProvider, idleProvider, bottleProvider, _) {
+        if (!playerProvider.isInitialized) return const SizedBox.shrink();
+
+        return Column(
+          children: [
+            // ── 1. 角色區（緊湊） ──
+            _buildCharacterSection(playerProvider, idleProvider),
+            const SizedBox(height: 6),
+
+            // ── 2. 瓶子區（放大，顯示預設食材）──
+            _buildBottleSection(bottleProvider),
+            const SizedBox(height: 6),
+
+            // ── 3. CTA 組合鍵：一鍵兌換 + 製作甜點 ──
+            _buildCtaGroup(),
+
+            const Spacer(),
+
+            // ── 4. 功能列 + 自動消除 ──
+            _buildToolbar(),
+            const SizedBox(height: 3),
+            const AutoEliminateBar(),
+            const SizedBox(height: 4),
+          ],
+        );
+      },
+    );
+  }
+
+  /// 角色：圖像 + 名稱 + 技能條
+  Widget _buildCharacterSection(PlayerProvider pp, IdleProvider idle) {
+    final team = pp.data.team;
+    if (team.isEmpty) {
+      return const SizedBox(height: 48, child: Center(child: Text('?', style: TextStyle(fontSize: 20, color: AppTheme.textSecondary))));
+    }
+    final agentId = team.first;
+    final agentDef = _findAgentDef(agentId);
+    if (agentDef == null) return const SizedBox.shrink();
+
+    final isReady = idle.isSkillReady(agentId);
+    final energy = idle.getEnergy(agentId);
+    final cost = agentDef.skill.energyCost;
+    final attrColor = _attrColorFor(agentDef.attribute);
+
+    return GestureDetector(
+      onTap: isReady
+          ? () { HapticFeedback.mediumImpact(); idle.activateSkill(agentId); }
+          : null,
+      child: Row(
+        children: [
+          Container(
+            width: 44, height: 44,
+            decoration: BoxDecoration(
+              color: attrColor.withAlpha(25),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(
+                color: isReady ? attrColor.withAlpha(200) : attrColor.withAlpha(60),
+                width: isReady ? 2 : 1,
+              ),
+              boxShadow: isReady ? [BoxShadow(color: attrColor.withAlpha(60), blurRadius: 6)] : null,
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(9),
+              child: _buildAgentImg(agentId, agentDef, 44),
+            ),
+          ),
+          const SizedBox(width: 5),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(agentDef.name, style: const TextStyle(color: AppTheme.textPrimary, fontSize: 10, fontWeight: FontWeight.bold), overflow: TextOverflow.ellipsis),
+                const SizedBox(height: 2),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(3),
+                  child: LinearProgressIndicator(
+                    value: (energy / cost).clamp(0.0, 1.0), minHeight: 5,
+                    backgroundColor: AppTheme.bgSecondary,
+                    valueColor: AlwaysStoppedAnimation(isReady ? attrColor : attrColor.withAlpha(120)),
+                  ),
+                ),
+                const SizedBox(height: 2),
+                if (isReady)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                    decoration: BoxDecoration(color: attrColor, borderRadius: BorderRadius.circular(4)),
+                    child: const Text('施放！', style: TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold)),
+                  )
+                else
+                  Text('$energy/$cost', style: TextStyle(color: AppTheme.textSecondary.withAlpha(130), fontSize: 8)),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 5 個瓶子（放大版 — 每瓶一行，顯示預設食材）
+  Widget _buildBottleSection(BottleProvider bp) {
+    if (!bp.isInitialized) return const SizedBox.shrink();
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: BottleDefinitions.all.map((def) {
+        final bottle = bp.getBottle(def.color);
+        final defaultIng = bp.getDefaultIngredient(def.color);
+        bottleKeys.putIfAbsent(def.color, () => GlobalKey());
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 3),
+          child: GestureDetector(
+            key: bottleKeys[def.color],
+            onTap: () {
+              HapticFeedback.lightImpact();
+              onConvertIngredient();
+            },
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 4),
+              decoration: BoxDecoration(
+                color: AppTheme.bgCard,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: def.color.color.withAlpha(bottle.isFull ? 180 : 50)),
+              ),
+              child: Row(
+                children: [
+                  // 瓶子圖示
+                  Text(def.emoji, style: const TextStyle(fontSize: 16)),
+                  const SizedBox(width: 4),
+                  // 中間區：進度條 + 預設食材
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // 進度條
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(3),
+                          child: LinearProgressIndicator(
+                            value: bottle.fillProgress, minHeight: 8,
+                            backgroundColor: AppTheme.bgSecondary,
+                            valueColor: AlwaysStoppedAnimation(def.color.color.withAlpha(bottle.isFull ? 220 : 120)),
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        // 預設食材 + 能量值
+                        Row(
+                          children: [
+                            if (defaultIng != null)
+                              Text(
+                                '${defaultIng.emoji}${defaultIng.name}',
+                                style: TextStyle(color: AppTheme.textSecondary.withAlpha(150), fontSize: 8),
+                                overflow: TextOverflow.ellipsis,
+                              )
+                            else
+                              Text('點擊選擇', style: TextStyle(color: AppTheme.textSecondary.withAlpha(100), fontSize: 8)),
+                            const Spacer(),
+                            Text(
+                              '${bottle.currentEnergy}',
+                              style: TextStyle(color: AppTheme.textSecondary.withAlpha(130), fontSize: 8),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 3),
+                  // 等級
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: def.color.color.withAlpha(180),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text(
+                      '${bottle.level}',
+                      style: const TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      }).toList(),
+    );
+  }
+
+  /// CTA 組合鍵：一鍵兌換 + 製作甜點
+  Widget _buildCtaGroup() {
+    return Container(
+      decoration: BoxDecoration(
+        color: AppTheme.bgCard.withAlpha(200),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppTheme.accentSecondary.withAlpha(40)),
+      ),
+      child: Column(
+        children: [
+          // 一鍵兌換
+          GestureDetector(
+            onTap: () { HapticFeedback.mediumImpact(); onConvertAll(); },
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 10),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [const Color(0xFF6BAF5B), const Color(0xFF4CAF50)],
+                ),
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(11)),
+              ),
+              child: const Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text('🧪', style: TextStyle(fontSize: 16)),
+                  SizedBox(width: 4),
+                  Text('一鍵兌換', style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold)),
+                ],
+              ),
+            ),
+          ),
+          // 分隔：選擇兌換
+          GestureDetector(
+            onTap: () { HapticFeedback.lightImpact(); onConvertIngredient(); },
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              color: const Color(0xFF6BAF5B).withAlpha(15),
+              child: const Center(
+                child: Text('選擇兌換 ▸', style: TextStyle(color: Color(0xFF6BAF5B), fontSize: 9)),
+              ),
+            ),
+          ),
+          // 分隔線
+          Container(height: 1, color: AppTheme.accentSecondary.withAlpha(30)),
+          // 製作甜點
+          GestureDetector(
+            onTap: () { HapticFeedback.lightImpact(); onCraftDessert(); },
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 10),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [const Color(0xFFF0B0C8), const Color(0xFFE8A0B8)],
+                ),
+                borderRadius: const BorderRadius.vertical(bottom: Radius.circular(11)),
+              ),
+              child: const Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text('🧁', style: TextStyle(fontSize: 16)),
+                  SizedBox(width: 4),
+                  Text('製作甜點', style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold)),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 功能圖示列
+  Widget _buildToolbar() {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+      children: [
+        _ToolbarIcon(icon: Icons.settings_rounded, label: '設置', onTap: onSettings),
+        _ToolbarIcon(icon: Icons.bar_chart_rounded, label: '數據', onTap: onStats),
+        _ToolbarIcon(icon: Icons.task_alt_rounded, label: '任務', onTap: onDailyQuest),
+      ],
+    );
+  }
+
+  static Widget _buildAgentImg(String agentId, CatAgentDefinition agentDef, double size) {
+    final iconPath = ImageAssets.iconImage(agentId);
+    if (iconPath == null) {
+      return Center(
+        child: GameIcon(
+          assetPath: ImageAssets.attributeIcon(agentDef.attribute),
+          fallbackEmoji: agentDef.attribute.emoji,
+          size: size * 0.5,
+        ),
+      );
+    }
+    return Image.asset(
+      iconPath, width: size, height: size, fit: BoxFit.cover,
+      errorBuilder: (_, __, ___) => Center(
+        child: GameIcon(
+          assetPath: ImageAssets.attributeIcon(agentDef.attribute),
+          fallbackEmoji: agentDef.attribute.emoji,
+          size: size * 0.5,
+        ),
+      ),
+    );
+  }
+}
+
+/// 功能列小圖示
+class _ToolbarIcon extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  const _ToolbarIcon({required this.icon, required this.label, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+        decoration: BoxDecoration(
+          color: AppTheme.bgCard,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: AppTheme.accentSecondary.withAlpha(40)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, color: AppTheme.textSecondary, size: 16),
+            const SizedBox(height: 1),
+            Text(label, style: TextStyle(color: AppTheme.textSecondary.withAlpha(150), fontSize: 8)),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+CatAgentDefinition? _findAgentDef(String agentId) {
+  for (final a in CatAgentData.allAgents) {
+    if (a.id == agentId) return a;
+  }
+  return null;
+}
+
+Color _attrColorFor(AgentAttribute attr) {
+  switch (attr) {
+    case AgentAttribute.attributeA: return const Color(0xFFFF6B6B);
+    case AgentAttribute.attributeB: return const Color(0xFF51CF66);
+    case AgentAttribute.attributeC: return const Color(0xFF4DABF7);
+    case AgentAttribute.attributeD: return const Color(0xFFFFD43B);
+    case AgentAttribute.attributeE: return const Color(0xFFCC5DE8);
   }
 }

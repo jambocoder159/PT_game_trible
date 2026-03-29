@@ -5,8 +5,6 @@ import '../../../config/theme.dart';
 import '../../../core/models/block.dart';
 import '../../game/widgets/block_widget.dart';
 import '../providers/idle_provider.dart';
-import 'auto_eliminate_bar.dart';
-
 /// 首頁簡化版消除遊戲（3×8 棋盤，支援點擊消除 + 長按/滑動移動）
 class IdleMiniGame extends StatefulWidget {
   const IdleMiniGame({super.key});
@@ -52,12 +50,12 @@ class _IdleMiniGameState extends State<IdleMiniGame>
   }
 
   _BoardLayout _calcLayout(BoxConstraints constraints, int numCols, int numRows) {
-    final gap = 3.0;
+    final gap = 4.0;
     final availableWidth = constraints.maxWidth - (numCols + 1) * gap;
     final availableHeight = constraints.maxHeight - (numRows + 1) * gap;
     final blockByWidth = availableWidth / numCols;
     final blockByHeight = availableHeight / numRows;
-    final blockSize = blockByWidth.clamp(28.0, blockByHeight.clamp(28.0, 48.0));
+    final blockSize = blockByWidth.clamp(36.0, blockByHeight.clamp(36.0, 56.0));
     final cellSize = blockSize + gap;
     return _BoardLayout(
       blockSize: blockSize,
@@ -248,11 +246,6 @@ class _IdleMiniGameState extends State<IdleMiniGame>
                         ),
                       ],
                     ),
-                  ),
-                  // 自動消除狀態列
-                  const Padding(
-                    padding: EdgeInsets.only(bottom: 3),
-                    child: AutoEliminateBar(),
                   ),
                   // Combo 顯示（棋盤外部）
                   if (state.combo > 1)
