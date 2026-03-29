@@ -247,26 +247,6 @@ class _IdleMiniGameState extends State<IdleMiniGame>
                       ],
                     ),
                   ),
-                  // Combo 顯示（棋盤外部）
-                  if (state.combo > 1)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 4),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
-                        decoration: BoxDecoration(
-                          color: AppTheme.accentSecondary,
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: Text(
-                          '${state.combo}x Combo',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                    ),
                   _IdleInteractionLayer(
                 layout: layout,
                 numCols: numCols,

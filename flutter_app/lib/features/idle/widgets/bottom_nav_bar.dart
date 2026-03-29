@@ -4,12 +4,15 @@ import '../../../config/theme.dart';
 /// 底部遊戲導航列
 class GameBottomNavBar extends StatelessWidget {
   final int currentIndex;
-  final ValueChanged<int> onTap;
+  final ValueChanged<int>? onTap;
+  /// 需要顯示紅點的 Tab index 集合
+  final Set<int> badges;
 
   const GameBottomNavBar({
     super.key,
     required this.currentIndex,
     required this.onTap,
+    this.badges = const {},
   });
 
   static const _items = [
@@ -47,12 +50,13 @@ class GameBottomNavBar extends StatelessWidget {
 
           return Expanded(
             child: GestureDetector(
-              onTap: () => onTap(index),
+              onTap: onTap != null ? () => onTap!(index) : null,
               behavior: HitTestBehavior.opaque,
               child: _NavBarItem(
                 icon: item.icon,
                 label: item.label,
                 isSelected: isSelected,
+                showBadge: badges.contains(index),
               ),
             ),
           );
@@ -72,11 +76,13 @@ class _NavBarItem extends StatelessWidget {
   final IconData icon;
   final String label;
   final bool isSelected;
+  final bool showBadge;
 
   const _NavBarItem({
     required this.icon,
     required this.label,
     required this.isSelected,
+    this.showBadge = false,
   });
 
   @override
@@ -88,16 +94,35 @@ class _NavBarItem extends StatelessWidget {
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-          decoration: BoxDecoration(
-            color: isSelected
-                ? AppTheme.accentSecondary.withAlpha(30)
-                : Colors.transparent,
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Icon(icon, color: color, size: 22),
+        Stack(
+          clipBehavior: Clip.none,
+          children: [
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+              decoration: BoxDecoration(
+                color: isSelected
+                    ? AppTheme.accentSecondary.withAlpha(30)
+                    : Colors.transparent,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(icon, color: color, size: 22),
+            ),
+            // 紅點 Badge
+            if (showBadge)
+              Positioned(
+                right: 8,
+                top: 0,
+                child: Container(
+                  width: 8,
+                  height: 8,
+                  decoration: const BoxDecoration(
+                    color: Color(0xFFFF4444),
+                    shape: BoxShape.circle,
+                  ),
+                ),
+              ),
+          ],
         ),
         const SizedBox(height: 2),
         Text(

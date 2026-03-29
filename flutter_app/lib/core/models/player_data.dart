@@ -35,6 +35,9 @@ class PlayerData {
   // 新手引導
   bool tutorialCompleted;
 
+  // 首頁導覽（教學完成後的放置大廳引導）
+  bool homeGuideCompleted;
+
   // 素材庫存（GameMaterial.name → 數量）
   Map<String, int> materials;
 
@@ -60,6 +63,7 @@ class PlayerData {
     this.stamina = 60,
     this.maxStamina = 60,
     this.tutorialCompleted = false,
+    this.homeGuideCompleted = false,
     DateTime? lastStaminaRecover,
     Map<String, CatAgentInstance>? agents,
     List<String>? team,
@@ -139,6 +143,7 @@ class PlayerData {
       stamina: json['stamina'] as int? ?? 60,
       maxStamina: json['maxStamina'] as int? ?? 60,
       tutorialCompleted: json['tutorialCompleted'] as bool? ?? false,
+      homeGuideCompleted: json['homeGuideCompleted'] as bool? ?? false,
       lastStaminaRecover: json['lastStaminaRecover'] != null
           ? DateTime.parse(json['lastStaminaRecover'] as String)
           : DateTime.now(),
@@ -172,6 +177,7 @@ class PlayerData {
       'stamina': stamina,
       'maxStamina': maxStamina,
       'tutorialCompleted': tutorialCompleted,
+      'homeGuideCompleted': homeGuideCompleted,
       'lastStaminaRecover': lastStaminaRecover.toIso8601String(),
       'agents': agents.map((k, v) => MapEntry(k, v.toJson())),
       'team': team,

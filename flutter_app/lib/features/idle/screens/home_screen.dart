@@ -23,6 +23,9 @@ import '../widgets/ingredient_panel.dart';
 import '../widgets/auto_eliminate_bar.dart';
 import '../widgets/crafting_panel.dart';
 import '../widgets/energy_orb_overlay.dart';
+import '../widgets/home_guide_overlay.dart';
+import '../providers/crafting_provider.dart';
+import '../../../config/ingredient_data.dart';
 import '../../../core/models/cat_agent.dart';
 
 /// 首頁 — 放置型遊戲大廳
@@ -50,12 +53,21 @@ class _HomeScreenState extends State<HomeScreen> {
   // 遊戲區域 GlobalKey（用於定位能量球起點）
   final GlobalKey _gameAreaKey = GlobalKey();
 
+  // 首頁導覽用 GlobalKey
+  final GlobalKey _guideBottleAreaKey = GlobalKey();
+  final GlobalKey _guideNavBarKey = GlobalKey();
+  bool _showHomeGuide = false;
+
+  // 瓶子滿提示節流（避免重複提醒）
+  final Set<BlockColor> _notifiedFullBottles = {};
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _startIdleGame();
       _setupEnergyListener();
+      _checkHomeGuide();
     });
   }
 
@@ -79,6 +91,23 @@ class _HomeScreenState extends State<HomeScreen> {
     // 設定隊伍（技能系統用）
     final team = context.read<PlayerProvider>().data.team;
     idle.setTeam(team);
+  }
+
+  void _checkHomeGuide() {
+    final player = context.read<PlayerProvider>();
+    if (player.isInitialized && !player.data.homeGuideCompleted) {
+      // 延遲一幀讓 UI 完全渲染後再顯示導覽
+      Future.delayed(const Duration(milliseconds: 600), () {
+        if (mounted) {
+          setState(() => _showHomeGuide = true);
+        }
+      });
+    }
+  }
+
+  void _onHomeGuideComplete() {
+    context.read<PlayerProvider>().completeHomeGuide();
+    setState(() => _showHomeGuide = false);
   }
 
   void _setupEnergyListener() {
@@ -120,7 +149,37 @@ class _HomeScreenState extends State<HomeScreen> {
       for (final event in events) {
         bottleProvider.addEnergyBatch(event.energyByColor);
       }
+      _checkBottleFull(bottleProvider);
     });
+  }
+
+  /// 檢查瓶子是否滿了 → 首次滿時顯示 SnackBar 提示
+  void _checkBottleFull(BottleProvider bp) {
+    if (_showHomeGuide || _currentNavIndex != 2) return;
+
+    for (final color in BlockColor.values) {
+      final bottle = bp.getBottle(color);
+      if (bottle.isFull && !_notifiedFullBottles.contains(color)) {
+        _notifiedFullBottles.add(color);
+        final def = BottleDefinitions.all.firstWhere((d) => d.color == color);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('${def.emoji} 瓶子滿了！點擊「一鍵兌換」獲得食材！'),
+            duration: const Duration(seconds: 3),
+            behavior: SnackBarBehavior.floating,
+            action: SnackBarAction(
+              label: '兌換',
+              onPressed: _onConvertAll,
+            ),
+          ),
+        );
+        return; // 一次只提示一個瓶子
+      }
+      // 瓶子被兌換後（不再滿），移除記錄以便下次再提醒
+      if (!bottle.isFull) {
+        _notifiedFullBottles.remove(color);
+      }
+    }
   }
 
   /// 發射能量球：從遊戲區中心飛向對應顏色的瓶子
@@ -181,25 +240,85 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      // ─── 固定底部導航列 ───
-      bottomNavigationBar: SafeArea(
-        top: false,
-        child: GameBottomNavBar(
-          currentIndex: _currentNavIndex,
-          onTap: _onNavTap,
+    return Stack(
+      children: [
+        Scaffold(
+          // ─── 固定底部導航列 ───
+          bottomNavigationBar: SafeArea(
+            top: false,
+            child: KeyedSubtree(
+              key: _guideNavBarKey,
+              child: Consumer<PlayerProvider>(
+                builder: (_, player, __) {
+                  final badges = <int>{};
+                  if (player.isInitialized) {
+                    // 新手任務有可領取獎勵 → 闖關 Tab 紅點
+                    player.refreshNewbieQuests();
+                    final nq = player.data.newbieQuests;
+                    final hasUnclaimedNewbie = nq.completedIds.any(
+                      (id) => !nq.claimedIds.contains(id),
+                    );
+                    if (hasUnclaimedNewbie) badges.add(3);
+
+                    // 每日任務有可領取 → 也在闖關 Tab（引導玩家進入任務中心）
+                    final dq = player.data.dailyQuests;
+                    if (!dq.needsReset && dq.allCompleted && !dq.rewardsClaimed) {
+                      badges.add(3);
+                    }
+                  }
+                  return GameBottomNavBar(
+                    currentIndex: _currentNavIndex,
+                    onTap: _showHomeGuide ? null : _onNavTap,
+                    badges: badges,
+                  );
+                },
+              ),
+            ),
+          ),
+          body: IndexedStack(
+            index: _currentNavIndex,
+            children: [
+              const BackpackScreen(),       // 0: 背包
+              const AgentListScreen(),      // 1: 角色
+              _buildIdleContent(),          // 2: 放置
+              const StageSelectScreen(),    // 3: 闖關
+              const ShopScreen(),           // 4: 商店
+            ],
+          ),
         ),
-      ),
-      body: IndexedStack(
-        index: _currentNavIndex,
-        children: [
-          const BackpackScreen(),       // 0: 背包
-          const AgentListScreen(),      // 1: 角色
-          _buildIdleContent(),          // 2: 放置
-          const StageSelectScreen(),    // 3: 闖關
-          const ShopScreen(),           // 4: 商店
-        ],
-      ),
+
+        // ─── 首頁導覽 Overlay ───
+        if (_showHomeGuide)
+          HomeGuideOverlay(
+            steps: [
+              HomeGuideStep(
+                title: '🎮 這是你的採集棋盤！',
+                description: '方塊會自動掉落，你可以點擊消除它們。\n'
+                    '消除方塊會產生能量，餵養左邊的瓶子！',
+                buttonText: '原來如此！',
+                highlightKey: _gameAreaKey,
+              ),
+              HomeGuideStep(
+                title: '🧪 能量瓶子系統',
+                description: '5 個顏色的瓶子會收集對應的能量。\n'
+                    '瓶子滿了就能兌換食材，製作甜點！',
+                buttonText: '了解！',
+                highlightKey: _guideBottleAreaKey,
+              ),
+              HomeGuideStep(
+                title: '⚔️ 去闖關吧！',
+                description: '闖關可以解鎖新夥伴、獲得金幣和經驗！\n'
+                    '先來挑戰第一關，看看你的實力！',
+                buttonText: '出發闖關！',
+                highlightKey: _guideNavBarKey,
+              ),
+            ],
+            onComplete: _onHomeGuideComplete,
+            onSwitchTab: (index) {
+              setState(() => _currentNavIndex = index);
+            },
+          ),
+      ],
     );
   }
 
@@ -236,7 +355,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 child: PlayerInfoBar(),
               ),
 
-              // ─── 主體：左面板 + 右棋盤 ───
+              // ─── 主體：左面板 + 棋盤 + 右工具列 ───
               Expanded(
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 4),
@@ -248,22 +367,27 @@ class _HomeScreenState extends State<HomeScreen> {
                         width: 120,
                         child: _LeftPanel(
                           bottleKeys: _bottleKeys,
+                          bottleAreaKey: _guideBottleAreaKey,
                           onConvertAll: _onConvertAll,
                           onConvertIngredient: () => IngredientPanel.show(context),
                           onCraftDessert: () => CraftingPanel.show(context),
-                          onSettings: _showSettingsModal,
-                          onStats: _showCareerStatsModal,
-                          onDailyQuest: () {
-                            Navigator.of(context).push(
-                              MaterialPageRoute(builder: (_) => const DailyQuestScreen()),
-                            );
-                          },
                         ),
                       ),
                       const SizedBox(width: 4),
-                      // ════ 右側棋盤 ════
+                      // ════ 中間棋盤 ════
                       Expanded(
                         child: IdleMiniGame(key: _gameAreaKey),
+                      ),
+                      const SizedBox(width: 4),
+                      // ════ 右側工具列 ════
+                      _RightToolbar(
+                        onSettings: _showSettingsModal,
+                        onStats: _showCareerStatsModal,
+                        onDailyQuest: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(builder: (_) => const DailyQuestScreen()),
+                          );
+                        },
                       ),
                     ],
                   ),
@@ -274,6 +398,9 @@ class _HomeScreenState extends State<HomeScreen> {
 
           // ─── 能量球飛行動畫覆蓋層 ───
           EnergyOrbOverlay(controller: _orbController),
+
+          // ─── Combo 浮動動畫覆蓋層 ───
+          _ComboOverlay(gameAreaKey: _gameAreaKey),
 
           // ─── 技能施放 VFX 覆蓋層 ───
           if (_showSkillVfx && _skillVfxAttribute != null)
@@ -457,21 +584,17 @@ class _SkillVfxOverlayState extends State<_SkillVfxOverlay>
 
 class _LeftPanel extends StatelessWidget {
   final Map<BlockColor, GlobalKey> bottleKeys;
+  final GlobalKey? bottleAreaKey;
   final VoidCallback onConvertAll;
   final VoidCallback onConvertIngredient;
   final VoidCallback onCraftDessert;
-  final VoidCallback onSettings;
-  final VoidCallback onStats;
-  final VoidCallback onDailyQuest;
 
   const _LeftPanel({
     required this.bottleKeys,
+    this.bottleAreaKey,
     required this.onConvertAll,
     required this.onConvertIngredient,
     required this.onCraftDessert,
-    required this.onSettings,
-    required this.onStats,
-    required this.onDailyQuest,
   });
 
   @override
@@ -480,6 +603,14 @@ class _LeftPanel extends StatelessWidget {
       builder: (context, playerProvider, idleProvider, bottleProvider, _) {
         if (!playerProvider.isInitialized) return const SizedBox.shrink();
 
+        final hasFullBottle = BottleDefinitions.all.any(
+          (def) => bottleProvider.getBottle(def.color).isFull,
+        );
+        final crafting = context.read<CraftingProvider>();
+        final canCraftAny = DessertDefinitions.all.any(
+          (r) => crafting.canCraft(r.id, playerProvider.data),
+        );
+
         return Column(
           children: [
             // ── 1. 角色區（緊湊） ──
@@ -487,17 +618,15 @@ class _LeftPanel extends StatelessWidget {
             const SizedBox(height: 6),
 
             // ── 2. 瓶子區（放大，顯示預設食材）──
-            _buildBottleSection(bottleProvider),
+            _wrapWithKey(bottleAreaKey, _buildBottleSection(bottleProvider)),
             const SizedBox(height: 6),
 
             // ── 3. CTA 組合鍵：一鍵兌換 + 製作甜點 ──
-            _buildCtaGroup(),
+            _buildCtaGroup(hasFullBottle: hasFullBottle, canCraftAny: canCraftAny),
 
             const Spacer(),
 
-            // ── 4. 功能列 + 自動消除 ──
-            _buildToolbar(),
-            const SizedBox(height: 3),
+            // ── 4. 自動消除 ──
             const AutoEliminateBar(),
             const SizedBox(height: 4),
           ],
@@ -507,6 +636,12 @@ class _LeftPanel extends StatelessWidget {
   }
 
   /// 角色：圖像 + 名稱 + 技能條
+  /// 用 Key 包裝 widget（null 時不包）
+  Widget _wrapWithKey(GlobalKey? key, Widget child) {
+    if (key == null) return child;
+    return KeyedSubtree(key: key, child: child);
+  }
+
   Widget _buildCharacterSection(PlayerProvider pp, IdleProvider idle) {
     final team = pp.data.team;
     if (team.isEmpty) {
@@ -662,8 +797,8 @@ class _LeftPanel extends StatelessWidget {
     );
   }
 
-  /// CTA 組合鍵：一鍵兌換 + 製作甜點
-  Widget _buildCtaGroup() {
+  /// CTA 組合鍵：一鍵兌換 + 製作甜點（帶狀態引導）
+  Widget _buildCtaGroup({required bool hasFullBottle, required bool canCraftAny}) {
     return Container(
       decoration: BoxDecoration(
         color: AppTheme.bgCard.withAlpha(200),
@@ -673,25 +808,23 @@ class _LeftPanel extends StatelessWidget {
       child: Column(
         children: [
           // 一鍵兌換
-          GestureDetector(
+          _PulsingCtaButton(
+            enabled: hasFullBottle,
             onTap: () { HapticFeedback.mediumImpact(); onConvertAll(); },
-            child: Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(vertical: 10),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [const Color(0xFF6BAF5B), const Color(0xFF4CAF50)],
-                ),
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(11)),
-              ),
-              child: const Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text('🧪', style: TextStyle(fontSize: 16)),
-                  SizedBox(width: 4),
-                  Text('一鍵兌換', style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold)),
-                ],
-              ),
+            gradient: hasFullBottle
+                ? const LinearGradient(colors: [Color(0xFF6BAF5B), Color(0xFF4CAF50)])
+                : const LinearGradient(colors: [Color(0xFF4A5A48), Color(0xFF3E4E3C)]),
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(11)),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Text('🧪', style: TextStyle(fontSize: 16)),
+                const SizedBox(width: 4),
+                Text('一鍵兌換', style: TextStyle(
+                  color: hasFullBottle ? Colors.white : Colors.white38,
+                  fontSize: 13, fontWeight: FontWeight.bold,
+                )),
+              ],
             ),
           ),
           // 分隔：選擇兌換
@@ -709,41 +842,27 @@ class _LeftPanel extends StatelessWidget {
           // 分隔線
           Container(height: 1, color: AppTheme.accentSecondary.withAlpha(30)),
           // 製作甜點
-          GestureDetector(
+          _PulsingCtaButton(
+            enabled: canCraftAny,
             onTap: () { HapticFeedback.lightImpact(); onCraftDessert(); },
-            child: Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(vertical: 10),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [const Color(0xFFF0B0C8), const Color(0xFFE8A0B8)],
-                ),
-                borderRadius: const BorderRadius.vertical(bottom: Radius.circular(11)),
-              ),
-              child: const Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text('🧁', style: TextStyle(fontSize: 16)),
-                  SizedBox(width: 4),
-                  Text('製作甜點', style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold)),
-                ],
-              ),
+            gradient: canCraftAny
+                ? const LinearGradient(colors: [Color(0xFFF0B0C8), Color(0xFFE8A0B8)])
+                : const LinearGradient(colors: [Color(0xFF6A5A62), Color(0xFF5E4E56)]),
+            borderRadius: const BorderRadius.vertical(bottom: Radius.circular(11)),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Text('🧁', style: TextStyle(fontSize: 16)),
+                const SizedBox(width: 4),
+                Text('製作甜點', style: TextStyle(
+                  color: canCraftAny ? Colors.white : Colors.white38,
+                  fontSize: 13, fontWeight: FontWeight.bold,
+                )),
+              ],
             ),
           ),
         ],
       ),
-    );
-  }
-
-  /// 功能圖示列
-  Widget _buildToolbar() {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-      children: [
-        _ToolbarIcon(icon: Icons.settings_rounded, label: '設置', onTap: onSettings),
-        _ToolbarIcon(icon: Icons.bar_chart_rounded, label: '數據', onTap: onStats),
-        _ToolbarIcon(icon: Icons.task_alt_rounded, label: '任務', onTap: onDailyQuest),
-      ],
     );
   }
 
@@ -771,20 +890,141 @@ class _LeftPanel extends StatelessWidget {
   }
 }
 
-/// 功能列小圖示
-class _ToolbarIcon extends StatelessWidget {
+// ═══════════════════════════════════════════
+// CTA 按鈕 — 啟用時脈衝動畫引導
+// ═══════════════════════════════════════════
+
+class _PulsingCtaButton extends StatefulWidget {
+  final bool enabled;
+  final VoidCallback onTap;
+  final LinearGradient gradient;
+  final BorderRadius borderRadius;
+  final Widget child;
+
+  const _PulsingCtaButton({
+    required this.enabled,
+    required this.onTap,
+    required this.gradient,
+    required this.borderRadius,
+    required this.child,
+  });
+
+  @override
+  State<_PulsingCtaButton> createState() => _PulsingCtaButtonState();
+}
+
+class _PulsingCtaButtonState extends State<_PulsingCtaButton>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _pulseCtrl;
+  late Animation<double> _glowAnim;
+
+  @override
+  void initState() {
+    super.initState();
+    _pulseCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1200),
+    );
+    _glowAnim = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _pulseCtrl, curve: Curves.easeInOut),
+    );
+    if (widget.enabled) _pulseCtrl.repeat(reverse: true);
+  }
+
+  @override
+  void didUpdateWidget(covariant _PulsingCtaButton oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.enabled && !_pulseCtrl.isAnimating) {
+      _pulseCtrl.repeat(reverse: true);
+    } else if (!widget.enabled && _pulseCtrl.isAnimating) {
+      _pulseCtrl.stop();
+      _pulseCtrl.value = 0;
+    }
+  }
+
+  @override
+  void dispose() {
+    _pulseCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: widget.onTap,
+      child: AnimatedBuilder(
+        animation: _glowAnim,
+        builder: (context, child) {
+          final glowAlpha = widget.enabled ? (_glowAnim.value * 100).toInt() : 0;
+          final glowColor = widget.gradient.colors.first;
+          return Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(vertical: 10),
+            decoration: BoxDecoration(
+              gradient: widget.gradient,
+              borderRadius: widget.borderRadius,
+              boxShadow: glowAlpha > 0
+                  ? [
+                      BoxShadow(
+                        color: glowColor.withAlpha(glowAlpha),
+                        blurRadius: 12 + _glowAnim.value * 6,
+                        spreadRadius: _glowAnim.value * 2,
+                      ),
+                    ]
+                  : null,
+            ),
+            child: child,
+          );
+        },
+        child: widget.child,
+      ),
+    );
+  }
+}
+
+// ═══════════════════════════════════════════
+// 右側工具列 — 設置 / 數據 / 任務（垂直排列）
+// ═══════════════════════════════════════════
+
+class _RightToolbar extends StatelessWidget {
+  final VoidCallback onSettings;
+  final VoidCallback onStats;
+  final VoidCallback onDailyQuest;
+
+  const _RightToolbar({
+    required this.onSettings,
+    required this.onStats,
+    required this.onDailyQuest,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        _ToolbarIconVertical(icon: Icons.settings_rounded, label: '設置', onTap: onSettings),
+        const SizedBox(height: 8),
+        _ToolbarIconVertical(icon: Icons.bar_chart_rounded, label: '數據', onTap: onStats),
+        const SizedBox(height: 8),
+        _ToolbarIconVertical(icon: Icons.task_alt_rounded, label: '任務', onTap: onDailyQuest),
+      ],
+    );
+  }
+}
+
+class _ToolbarIconVertical extends StatelessWidget {
   final IconData icon;
   final String label;
   final VoidCallback onTap;
 
-  const _ToolbarIcon({required this.icon, required this.label, required this.onTap});
+  const _ToolbarIconVertical({required this.icon, required this.label, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
         decoration: BoxDecoration(
           color: AppTheme.bgCard,
           borderRadius: BorderRadius.circular(8),
@@ -793,12 +1033,137 @@ class _ToolbarIcon extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, color: AppTheme.textSecondary, size: 16),
-            const SizedBox(height: 1),
+            Icon(icon, color: AppTheme.textSecondary, size: 18),
+            const SizedBox(height: 2),
             Text(label, style: TextStyle(color: AppTheme.textSecondary.withAlpha(150), fontSize: 8)),
           ],
         ),
       ),
+    );
+  }
+}
+
+// ═══════════════════════════════════════════
+// Combo 浮動動畫覆蓋層（不占版面高度）
+// ═══════════════════════════════════════════
+
+class _ComboOverlay extends StatefulWidget {
+  final GlobalKey gameAreaKey;
+
+  const _ComboOverlay({required this.gameAreaKey});
+
+  @override
+  State<_ComboOverlay> createState() => _ComboOverlayState();
+}
+
+class _ComboOverlayState extends State<_ComboOverlay>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _animCtrl;
+  late Animation<double> _scaleAnim;
+  late Animation<double> _opacityAnim;
+  int _lastCombo = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _animCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 500),
+    );
+    _scaleAnim = TweenSequence<double>([
+      TweenSequenceItem(tween: Tween(begin: 0.5, end: 1.3), weight: 40),
+      TweenSequenceItem(tween: Tween(begin: 1.3, end: 1.0), weight: 60),
+    ]).animate(CurvedAnimation(parent: _animCtrl, curve: Curves.easeOut));
+    _opacityAnim = TweenSequence<double>([
+      TweenSequenceItem(tween: Tween(begin: 0.0, end: 1.0), weight: 20),
+      TweenSequenceItem(tween: ConstantTween(1.0), weight: 80),
+    ]).animate(_animCtrl);
+  }
+
+  @override
+  void dispose() {
+    _animCtrl.dispose();
+    super.dispose();
+  }
+
+  void _onComboChanged(int combo) {
+    if (combo > 1 && combo != _lastCombo) {
+      _animCtrl.forward(from: 0);
+    }
+    _lastCombo = combo;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Consumer<IdleProvider>(
+      builder: (context, idle, _) {
+        final combo = idle.state?.combo ?? 0;
+        // 觸發動畫
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _onComboChanged(combo);
+        });
+
+        if (combo <= 1) return const SizedBox.shrink();
+
+        // 定位到棋盤區域上方（使用全屏覆蓋 + 手動偏移）
+        final gameBox = widget.gameAreaKey.currentContext?.findRenderObject() as RenderBox?;
+        if (gameBox == null) return const SizedBox.shrink();
+        final gamePos = gameBox.localToGlobal(Offset.zero);
+        final gameCenterX = gamePos.dx + gameBox.size.width / 2;
+
+        return IgnorePointer(
+          child: Stack(
+            children: [
+              Positioned(
+                left: gameCenterX - 80,
+                top: gamePos.dy + 6,
+                width: 160,
+                child: Center(
+                  child: AnimatedBuilder(
+                    animation: _animCtrl,
+                    builder: (context, child) {
+                      return Opacity(
+                        opacity: _opacityAnim.value,
+                        child: Transform.scale(
+                          scale: _scaleAnim.value,
+                          child: child,
+                        ),
+                      );
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFFFF6B6B), Color(0xFFFFAA5B)],
+                        ),
+                        borderRadius: BorderRadius.circular(14),
+                        boxShadow: [
+                          BoxShadow(
+                            color: const Color(0xFFFF6B6B).withAlpha(120),
+                            blurRadius: 12,
+                            spreadRadius: 1,
+                          ),
+                        ],
+                      ),
+                      child: Text(
+                        '${combo}x Combo!',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          shadows: [
+                            Shadow(color: Colors.black54, blurRadius: 4),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }

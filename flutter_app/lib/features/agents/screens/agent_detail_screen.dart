@@ -15,10 +15,10 @@ import '../widgets/talent_tree_widget.dart';
 import '../widgets/skill_enhance_widget.dart';
 import '../widgets/passive_skill_widget.dart';
 
-// ─── 配色常數（暖色點心屋風格） ───
-const _cardBg = Color(0xFF7A5240);      // 暖可可 (= AppTheme.bgCard)
-const _cardBorder = Color(0xFF5C3A28);  // 牛奶巧克力 (= AppTheme.bgSecondary)
-const _statBarBg = Color(0xFF5C3A28);   // 深棕色（搭配深色主題）
+// ─── 配色常數（陽光鄉村風） ───
+const _cardBg = Color(0xFFFFF8EE);      // 淡奶油白（比 bgCard 稍暖）
+const _cardBorder = Color(0xFFE0C8A8);  // 淺木紋邊框
+const _statBarBg = Color(0xFFE8D5BE);   // 淺麥色（進度條底色）
 const _statBarHp = Color(0xFF4CAF50);
 const _statBarAtk = Color(0xFFFF9800);
 const _statBarDef = Color(0xFF42A5F5);
@@ -391,13 +391,13 @@ class _CharacterCard extends StatelessWidget {
                                 padding: const EdgeInsets.symmetric(
                                     horizontal: 5, vertical: 1),
                                 decoration: BoxDecoration(
-                                  color: Colors.amber.withAlpha(50),
+                                  color: Colors.amber.withAlpha(40),
                                   borderRadius: BorderRadius.circular(4),
                                 ),
                                 child: Text(
                                   '${definition.skill.energyCost}',
                                   style: TextStyle(
-                                    color: Colors.amber.shade300,
+                                    color: Colors.amber.shade800,
                                     fontSize: 10,
                                     fontWeight: FontWeight.bold,
                                   ),
@@ -529,11 +529,11 @@ class _StatRow extends StatelessWidget {
                     alignment: Alignment.centerRight,
                     child: Text(
                       '$value',
-                      style: const TextStyle(
-                        color: Colors.white,
+                      style: TextStyle(
+                        color: AppTheme.textPrimary,
                         fontSize: 12,
                         fontWeight: FontWeight.bold,
-                        shadows: [Shadow(color: Colors.black, blurRadius: 3)],
+                        shadows: [Shadow(color: Colors.white.withAlpha(200), blurRadius: 4)],
                       ),
                     ),
                   ),
@@ -645,7 +645,7 @@ class _TrainingBar extends StatelessWidget {
             child: Text(
               'EXP',
               style: TextStyle(
-                color: Colors.green.shade300,
+                color: Colors.green.shade700,
                 fontSize: 10,
                 fontWeight: FontWeight.bold,
               ),
@@ -681,11 +681,11 @@ class _TrainingBar extends StatelessWidget {
                   child: Center(
                     child: Text(
                       isMaxLevel ? 'MAX' : '$currentExp / $expForNext',
-                      style: const TextStyle(
-                        color: Colors.white,
+                      style: TextStyle(
+                        color: AppTheme.textPrimary,
                         fontSize: 9,
                         fontWeight: FontWeight.bold,
-                        shadows: [Shadow(color: Colors.black, blurRadius: 2)],
+                        shadows: [Shadow(color: Colors.white.withAlpha(200), blurRadius: 3)],
                       ),
                     ),
                   ),
@@ -758,7 +758,7 @@ class _ActionButton extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
         decoration: BoxDecoration(
-          color: enabled ? Colors.green.shade700 : AppTheme.bgCard,
+          color: enabled ? Colors.green.shade700 : AppTheme.bgSecondary,
           borderRadius: BorderRadius.circular(6),
           border: Border.all(
             color: enabled ? Colors.green.shade800 : AppTheme.accentSecondary.withAlpha(60),
