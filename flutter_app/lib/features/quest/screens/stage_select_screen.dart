@@ -198,7 +198,7 @@ class _StageSelectScreenState extends State<StageSelectScreen>
     PlayerProvider playerProvider,
   ) {
     final attrColor = agentDef.attribute.blockColor.color;
-    final avatarPath = ImageAssets.avatarImage(agentDef.id);
+    final String? avatarImg = ImageAssets.avatarImage(agentDef.id);
     final hasEnoughStamina = playerProvider.data.stamina >= stage.staminaCost;
     final hasTeam = playerProvider.data.team.isNotEmpty;
     final canBattle = hasEnoughStamina && hasTeam;
@@ -255,8 +255,8 @@ class _StageSelectScreenState extends State<StageSelectScreen>
                         color: AppTheme.bgCard,
                       ),
                       clipBehavior: Clip.antiAlias,
-                      child: avatarPath != null
-                          ? Image.asset(avatarPath, fit: BoxFit.cover,
+                      child: avatarImg != null
+                          ? Image.asset(avatarImg, fit: BoxFit.cover,
                               errorBuilder: (_, __, ___) => Center(
                                 child: Text(agentDef.attribute.emoji,
                                     style: const TextStyle(fontSize: 24)),
