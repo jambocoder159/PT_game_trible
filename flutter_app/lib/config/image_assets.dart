@@ -16,26 +16,26 @@ class ImageAssets {
   // ═══════════════════════════════════════
 
   static const Map<String, String> _agentImageNames = {
-    // 屬性A 🔴 火系
-    'blaze': 'lightning_claw',
-    'ember': 'flame_fang',
-    'inferno': 'crimson_shadow',
-    // 屬性B 🟢 大地系
-    'terra': 'storm_blade',
-    'sprout': 'ice_eye',
-    'gaia': 'azure_star',
-    // 屬性C 🔵 水系
-    'tide': 'jade_leaf',
-    'frost': 'venom_mist',
-    'tsunami': 'forest_guardian',
-    // 屬性D 🟡 雷系
-    'flash': 'thunder_claw',
-    'spark': 'golden_sand',
-    'thunder': 'sun_herald',
-    // 屬性E 🟣 暗系
-    'shadow': 'rose_thorn',
-    'phantom': 'blood_moon',
-    'eclipse': 'moonlight',
+    // 屬性A ☀️ 太陽 — 烘焙組
+    'blaze': 'wheat',
+    'ember': 'kiln',
+    'inferno': 'caramel',
+    // 屬性B 🍃 葉子 — 香草花園組
+    'terra': 'matcha',
+    'sprout': 'mint',
+    'gaia': 'cinnamon',
+    // 屬性C 💧 水滴 — 飲品吧組
+    'tide': 'dew',
+    'frost': 'shake',
+    'tsunami': 'soda',
+    // 屬性D ⭐ 星星 — 甜點裝飾組
+    'flash': 'frosting',
+    'spark': 'cotton',
+    'thunder': 'croissant',
+    // 屬性E 🌙 月亮 — 夜間甜品組
+    'shadow': 'cocoa',
+    'phantom': 'pudding',
+    'eclipse': 'berry',
   };
 
   /// 取得角色立繪路徑
@@ -64,11 +64,11 @@ class ImageAssets {
   // ═══════════════════════════════════════
 
   static const Map<BlockColor, String> _blockImageNames = {
-    BlockColor.coral: 'block_coral',
-    BlockColor.teal: 'block_teal',
-    BlockColor.mint: 'block_mint',
-    BlockColor.gold: 'block_gold',
-    BlockColor.rose: 'block_rose',
+    BlockColor.coral: 'block_sun',
+    BlockColor.teal: 'block_herb',
+    BlockColor.mint: 'block_water',
+    BlockColor.gold: 'block_star',
+    BlockColor.rose: 'block_moon',
   };
 
   /// 取得方塊圖片路徑
@@ -85,12 +85,12 @@ class ImageAssets {
   static const _bgBase = '$_base/background';
 
   static const Map<int, String> _battleBackgrounds = {
-    1: 'Dark_forest_with_202603261716.jpeg',
-    2: 'Crystal_cave_underground_202603261716.jpeg',
-    3: 'Castle_corridor_interior_202603261716.jpeg',
-    4: 'Snowy_mountain_peak_202603261716.jpeg',
-    5: 'Volcanic_hellscape_with_202603261716.jpeg',
-    6: 'Demon_lord_throne_202603261716.jpeg',
+    1: 'bg_ch1_battle.png',
+    2: 'bg_ch2_battle.png',
+    3: 'bg_ch3_battle.png',
+    4: 'bg_ch4_battle.png',
+    5: 'bg_ch5_battle.png',
+    6: 'bg_ch6_battle.png',
   };
 
   /// 取得戰鬥場景背景（依章節）
@@ -101,42 +101,40 @@ class ImageAssets {
   }
 
   /// 首頁背景
-  static const homeBackground =
-      '$_bgBase/Spy_headquarters_control_202603261716.jpeg';
+  static const homeBackground = '$_bgBase/bg_ch1_shop.png';
 
   /// 商店背景
-  static const shopBackground =
-      '$_bgBase/Cozy_cartoon_underground_202603261716.jpeg';
+  static const shopBackground = '$_bgBase/bg_ch2_shop.png';
 
   /// 角色資訊背景
-  static const agentInfoBackground =
-      '$_bgBase/Tech_interface_background_202603261716.jpeg';
+  static const agentInfoBackground = '$_bgBase/bg_ch3_shop.png';
 
   // ═══════════════════════════════════════
   // 敵人圖片映射
   // ═══════════════════════════════════════
 
-  /// 敵人 ID → 圖片檔名（5 張通用怪複用）
+  /// 敵人 ID → 圖片檔名（食物搗蛋鬼，各有獨立圖片）
   static const Map<String, String> _enemyImageNames = {
-    // 小型群體怪 → wolf
-    'rat': 'wolf',
-    'big_rat': 'wolf',
-    // 中型肉盾怪 → bear
-    'stray_dog': 'bear',
-    'elite_guard': 'bear',
-    'heavy_bot': 'bear',
-    // 飛行/快攻怪 → hawk
-    'seagull': 'hawk',
-    'shadow_sniper': 'hawk',
-    // 人型雜兵 → fox
-    'pet_shop_guard': 'fox',
-    'dock_worker': 'fox',
-    'security_bot': 'fox',
-    'elite_security': 'fox',
-    'shadow_agent_enemy': 'fox',
-    // 機關/毒型怪 → snake
-    'trap_device': 'snake',
-    'laser_trap': 'snake',
+    // Ch.1 爺爺的老麵包店
+    'rat': 'moldy_bun',
+    'big_rat': 'burnt_baguette',
+    'stray_dog': 'sour_croissant',
+    // Ch.2 冰淇淋小舖
+    'pet_shop_guard': 'melted_popsicle',
+    'trap_device': 'frozen_syrup',
+    // Ch.3 巧克力工坊
+    'dock_worker': 'burnt_cocoa',
+    'seagull': 'popping_candy',
+    // Ch.4 蛋糕塔
+    'security_bot': 'stale_cake',
+    'laser_trap': 'whipped_cream',
+    'elite_security': 'clumpy_butter',
+    // Ch.5 和菓子茶屋
+    'shadow_agent_enemy': 'hard_mochi',
+    'shadow_sniper': 'exploding_bean',
+    // Ch.6 甜點街大廣場
+    'elite_guard': 'rotten_fruit_tart',
+    'heavy_bot': 'petrified_mille',
   };
 
   /// Boss → 章節 Boss 圖
@@ -171,11 +169,11 @@ class ImageAssets {
   // ═══════════════════════════════════════
 
   static const Map<AgentAttribute, String> _attributeIcons = {
-    AgentAttribute.attributeA: 'icon_attr_fire',
-    AgentAttribute.attributeB: 'icon_attr_nature',
+    AgentAttribute.attributeA: 'icon_attr_sun',
+    AgentAttribute.attributeB: 'icon_attr_herb',
     AgentAttribute.attributeC: 'icon_attr_water',
-    AgentAttribute.attributeD: 'icon_attr_lightning',
-    AgentAttribute.attributeE: 'icon_attr_shadow',
+    AgentAttribute.attributeD: 'icon_attr_star',
+    AgentAttribute.attributeE: 'icon_attr_moon',
   };
 
   /// 取得屬性圖示路徑
@@ -206,8 +204,8 @@ class ImageAssets {
   // UI 通用圖示
   // ═══════════════════════════════════════
 
-  static const coin = '$_icons/icon_coin.png';
-  static const diamond = '$_icons/icon_diamond.png';
+  static const coin = '$_icons/icon_candy_coin.png';
+  static const diamond = '$_icons/icon_rainbow_candy.png';
   static const energy = '$_icons/icon_energy.png';
   static const attack = '$_icons/icon_attack.png';
   static const defense = '$_icons/icon_defense.png';
@@ -227,11 +225,11 @@ class ImageAssets {
   // ═══════════════════════════════════════
 
   static const Map<AgentAttribute, String> _skillVfx = {
-    AgentAttribute.attributeA: 'vfx_skill_a',
-    AgentAttribute.attributeB: 'vfx_skill_b',
-    AgentAttribute.attributeC: 'vfx_skill_c',
-    AgentAttribute.attributeD: 'vfx_skill_d',
-    AgentAttribute.attributeE: 'vfx_skill_e',
+    AgentAttribute.attributeA: 'vfx_skill_sun',
+    AgentAttribute.attributeB: 'vfx_skill_herb',
+    AgentAttribute.attributeC: 'vfx_skill_water',
+    AgentAttribute.attributeD: 'vfx_skill_star',
+    AgentAttribute.attributeE: 'vfx_skill_moon',
   };
 
   /// 取得技能特效圖片路徑

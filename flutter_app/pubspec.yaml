@@ -27,6 +27,25 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^5.0.0
+  flutter_launcher_icons: ^0.14.3
+  flutter_native_splash: ^2.4.4
+
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: "assets/images/output/app_icons/app_icon_1024.png"
+  web:
+    generate: true
+    image_path: "assets/images/output/app_icons/app_icon_192.png"
+    background_color: "#FFF5E1"
+    theme_color: "#E86B30"
+
+flutter_native_splash:
+  color: "#FFF5E1"
+  image: "assets/images/output/app_icons/splash_logo.png"
+  android_12:
+    color: "#FFF5E1"
+    image: "assets/images/output/app_icons/splash_logo.png"
 
 flutter:
   uses-material-design: true
@@ -41,6 +60,8 @@ flutter:
     - assets/images/output/enemies/
     - assets/images/output/bosses/
     - assets/images/output/vfx/
+    - assets/images/output/evolutions/
+    - assets/images/output/app_icons/
     - assets/images/icons/
     - assets/audio/sfx/
     - assets/audio/bgm/
