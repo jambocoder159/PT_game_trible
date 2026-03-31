@@ -7,16 +7,14 @@ import '../../agents/providers/player_provider.dart';
 import '../../game/providers/game_provider.dart';
 import '../../game/widgets/game_board.dart';
 import '../../idle/screens/home_screen.dart';
-import '../../idle/widgets/home_guide_overlay.dart';
 import '../models/tutorial_dialogue_data.dart';
 import '../providers/tutorial_provider.dart';
 import '../widgets/tutorial_dialogue_box.dart';
 import '../widgets/tutorial_gesture_hint.dart';
 
 /// Phase 1：首頁教學
-/// 分兩階段：
-///   Part A（steps 0-11）：基礎操作（點擊/上拖/下拖/三連消）
-///   Part B（steps 12+）：引導到真正的 HomeScreen 學做甜點
+/// Part A（steps 0-11）：基礎操作（點擊/上拖/下拖/三連消）
+/// Part B（steps 12-17）：真正首頁上引導瓶子→兌換→製作甜點→闖關入口
 class Phase1HomeScreen extends StatefulWidget {
   const Phase1HomeScreen({super.key});
 
@@ -25,20 +23,6 @@ class Phase1HomeScreen extends StatefulWidget {
 }
 
 class _Phase1HomeScreenState extends State<Phase1HomeScreen> {
-  // ─── Part A 步驟定義 ───
-  // 0: 推開店門
-  // 1: 認識方塊（對話 1）
-  // 2: 認識方塊（對話 2 - 五色說明）
-  // 3: 點擊採集 → 等待操作
-  // 4: 點擊成功回饋
-  // 5: 上拖教學 → 等待操作
-  // 6: 上拖成功 → 下拖提示
-  // 7: 下拖教學 → 等待操作
-  // 8: 三連消說明
-  // 9: 三連消 → 等待操作
-  // 10: 三連消成功回饋
-  // 11: 總結 → 進入 Part B
-  // 12+: Part B — 真正的 HomeScreen + 導覽
   int _step = 0;
   bool _waitingForAction = false;
   bool _doorOpened = false;
@@ -48,6 +32,22 @@ class _Phase1HomeScreenState extends State<Phase1HomeScreen> {
 
   // Part B
   bool _showHomeScreen = false;
+  // Part B 步驟：
+  // 12: 歡迎來到首頁（對話）
+  // 13: 高亮瓶子區 + 等待瓶子滿 + 對話
+  // 14: 高亮「一鍵兌換」 + 等用戶點擊 + 對話
+  // 15: 高亮「製作甜點」 + 等用戶點擊 + 對話
+  // 16: 完成甜點製作 + 對話
+  // 17: 高亮底部導航「闖關」→ 等用戶點擊 → 完成 Phase 1
+  int _homeTutorialStep = 0; // 0-5 對應 step 12-17
+  bool _showHomeTutorialDialogue = true;
+  bool _waitingForHomeTutorialAction = false;
+  // 追蹤用戶是否已執行操作
+  bool _hasConverted = false;
+  bool _hasCrafted = false;
+
+  // HomeScreen 的 GlobalKey — 用來取得 HomeScreen State
+  final GlobalKey<State> _homeScreenKey = GlobalKey();
 
   @override
   void initState() {
@@ -55,7 +55,10 @@ class _Phase1HomeScreenState extends State<Phase1HomeScreen> {
     final tutorial = context.read<TutorialProvider>();
     _step = tutorial.currentStep;
     if (_step > 0) _doorOpened = true;
-    if (_step >= 12) _showHomeScreen = true;
+    if (_step >= 12) {
+      _showHomeScreen = true;
+      _homeTutorialStep = (_step - 12).clamp(0, 5);
+    }
 
     if (_step >= 3 && _step < 12) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -63,6 +66,10 @@ class _Phase1HomeScreenState extends State<Phase1HomeScreen> {
       });
     }
   }
+
+  // ═══════════════════════════════════
+  // Part A：基礎操作
+  // ═══════════════════════════════════
 
   void _startGame() {
     final game = context.read<GameProvider>();
@@ -81,7 +88,7 @@ class _Phase1HomeScreenState extends State<Phase1HomeScreen> {
     if (_transitioning) return;
     switch (_step) {
       case 0:
-        return; // 等玩家點門
+        return;
       case 1:
         _goToStep(2);
       case 2:
@@ -99,7 +106,6 @@ class _Phase1HomeScreenState extends State<Phase1HomeScreen> {
       case 10:
         _goToStep(11);
       case 11:
-        // 操作教學完成 → 進入 Part B（真正 HomeScreen）
         _enterHomeScreen();
     }
   }
@@ -140,20 +146,147 @@ class _Phase1HomeScreenState extends State<Phase1HomeScreen> {
     }
   }
 
+  // ═══════════════════════════════════
+  // Part B：首頁甜點教學
+  // ═══════════════════════════════════
+
   void _enterHomeScreen() {
     _goToStep(12);
-    setState(() => _showHomeScreen = true);
+    setState(() {
+      _showHomeScreen = true;
+      _homeTutorialStep = 0;
+      _showHomeTutorialDialogue = true;
+    });
   }
 
-  void _onHomeGuideComplete() {
-    // HomeScreen 導覽完成 → 進入 Phase 2
+  void _onHomeTutorialDialogueTap() {
+    switch (_homeTutorialStep) {
+      case 0:
+        // 歡迎完畢 → 高亮瓶子區
+        setState(() {
+          _homeTutorialStep = 1;
+          _showHomeTutorialDialogue = true;
+        });
+        _goToStep(13);
+      case 1:
+        // 瓶子說明完畢 → 高亮兌換按鈕
+        setState(() {
+          _homeTutorialStep = 2;
+          _showHomeTutorialDialogue = true;
+          _waitingForHomeTutorialAction = true;
+        });
+        _goToStep(14);
+      case 2:
+        // 兌換說明完畢（已經兌換過了） → 製作甜點
+        if (_hasConverted) {
+          setState(() {
+            _homeTutorialStep = 3;
+            _showHomeTutorialDialogue = true;
+            _waitingForHomeTutorialAction = true;
+          });
+          _goToStep(15);
+        }
+      case 3:
+        // 已製作過甜點 → 完成對話
+        if (_hasCrafted) {
+          setState(() {
+            _homeTutorialStep = 4;
+            _showHomeTutorialDialogue = true;
+          });
+          _goToStep(16);
+        }
+      case 4:
+        // 完成對話 → 高亮闖關入口
+        setState(() {
+          _homeTutorialStep = 5;
+          _showHomeTutorialDialogue = true;
+          _waitingForHomeTutorialAction = true;
+        });
+        _goToStep(17);
+      case 5:
+        // 闖關入口 — 等待用戶自行點擊
+        break;
+    }
+  }
+
+  void _onUserConverted() {
+    if (_homeTutorialStep == 2 && !_hasConverted) {
+      setState(() {
+        _hasConverted = true;
+        _waitingForHomeTutorialAction = false;
+        _showHomeTutorialDialogue = true;
+      });
+      // 顯示成功對話，然後自動進入下一步
+      Future.delayed(const Duration(milliseconds: 500), () {
+        if (mounted) _onHomeTutorialDialogueTap();
+      });
+    }
+  }
+
+  void _onUserCrafted() {
+    if (_homeTutorialStep == 3 && !_hasCrafted) {
+      setState(() {
+        _hasCrafted = true;
+        _waitingForHomeTutorialAction = false;
+        _showHomeTutorialDialogue = true;
+      });
+      Future.delayed(const Duration(milliseconds: 500), () {
+        if (mounted) _onHomeTutorialDialogueTap();
+      });
+    }
+  }
+
+  void _onUserTappedBattle() {
+    // 用戶點了闖關 Tab → 完成 Phase 1
     _transitioning = true;
     context.read<TutorialProvider>().advancePhase();
   }
 
-  void _completePhase() {
-    _transitioning = true;
-    context.read<TutorialProvider>().advancePhase();
+  TutorialDialogue _homeDialogue() {
+    switch (_homeTutorialStep) {
+      case 0:
+        return const TutorialDialogue(
+          id: 'H01', speaker: Speakers.grandpa,
+          content: '歡迎來到你的麵包店！\n這裡就是你經營甜點的地方。',
+        );
+      case 1:
+        return const TutorialDialogue(
+          id: 'H02', speaker: Speakers.grandpa,
+          content: '看到左邊的瓶子了嗎？消除方塊會產生能量，\n瓶子滿了就能兌換食材喔！',
+        );
+      case 2:
+        return _hasConverted
+            ? const TutorialDialogue(
+                id: 'H03b', speaker: Speakers.grandpa,
+                content: '太棒了！你獲得了食材！\n現在來做甜點吧。',
+              )
+            : const TutorialDialogue(
+                id: 'H03a', speaker: Speakers.grandpa,
+                content: '試試點擊「一鍵兌換」，\n把瓶子裡的能量變成食材！',
+              );
+      case 3:
+        return _hasCrafted
+            ? const TutorialDialogue(
+                id: 'H04b', speaker: Speakers.grandpa,
+                content: '好吃的甜點完成了！\n客人們一定會很開心的。',
+              )
+            : const TutorialDialogue(
+                id: 'H04a', speaker: Speakers.grandpa,
+                content: '有了食材，就能製作甜點了！\n點擊「製作甜點」試試看。',
+              );
+      case 4:
+        return const TutorialDialogue(
+          id: 'H05', speaker: Speakers.grandpa,
+          content: '你已經學會經營的基本流程了！\n消除方塊 → 收集能量 → 兌換食材 → 製作甜點',
+        );
+      case 5:
+        return const TutorialDialogue(
+          id: 'H06', speaker: Speakers.grandpa,
+          content: '接下來，地下室好像有什麼動靜……\n去「闖關」看看吧！',
+        );
+      default:
+        return TutorialDialogues.t006;
+    }
   }
 
   void _skipTutorial() {
@@ -238,77 +371,72 @@ class _Phase1HomeScreenState extends State<Phase1HomeScreen> {
     }
   }
 
+  // ═══════════════════════════════════
+  // Build
+  // ═══════════════════════════════════
+
   @override
   Widget build(BuildContext context) {
-    // ═══ Part B：真正的 HomeScreen + 甜點製作導覽 ═══
-    if (_showHomeScreen) {
-      return _buildHomeScreenWithGuide();
-    }
-
-    // ═══ Part A Step 0：推開店門 ═══
-    if (!_doorOpened) {
-      return _buildDoorScene();
-    }
-
-    // ═══ Part A Steps 1-11：操作教學 ═══
+    if (_showHomeScreen) return _buildHomeScreenWithGuide();
+    if (!_doorOpened) return _buildDoorScene();
     return _buildOperationTutorial();
   }
 
-  // ─────────────────────────────────
-  // Part B：真正的 HomeScreen + 導覽
-  // ─────────────────────────────────
+  // ─── Part B：HomeScreen + 逐步引導 ───
   Widget _buildHomeScreenWithGuide() {
     return Stack(
       children: [
-        // 真正的首頁（教學模式：跳過內建 HomeGuide）
-        const HomeScreen(tutorialMode: true),
+        // 真正的首頁
+        HomeScreen(
+          key: _homeScreenKey,
+          tutorialMode: true,
+          // 教學時鎖定在放置頁(index=2)，直到最後一步引導到闖關(index=3)
+          onTutorialNavTap: _homeTutorialStep == 5 ? _onUserTappedBattle : null,
+        ),
 
-        // 教學導覽 overlay
-        HomeGuideOverlay(
-          steps: [
-            const HomeGuideStep(
-              title: '🏠 歡迎來到你的店面！',
-              description: '基本操作你已經學會了！\n'
-                  '現在來看看如何經營甜點店吧。',
-              buttonText: '好的！',
-            ),
-            const HomeGuideStep(
-              title: '🧪 能量瓶子系統',
-              description: '消除方塊會產生能量，\n'
-                  '5 個顏色的瓶子會收集對應的能量。\n'
-                  '瓶子滿了就能兌換食材！',
-              buttonText: '原來如此！',
-            ),
-            const HomeGuideStep(
-              title: '🍰 製作甜點',
-              description: '有了食材，就能製作甜點出售賺錢！\n'
-                  '點擊左側面板的「一鍵兌換」和「製作甜點」按鈕試試。',
-              buttonText: '了解！',
-            ),
-            const HomeGuideStep(
-              title: '✨ 自由探索',
-              description: '棋盤會自動掉落方塊，你也可以手動消除。\n'
-                  '手動消除效率更高喔！\n\n'
-                  '接下來，地下室好像有什麼動靜……',
-              buttonText: '去看看！',
-            ),
-          ],
-          onComplete: _onHomeGuideComplete,
+        // 監聽瓶子和製作狀態
+        _HomeActionListener(
+          onConverted: _onUserConverted,
+          onCrafted: _onUserCrafted,
+          listenConvert: _homeTutorialStep == 2 && !_hasConverted,
+          listenCraft: _homeTutorialStep == 3 && !_hasCrafted,
+        ),
+
+        // 對話框（不擋住操作）
+        if (_showHomeTutorialDialogue)
+          TutorialDialogueBox(
+            dialogue: _homeDialogue(),
+            onTap: () {
+              if (_waitingForHomeTutorialAction) {
+                // 等待用戶操作，先關閉對話
+                setState(() => _showHomeTutorialDialogue = false);
+              } else {
+                _onHomeTutorialDialogueTap();
+              }
+            },
+          ),
+
+        // 跳過按鈕
+        Positioned(
+          top: MediaQuery.of(context).padding.top + 8,
+          right: 12,
+          child: TextButton(
+            onPressed: _skipTutorial,
+            child: const Text('跳過教學 →',
+                style: TextStyle(color: AppTheme.textSecondary, fontSize: 13)),
+          ),
         ),
       ],
     );
   }
 
-  // ─────────────────────────────────
-  // Part A：操作教學
-  // ─────────────────────────────────
+  // ─── Part A：操作教學 ───
   Widget _buildOperationTutorial() {
     return Scaffold(
       backgroundColor: AppTheme.bgPrimary,
       body: SafeArea(
         child: Consumer<GameProvider>(
           builder: (context, game, _) {
-            // 監聽操作推進
             if (_waitingForAction && game.state != null) {
               if (_step == 9) {
                 if (game.state!.combo > _lastCombo) {
@@ -329,7 +457,6 @@ class _Phase1HomeScreenState extends State<Phase1HomeScreen> {
               children: [
                 Column(
                   children: [
-                    // 頂部
                     Container(
                       padding: const EdgeInsets.symmetric(
                           horizontal: 16, vertical: 8),
@@ -337,8 +464,7 @@ class _Phase1HomeScreenState extends State<Phase1HomeScreen> {
                         children: [
                           const Text('🏪 教學模式',
                               style: TextStyle(
-                                  color: AppTheme.textSecondary,
-                                  fontSize: 14)),
+                                  color: AppTheme.textSecondary, fontSize: 14)),
                           const Spacer(),
                           TextButton(
                             onPressed: _skipTutorial,
@@ -350,7 +476,6 @@ class _Phase1HomeScreenState extends State<Phase1HomeScreen> {
                         ],
                       ),
                     ),
-                    // 棋盤
                     Expanded(
                       child: Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -365,12 +490,8 @@ class _Phase1HomeScreenState extends State<Phase1HomeScreen> {
                     const SizedBox(height: 100),
                   ],
                 ),
-
-                // 手勢引導
                 if (_waitingForAction && _gestureType() != null)
                   TutorialGestureHint(gestureType: _gestureType()!),
-
-                // 對話框
                 if (!_waitingForAction)
                   TutorialDialogueBox(
                     dialogue: _currentDialogue(),
@@ -380,8 +501,6 @@ class _Phase1HomeScreenState extends State<Phase1HomeScreen> {
                       if (d.autoAdvanceDelay != null) _onDialogueTap();
                     },
                   ),
-
-                // 等待操作提示
                 if (_waitingForAction)
                   Positioned(
                     left: 20,
@@ -415,9 +534,7 @@ class _Phase1HomeScreenState extends State<Phase1HomeScreen> {
     );
   }
 
-  // ─────────────────────────────────
-  // 推開店門場景
-  // ─────────────────────────────────
+  // ─── 推開店門 ───
   Widget _buildDoorScene() {
     return Scaffold(
       backgroundColor: const Color(0xFF8D6E63),
@@ -443,12 +560,10 @@ class _Phase1HomeScreenState extends State<Phase1HomeScreen> {
                   color: _doorOpened
                       ? AppTheme.bgPrimary
                       : const Color(0xFF5D4037),
-                  borderRadius:
-                      BorderRadius.circular(_doorOpened ? 0 : 16),
+                  borderRadius: BorderRadius.circular(_doorOpened ? 0 : 16),
                   border: _doorOpened
                       ? null
-                      : Border.all(
-                          color: const Color(0xFFD7CCC8), width: 3),
+                      : Border.all(color: const Color(0xFFD7CCC8), width: 3),
                   boxShadow: [
                     BoxShadow(
                       color: Colors.black.withAlpha(80),
@@ -501,6 +616,72 @@ class _Phase1HomeScreenState extends State<Phase1HomeScreen> {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// 監聽瓶子兌換和甜點製作狀態
+class _HomeActionListener extends StatefulWidget {
+  final VoidCallback onConverted;
+  final VoidCallback onCrafted;
+  final bool listenConvert;
+  final bool listenCraft;
+
+  const _HomeActionListener({
+    required this.onConverted,
+    required this.onCrafted,
+    required this.listenConvert,
+    required this.listenCraft,
+  });
+
+  @override
+  State<_HomeActionListener> createState() => _HomeActionListenerState();
+}
+
+class _HomeActionListenerState extends State<_HomeActionListener> {
+  int _lastIngredientCount = 0;
+  int _lastDessertCount = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    final player = context.read<PlayerProvider>();
+    _lastIngredientCount = _totalIngredients(player);
+    _lastDessertCount = _totalDesserts(player);
+  }
+
+  int _totalIngredients(PlayerProvider p) {
+    return p.data.ingredients.values.fold(0, (a, b) => a + b);
+  }
+
+  int _totalDesserts(PlayerProvider p) {
+    return p.data.desserts.values.fold(0, (a, b) => a + b);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Consumer<PlayerProvider>(
+      builder: (context, player, _) {
+        if (widget.listenConvert) {
+          final current = _totalIngredients(player);
+          if (current > _lastIngredientCount) {
+            _lastIngredientCount = current;
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              widget.onConverted();
+            });
+          }
+        }
+        if (widget.listenCraft) {
+          final current = _totalDesserts(player);
+          if (current > _lastDessertCount) {
+            _lastDessertCount = current;
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              widget.onCrafted();
+            });
+          }
+        }
+        return const SizedBox.shrink();
+      },
     );
   }
 }

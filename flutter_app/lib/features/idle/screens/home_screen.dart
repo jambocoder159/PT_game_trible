@@ -32,8 +32,14 @@ import '../../../core/models/cat_agent.dart';
 class HomeScreen extends StatefulWidget {
   /// 教學模式：跳過內建 HomeGuide，由外部 overlay 控制
   final bool tutorialMode;
+  /// 教學模式下，攔截導航列點擊（僅闖關 Tab 回調）
+  final VoidCallback? onTutorialNavTap;
 
-  const HomeScreen({super.key, this.tutorialMode = false});
+  const HomeScreen({
+    super.key,
+    this.tutorialMode = false,
+    this.onTutorialNavTap,
+  });
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -226,6 +232,13 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _onNavTap(int index) {
+    // 教學模式：只允許闖關 Tab，並通知外部
+    if (widget.tutorialMode) {
+      if (index == 3 && widget.onTutorialNavTap != null) {
+        widget.onTutorialNavTap!();
+      }
+      return;
+    }
     if (index == _currentNavIndex) return;
     setState(() => _currentNavIndex = index);
   }
