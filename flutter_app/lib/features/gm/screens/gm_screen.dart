@@ -7,7 +7,8 @@ import '../../../config/stage_data.dart';
 import '../../../config/theme.dart';
 import '../../agents/providers/player_provider.dart';
 import '../../idle/providers/idle_provider.dart';
-import '../../tutorial/screens/tutorial_screen.dart';
+import '../../tutorial/providers/tutorial_provider.dart';
+import '../../tutorial/screens/tutorial_router.dart';
 
 class GmScreen extends StatelessWidget {
   const GmScreen({super.key});
@@ -309,9 +310,10 @@ class GmScreen extends StatelessWidget {
                 color: Colors.cyan,
                 onTap: () {
                   provider.gmResetTutorial();
+                  context.read<TutorialProvider>().resetTutorial();
                   Navigator.of(context).pushAndRemoveUntil(
                     MaterialPageRoute(
-                      builder: (_) => const TutorialScreen(),
+                      builder: (_) => const TutorialRouter(),
                     ),
                     (route) => false,
                   );

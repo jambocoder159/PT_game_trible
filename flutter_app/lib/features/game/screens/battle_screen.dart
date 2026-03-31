@@ -36,8 +36,10 @@ const _gamePanelBg = Color(0xFFFFFFFF); // 純白 (= AppTheme.bgCard)
 /// 戰鬥畫面
 class BattleScreen extends StatefulWidget {
   final StageDefinition stage;
+  /// 戰鬥結束回調（教學模式使用），若為 null 則用 Navigator.pop
+  final VoidCallback? onBattleEnd;
 
-  const BattleScreen({super.key, required this.stage});
+  const BattleScreen({super.key, required this.stage, this.onBattleEnd});
 
   @override
   State<BattleScreen> createState() => _BattleScreenState();
@@ -528,7 +530,11 @@ class _BattleScreenState extends State<BattleScreen> {
                     onExit: () {
                       setState(() => _showResult = false);
                       battle.endBattle();
-                      Navigator.of(context).pop();
+                      if (widget.onBattleEnd != null) {
+                        widget.onBattleEnd!();
+                      } else {
+                        Navigator.of(context).pop();
+                      }
                     },
                     onRetry: () => _retryBattle(context),
                     onNextStage: (battle.isBattleOver && battle.isVictory)
