@@ -746,13 +746,70 @@ class PlayerProvider extends ChangeNotifier {
   // ─── 教學相關 ───
 
   /// 完成教學（發放新手獎勵）
-  Future<void> completeTutorial() async {
+  Future<void> completeTutorial({
+    int bonusGold = 300,
+    int bonusDiamonds = 20,
+    List<String>? stagesToClear,
+    String? agentToUnlock,
+  }) async {
     _data.tutorialCompleted = true;
-    // 教學完成獎勵
-    _data.gold += 300;
-    _data.diamonds += 20;
+    _data.gold += bonusGold;
+    _data.diamonds += bonusDiamonds;
+
+    // 跳過教學時標記關卡通過
+    if (stagesToClear != null) {
+      for (final stageId in stagesToClear) {
+        if (!(_data.stageProgress[stageId]?.cleared ?? false)) {
+          _data.stageProgress[stageId] = const StageProgress(
+            cleared: true,
+            stars: 1,
+          );
+        }
+      }
+    }
+
+    // 跳過教學時解鎖角色
+    if (agentToUnlock != null && !_data.agents.containsKey(agentToUnlock)) {
+      _data.agents[agentToUnlock] = CatAgentInstance(
+        definitionId: agentToUnlock,
+        level: 1,
+        isUnlocked: true,
+      );
+      if (_data.team.length < 3 && !_data.team.contains(agentToUnlock)) {
+        _data.team.add(agentToUnlock);
+      }
+    }
+
     await _save();
     notifyListeners();
+  }
+
+  /// 標記教學關卡通過（不改 tutorialCompleted 旗標）
+  Future<void> markTutorialStageCleared(String stageId) async {
+    if (!(_data.stageProgress[stageId]?.cleared ?? false)) {
+      _data.stageProgress[stageId] = const StageProgress(
+        cleared: true,
+        stars: 1,
+      );
+      await _save();
+      notifyListeners();
+    }
+  }
+
+  /// 教學期間解鎖角色（不改 tutorialCompleted 旗標）
+  Future<void> unlockAgentForTutorial(String agentId) async {
+    if (!_data.agents.containsKey(agentId)) {
+      _data.agents[agentId] = CatAgentInstance(
+        definitionId: agentId,
+        level: 1,
+        isUnlocked: true,
+      );
+      if (_data.team.length < 3 && !_data.team.contains(agentId)) {
+        _data.team.add(agentId);
+      }
+      await _save();
+      notifyListeners();
+    }
   }
 
   /// 完成首頁導覽
@@ -766,6 +823,8 @@ class PlayerProvider extends ChangeNotifier {
   Future<void> gmResetTutorial() async {
     _data.tutorialCompleted = false;
     _data.homeGuideCompleted = false;
+    // 清除教學狀態存檔
+    await LocalStorageService.instance.setJson('tutorial_state', null);
     await _save();
     notifyListeners();
   }

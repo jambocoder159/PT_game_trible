@@ -13,7 +13,8 @@ import 'features/idle/providers/cat_provider.dart';
 import 'features/idle/providers/bottle_provider.dart';
 import 'features/idle/providers/crafting_provider.dart';
 import 'features/idle/screens/home_screen.dart';
-import 'features/tutorial/screens/tutorial_screen.dart';
+import 'features/tutorial/providers/tutorial_provider.dart';
+import 'features/tutorial/screens/tutorial_router.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -67,6 +68,11 @@ class Match3App extends StatelessWidget {
           return provider;
         }),
         ChangeNotifierProvider(create: (_) => CraftingProvider()),
+        ChangeNotifierProvider(create: (_) {
+          final provider = TutorialProvider();
+          provider.init();
+          return provider;
+        }),
       ],
       child: MaterialApp(
         title: '貓咪點心屋',
@@ -80,7 +86,7 @@ class Match3App extends StatelessWidget {
               );
             }
             if (!player.data.tutorialCompleted) {
-              return const TutorialScreen();
+              return const TutorialRouter();
             }
             return const HomeScreen();
           },
