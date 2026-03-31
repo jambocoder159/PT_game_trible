@@ -29,15 +29,18 @@ class TutorialConfig {
 
   // ─── Phase 1 步驟定義 ───
   // step 0: 推開店門
-  // step 1: 認識方塊
-  // step 2: 點擊採集 (sub 0)
-  // step 3: 滑動移動 (sub 0=上拖, 1=下拖)
-  // step 4: 三連消
-  // step 5: 能量充滿
-  // step 6: 做成點心
-  // step 7: 點心出售
-  // step 8: 小任務
-  static const int phase1Steps = 9;
+  // step 1: 認識方塊（對話 1）
+  // step 2: 認識方塊（對話 2 - 五色說明）
+  // step 3: 點擊採集 → 等待操作
+  // step 4: 點擊成功回饋
+  // step 5: 上拖教學 → 等待操作
+  // step 6: 上拖成功 → 下拖提示
+  // step 7: 下拖教學 → 等待操作
+  // step 8: 三連消說明
+  // step 9: 三連消 → 等待操作
+  // step 10: 三連消成功回饋
+  // step 11: 總結 → 完成
+  static const int phase1Steps = 12;
 
   // ─── Phase 4 步驟定義 ───
   // step 0: 隊伍編成

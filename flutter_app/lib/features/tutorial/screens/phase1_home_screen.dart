@@ -1,21 +1,19 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../../config/game_modes.dart';
 import '../../../config/theme.dart';
+import '../../agents/providers/player_provider.dart';
 import '../../game/providers/game_provider.dart';
 import '../../game/widgets/game_board.dart';
-import '../config/tutorial_config.dart';
 import '../models/tutorial_dialogue_data.dart';
 import '../providers/tutorial_provider.dart';
 import '../widgets/tutorial_dialogue_box.dart';
 import '../widgets/tutorial_gesture_hint.dart';
-import '../widgets/tutorial_highlight_overlay.dart';
-import '../widgets/tutorial_task_panel.dart';
 
 /// Phase 1：首頁教學
-/// 簡化版首頁 + 教學 overlay，教方塊操作 → 做點心 → 出售
+/// 在 idle 棋盤上教方塊基礎操作（點擊/上拖/下拖/三連消）
+/// 完成後直接進入 Phase 2
 class Phase1HomeScreen extends StatefulWidget {
   const Phase1HomeScreen({super.key});
 
@@ -24,58 +22,34 @@ class Phase1HomeScreen extends StatefulWidget {
 }
 
 class _Phase1HomeScreenState extends State<Phase1HomeScreen> {
-  // ─── 步驟狀態 ───
+  // ─── 步驟定義 ───
   // 0: 推開店門
-  // 1: 認識方塊
-  // 2: 點擊採集
-  // 3: 滑動移動 (sub 0=上, 1=下)
-  // 4: 三連消
-  // 5: 能量充滿
-  // 6: 做成點心
-  // 7: 出售點心
-  // 8: 小任務（做出 3 份）
+  // 1: 認識方塊（對話 1）
+  // 2: 認識方塊（對話 2 - 五色說明）
+  // 3: 點擊採集 → 等待操作
+  // 4: 點擊成功回饋
+  // 5: 上拖教學 → 等待操作
+  // 6: 上拖成功 → 下拖提示
+  // 7: 下拖教學 → 等待操作
+  // 8: 三連消說明
+  // 9: 三連消 → 等待操作
+  // 10: 三連消成功回饋
+  // 11: 總結 → 完成
   int _step = 0;
-  int _subStep = 0;
   bool _waitingForAction = false;
   bool _doorOpened = false;
   int _lastActionCount = 0;
   int _lastCombo = 0;
-
-  // 對話相關
-  TutorialDialogue? _currentDialogue;
-  bool _showDialogue = true;
-
-  // 小任務
-  int _pastriesMade = 0;
-  bool _ingredientReady = false;
-  bool _pastryReady = false;
-
-  // 模擬的資源
-  int _energy = 0;
-  int _coins = 0;
-  static const int _maxEnergy = 100;
-
-  // 高亮 Key
-  final _boardKey = GlobalKey();
-  final _energyBarKey = GlobalKey();
-  final _craftButtonKey = GlobalKey();
-  final _sellButtonKey = GlobalKey();
+  bool _transitioning = false;
 
   @override
   void initState() {
     super.initState();
     final tutorial = context.read<TutorialProvider>();
     _step = tutorial.currentStep;
-    _subStep = tutorial.state.currentSubStep;
-    _pastriesMade = tutorial.state.pastriesSold;
-
     if (_step > 0) _doorOpened = true;
-    if (_step >= 5) _ingredientReady = true;
-    if (_step >= 6) _pastryReady = true;
 
-    _updateDialogue();
-
-    if (_step >= 1) {
+    if (_step >= 3) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _startGame();
       });
@@ -89,222 +63,71 @@ class _Phase1HomeScreenState extends State<Phase1HomeScreen> {
     _lastCombo = game.state?.combo ?? 0;
   }
 
-  void _updateDialogue() {
-    setState(() {
-      _showDialogue = true;
-      switch (_step) {
-        case 0:
-          _currentDialogue = TutorialDialogues.t006;
-          _waitingForAction = false;
-        case 1:
-          _currentDialogue = TutorialDialogues.t007;
-          _waitingForAction = false;
-        case 2:
-          _currentDialogue = TutorialDialogues.t009a;
-          _waitingForAction = false;
-        case 3:
-          if (_subStep == 0) {
-            _currentDialogue = TutorialDialogues.t009c;
-          } else {
-            _currentDialogue = TutorialDialogues.t009e;
-          }
-          _waitingForAction = false;
-        case 4:
-          _currentDialogue = TutorialDialogues.t009f;
-          _waitingForAction = false;
-        case 5:
-          _currentDialogue = TutorialDialogues.t011;
-          _waitingForAction = false;
-        case 6:
-          _currentDialogue = TutorialDialogues.t012;
-          _waitingForAction = false;
-        case 7:
-          _currentDialogue = TutorialDialogues.t013;
-          _waitingForAction = false;
-        case 8:
-          _currentDialogue = TutorialDialogues.t015;
-          _waitingForAction = false;
-        default:
-          _currentDialogue = null;
-      }
-    });
+  void _goToStep(int step) {
+    if (_transitioning) return;
+    context.read<TutorialProvider>().setStep(step);
+    setState(() => _step = step);
   }
 
   void _onDialogueTap() {
+    if (_transitioning) return;
     switch (_step) {
       case 0:
-        // 等玩家點門
-        setState(() => _showDialogue = false);
+        // 已看完對話，等待點門
+        return;
       case 1:
-        // 顯示第二段對話（五色方塊）
-        if (_currentDialogue?.id == 'T007') {
-          setState(() {
-            _currentDialogue = TutorialDialogues.t008;
-          });
-        } else {
-          _goToStep(2);
-        }
+        _goToStep(2);
       case 2:
-        // 進入等待操作
-        setState(() {
-          _waitingForAction = true;
-          _showDialogue = false;
-        });
-        _recordBaseline();
-      case 3:
-        setState(() {
-          _waitingForAction = true;
-          _showDialogue = false;
-        });
-        _recordBaseline();
+        // 五色方塊說明完 → 進入點擊教學
+        _goToStep(3);
+        _startWaiting();
       case 4:
-        setState(() {
-          _waitingForAction = true;
-          _showDialogue = false;
-        });
-        _recordBaseline();
-      case 5:
-        // 模擬能量充滿
-        _simulateEnergyFill();
+        // 點擊成功回饋 → 進入上拖教學
+        _goToStep(5);
+        _startWaiting();
       case 6:
-        _doCraft();
-      case 7:
-        _doSell();
+        // 上拖成功 → 下拖提示
+        _goToStep(7);
+        _startWaiting();
       case 8:
-        // 開始小任務
-        setState(() {
-          _waitingForAction = true;
-          _showDialogue = false;
-        });
+        // 三連消說明 → 等待三連消
+        _goToStep(9);
+        _startWaiting();
+      case 10:
+        // 三連消成功 → 總結
+        _goToStep(11);
+      case 11:
+        // 總結 → 完成 Phase 1
+        _completePhase();
     }
   }
 
-  void _recordBaseline() {
+  void _startWaiting() {
     final game = context.read<GameProvider>();
     _lastActionCount = game.state?.actionCount ?? 0;
     _lastCombo = game.state?.combo ?? 0;
-  }
-
-  void _goToStep(int step, {int subStep = 0}) {
-    final tutorial = context.read<TutorialProvider>();
-    tutorial.setStep(step, subStep: subStep);
-    setState(() {
-      _step = step;
-      _subStep = subStep;
-    });
-    _updateDialogue();
+    setState(() => _waitingForAction = true);
   }
 
   void _onActionDetected() {
+    if (_transitioning) return;
     HapticFeedback.lightImpact();
     setState(() => _waitingForAction = false);
 
     switch (_step) {
-      case 2:
-        // 點擊成功
-        setState(() {
-          _currentDialogue = TutorialDialogues.t009b;
-          _showDialogue = true;
-        });
-        Future.delayed(const Duration(milliseconds: 1500), () {
-          if (mounted) _goToStep(3);
-        });
       case 3:
-        if (_subStep == 0) {
-          // 上拖成功
-          setState(() {
-            _currentDialogue = TutorialDialogues.t009d;
-            _showDialogue = true;
-          });
-          Future.delayed(const Duration(milliseconds: 1500), () {
-            if (mounted) _goToStep(3, subStep: 1);
-          });
-        } else {
-          // 下拖成功
-          _goToStep(4);
-        }
-      case 4:
+        // 點擊成功
+        _goToStep(4);
+      case 5:
+        // 上拖成功
+        _goToStep(6);
+      case 7:
+        // 下拖成功 → 三連消說明
+        _goToStep(8);
+      case 9:
         // 三連消成功
-        setState(() {
-          _currentDialogue = TutorialDialogues.t010a;
-          _showDialogue = true;
-        });
-        Future.delayed(const Duration(milliseconds: 2000), () {
-          if (mounted) {
-            setState(() {
-              _currentDialogue = TutorialDialogues.t010b;
-            });
-            Future.delayed(const Duration(milliseconds: 2500), () {
-              if (mounted) _goToStep(5);
-            });
-          }
-        });
+        _goToStep(10);
     }
-  }
-
-  void _simulateEnergyFill() {
-    setState(() {
-      _showDialogue = false;
-      _energy = 0;
-    });
-    // 模擬能量逐漸充滿
-    Timer.periodic(const Duration(milliseconds: 50), (timer) {
-      if (!mounted) {
-        timer.cancel();
-        return;
-      }
-      setState(() {
-        _energy += 5;
-        if (_energy >= _maxEnergy) {
-          _energy = _maxEnergy;
-          timer.cancel();
-          _ingredientReady = true;
-          HapticFeedback.mediumImpact();
-          _goToStep(6);
-        }
-      });
-    });
-  }
-
-  void _doCraft() {
-    setState(() {
-      _showDialogue = false;
-      _ingredientReady = false;
-    });
-    // 模擬製作動畫
-    Future.delayed(const Duration(milliseconds: 800), () {
-      if (mounted) {
-        HapticFeedback.mediumImpact();
-        setState(() {
-          _pastryReady = true;
-        });
-        _goToStep(7);
-      }
-    });
-  }
-
-  void _doSell() {
-    setState(() {
-      _showDialogue = false;
-      _pastryReady = false;
-    });
-    Future.delayed(const Duration(milliseconds: 600), () {
-      if (mounted) {
-        HapticFeedback.mediumImpact();
-        setState(() {
-          _coins += 50;
-          _pastriesMade++;
-        });
-        // 出售成功對話
-        setState(() {
-          _currentDialogue = TutorialDialogues.t014;
-          _showDialogue = true;
-        });
-        Future.delayed(const Duration(milliseconds: 2000), () {
-          if (mounted) _goToStep(8);
-        });
-      }
-    });
   }
 
   void _onDoorTap() {
@@ -320,48 +143,99 @@ class _Phase1HomeScreenState extends State<Phase1HomeScreen> {
     }
   }
 
-  void _onMiniTaskAction() {
-    // 小任務期間的自由操作
-    if (_step == 8 && _waitingForAction) {
-      // 模擬每次操作累積能量
-      setState(() {
-        _energy += 25;
-        if (_energy >= _maxEnergy) {
-          _energy = 0;
-          _pastryReady = true;
-        }
-      });
+  void _completePhase() {
+    _transitioning = true;
+    context.read<TutorialProvider>().advancePhase();
+  }
+
+  void _skipTutorial() {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppTheme.bgSecondary,
+        title: const Text('跳過教學？',
+            style: TextStyle(color: AppTheme.textPrimary)),
+        content: const Text('您可以稍後在設定中重新體驗教學。',
+            style: TextStyle(color: AppTheme.textSecondary)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('繼續學習'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              context
+                  .read<TutorialProvider>()
+                  .skipEntireTutorial(context.read<PlayerProvider>());
+            },
+            child: const Text('跳過全部教學',
+                style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ─── 取得當前對話 ───
+  TutorialDialogue _currentDialogue() {
+    switch (_step) {
+      case 0:
+        return TutorialDialogues.t006;
+      case 1:
+        return TutorialDialogues.t007;
+      case 2:
+        return TutorialDialogues.t008;
+      case 4:
+        return TutorialDialogues.t009b;
+      case 6:
+        return TutorialDialogues.t009d;
+      case 8:
+        return TutorialDialogues.t009f;
+      case 10:
+        return TutorialDialogues.t010a;
+      case 11:
+        return TutorialDialogues.t010b;
+      default:
+        return TutorialDialogues.t006;
     }
   }
 
-  void _onMiniTaskSell() {
-    if (_step == 8 && _pastryReady) {
-      HapticFeedback.lightImpact();
-      setState(() {
-        _pastryReady = false;
-        _coins += 50;
-        _pastriesMade++;
-      });
-      context.read<TutorialProvider>().incrementPastriesSold();
+  // ─── 取得等待提示 ───
+  String _waitingHint() {
+    switch (_step) {
+      case 3:
+        return '👆 點擊棋盤上任一個方塊！';
+      case 5:
+        return '☝️ 長按方塊往上拖！';
+      case 7:
+        return '👇 長按方塊往下拖！';
+      case 9:
+        return '🎯 讓三個相同食材排在一起！';
+      default:
+        return '👆 請在棋盤上操作';
+    }
+  }
 
-      if (_pastriesMade >= TutorialConfig.pastriesToMake) {
-        setState(() => _waitingForAction = false);
-        setState(() {
-          _currentDialogue = TutorialDialogues.t016;
-          _showDialogue = true;
-        });
-        Future.delayed(const Duration(milliseconds: 2000), () {
-          if (mounted) {
-            context.read<TutorialProvider>().advancePhase();
-          }
-        });
-      }
+  // ─── 取得手勢提示類型 ───
+  String? _gestureType() {
+    switch (_step) {
+      case 3:
+        return 'tap';
+      case 5:
+        return 'up';
+      case 7:
+        return 'down';
+      case 9:
+        return 'tap';
+      default:
+        return null;
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    // Step 0：推開店門
+    // ─── Step 0：推開店門 ───
     if (!_doorOpened) {
       return _buildDoorScene();
     }
@@ -372,32 +246,21 @@ class _Phase1HomeScreenState extends State<Phase1HomeScreen> {
         child: Consumer<GameProvider>(
           builder: (context, game, _) {
             // 監聽操作推進
-            if (_waitingForAction && game.state != null && _step <= 4) {
-              if (_step == 4) {
-                // 等三連消
+            if (_waitingForAction && game.state != null) {
+              if (_step == 9) {
+                // 等三連消（combo 增加）
                 if (game.state!.combo > _lastCombo) {
                   WidgetsBinding.instance.addPostFrameCallback((_) {
                     if (mounted && _waitingForAction) _onActionDetected();
                   });
                 }
               } else {
-                // 等任意操作
+                // 等任意操作（actionCount 增加）
                 if (game.state!.actionCount > _lastActionCount) {
                   WidgetsBinding.instance.addPostFrameCallback((_) {
                     if (mounted && _waitingForAction) _onActionDetected();
                   });
                 }
-              }
-            }
-
-            // 小任務期間追蹤操作
-            if (_step == 8 && _waitingForAction && game.state != null) {
-              final currentActions = game.state!.actionCount;
-              if (currentActions > _lastActionCount) {
-                _lastActionCount = currentActions;
-                WidgetsBinding.instance.addPostFrameCallback((_) {
-                  if (mounted) _onMiniTaskAction();
-                });
               }
             }
 
@@ -407,16 +270,32 @@ class _Phase1HomeScreenState extends State<Phase1HomeScreen> {
                 Column(
                   children: [
                     // 頂部資訊列
-                    _buildTopBar(),
-
-                    // 能量條
-                    if (_step >= 5)
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        child: _buildEnergyBar(),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 8),
+                      child: Row(
+                        children: [
+                          const Text(
+                            '🏪 教學模式',
+                            style: TextStyle(
+                              color: AppTheme.textSecondary,
+                              fontSize: 14,
+                            ),
+                          ),
+                          const Spacer(),
+                          TextButton(
+                            onPressed: _skipTutorial,
+                            child: const Text(
+                              '跳過教學 →',
+                              style: TextStyle(
+                                color: AppTheme.textSecondary,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
-
-                    const SizedBox(height: 8),
+                    ),
 
                     // 遊戲棋盤
                     Expanded(
@@ -424,99 +303,57 @@ class _Phase1HomeScreenState extends State<Phase1HomeScreen> {
                         padding: const EdgeInsets.symmetric(horizontal: 16),
                         child: Center(
                           child: AbsorbPointer(
-                            absorbing:
-                                !_waitingForAction && _step != 8,
-                            child: GestureDetector(
-                              key: _boardKey,
-                              child: const GameBoard(),
-                            ),
+                            absorbing: !_waitingForAction,
+                            child: const GameBoard(),
                           ),
                         ),
                       ),
                     ),
 
-                    const SizedBox(height: 8),
-
-                    // 下方操作區
-                    if (_step >= 6) _buildActionBar(),
-
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 100),
                   ],
                 ),
 
-                // ─── 高亮 Overlay ───
-                if (_step == 5 && !_showDialogue)
-                  TutorialHighlightOverlay(
-                    highlightKey: _energyBarKey,
-                    blockInput: false,
-                  ),
-
-                if (_step == 6 && !_showDialogue)
-                  TutorialHighlightOverlay(
-                    highlightKey: _craftButtonKey,
-                    blockInput: false,
-                  ),
-
-                if (_step == 7 && !_showDialogue)
-                  TutorialHighlightOverlay(
-                    highlightKey: _sellButtonKey,
-                    blockInput: false,
-                  ),
-
                 // ─── 手勢引導 ───
-                if (_waitingForAction && _step == 2)
-                  const TutorialGestureHint(gestureType: 'tap'),
-                if (_waitingForAction && _step == 3 && _subStep == 0)
-                  const TutorialGestureHint(gestureType: 'up'),
-                if (_waitingForAction && _step == 3 && _subStep == 1)
-                  const TutorialGestureHint(gestureType: 'down'),
-                if (_waitingForAction && _step == 4)
-                  const TutorialGestureHint(gestureType: 'tap'),
+                if (_waitingForAction && _gestureType() != null)
+                  TutorialGestureHint(gestureType: _gestureType()!),
 
-                // ─── 小任務面板 ───
-                if (_step == 8)
-                  Positioned(
-                    top: MediaQuery.of(context).padding.top + 50,
-                    right: 0,
-                    child: TutorialTaskPanel(
-                      title: '製作並出售 3 份點心',
-                      current: _pastriesMade,
-                      target: TutorialConfig.pastriesToMake,
-                      reward: '100 🍬',
-                    ),
-                  ),
-
-                // ─── 對話框 ───
-                if (_showDialogue && _currentDialogue != null)
+                // ─── 對話框（非等待操作時顯示） ───
+                if (!_waitingForAction)
                   TutorialDialogueBox(
-                    dialogue: _currentDialogue!,
+                    dialogue: _currentDialogue(),
                     onTap: _onDialogueTap,
                     onComplete: () {
-                      if (_currentDialogue?.autoAdvanceDelay != null) {
+                      final d = _currentDialogue();
+                      if (d.autoAdvanceDelay != null) {
                         _onDialogueTap();
                       }
                     },
                   ),
 
                 // ─── 等待操作提示 ───
-                if (_waitingForAction && !_showDialogue && _step <= 4)
+                if (_waitingForAction)
                   Positioned(
                     left: 20,
                     right: 20,
                     bottom: MediaQuery.of(context).padding.bottom + 20,
                     child: Container(
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 16, vertical: 10),
+                          horizontal: 16, vertical: 12),
                       decoration: BoxDecoration(
-                        color: AppTheme.bgSecondary.withAlpha(220),
+                        color: AppTheme.bgSecondary.withAlpha(230),
                         borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: AppTheme.accentPrimary.withAlpha(80),
+                        ),
                       ),
                       child: Text(
-                        _getWaitingHint(),
+                        _waitingHint(),
                         textAlign: TextAlign.center,
-                        style: TextStyle(
+                        style: const TextStyle(
                           color: AppTheme.accentPrimary,
-                          fontSize: 14,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
                     ),
@@ -529,25 +366,12 @@ class _Phase1HomeScreenState extends State<Phase1HomeScreen> {
     );
   }
 
-  String _getWaitingHint() {
-    switch (_step) {
-      case 2:
-        return '👆 點擊棋盤上任一個方塊！';
-      case 3:
-        return _subStep == 0 ? '☝️ 長按方塊往上拖！' : '👇 長按方塊往下拖！';
-      case 4:
-        return '🎯 讓三個相同食材排在一起！';
-      default:
-        return '👆 請在棋盤上操作';
-    }
-  }
-
+  // ─── 推開店門場景 ───
   Widget _buildDoorScene() {
     return Scaffold(
       backgroundColor: const Color(0xFF8D6E63),
       body: Stack(
         children: [
-          // 背景
           Container(
             decoration: const BoxDecoration(
               gradient: LinearGradient(
@@ -557,8 +381,6 @@ class _Phase1HomeScreenState extends State<Phase1HomeScreen> {
               ),
             ),
           ),
-
-          // 門的 placeholder
           Center(
             child: GestureDetector(
               onTap: _onDoorTap,
@@ -570,14 +392,12 @@ class _Phase1HomeScreenState extends State<Phase1HomeScreen> {
                   color: _doorOpened
                       ? AppTheme.bgPrimary
                       : const Color(0xFF5D4037),
-                  borderRadius: BorderRadius.circular(
-                      _doorOpened ? 0 : 16),
+                  borderRadius:
+                      BorderRadius.circular(_doorOpened ? 0 : 16),
                   border: _doorOpened
                       ? null
                       : Border.all(
-                          color: const Color(0xFFD7CCC8),
-                          width: 3,
-                        ),
+                          color: const Color(0xFFD7CCC8), width: 3),
                   boxShadow: [
                     BoxShadow(
                       color: Colors.black.withAlpha(80),
@@ -596,7 +416,7 @@ class _Phase1HomeScreenState extends State<Phase1HomeScreen> {
                       ),
                       if (!_doorOpened) ...[
                         const SizedBox(height: 16),
-                        Text(
+                        const Text(
                           '點擊開門',
                           style: TextStyle(
                             color: AppTheme.bgSecondary,
@@ -611,170 +431,28 @@ class _Phase1HomeScreenState extends State<Phase1HomeScreen> {
               ),
             ),
           ),
-
-          // 對話
-          if (_showDialogue && _currentDialogue != null)
-            TutorialDialogueBox(
-              dialogue: _currentDialogue!,
-              onTap: () {
-                setState(() => _showDialogue = false);
-              },
-            ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildTopBar() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: Row(
-        children: [
-          const Text(
-            '🏪 教學模式',
-            style: TextStyle(
-              color: AppTheme.textSecondary,
-              fontSize: 14,
-            ),
+          // 門場景對話
+          TutorialDialogueBox(
+            dialogue: TutorialDialogues.t006,
+            onTap: () {},
+            showTapHint: false,
           ),
-          const Spacer(),
-          if (_coins > 0)
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-              decoration: BoxDecoration(
-                color: AppTheme.bgSecondary,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Text(
-                '🍬 $_coins',
-                style: const TextStyle(
-                  color: AppTheme.textPrimary,
-                  fontSize: 14,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildEnergyBar() {
-    return Container(
-      key: _energyBarKey,
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: AppTheme.bgSecondary.withAlpha(150),
-        borderRadius: BorderRadius.circular(10),
-      ),
-      child: Row(
-        children: [
-          const Text('⚡', style: TextStyle(fontSize: 18)),
-          const SizedBox(width: 8),
-          Expanded(
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(4),
-              child: LinearProgressIndicator(
-                value: _energy / _maxEnergy,
-                backgroundColor: AppTheme.textSecondary.withAlpha(30),
-                valueColor: AlwaysStoppedAnimation<Color>(
-                  _energy >= _maxEnergy
-                      ? AppTheme.stageCleared
-                      : AppTheme.accentPrimary,
-                ),
-                minHeight: 8,
-              ),
-            ),
-          ),
-          const SizedBox(width: 8),
-          Text(
-            '$_energy/$_maxEnergy',
-            style: const TextStyle(
-              color: AppTheme.textSecondary,
-              fontSize: 12,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildActionBar() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Row(
-        children: [
-          // 製作按鈕
-          Expanded(
-            child: GestureDetector(
-              key: _craftButtonKey,
-              onTap: () {
-                if (_step == 6) _onDialogueTap();
-                if (_step == 8 && _ingredientReady) {
-                  setState(() {
-                    _ingredientReady = false;
-                    _pastryReady = true;
-                  });
-                }
-              },
+          // 跳過
+          Positioned(
+            top: MediaQuery.of(context).padding.top + 12,
+            right: 16,
+            child: TextButton(
+              onPressed: _skipTutorial,
               child: Container(
-                padding: const EdgeInsets.symmetric(vertical: 14),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 decoration: BoxDecoration(
-                  color: _ingredientReady
-                      ? AppTheme.accentPrimary
-                      : AppTheme.bgSecondary,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: AppTheme.accentPrimary.withAlpha(100),
-                  ),
+                  color: Colors.black.withAlpha(80),
+                  borderRadius: BorderRadius.circular(16),
                 ),
-                child: Center(
-                  child: Text(
-                    _ingredientReady ? '🍞 製作點心！' : '🥣 等待食材...',
-                    style: TextStyle(
-                      color: _ingredientReady
-                          ? Colors.white
-                          : AppTheme.textSecondary,
-                      fontSize: 15,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(width: 12),
-          // 出售按鈕
-          Expanded(
-            child: GestureDetector(
-              key: _sellButtonKey,
-              onTap: () {
-                if (_step == 7) _onDialogueTap();
-                if (_step == 8 && _pastryReady) _onMiniTaskSell();
-              },
-              child: Container(
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                decoration: BoxDecoration(
-                  color: _pastryReady
-                      ? const Color(0xFF4CAF50)
-                      : AppTheme.bgSecondary,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: _pastryReady
-                        ? const Color(0xFF4CAF50).withAlpha(150)
-                        : AppTheme.textSecondary.withAlpha(40),
-                  ),
-                ),
-                child: Center(
-                  child: Text(
-                    _pastryReady ? '💰 出售！' : '📦 無點心',
-                    style: TextStyle(
-                      color:
-                          _pastryReady ? Colors.white : AppTheme.textSecondary,
-                      fontSize: 15,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
+                child: const Text(
+                  '跳過教學 →',
+                  style: TextStyle(color: Colors.white70, fontSize: 14),
                 ),
               ),
             ),
