@@ -6,14 +6,17 @@ import '../../../config/theme.dart';
 import '../../agents/providers/player_provider.dart';
 import '../../game/providers/game_provider.dart';
 import '../../game/widgets/game_board.dart';
+import '../../idle/screens/home_screen.dart';
+import '../../idle/widgets/home_guide_overlay.dart';
 import '../models/tutorial_dialogue_data.dart';
 import '../providers/tutorial_provider.dart';
 import '../widgets/tutorial_dialogue_box.dart';
 import '../widgets/tutorial_gesture_hint.dart';
 
 /// Phase 1：首頁教學
-/// 在 idle 棋盤上教方塊基礎操作（點擊/上拖/下拖/三連消）
-/// 完成後直接進入 Phase 2
+/// 分兩階段：
+///   Part A（steps 0-11）：基礎操作（點擊/上拖/下拖/三連消）
+///   Part B（steps 12+）：引導到真正的 HomeScreen 學做甜點
 class Phase1HomeScreen extends StatefulWidget {
   const Phase1HomeScreen({super.key});
 
@@ -22,7 +25,7 @@ class Phase1HomeScreen extends StatefulWidget {
 }
 
 class _Phase1HomeScreenState extends State<Phase1HomeScreen> {
-  // ─── 步驟定義 ───
+  // ─── Part A 步驟定義 ───
   // 0: 推開店門
   // 1: 認識方塊（對話 1）
   // 2: 認識方塊（對話 2 - 五色說明）
@@ -34,7 +37,8 @@ class _Phase1HomeScreenState extends State<Phase1HomeScreen> {
   // 8: 三連消說明
   // 9: 三連消 → 等待操作
   // 10: 三連消成功回饋
-  // 11: 總結 → 完成
+  // 11: 總結 → 進入 Part B
+  // 12+: Part B — 真正的 HomeScreen + 導覽
   int _step = 0;
   bool _waitingForAction = false;
   bool _doorOpened = false;
@@ -42,14 +46,18 @@ class _Phase1HomeScreenState extends State<Phase1HomeScreen> {
   int _lastCombo = 0;
   bool _transitioning = false;
 
+  // Part B
+  bool _showHomeScreen = false;
+
   @override
   void initState() {
     super.initState();
     final tutorial = context.read<TutorialProvider>();
     _step = tutorial.currentStep;
     if (_step > 0) _doorOpened = true;
+    if (_step >= 12) _showHomeScreen = true;
 
-    if (_step >= 3) {
+    if (_step >= 3 && _step < 12) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _startGame();
       });
@@ -73,32 +81,26 @@ class _Phase1HomeScreenState extends State<Phase1HomeScreen> {
     if (_transitioning) return;
     switch (_step) {
       case 0:
-        // 已看完對話，等待點門
-        return;
+        return; // 等玩家點門
       case 1:
         _goToStep(2);
       case 2:
-        // 五色方塊說明完 → 進入點擊教學
         _goToStep(3);
         _startWaiting();
       case 4:
-        // 點擊成功回饋 → 進入上拖教學
         _goToStep(5);
         _startWaiting();
       case 6:
-        // 上拖成功 → 下拖提示
         _goToStep(7);
         _startWaiting();
       case 8:
-        // 三連消說明 → 等待三連消
         _goToStep(9);
         _startWaiting();
       case 10:
-        // 三連消成功 → 總結
         _goToStep(11);
       case 11:
-        // 總結 → 完成 Phase 1
-        _completePhase();
+        // 操作教學完成 → 進入 Part B（真正 HomeScreen）
+        _enterHomeScreen();
     }
   }
 
@@ -113,19 +115,14 @@ class _Phase1HomeScreenState extends State<Phase1HomeScreen> {
     if (_transitioning) return;
     HapticFeedback.lightImpact();
     setState(() => _waitingForAction = false);
-
     switch (_step) {
       case 3:
-        // 點擊成功
         _goToStep(4);
       case 5:
-        // 上拖成功
         _goToStep(6);
       case 7:
-        // 下拖成功 → 三連消說明
         _goToStep(8);
       case 9:
-        // 三連消成功
         _goToStep(10);
     }
   }
@@ -141,6 +138,17 @@ class _Phase1HomeScreenState extends State<Phase1HomeScreen> {
         }
       });
     }
+  }
+
+  void _enterHomeScreen() {
+    _goToStep(12);
+    setState(() => _showHomeScreen = true);
+  }
+
+  void _onHomeGuideComplete() {
+    // HomeScreen 導覽完成 → 進入 Phase 2
+    _transitioning = true;
+    context.read<TutorialProvider>().advancePhase();
   }
 
   void _completePhase() {
@@ -177,7 +185,6 @@ class _Phase1HomeScreenState extends State<Phase1HomeScreen> {
     );
   }
 
-  // ─── 取得當前對話 ───
   TutorialDialogue _currentDialogue() {
     switch (_step) {
       case 0:
@@ -201,7 +208,6 @@ class _Phase1HomeScreenState extends State<Phase1HomeScreen> {
     }
   }
 
-  // ─── 取得等待提示 ───
   String _waitingHint() {
     switch (_step) {
       case 3:
@@ -217,7 +223,6 @@ class _Phase1HomeScreenState extends State<Phase1HomeScreen> {
     }
   }
 
-  // ─── 取得手勢提示類型 ───
   String? _gestureType() {
     switch (_step) {
       case 3:
@@ -235,11 +240,69 @@ class _Phase1HomeScreenState extends State<Phase1HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // ─── Step 0：推開店門 ───
+    // ═══ Part B：真正的 HomeScreen + 甜點製作導覽 ═══
+    if (_showHomeScreen) {
+      return _buildHomeScreenWithGuide();
+    }
+
+    // ═══ Part A Step 0：推開店門 ═══
     if (!_doorOpened) {
       return _buildDoorScene();
     }
 
+    // ═══ Part A Steps 1-11：操作教學 ═══
+    return _buildOperationTutorial();
+  }
+
+  // ─────────────────────────────────
+  // Part B：真正的 HomeScreen + 導覽
+  // ─────────────────────────────────
+  Widget _buildHomeScreenWithGuide() {
+    return Stack(
+      children: [
+        // 真正的首頁（教學模式：跳過內建 HomeGuide）
+        const HomeScreen(tutorialMode: true),
+
+        // 教學導覽 overlay
+        HomeGuideOverlay(
+          steps: [
+            const HomeGuideStep(
+              title: '🏠 歡迎來到你的店面！',
+              description: '基本操作你已經學會了！\n'
+                  '現在來看看如何經營甜點店吧。',
+              buttonText: '好的！',
+            ),
+            const HomeGuideStep(
+              title: '🧪 能量瓶子系統',
+              description: '消除方塊會產生能量，\n'
+                  '5 個顏色的瓶子會收集對應的能量。\n'
+                  '瓶子滿了就能兌換食材！',
+              buttonText: '原來如此！',
+            ),
+            const HomeGuideStep(
+              title: '🍰 製作甜點',
+              description: '有了食材，就能製作甜點出售賺錢！\n'
+                  '點擊左側面板的「一鍵兌換」和「製作甜點」按鈕試試。',
+              buttonText: '了解！',
+            ),
+            const HomeGuideStep(
+              title: '✨ 自由探索',
+              description: '棋盤會自動掉落方塊，你也可以手動消除。\n'
+                  '手動消除效率更高喔！\n\n'
+                  '接下來，地下室好像有什麼動靜……',
+              buttonText: '去看看！',
+            ),
+          ],
+          onComplete: _onHomeGuideComplete,
+        ),
+      ],
+    );
+  }
+
+  // ─────────────────────────────────
+  // Part A：操作教學
+  // ─────────────────────────────────
+  Widget _buildOperationTutorial() {
     return Scaffold(
       backgroundColor: AppTheme.bgPrimary,
       body: SafeArea(
@@ -248,14 +311,12 @@ class _Phase1HomeScreenState extends State<Phase1HomeScreen> {
             // 監聽操作推進
             if (_waitingForAction && game.state != null) {
               if (_step == 9) {
-                // 等三連消（combo 增加）
                 if (game.state!.combo > _lastCombo) {
                   WidgetsBinding.instance.addPostFrameCallback((_) {
                     if (mounted && _waitingForAction) _onActionDetected();
                   });
                 }
               } else {
-                // 等任意操作（actionCount 增加）
                 if (game.state!.actionCount > _lastActionCount) {
                   WidgetsBinding.instance.addPostFrameCallback((_) {
                     if (mounted && _waitingForAction) _onActionDetected();
@@ -266,38 +327,30 @@ class _Phase1HomeScreenState extends State<Phase1HomeScreen> {
 
             return Stack(
               children: [
-                // ─── 主要內容 ───
                 Column(
                   children: [
-                    // 頂部資訊列
+                    // 頂部
                     Container(
                       padding: const EdgeInsets.symmetric(
                           horizontal: 16, vertical: 8),
                       child: Row(
                         children: [
-                          const Text(
-                            '🏪 教學模式',
-                            style: TextStyle(
-                              color: AppTheme.textSecondary,
-                              fontSize: 14,
-                            ),
-                          ),
+                          const Text('🏪 教學模式',
+                              style: TextStyle(
+                                  color: AppTheme.textSecondary,
+                                  fontSize: 14)),
                           const Spacer(),
                           TextButton(
                             onPressed: _skipTutorial,
-                            child: const Text(
-                              '跳過教學 →',
-                              style: TextStyle(
-                                color: AppTheme.textSecondary,
-                                fontSize: 13,
-                              ),
-                            ),
+                            child: const Text('跳過教學 →',
+                                style: TextStyle(
+                                    color: AppTheme.textSecondary,
+                                    fontSize: 13)),
                           ),
                         ],
                       ),
                     ),
-
-                    // 遊戲棋盤
+                    // 棋盤
                     Expanded(
                       child: Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -309,29 +362,26 @@ class _Phase1HomeScreenState extends State<Phase1HomeScreen> {
                         ),
                       ),
                     ),
-
                     const SizedBox(height: 100),
                   ],
                 ),
 
-                // ─── 手勢引導 ───
+                // 手勢引導
                 if (_waitingForAction && _gestureType() != null)
                   TutorialGestureHint(gestureType: _gestureType()!),
 
-                // ─── 對話框（非等待操作時顯示） ───
+                // 對話框
                 if (!_waitingForAction)
                   TutorialDialogueBox(
                     dialogue: _currentDialogue(),
                     onTap: _onDialogueTap,
                     onComplete: () {
                       final d = _currentDialogue();
-                      if (d.autoAdvanceDelay != null) {
-                        _onDialogueTap();
-                      }
+                      if (d.autoAdvanceDelay != null) _onDialogueTap();
                     },
                   ),
 
-                // ─── 等待操作提示 ───
+                // 等待操作提示
                 if (_waitingForAction)
                   Positioned(
                     left: 20,
@@ -344,8 +394,7 @@ class _Phase1HomeScreenState extends State<Phase1HomeScreen> {
                         color: AppTheme.bgSecondary.withAlpha(230),
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(
-                          color: AppTheme.accentPrimary.withAlpha(80),
-                        ),
+                            color: AppTheme.accentPrimary.withAlpha(80)),
                       ),
                       child: Text(
                         _waitingHint(),
@@ -366,7 +415,9 @@ class _Phase1HomeScreenState extends State<Phase1HomeScreen> {
     );
   }
 
-  // ─── 推開店門場景 ───
+  // ─────────────────────────────────
+  // 推開店門場景
+  // ─────────────────────────────────
   Widget _buildDoorScene() {
     return Scaffold(
       backgroundColor: const Color(0xFF8D6E63),
@@ -410,20 +461,15 @@ class _Phase1HomeScreenState extends State<Phase1HomeScreen> {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Text(
-                        _doorOpened ? '🌟' : '🚪',
-                        style: const TextStyle(fontSize: 64),
-                      ),
+                      Text(_doorOpened ? '🌟' : '🚪',
+                          style: const TextStyle(fontSize: 64)),
                       if (!_doorOpened) ...[
                         const SizedBox(height: 16),
-                        const Text(
-                          '點擊開門',
-                          style: TextStyle(
-                            color: AppTheme.bgSecondary,
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
+                        const Text('點擊開門',
+                            style: TextStyle(
+                                color: AppTheme.bgSecondary,
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold)),
                       ],
                     ],
                   ),
@@ -431,13 +477,11 @@ class _Phase1HomeScreenState extends State<Phase1HomeScreen> {
               ),
             ),
           ),
-          // 門場景對話
           TutorialDialogueBox(
             dialogue: TutorialDialogues.t006,
             onTap: () {},
             showTapHint: false,
           ),
-          // 跳過
           Positioned(
             top: MediaQuery.of(context).padding.top + 12,
             right: 16,
@@ -450,10 +494,8 @@ class _Phase1HomeScreenState extends State<Phase1HomeScreen> {
                   color: Colors.black.withAlpha(80),
                   borderRadius: BorderRadius.circular(16),
                 ),
-                child: const Text(
-                  '跳過教學 →',
-                  style: TextStyle(color: Colors.white70, fontSize: 14),
-                ),
+                child: const Text('跳過教學 →',
+                    style: TextStyle(color: Colors.white70, fontSize: 14)),
               ),
             ),
           ),

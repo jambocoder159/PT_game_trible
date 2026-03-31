@@ -30,7 +30,10 @@ import '../../../core/models/cat_agent.dart';
 
 /// 首頁 — 放置型遊戲大廳
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
+  /// 教學模式：跳過內建 HomeGuide，由外部 overlay 控制
+  final bool tutorialMode;
+
+  const HomeScreen({super.key, this.tutorialMode = false});
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -94,6 +97,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _checkHomeGuide() {
+    if (widget.tutorialMode) return; // 教學模式由外部控制
     final player = context.read<PlayerProvider>();
     if (player.isInitialized && !player.data.homeGuideCompleted) {
       // 延遲一幀讓 UI 完全渲染後再顯示導覽
