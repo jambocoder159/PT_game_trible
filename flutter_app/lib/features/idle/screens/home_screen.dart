@@ -34,11 +34,35 @@ class HomeScreen extends StatefulWidget {
   final bool tutorialMode;
   /// 教學模式下，攔截導航列點擊（僅闖關 Tab 回調）
   final VoidCallback? onTutorialNavTap;
+  /// 起始 Tab（預設 2 = 放置頁）
+  final int initialNavIndex;
+  /// 外部 GlobalKey — 供高亮定位
+  final GlobalKey? externalBottleAreaKey;
+  final GlobalKey? externalConvertButtonKey;
+  final GlobalKey? externalCraftButtonKey;
+  final GlobalKey? externalNavBarKey;
+  /// 教學高亮的 agent id（傳給 AgentListScreen）
+  final String? tutorialHighlightAgentId;
+  /// Tab 切換回調
+  final ValueChanged<int>? onTabChanged;
+  /// 教學用：自動消除 Switch 的 GlobalKey
+  final GlobalKey? tutorialAutoSwitchKey;
+  /// 教學用：元氣區域的 GlobalKey
+  final GlobalKey? tutorialStaminaKey;
 
   const HomeScreen({
     super.key,
     this.tutorialMode = false,
     this.onTutorialNavTap,
+    this.initialNavIndex = 2,
+    this.externalBottleAreaKey,
+    this.externalConvertButtonKey,
+    this.externalCraftButtonKey,
+    this.externalNavBarKey,
+    this.tutorialHighlightAgentId,
+    this.onTabChanged,
+    this.tutorialAutoSwitchKey,
+    this.tutorialStaminaKey,
   });
 
   @override
@@ -46,7 +70,7 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  int _currentNavIndex = 2; // 放置（首頁）為預設
+  late int _currentNavIndex;
 
   // 能量球動畫
   final EnergyOrbController _orbController = EnergyOrbController();
@@ -73,11 +97,28 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
+    _currentNavIndex = widget.initialNavIndex;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _startIdleGame();
       _setupEnergyListener();
       _checkHomeGuide();
     });
+  }
+
+  @override
+  void didUpdateWidget(covariant HomeScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // 教學模式下，外部可以透過 initialNavIndex 切換 Tab
+    if (widget.tutorialMode && widget.initialNavIndex != _currentNavIndex) {
+      setState(() => _currentNavIndex = widget.initialNavIndex);
+    }
+  }
+
+  /// 外部切換 Tab（教學模式用）
+  void switchTab(int index) {
+    if (index == _currentNavIndex) return;
+    setState(() => _currentNavIndex = index);
+    widget.onTabChanged?.call(index);
   }
 
   void _startIdleGame() {
@@ -241,6 +282,7 @@ class _HomeScreenState extends State<HomeScreen> {
     }
     if (index == _currentNavIndex) return;
     setState(() => _currentNavIndex = index);
+    widget.onTabChanged?.call(index);
   }
 
   void _showSettingsModal() {
@@ -287,6 +329,8 @@ class _HomeScreenState extends State<HomeScreen> {
                     currentIndex: _currentNavIndex,
                     onTap: _showHomeGuide ? null : _onNavTap,
                     badges: badges,
+                    highlightTabIndex: widget.externalNavBarKey != null ? 3 : -1,
+                    highlightTabKey: widget.externalNavBarKey,
                   );
                 },
               ),
@@ -296,7 +340,9 @@ class _HomeScreenState extends State<HomeScreen> {
             index: _currentNavIndex,
             children: [
               const BackpackScreen(),       // 0: 背包
-              const AgentListScreen(),      // 1: 角色
+              AgentListScreen(
+                tutorialHighlightAgentId: widget.tutorialHighlightAgentId,
+              ),                            // 1: 角色
               _buildIdleContent(),          // 2: 放置
               const StageSelectScreen(),    // 3: 闖關
               const ShopScreen(),           // 4: 商店
@@ -367,9 +413,12 @@ class _HomeScreenState extends State<HomeScreen> {
           Column(
             children: [
               // ─── 頂部玩家資訊列 ───
-              const Padding(
-                padding: EdgeInsets.fromLTRB(8, 6, 8, 4),
-                child: PlayerInfoBar(),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(8, 6, 8, 4),
+                child: KeyedSubtree(
+                  key: widget.tutorialStaminaKey ?? GlobalKey(),
+                  child: const PlayerInfoBar(),
+                ),
               ),
 
               // ─── 主體：左面板 + 棋盤 + 右工具列 ───
@@ -384,10 +433,13 @@ class _HomeScreenState extends State<HomeScreen> {
                         width: 120,
                         child: _LeftPanel(
                           bottleKeys: _bottleKeys,
-                          bottleAreaKey: _guideBottleAreaKey,
+                          bottleAreaKey: widget.externalBottleAreaKey ?? _guideBottleAreaKey,
                           onConvertAll: _onConvertAll,
                           onConvertIngredient: () => IngredientPanel.show(context),
                           onCraftDessert: () => CraftingPanel.show(context),
+                          externalConvertButtonKey: widget.externalConvertButtonKey,
+                          externalCraftButtonKey: widget.externalCraftButtonKey,
+                          tutorialAutoSwitchKey: widget.tutorialAutoSwitchKey,
                         ),
                       ),
                       const SizedBox(width: 4),
@@ -605,6 +657,9 @@ class _LeftPanel extends StatelessWidget {
   final VoidCallback onConvertAll;
   final VoidCallback onConvertIngredient;
   final VoidCallback onCraftDessert;
+  final GlobalKey? externalConvertButtonKey;
+  final GlobalKey? externalCraftButtonKey;
+  final GlobalKey? tutorialAutoSwitchKey;
 
   const _LeftPanel({
     required this.bottleKeys,
@@ -612,6 +667,9 @@ class _LeftPanel extends StatelessWidget {
     required this.onConvertAll,
     required this.onConvertIngredient,
     required this.onCraftDessert,
+    this.externalConvertButtonKey,
+    this.externalCraftButtonKey,
+    this.tutorialAutoSwitchKey,
   });
 
   @override
@@ -639,12 +697,17 @@ class _LeftPanel extends StatelessWidget {
             const SizedBox(height: 6),
 
             // ── 3. CTA 組合鍵：一鍵兌換 + 製作甜點 ──
-            _buildCtaGroup(hasFullBottle: hasFullBottle, canCraftAny: canCraftAny),
+            _buildCtaGroup(
+              hasFullBottle: hasFullBottle,
+              canCraftAny: canCraftAny,
+              convertKey: externalConvertButtonKey,
+              craftKey: externalCraftButtonKey,
+            ),
 
             const Spacer(),
 
             // ── 4. 自動消除 ──
-            const AutoEliminateBar(),
+            AutoEliminateBar(tutorialSwitchKey: tutorialAutoSwitchKey),
             const SizedBox(height: 4),
           ],
         );
@@ -815,7 +878,12 @@ class _LeftPanel extends StatelessWidget {
   }
 
   /// CTA 組合鍵：一鍵兌換 + 製作甜點（帶狀態引導）
-  Widget _buildCtaGroup({required bool hasFullBottle, required bool canCraftAny}) {
+  Widget _buildCtaGroup({
+    required bool hasFullBottle,
+    required bool canCraftAny,
+    GlobalKey? convertKey,
+    GlobalKey? craftKey,
+  }) {
     return Container(
       decoration: BoxDecoration(
         color: AppTheme.bgCard.withAlpha(200),
@@ -825,7 +893,7 @@ class _LeftPanel extends StatelessWidget {
       child: Column(
         children: [
           // 一鍵兌換
-          _PulsingCtaButton(
+          _wrapWithKey(convertKey, _PulsingCtaButton(
             enabled: hasFullBottle,
             onTap: () { HapticFeedback.mediumImpact(); onConvertAll(); },
             gradient: hasFullBottle
@@ -843,7 +911,7 @@ class _LeftPanel extends StatelessWidget {
                 )),
               ],
             ),
-          ),
+          )),
           // 分隔：選擇兌換
           GestureDetector(
             onTap: () { HapticFeedback.lightImpact(); onConvertIngredient(); },
@@ -859,7 +927,7 @@ class _LeftPanel extends StatelessWidget {
           // 分隔線
           Container(height: 1, color: AppTheme.accentSecondary.withAlpha(30)),
           // 製作甜點
-          _PulsingCtaButton(
+          _wrapWithKey(craftKey, _PulsingCtaButton(
             enabled: canCraftAny,
             onTap: () { HapticFeedback.lightImpact(); onCraftDessert(); },
             gradient: canCraftAny
@@ -877,7 +945,7 @@ class _LeftPanel extends StatelessWidget {
                 )),
               ],
             ),
-          ),
+          )),
         ],
       ),
     );
@@ -968,7 +1036,7 @@ class _PulsingCtaButtonState extends State<_PulsingCtaButton>
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: widget.onTap,
+      onTap: widget.enabled ? widget.onTap : null,
       child: AnimatedBuilder(
         animation: _glowAnim,
         builder: (context, child) {

@@ -328,14 +328,19 @@ class _RecipeCard extends StatelessWidget {
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                     decoration: BoxDecoration(
                       color: canCraft
-                          ? _tierColor(recipe.tier).withAlpha(180)
-                          : AppTheme.bgSecondary,
+                          ? const Color(0xFF51CF66)
+                          : Colors.grey.withAlpha(50),
                       borderRadius: BorderRadius.circular(6),
+                      border: canCraft
+                          ? Border.all(color: const Color(0xFF40C057), width: 1)
+                          : null,
                     ),
                     child: Text(
                       '製作',
                       style: TextStyle(
-                        color: canCraft ? Colors.white : AppTheme.textSecondary,
+                        color: canCraft
+                            ? Colors.white
+                            : AppTheme.textSecondary.withAlpha(100),
                         fontSize: 11,
                         fontWeight: FontWeight.bold,
                       ),

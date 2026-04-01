@@ -4,9 +4,18 @@ import 'package:provider/provider.dart';
 import '../../../config/theme.dart';
 import '../../../core/models/player_data.dart';
 import '../../agents/providers/player_provider.dart';
+import '../../tutorial/widgets/tutorial_highlight_overlay.dart';
+import '../../tutorial/widgets/tutorial_dialogue_box.dart';
+import '../../tutorial/models/tutorial_dialogue_data.dart';
 
 class DailyQuestScreen extends StatefulWidget {
-  const DailyQuestScreen({super.key});
+  /// 教學模式：高亮領取獎勵按鈕，領取後自動 pop
+  final bool tutorialMode;
+
+  const DailyQuestScreen({
+    super.key,
+    this.tutorialMode = false,
+  });
 
   @override
   State<DailyQuestScreen> createState() => _DailyQuestScreenState();
@@ -15,11 +24,17 @@ class DailyQuestScreen extends StatefulWidget {
 class _DailyQuestScreenState extends State<DailyQuestScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
+  static final GlobalKey _claimButtonKey = GlobalKey();
+  bool _rewardWasClaimed = false;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
+    if (widget.tutorialMode) {
+      final provider = context.read<PlayerProvider>();
+      _rewardWasClaimed = provider.data.dailyQuests.rewardsClaimed;
+    }
   }
 
   @override
@@ -30,33 +45,69 @@ class _DailyQuestScreenState extends State<DailyQuestScreen>
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppTheme.bgPrimary,
-      appBar: AppBar(
-        title: const Text('任務中心'),
-        backgroundColor: AppTheme.bgSecondary,
-        bottom: TabBar(
-          controller: _tabController,
-          indicatorColor: AppTheme.accentSecondary,
-          labelColor: AppTheme.textPrimary,
-          unselectedLabelColor: AppTheme.textSecondary,
-          labelStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
-          unselectedLabelStyle: const TextStyle(fontSize: 13),
-          tabs: const [
-            Tab(text: '每日任務'),
-            Tab(text: '七日打卡'),
-            Tab(text: '新手任務'),
-          ],
+    return Stack(
+      children: [
+        Scaffold(
+          backgroundColor: AppTheme.bgPrimary,
+          appBar: AppBar(
+            title: const Text('任務中心'),
+            backgroundColor: AppTheme.bgSecondary,
+            bottom: TabBar(
+              controller: _tabController,
+              indicatorColor: AppTheme.accentSecondary,
+              labelColor: AppTheme.textPrimary,
+              unselectedLabelColor: AppTheme.textSecondary,
+              labelStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+              unselectedLabelStyle: const TextStyle(fontSize: 13),
+              tabs: const [
+                Tab(text: '每日任務'),
+                Tab(text: '七日打卡'),
+                Tab(text: '新手任務'),
+              ],
+            ),
+          ),
+          body: TabBarView(
+            controller: _tabController,
+            children: [
+              _DailyTab(
+                tutorialMode: widget.tutorialMode,
+                claimButtonKey: widget.tutorialMode ? _claimButtonKey : null,
+              ),
+              const _WeeklyTab(),
+              const _NewbieTab(),
+            ],
+          ),
         ),
-      ),
-      body: TabBarView(
-        controller: _tabController,
-        children: const [
-          _DailyTab(),
-          _WeeklyTab(),
-          _NewbieTab(),
-        ],
-      ),
+        // ─── 教學 overlay ───
+        if (widget.tutorialMode)
+          Consumer<PlayerProvider>(
+            builder: (context, provider, _) {
+              final claimed = provider.data.dailyQuests.rewardsClaimed;
+              if (claimed && !_rewardWasClaimed) {
+                // 領取完成 → pop
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (mounted) Navigator.of(context).pop(true);
+                });
+              }
+              if (!claimed) {
+                return Stack(
+                  children: [
+                    TutorialHighlightOverlay(
+                      highlightKey: _claimButtonKey,
+                      passthrough: true,
+                    ),
+                    TutorialDialogueBox(
+                      dialogue: TutorialDialogues.t049,
+                      onTap: () {},
+                      showTapHint: false,
+                    ),
+                  ],
+                );
+              }
+              return const SizedBox.shrink();
+            },
+          ),
+      ],
     );
   }
 }
@@ -66,7 +117,13 @@ class _DailyQuestScreenState extends State<DailyQuestScreen>
 // ═══════════════════════════════════════════════════
 
 class _DailyTab extends StatelessWidget {
-  const _DailyTab();
+  final bool tutorialMode;
+  final GlobalKey? claimButtonKey;
+
+  const _DailyTab({
+    this.tutorialMode = false,
+    this.claimButtonKey,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -117,16 +174,19 @@ class _DailyTab extends StatelessWidget {
           children: [
             ...tasks.map((t) => _TaskCard(task: t)),
             const SizedBox(height: 16),
-            _BonusRewardCard(
-              title: '全完成獎勵',
-              subtitle: '完成以上全部任務',
-              reward: '💎 10',
-              isReady: allDone && !quests.rewardsClaimed,
-              isClaimed: quests.rewardsClaimed,
-              onClaim: () {
-                provider.claimDailyReward();
-                _showSnack(context, '獲得 💎 10 鑽石！');
-              },
+            KeyedSubtree(
+              key: claimButtonKey ?? GlobalKey(),
+              child: _BonusRewardCard(
+                title: '全完成獎勵',
+                subtitle: '完成以上全部任務',
+                reward: '💎 10',
+                isReady: allDone && !quests.rewardsClaimed,
+                isClaimed: quests.rewardsClaimed,
+                onClaim: () {
+                  provider.claimDailyReward();
+                  _showSnack(context, '獲得 💎 10 鑽石！');
+                },
+              ),
             ),
             const SizedBox(height: 12),
             Center(

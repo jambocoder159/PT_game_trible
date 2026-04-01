@@ -8,7 +8,13 @@ import 'auto_eliminate_settings.dart';
 
 /// 自動消除狀態列 — 顯示在棋盤上方
 class AutoEliminateBar extends StatelessWidget {
-  const AutoEliminateBar({super.key});
+  /// 教學高亮用的 GlobalKey（包在 Switch 上）
+  final GlobalKey? tutorialSwitchKey;
+
+  const AutoEliminateBar({
+    super.key,
+    this.tutorialSwitchKey,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -68,16 +74,19 @@ class AutoEliminateBar extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         // 開關
-        SizedBox(
-          width: 28,
-          height: 16,
-          child: FittedBox(
-            fit: BoxFit.contain,
-            child: Switch(
-              value: config.isEnabled,
-              onChanged: (v) => idle.toggleAutoEliminate(v),
-              activeColor: AppTheme.accentSecondary,
-              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        KeyedSubtree(
+          key: tutorialSwitchKey ?? GlobalKey(),
+          child: SizedBox(
+            width: 28,
+            height: 16,
+            child: FittedBox(
+              fit: BoxFit.contain,
+              child: Switch(
+                value: config.isEnabled,
+                onChanged: (v) => idle.toggleAutoEliminate(v),
+                activeColor: AppTheme.accentSecondary,
+                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
             ),
           ),
         ),

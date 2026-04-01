@@ -1,8 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import '../../../config/cat_agent_data.dart';
 import '../../../config/theme.dart';
 import '../../agents/providers/player_provider.dart';
+import '../../agents/screens/agent_detail_screen.dart';
+import '../../agents/screens/agent_list_screen.dart';
+import '../../daily/screens/daily_quest_screen.dart';
+import '../../../core/models/auto_eliminate_config.dart';
+import '../../idle/providers/idle_provider.dart';
+import '../../idle/screens/home_screen.dart';
 import '../config/tutorial_config.dart';
 import '../models/tutorial_dialogue_data.dart';
 import '../providers/tutorial_provider.dart';
@@ -10,7 +17,7 @@ import '../widgets/tutorial_dialogue_box.dart';
 import '../widgets/tutorial_highlight_overlay.dart';
 
 /// Phase 4：回首頁收尾教學
-/// 教隊伍編成、升級、自動消除、每日任務、元氣系統
+/// 使用真實 HomeScreen + overlay 引導
 class Phase4ReturnScreen extends StatefulWidget {
   const Phase4ReturnScreen({super.key});
 
@@ -19,29 +26,24 @@ class Phase4ReturnScreen extends StatefulWidget {
 }
 
 class _Phase4ReturnScreenState extends State<Phase4ReturnScreen> {
-  // step 0: 隊伍編成
-  // step 1: 角色升級
-  // step 2: 自動消除
-  // step 3: 每日任務
-  // step 4: 元氣系統
+  // step 0: 隊伍編成（角色頁，高亮露露）
+  // step 1: 角色升級（push AgentDetailScreen）
+  // step 2: 自動消除（放置頁，高亮 Switch）
+  // step 3: 每日任務（push DailyQuestScreen）
+  // step 4: 元氣系統（放置頁，高亮 PlayerInfoBar）
   // step 5: 教學結束
   int _step = 0;
   int _dialogueIndex = 0;
   bool _showDialogue = true;
   bool _actionDone = false;
+  TutorialDialogue? _currentCompletionDialogue;
 
-  // 模擬的 UI 狀態
-  bool _luluAddedToTeam = false;
-  int _wheatLevel = 1;
-  bool _autoEliminateOn = false;
-  bool _dailyQuestClaimed = false;
+  // 對應各步驟的 GlobalKey
+  final _autoSwitchKey = GlobalKey();
+  final _staminaKey = GlobalKey();
 
-  // GlobalKey
-  final _teamSlotKey = GlobalKey();
-  final _upgradeButtonKey = GlobalKey();
-  final _autoToggleKey = GlobalKey();
-  final _dailyQuestKey = GlobalKey();
-  final _staminaBarKey = GlobalKey();
+  // 當前的 nav tab
+  int _currentNavIndex = 2;
 
   // 每個步驟的對話
   static const _stepDialogues = [
@@ -66,11 +68,35 @@ class _Phase4ReturnScreenState extends State<Phase4ReturnScreen> {
     _step = tutorial.currentStep;
     if (_step >= _stepDialogues.length) _step = 0;
 
-    // 恢復已完成狀態
-    if (tutorial.state.teamSetupDone) _luluAddedToTeam = true;
-    if (tutorial.state.upgradeDone) _wheatLevel = 2;
-    if (tutorial.state.autoEliminateDone) _autoEliminateOn = true;
-    if (tutorial.state.dailyQuestDone) _dailyQuestClaimed = true;
+    // 恢復已完成狀態 → 跳過已完成步驟
+    final state = tutorial.state;
+    if (state.teamSetupDone && _step == 0) _step = 1;
+    if (state.upgradeDone && _step == 1) _step = 2;
+    // 自動消除未解鎖時跳過
+    final idle = context.read<IdleProvider>();
+    final isAutoUnlocked =
+        idle.autoConfig.unlockedStage.index >= AutoEliminateStage.stage2.index;
+    if (!isAutoUnlocked && _step == 2) {
+      tutorial.markAutoEliminateDone();
+      _step = 3;
+    }
+    if (state.autoEliminateDone && _step == 2) _step = 3;
+    if (state.dailyQuestDone && _step == 3) _step = 4;
+    if (state.staminaDone && _step == 4) _step = 5;
+
+    _currentNavIndex = _tabForStep;
+  }
+
+  /// 目前步驟對應的 HomeScreen Tab index
+  int get _tabForStep {
+    switch (_step) {
+      case 0: return 1; // 角色頁
+      case 1: return 1; // 角色頁（會 push detail）
+      case 2: return 2; // 放置頁
+      case 3: return 2; // 放置頁（會 push daily quest）
+      case 4: return 2; // 放置頁
+      default: return 2;
+    }
   }
 
   void _onDialogueTap() {
@@ -78,23 +104,106 @@ class _Phase4ReturnScreenState extends State<Phase4ReturnScreen> {
     if (_dialogueIndex < dialogues.length - 1) {
       setState(() => _dialogueIndex++);
     } else {
-      // 對話完畢，等待操作
+      // 對話完畢，開始操作引導
       setState(() {
         _showDialogue = false;
         _actionDone = false;
       });
+      _startStepAction();
     }
+  }
+
+  /// 每個步驟對話結束後的動作
+  void _startStepAction() {
+    switch (_step) {
+      case 0:
+        // 切到角色頁，高亮由 HomeScreen 的 tutorialHighlightAgentId 控制
+        _switchHomeTab(1);
+      case 1:
+        // push AgentDetailScreen（小麥）
+        _pushAgentDetail();
+      case 2:
+        // 切到放置頁，高亮 auto switch
+        _switchHomeTab(2);
+      case 3:
+        // push DailyQuestScreen
+        _pushDailyQuest();
+      case 4:
+        // 元氣只需顯示說明，上面的對話已經播完了，直接完成
+        _onActionComplete();
+      case 5:
+        // 最後的結束對話播完 → 顯示獎勵
+        _completeTutorial();
+    }
+  }
+
+  void _switchHomeTab(int index) {
+    if (_currentNavIndex != index) {
+      setState(() => _currentNavIndex = index);
+    }
+  }
+
+  void _pushAgentDetail() async {
+    final def = CatAgentData.getById('blaze');
+    if (def == null) {
+      _onActionComplete();
+      return;
+    }
+    // 教學用：確保玩家有足夠金幣訓練
+    final player = context.read<PlayerProvider>();
+    if (player.data.gold < 50) {
+      player.addGold(50 - player.data.gold);
+    }
+    final result = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => AgentDetailScreen(
+          definition: def,
+          tutorialMode: true,
+        ),
+      ),
+    );
+    if (mounted && (result == true)) {
+      _onActionComplete();
+    }
+  }
+
+  void _pushDailyQuest() async {
+    // 教學用：確保每日任務全部完成，讓「全完成獎勵」可以領取
+    _ensureDailyQuestsCompleted();
+    final result = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => const DailyQuestScreen(tutorialMode: true),
+      ),
+    );
+    if (mounted && (result == true)) {
+      _onActionComplete();
+    }
+  }
+
+  /// 教學用：自動完成所有每日任務條件，讓全完成獎勵可以領取
+  void _ensureDailyQuestsCompleted() {
+    final player = context.read<PlayerProvider>();
+    final quests = player.data.dailyQuests;
+    if (quests.needsReset) quests.reset();
+    if (!quests.hasLoggedIn) {
+      quests.hasLoggedIn = true;
+    }
+    if (quests.stagesCompleted < 3) {
+      quests.stagesCompleted = 3;
+    }
+    if (quests.blocksEliminated < 200) {
+      quests.blocksEliminated = 200;
+    }
+    player.notifyAndSave();
   }
 
   void _onActionComplete() {
     HapticFeedback.lightImpact();
     final tutorial = context.read<TutorialProvider>();
 
-    // 標記完成
     switch (_step) {
       case 0:
         tutorial.markTeamSetupDone();
-        // 顯示完成對話
         _showCompletionDialogue([
           TutorialDialogues.t042,
           TutorialDialogues.t043,
@@ -118,26 +227,28 @@ class _Phase4ReturnScreenState extends State<Phase4ReturnScreen> {
 
   void _showCompletionDialogue(List<TutorialDialogue> dialogues) {
     setState(() {
+      _currentCompletionDialogue = dialogues.first;
       _showDialogue = true;
       _dialogueIndex = 0;
       _actionDone = true;
     });
-    // 用自動推進的方式顯示完成對話
-    _showSequentialDialogues(dialogues, 0);
+    _completionDialogues = dialogues;
+    _completionDialogueIndex = 0;
   }
 
-  void _showSequentialDialogues(List<TutorialDialogue> dialogues, int index) {
-    if (index >= dialogues.length) {
+  List<TutorialDialogue> _completionDialogues = [];
+  int _completionDialogueIndex = 0;
+
+  void _onCompletionDialogueTap() {
+    _completionDialogueIndex++;
+    if (_completionDialogueIndex < _completionDialogues.length) {
+      setState(() {
+        _currentCompletionDialogue = _completionDialogues[_completionDialogueIndex];
+      });
+    } else {
       _advanceStep();
-      return;
     }
-    setState(() {
-      _currentCompletionDialogue = dialogues[index];
-      _showDialogue = true;
-    });
   }
-
-  TutorialDialogue? _currentCompletionDialogue;
 
   void _advanceStep() {
     final tutorial = context.read<TutorialProvider>();
@@ -148,10 +259,30 @@ class _Phase4ReturnScreenState extends State<Phase4ReturnScreen> {
       _showDialogue = true;
       _actionDone = false;
       _currentCompletionDialogue = null;
+      _completionDialogues = [];
+      _completionDialogueIndex = 0;
     });
+
+    // 自動消除未解鎖時跳過 step 2
+    if (_step == 2) {
+      final idle = context.read<IdleProvider>();
+      final isAutoUnlocked =
+          idle.autoConfig.unlockedStage.index >= AutoEliminateStage.stage2.index;
+      if (!isAutoUnlocked) {
+        tutorial.markAutoEliminateDone();
+        tutorial.advanceStep();
+        setState(() {
+          _step++;
+          _dialogueIndex = 0;
+        });
+      }
+    }
 
     if (_step >= _stepDialogues.length) {
       _completeTutorial();
+    } else {
+      // 切換到正確的 tab
+      _switchHomeTab(_tabForStep);
     }
   }
 
@@ -216,7 +347,6 @@ class _Phase4ReturnScreenState extends State<Phase4ReturnScreen> {
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 20),
-                  // 獎勵展示
                   Container(
                     padding: const EdgeInsets.symmetric(
                         horizontal: 16, vertical: 12),
@@ -257,7 +387,6 @@ class _Phase4ReturnScreenState extends State<Phase4ReturnScreen> {
                     child: ElevatedButton(
                       onPressed: () {
                         Navigator.of(ctx).pop();
-                        // 完成教學
                         context.read<TutorialProvider>().completeTutorial(
                               context.read<PlayerProvider>(),
                             );
@@ -312,42 +441,61 @@ class _Phase4ReturnScreenState extends State<Phase4ReturnScreen> {
 
     return Scaffold(
       backgroundColor: AppTheme.bgPrimary,
-      body: SafeArea(
-        child: Stack(
-          children: [
-            // 主內容
-            _buildStepContent(),
+      body: Stack(
+        children: [
+          // ─── 底層：真實 HomeScreen ───
+          HomeScreen(
+            tutorialMode: true,
+            initialNavIndex: _currentNavIndex,
+            tutorialHighlightAgentId:
+                _step == 0 ? TutorialConfig.luluAgentId : null,
+            tutorialAutoSwitchKey: _step == 2 ? _autoSwitchKey : null,
+            tutorialStaminaKey: _step == 4 ? _staminaKey : null,
+          ),
 
-            // 高亮 overlay
-            if (!_showDialogue && !_actionDone) _buildHighlight(),
+          // ─── 動作偵測器 ───
+          _TutorialActionListener(
+            step: _step,
+            showDialogue: _showDialogue,
+            actionDone: _actionDone,
+            onTeamSetup: () {
+              if (_step == 0 && !_showDialogue && !_actionDone) {
+                _onActionComplete();
+              }
+            },
+            onAutoEnabled: () {
+              if (_step == 2 && !_showDialogue && !_actionDone) {
+                _onActionComplete();
+              }
+            },
+          ),
 
-            // 對話框
-            if (_showDialogue)
-              TutorialDialogueBox(
-                dialogue: _actionDone && _currentCompletionDialogue != null
+          // ─── 高亮 overlay ───
+          if (!_showDialogue && !_actionDone) _buildHighlight(),
+
+          // ─── 對話框 ───
+          if (_showDialogue)
+            TutorialDialogueBox(
+              dialogue: _actionDone && _currentCompletionDialogue != null
+                  ? _currentCompletionDialogue!
+                  : _stepDialogues[_step][_dialogueIndex],
+              onTap: _actionDone
+                  ? _onCompletionDialogueTap
+                  : _onDialogueTap,
+              onComplete: () {
+                final d = _actionDone && _currentCompletionDialogue != null
                     ? _currentCompletionDialogue!
-                    : _stepDialogues[_step][_dialogueIndex],
-                onTap: _actionDone
-                    ? () {
-                        // 完成對話 → 推進步驟
-                        _advanceStep();
-                      }
-                    : _onDialogueTap,
-                onComplete: () {
-                  final d = _actionDone && _currentCompletionDialogue != null
-                      ? _currentCompletionDialogue!
-                      : _stepDialogues[_step][_dialogueIndex];
-                  if (d.autoAdvanceDelay != null) {
-                    if (_actionDone) {
-                      _advanceStep();
-                    } else {
-                      _onDialogueTap();
-                    }
+                    : _stepDialogues[_step][_dialogueIndex];
+                if (d.autoAdvanceDelay != null) {
+                  if (_actionDone) {
+                    _onCompletionDialogueTap();
+                  } else {
+                    _onDialogueTap();
                   }
-                },
-              ),
-          ],
-        ),
+                }
+              },
+            ),
+        ],
       ),
     );
   }
@@ -356,566 +504,69 @@ class _Phase4ReturnScreenState extends State<Phase4ReturnScreen> {
     GlobalKey? key;
     switch (_step) {
       case 0:
-        key = _teamSlotKey;
-      case 1:
-        key = _upgradeButtonKey;
+        // 高亮露露卡片（由 AgentListScreen 管理的靜態 key）
+        key = AgentListScreen.tutorialHighlightKey;
       case 2:
-        key = _autoToggleKey;
-      case 3:
-        key = _dailyQuestKey;
+        key = _autoSwitchKey;
       case 4:
-        key = _staminaBarKey;
+        key = _staminaKey;
     }
+    // Step 1（升級）和 Step 3（每日任務）是 push 頁面，不需要外層 overlay
     if (key == null) return const SizedBox.shrink();
     return TutorialHighlightOverlay(
       highlightKey: key,
-      blockInput: false,
+      passthrough: true,
     );
   }
+}
 
-  Widget _buildStepContent() {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // 頂部狀態欄（模擬）
-          _buildSimulatedTopBar(),
-          const SizedBox(height: 24),
+/// 偵測教學動作完成
+class _TutorialActionListener extends StatelessWidget {
+  final int step;
+  final bool showDialogue;
+  final bool actionDone;
+  final VoidCallback onTeamSetup;
+  final VoidCallback onAutoEnabled;
 
-          // 根據步驟顯示不同內容
-          if (_step == 0) _buildTeamSetup(),
-          if (_step == 1) _buildUpgradePanel(),
-          if (_step == 2) _buildAutoEliminate(),
-          if (_step == 3) _buildDailyQuest(),
-          if (_step == 4) _buildStaminaInfo(),
-          if (_step == 5) _buildCompletionScene(),
-        ],
-      ),
-    );
-  }
+  const _TutorialActionListener({
+    required this.step,
+    required this.showDialogue,
+    required this.actionDone,
+    required this.onTeamSetup,
+    required this.onAutoEnabled,
+  });
 
-  Widget _buildSimulatedTopBar() {
-    return Container(
-      key: _staminaBarKey,
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: AppTheme.bgSecondary,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Row(
-        children: [
-          const Text('🐱 Lv.1', style: TextStyle(color: AppTheme.textPrimary)),
-          const Spacer(),
-          const Text('🔥 58/60',
-              style: TextStyle(color: AppTheme.textPrimary, fontSize: 13)),
-          const SizedBox(width: 12),
-          const Text('🍬 150',
-              style: TextStyle(color: AppTheme.textPrimary, fontSize: 13)),
-        ],
-      ),
-    );
-  }
+  @override
+  Widget build(BuildContext context) {
+    if (showDialogue || actionDone) return const SizedBox.shrink();
 
-  Widget _buildTeamSetup() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          '隊伍編成',
-          style: TextStyle(
-            color: AppTheme.textPrimary,
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        const SizedBox(height: 16),
-        Row(
-          children: [
-            // 小麥（已在隊伍）
-            _buildTeamSlot(
-              name: '小麥',
-              emoji: '☀️',
-              color: AppTheme.blockCoral,
-              filled: true,
-            ),
-            const SizedBox(width: 12),
-            // 露露（待加入）
-            GestureDetector(
-              key: _teamSlotKey,
-              onTap: () {
-                if (!_luluAddedToTeam && !_showDialogue) {
-                  setState(() => _luluAddedToTeam = true);
-                  _onActionComplete();
-                }
-              },
-              child: _buildTeamSlot(
-                name: _luluAddedToTeam ? '露露' : '空位',
-                emoji: _luluAddedToTeam ? '💧' : '➕',
-                color: _luluAddedToTeam
-                    ? AppTheme.blockTeal
-                    : AppTheme.textSecondary.withAlpha(60),
-                filled: _luluAddedToTeam,
-                highlight: !_luluAddedToTeam && !_showDialogue,
-              ),
-            ),
-            const SizedBox(width: 12),
-            _buildTeamSlot(
-              name: '空位',
-              emoji: '🔒',
-              color: AppTheme.textSecondary.withAlpha(30),
-              filled: false,
-            ),
-          ],
-        ),
-        if (!_luluAddedToTeam) ...[
-          const SizedBox(height: 24),
-          // 可用角色列表
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: AppTheme.bgSecondary.withAlpha(100),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(4),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFFFD54F),
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: const Text('NEW!',
-                      style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
-                ),
-                const SizedBox(width: 8),
-                const Text('💧', style: TextStyle(fontSize: 24)),
-                const SizedBox(width: 8),
-                const Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('露露',
-                        style: TextStyle(
-                            color: AppTheme.textPrimary,
-                            fontWeight: FontWeight.bold)),
-                    Text('💧水滴 | 支援者',
-                        style: TextStyle(
-                            color: AppTheme.textSecondary, fontSize: 12)),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ],
-      ],
-    );
-  }
-
-  Widget _buildTeamSlot({
-    required String name,
-    required String emoji,
-    required Color color,
-    required bool filled,
-    bool highlight = false,
-  }) {
-    return Expanded(
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 300),
-        height: 100,
-        decoration: BoxDecoration(
-          color: filled ? color.withAlpha(30) : AppTheme.bgCard,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(
-            color: highlight
-                ? AppTheme.accentPrimary
-                : filled
-                    ? color.withAlpha(100)
-                    : AppTheme.textSecondary.withAlpha(30),
-            width: highlight ? 2.5 : 1.5,
-          ),
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text(emoji, style: const TextStyle(fontSize: 32)),
-            const SizedBox(height: 4),
-            Text(
-              name,
-              style: TextStyle(
-                color: filled ? AppTheme.textPrimary : AppTheme.textSecondary,
-                fontSize: 12,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildUpgradePanel() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          '角色升級',
-          style: TextStyle(
-            color: AppTheme.textPrimary,
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        const SizedBox(height: 16),
-        Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: AppTheme.bgCard,
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: AppTheme.blockCoral.withAlpha(80)),
-          ),
-          child: Column(
-            children: [
-              Row(
-                children: [
-                  const Text('☀️', style: TextStyle(fontSize: 40)),
-                  const SizedBox(width: 12),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text('小麥',
-                          style: TextStyle(
-                              color: AppTheme.textPrimary,
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold)),
-                      Text('Lv.$_wheatLevel ☀️突擊手',
-                          style: const TextStyle(
-                              color: AppTheme.textSecondary, fontSize: 13)),
-                    ],
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              if (_wheatLevel >= 2)
-                const Text(
-                  '✅ 已升級！ATK +5, HP +10',
-                  style: TextStyle(color: AppTheme.stageCleared, fontSize: 14),
-                )
-              else
-                GestureDetector(
-                  key: _upgradeButtonKey,
-                  onTap: () {
-                    if (!_showDialogue) {
-                      setState(() => _wheatLevel = 2);
-                      _onActionComplete();
-                    }
-                  },
-                  child: Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    decoration: BoxDecoration(
-                      color: AppTheme.accentPrimary,
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: const Center(
-                      child: Text(
-                        '⬆️ 升級（消耗 ☕×1）',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 15,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildAutoEliminate() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          '自動消除',
-          style: TextStyle(
-            color: AppTheme.textPrimary,
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        const SizedBox(height: 16),
-        Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: AppTheme.bgCard,
-            borderRadius: BorderRadius.circular(14),
-          ),
-          child: Row(
-            children: [
-              const Text('🤖', style: TextStyle(fontSize: 32)),
-              const SizedBox(width: 12),
-              const Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('自動揉麵機',
-                        style: TextStyle(
-                            color: AppTheme.textPrimary,
-                            fontWeight: FontWeight.bold)),
-                    Text('離線時也會自動收集食材',
-                        style: TextStyle(
-                            color: AppTheme.textSecondary, fontSize: 12)),
-                  ],
-                ),
-              ),
-              GestureDetector(
-                key: _autoToggleKey,
-                onTap: () {
-                  if (!_autoEliminateOn && !_showDialogue) {
-                    setState(() => _autoEliminateOn = true);
-                    _onActionComplete();
-                  }
-                },
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 300),
-                  width: 56,
-                  height: 32,
-                  decoration: BoxDecoration(
-                    color: _autoEliminateOn
-                        ? AppTheme.stageCleared
-                        : AppTheme.textSecondary.withAlpha(60),
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: AnimatedAlign(
-                    duration: const Duration(milliseconds: 300),
-                    alignment: _autoEliminateOn
-                        ? Alignment.centerRight
-                        : Alignment.centerLeft,
-                    child: Container(
-                      width: 28,
-                      height: 28,
-                      margin: const EdgeInsets.all(2),
-                      decoration: const BoxDecoration(
-                        color: Colors.white,
-                        shape: BoxShape.circle,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildDailyQuest() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          '每日任務',
-          style: TextStyle(
-            color: AppTheme.textPrimary,
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        const SizedBox(height: 16),
-        Container(
-          key: _dailyQuestKey,
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: AppTheme.bgCard,
-            borderRadius: BorderRadius.circular(14),
-          ),
-          child: Column(
-            children: [
-              _buildQuestRow('每日登入', '登入遊戲', '50 🍬', true),
-              const Divider(height: 20),
-              _buildQuestRow('完成 3 關', '通關任意 3 關', '100 🍬', true),
-              const Divider(height: 20),
-              _buildQuestRow('消除 200 個', '消除方塊', '1 ☕', false),
-              const SizedBox(height: 16),
-              if (!_dailyQuestClaimed)
-                GestureDetector(
-                  onTap: () {
-                    if (!_showDialogue) {
-                      setState(() => _dailyQuestClaimed = true);
-                      _onActionComplete();
-                    }
-                  },
-                  child: Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    decoration: BoxDecoration(
-                      color: AppTheme.accentPrimary,
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: const Center(
-                      child: Text(
-                        '領取已完成獎勵！',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 15,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                  ),
-                )
-              else
-                const Text(
-                  '✅ 獎勵已領取',
-                  style: TextStyle(color: AppTheme.stageCleared),
-                ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildQuestRow(
-      String name, String desc, String reward, bool completed) {
-    return Row(
-      children: [
-        Icon(
-          completed ? Icons.check_circle : Icons.radio_button_unchecked,
-          color: completed ? AppTheme.stageCleared : AppTheme.textSecondary,
-          size: 20,
-        ),
-        const SizedBox(width: 8),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(name,
-                  style: const TextStyle(
-                      color: AppTheme.textPrimary,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600)),
-              Text(desc,
-                  style: const TextStyle(
-                      color: AppTheme.textSecondary, fontSize: 12)),
-            ],
-          ),
-        ),
-        Text(reward,
-            style: const TextStyle(
-                color: AppTheme.accentPrimary, fontSize: 13)),
-      ],
-    );
-  }
-
-  Widget _buildStaminaInfo() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          '元氣系統',
-          style: TextStyle(
-            color: AppTheme.textPrimary,
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        const SizedBox(height: 16),
-        Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: AppTheme.bgCard,
-            borderRadius: BorderRadius.circular(14),
-          ),
-          child: Column(
-            children: [
-              Row(
-                children: [
-                  const Text('🔥', style: TextStyle(fontSize: 32)),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text('元氣 58/60',
-                            style: TextStyle(
-                                color: AppTheme.textPrimary,
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold)),
-                        const SizedBox(height: 4),
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(4),
-                          child: const LinearProgressIndicator(
-                            value: 58 / 60,
-                            backgroundColor: Color(0x30000000),
-                            valueColor: AlwaysStoppedAnimation<Color>(
-                                AppTheme.accentPrimary),
-                            minHeight: 8,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              Text(
-                '每 8 分鐘恢復 1 點元氣\n探索地下室消耗 4-8 元氣',
-                style: TextStyle(
-                  color: AppTheme.textSecondary,
-                  fontSize: 13,
-                  height: 1.5,
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 12),
-              GestureDetector(
-                onTap: () {
-                  if (!_showDialogue) _onActionComplete();
-                },
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 20, vertical: 10),
-                  decoration: BoxDecoration(
-                    color: AppTheme.accentPrimary,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: const Text(
-                    '了解！',
-                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildCompletionScene() {
-    return const Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          SizedBox(height: 60),
-          Text('🎉', style: TextStyle(fontSize: 64)),
-          SizedBox(height: 20),
-          Text(
-            '所有教學完成！',
-            style: TextStyle(
-              color: AppTheme.textPrimary,
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-        ],
-      ),
-    );
+    switch (step) {
+      case 0:
+        // 偵測 team 包含 'tide'
+        return Consumer<PlayerProvider>(
+          builder: (context, player, _) {
+            if (player.data.team.contains(TutorialConfig.luluAgentId)) {
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                onTeamSetup();
+              });
+            }
+            return const SizedBox.shrink();
+          },
+        );
+      case 2:
+        // 偵測 autoConfig.isEnabled
+        return Consumer<IdleProvider>(
+          builder: (context, idle, _) {
+            if (idle.autoConfig.isEnabled) {
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                onAutoEnabled();
+              });
+            }
+            return const SizedBox.shrink();
+          },
+        );
+      default:
+        return const SizedBox.shrink();
+    }
   }
 }

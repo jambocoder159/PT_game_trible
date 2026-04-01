@@ -14,6 +14,9 @@ import '../widgets/evolution_widget.dart';
 import '../widgets/talent_tree_widget.dart';
 import '../widgets/skill_enhance_widget.dart';
 import '../widgets/passive_skill_widget.dart';
+import '../../tutorial/widgets/tutorial_highlight_overlay.dart';
+import '../../tutorial/widgets/tutorial_dialogue_box.dart';
+import '../../tutorial/models/tutorial_dialogue_data.dart';
 
 // ─── 配色常數（陽光鄉村風） ───
 const _cardBg = Color(0xFFFFF8EE);      // 淡奶油白（比 bgCard 稍暖）
@@ -24,67 +27,122 @@ const _statBarAtk = Color(0xFFFF9800);
 const _statBarDef = Color(0xFF42A5F5);
 const _statBarSpd = Color(0xFFAB47BC);
 
-class AgentDetailScreen extends StatelessWidget {
+class AgentDetailScreen extends StatefulWidget {
   final CatAgentDefinition definition;
+  /// 教學模式：高亮訓練按鈕，完成後 pop
+  final bool tutorialMode;
 
-  const AgentDetailScreen({super.key, required this.definition});
+  const AgentDetailScreen({
+    super.key,
+    required this.definition,
+    this.tutorialMode = false,
+  });
+
+  @override
+  State<AgentDetailScreen> createState() => _AgentDetailScreenState();
+}
+
+class _AgentDetailScreenState extends State<AgentDetailScreen> {
+  static final GlobalKey _trainingButtonKey = GlobalKey();
+  bool _tutorialDone = false;
+  int _initialLevel = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.tutorialMode) {
+      final provider = context.read<PlayerProvider>();
+      final instance = provider.data.agents[widget.definition.id];
+      _initialLevel = instance?.level ?? 1;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return Consumer<PlayerProvider>(
       builder: (context, provider, _) {
         final agentInfo = AgentInfo(
-          definition: definition,
-          instance: provider.data.agents[definition.id],
+          definition: widget.definition,
+          instance: provider.data.agents[widget.definition.id],
         );
-        final attrColor = definition.attribute.blockColor.color;
+        final attrColor = widget.definition.attribute.blockColor.color;
+
+        // 教學模式：偵測等級變化
+        if (widget.tutorialMode && !_tutorialDone && agentInfo.level > _initialLevel) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted && !_tutorialDone) {
+              setState(() => _tutorialDone = true);
+              // 延遲一下讓玩家看到升級效果
+              Future.delayed(const Duration(milliseconds: 800), () {
+                if (mounted) Navigator.of(context).pop(true);
+              });
+            }
+          });
+        }
 
         return Scaffold(
           backgroundColor: AppTheme.bgPrimary,
           body: SafeArea(
-            child: Column(
+            child: Stack(
               children: [
-                // ── 頂部彩色名稱欄 ──
-                _NameBanner(
-                  definition: definition,
-                  displayName: agentInfo.displayName,
-                  level: agentInfo.level,
-                  attrColor: attrColor,
-                  onBack: () => Navigator.of(context).pop(),
+                Column(
+                  children: [
+                    // ── 頂部彩色名稱欄 ──
+                    _NameBanner(
+                      definition: widget.definition,
+                      displayName: agentInfo.displayName,
+                      level: agentInfo.level,
+                      attrColor: attrColor,
+                      onBack: () => Navigator.of(context).pop(),
+                    ),
+                    // ── 素材背包 ──
+                    const Padding(
+                      padding: EdgeInsets.fromLTRB(12, 6, 12, 0),
+                      child: MaterialInventoryBar(),
+                    ),
+                    // ── 角色卡片（立繪 + 數值） ──
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+                      child: _CharacterCard(
+                        definition: widget.definition,
+                        agentInfo: agentInfo,
+                        attrColor: attrColor,
+                      ),
+                    ),
+                    // ── 經驗值 + 訓練 ──
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      child: _TrainingBar(
+                        definition: widget.definition,
+                        agentInfo: agentInfo,
+                        attrColor: attrColor,
+                        trainingButtonKey: widget.tutorialMode ? _trainingButtonKey : null,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    // ── Tab 區域（進化/天賦/技能/被動） ──
+                    Expanded(
+                      child: _TabSection(
+                        agentId: widget.definition.id,
+                        agentLevel: agentInfo.level,
+                        instance: agentInfo.instance,
+                        attrColor: attrColor,
+                      ),
+                    ),
+                  ],
                 ),
-                // ── 素材背包 ──
-                const Padding(
-                  padding: EdgeInsets.fromLTRB(12, 6, 12, 0),
-                  child: MaterialInventoryBar(),
-                ),
-                // ── 角色卡片（立繪 + 數值） ──
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
-                  child: _CharacterCard(
-                    definition: definition,
-                    agentInfo: agentInfo,
-                    attrColor: attrColor,
+                // ── 教學高亮 overlay ──
+                if (widget.tutorialMode && !_tutorialDone)
+                  TutorialHighlightOverlay(
+                    highlightKey: _trainingButtonKey,
+                    passthrough: true,
                   ),
-                ),
-                // ── 經驗值 + 訓練 ──
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                  child: _TrainingBar(
-                    definition: definition,
-                    agentInfo: agentInfo,
-                    attrColor: attrColor,
+                if (widget.tutorialMode && !_tutorialDone)
+                  TutorialDialogueBox(
+                    dialogue: TutorialDialogues.t044,
+                    onTap: () {},
+                    showTapHint: false,
                   ),
-                ),
-                const SizedBox(height: 4),
-                // ── Tab 區域（進化/天賦/技能/被動） ──
-                Expanded(
-                  child: _TabSection(
-                    agentId: definition.id,
-                    agentLevel: agentInfo.level,
-                    instance: agentInfo.instance,
-                    attrColor: attrColor,
-                  ),
-                ),
               ],
             ),
           ),
@@ -608,11 +666,13 @@ class _TrainingBar extends StatelessWidget {
   final CatAgentDefinition definition;
   final AgentInfo agentInfo;
   final Color attrColor;
+  final GlobalKey? trainingButtonKey;
 
   const _TrainingBar({
     required this.definition,
     required this.agentInfo,
     required this.attrColor,
+    this.trainingButtonKey,
   });
 
   @override
@@ -695,36 +755,39 @@ class _TrainingBar extends StatelessWidget {
           ),
           const SizedBox(width: 8),
           // 訓練按鈕
-          _ActionButton(
-            label: isMaxLevel ? '已滿級' : '訓練',
-            cost: isMaxLevel ? null : 50,
-            costIcon: '🪙',
-            enabled: !isMaxLevel,
-            onTap: () {
-              final provider = context.read<PlayerProvider>();
-              if (provider.data.gold >= 50) {
-                HapticFeedback.lightImpact();
-                provider.addGold(-50);
-                provider.levelUpAgent(definition.id, 30);
-                ScaffoldMessenger.of(context)
-                  ..clearSnackBars()
-                  ..showSnackBar(
-                    const SnackBar(
-                      content: Text('獲得 30 EXP！(消耗 50 金幣)'),
-                      backgroundColor: Colors.green,
-                    ),
-                  );
-              } else {
-                ScaffoldMessenger.of(context)
-                  ..clearSnackBars()
-                  ..showSnackBar(
-                    const SnackBar(
-                      content: Text('金幣不足！'),
-                      backgroundColor: Colors.red,
-                    ),
-                  );
-              }
-            },
+          KeyedSubtree(
+            key: trainingButtonKey ?? GlobalKey(),
+            child: _ActionButton(
+              label: isMaxLevel ? '已滿級' : '訓練',
+              cost: isMaxLevel ? null : 50,
+              costIcon: '🪙',
+              enabled: !isMaxLevel,
+              onTap: () {
+                final provider = context.read<PlayerProvider>();
+                if (provider.data.gold >= 50) {
+                  HapticFeedback.lightImpact();
+                  provider.addGold(-50);
+                  provider.levelUpAgent(definition.id, 30);
+                  ScaffoldMessenger.of(context)
+                    ..clearSnackBars()
+                    ..showSnackBar(
+                      const SnackBar(
+                        content: Text('獲得 30 EXP！(消耗 50 金幣)'),
+                        backgroundColor: Colors.green,
+                      ),
+                    );
+                } else {
+                  ScaffoldMessenger.of(context)
+                    ..clearSnackBars()
+                    ..showSnackBar(
+                      const SnackBar(
+                        content: Text('金幣不足！'),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
+                }
+              },
+            ),
           ),
         ],
       ),

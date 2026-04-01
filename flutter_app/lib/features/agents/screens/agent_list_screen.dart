@@ -16,7 +16,16 @@ import 'agent_detail_screen.dart';
 enum AgentSortBy { rarity, level, atk, name }
 
 class AgentListScreen extends StatefulWidget {
-  const AgentListScreen({super.key});
+  /// 教學模式：高亮指定 agent 的卡片
+  final String? tutorialHighlightAgentId;
+
+  /// 教學高亮 agent 的 GlobalKey（靜態，可從外部存取）
+  static final GlobalKey tutorialHighlightKey = GlobalKey();
+
+  const AgentListScreen({
+    super.key,
+    this.tutorialHighlightAgentId,
+  });
 
   @override
   State<AgentListScreen> createState() => _AgentListScreenState();
@@ -124,12 +133,21 @@ class _AgentListScreenState extends State<AgentListScreen> {
                         delegate: SliverChildBuilderDelegate(
                           (context, index) {
                             final agent = agents[index];
-                            return _AgentPortraitCard(
+                            final card = _AgentPortraitCard(
                               agentInfo: agent,
                               isInTeam: provider.data.team
                                   .contains(agent.definition.id),
                               index: index,
                             );
+                            // 教學模式：用 KeyedSubtree 包住目標 agent
+                            if (widget.tutorialHighlightAgentId != null &&
+                                agent.definition.id == widget.tutorialHighlightAgentId) {
+                              return KeyedSubtree(
+                                key: AgentListScreen.tutorialHighlightKey,
+                                child: card,
+                              );
+                            }
+                            return card;
                           },
                           childCount: agents.length,
                         ),

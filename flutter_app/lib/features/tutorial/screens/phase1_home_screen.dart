@@ -3,14 +3,20 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../../config/game_modes.dart';
 import '../../../config/theme.dart';
+import '../../../core/models/block.dart';
+import '../../../core/models/bottle_data.dart';
 import '../../agents/providers/player_provider.dart';
 import '../../game/providers/game_provider.dart';
 import '../../game/widgets/game_board.dart';
+import '../../idle/providers/bottle_provider.dart';
+import '../../idle/providers/crafting_provider.dart';
 import '../../idle/screens/home_screen.dart';
+import '../../../config/ingredient_data.dart';
 import '../models/tutorial_dialogue_data.dart';
 import '../providers/tutorial_provider.dart';
 import '../widgets/tutorial_dialogue_box.dart';
 import '../widgets/tutorial_gesture_hint.dart';
+import '../widgets/tutorial_highlight_overlay.dart';
 
 /// Phase 1：首頁教學
 /// Part A（steps 0-11）：基礎操作（點擊/上拖/下拖/三連消）
@@ -49,6 +55,12 @@ class _Phase1HomeScreenState extends State<Phase1HomeScreen> {
   // HomeScreen 的 GlobalKey — 用來取得 HomeScreen State
   final GlobalKey<State> _homeScreenKey = GlobalKey();
 
+  // Part B 高亮用 GlobalKey
+  final GlobalKey _highlightBottleAreaKey = GlobalKey();
+  final GlobalKey _highlightConvertButtonKey = GlobalKey();
+  final GlobalKey _highlightCraftButtonKey = GlobalKey();
+  final GlobalKey _highlightNavBarKey = GlobalKey();
+
   @override
   void initState() {
     super.initState();
@@ -58,12 +70,39 @@ class _Phase1HomeScreenState extends State<Phase1HomeScreen> {
     if (_step >= 12) {
       _showHomeScreen = true;
       _homeTutorialStep = (_step - 12).clamp(0, 5);
+      // 恢復 Part B 等待狀態
+      _restoreHomeTutorialState();
     }
 
     if (_step >= 3 && _step < 12) {
+      // 恢復 Part A 等待操作步驟的狀態
+      if (_step == 3 || _step == 5 || _step == 7 || _step == 9) {
+        _waitingForAction = true;
+      }
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _startGame();
       });
+    }
+  }
+
+  /// 恢復 Part B 首頁教學的中斷狀態
+  void _restoreHomeTutorialState() {
+    switch (_homeTutorialStep) {
+      case 2:
+        // 兌換步驟：需要等待用戶操作 + 確保瓶子有能量
+        _waitingForHomeTutorialAction = true;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) _ensureBottlesFilled();
+        });
+      case 3:
+        // 製作甜點步驟：需要等待用戶操作 + 確保有食材
+        _waitingForHomeTutorialAction = true;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) _ensureCanCraft();
+        });
+      case 5:
+        // 闖關入口步驟：等待用戶點擊
+        _waitingForHomeTutorialAction = true;
     }
   }
 
@@ -169,7 +208,8 @@ class _Phase1HomeScreenState extends State<Phase1HomeScreen> {
         });
         _goToStep(13);
       case 1:
-        // 瓶子說明完畢 → 高亮兌換按鈕
+        // 瓶子說明完畢 → 確保瓶子有能量 → 高亮兌換按鈕
+        _ensureBottlesFilled();
         setState(() {
           _homeTutorialStep = 2;
           _showHomeTutorialDialogue = true;
@@ -177,8 +217,9 @@ class _Phase1HomeScreenState extends State<Phase1HomeScreen> {
         });
         _goToStep(14);
       case 2:
-        // 兌換說明完畢（已經兌換過了） → 製作甜點
+        // 兌換說明完畢（已經兌換過了） → 確保有食材 → 製作甜點
         if (_hasConverted) {
+          _ensureCanCraft();
           setState(() {
             _homeTutorialStep = 3;
             _showHomeTutorialDialogue = true;
@@ -240,6 +281,42 @@ class _Phase1HomeScreenState extends State<Phase1HomeScreen> {
     // 用戶點了闖關 Tab → 完成 Phase 1
     _transitioning = true;
     context.read<TutorialProvider>().advancePhase();
+  }
+
+  /// 教學用：確保瓶子有足夠能量讓兌換可以執行
+  void _ensureBottlesFilled() {
+    final bp = context.read<BottleProvider>();
+    if (!bp.isInitialized) return;
+    final hasAnyFull = BottleDefinitions.all.any(
+      (def) => bp.getBottle(def.color).isFull,
+    );
+    if (!hasAnyFull) {
+      for (final color in BlockColor.values) {
+        final bottle = bp.getBottle(color);
+        final needed = bottle.capacity - bottle.currentEnergy;
+        if (needed > 0) bp.addEnergy(color, needed);
+      }
+    }
+  }
+
+  /// 教學用：確保有食材可以製作甜點
+  void _ensureCanCraft() {
+    final player = context.read<PlayerProvider>();
+    final crafting = context.read<CraftingProvider>();
+    final canCraft = DessertDefinitions.all.any(
+      (r) => crafting.canCraft(r.id, player.data),
+    );
+    if (!canCraft) {
+      for (final color in BlockColor.values) {
+        final available = IngredientDefinitions.getAvailable(color, 1);
+        if (available.isNotEmpty) {
+          final ingId = available.first.id;
+          player.data.ingredients[ingId] =
+              (player.data.ingredients[ingId] ?? 0) + 5;
+        }
+      }
+      player.notifyAndSave();
+    }
   }
 
   TutorialDialogue _homeDialogue() {
@@ -382,16 +459,33 @@ class _Phase1HomeScreenState extends State<Phase1HomeScreen> {
     return _buildOperationTutorial();
   }
 
+  /// 根據 _homeTutorialStep 取得高亮目標 key
+  GlobalKey? _highlightKeyForStep() {
+    if (!_waitingForHomeTutorialAction || _showHomeTutorialDialogue) return null;
+    switch (_homeTutorialStep) {
+      case 1: return _highlightBottleAreaKey;    // 瓶子區域
+      case 2: return _highlightConvertButtonKey; // 一鍵兌換
+      case 3: return _highlightCraftButtonKey;   // 製作甜點
+      case 5: return _highlightNavBarKey;        // 闖關 Tab
+      default: return null;
+    }
+  }
+
   // ─── Part B：HomeScreen + 逐步引導 ───
   Widget _buildHomeScreenWithGuide() {
+    final highlightKey = _highlightKeyForStep();
+
     return Stack(
       children: [
         // 真正的首頁
         HomeScreen(
           key: _homeScreenKey,
           tutorialMode: true,
-          // 教學時鎖定在放置頁(index=2)，直到最後一步引導到闖關(index=3)
           onTutorialNavTap: _homeTutorialStep == 5 ? _onUserTappedBattle : null,
+          externalBottleAreaKey: _highlightBottleAreaKey,
+          externalConvertButtonKey: _highlightConvertButtonKey,
+          externalCraftButtonKey: _highlightCraftButtonKey,
+          externalNavBarKey: _highlightNavBarKey,
         ),
 
         // 監聽瓶子和製作狀態
@@ -401,6 +495,13 @@ class _Phase1HomeScreenState extends State<Phase1HomeScreen> {
           listenConvert: _homeTutorialStep == 2 && !_hasConverted,
           listenCraft: _homeTutorialStep == 3 && !_hasCrafted,
         ),
+
+        // 高亮 overlay
+        if (highlightKey != null)
+          TutorialHighlightOverlay(
+            highlightKey: highlightKey,
+            passthrough: true,
+          ),
 
         // 對話框（不擋住操作）
         if (_showHomeTutorialDialogue)

@@ -7,12 +7,18 @@ class GameBottomNavBar extends StatelessWidget {
   final ValueChanged<int>? onTap;
   /// 需要顯示紅點的 Tab index 集合
   final Set<int> badges;
+  /// 教學高亮的 Tab index（-1 表示無）
+  final int highlightTabIndex;
+  /// 教學高亮的 GlobalKey
+  final GlobalKey? highlightTabKey;
 
   const GameBottomNavBar({
     super.key,
     required this.currentIndex,
     required this.onTap,
     this.badges = const {},
+    this.highlightTabIndex = -1,
+    this.highlightTabKey,
   });
 
   static const _items = [
@@ -48,7 +54,7 @@ class GameBottomNavBar extends StatelessWidget {
           final item = _items[index];
           final isSelected = index == currentIndex;
 
-          return Expanded(
+          Widget tab = Expanded(
             child: GestureDetector(
               onTap: onTap != null ? () => onTap!(index) : null,
               behavior: HitTestBehavior.opaque,
@@ -60,6 +66,13 @@ class GameBottomNavBar extends StatelessWidget {
               ),
             ),
           );
+
+          // 教學高亮：包上 KeyedSubtree
+          if (index == highlightTabIndex && highlightTabKey != null) {
+            tab = KeyedSubtree(key: highlightTabKey!, child: tab);
+          }
+
+          return tab;
         }),
       ),
     );

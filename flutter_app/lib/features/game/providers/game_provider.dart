@@ -94,7 +94,7 @@ class GameProvider extends ChangeNotifier {
 
   // ─── 遊戲生命週期 ───
 
-  void startGame(GameModeConfig mode) {
+  void startGame(GameModeConfig mode, {List<List<BlockColor>>? initialColors}) {
     _timer?.cancel();
     _gameGeneration++; // 讓舊的 async 操作偵測到世代變更並終止
     _isProcessing = false;
@@ -104,7 +104,11 @@ class GameProvider extends ChangeNotifier {
     _state = GameState.initial(mode);
     _state!.status = GameStatus.playing;
 
-    _fillGrid();
+    if (initialColors != null) {
+      _fillGridWithColors(initialColors);
+    } else {
+      _fillGrid();
+    }
 
     if (mode.hasTimer && mode.gameDuration > 0) {
       _startTimer();
@@ -584,6 +588,26 @@ class GameProvider extends ChangeNotifier {
       }
     }
     _resolveInitialMatches();
+  }
+
+  /// 使用指定顏色填充棋盤（教學用）
+  /// initialColors[col][row] = BlockColor
+  void _fillGridWithColors(List<List<BlockColor>> initialColors) {
+    final s = _state!;
+    for (int col = 0; col < s.mode.numCols; col++) {
+      for (int row = 0; row < s.mode.numRows; row++) {
+        final color = (col < initialColors.length && row < initialColors[col].length)
+            ? initialColors[col][row]
+            : _randomColor();
+        s.grid[col][row] = Block(
+          id: _uuid.v4(),
+          color: color,
+          col: col,
+          row: row,
+        );
+      }
+    }
+    // 不執行 _resolveInitialMatches — 教學盤面是刻意設計的
   }
 
   void _resolveInitialMatches() {

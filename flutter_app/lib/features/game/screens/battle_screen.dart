@@ -4,6 +4,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import '../../../core/models/block.dart';
 import '../../../config/boss_dialogue_data.dart';
 import '../../../config/cat_agent_data.dart';
 import '../../../config/game_modes.dart';
@@ -38,8 +39,12 @@ class BattleScreen extends StatefulWidget {
   final StageDefinition stage;
   /// 戰鬥結束回調（教學模式使用），若為 null 則用 Navigator.pop
   final VoidCallback? onBattleEnd;
+  /// 教學用：指定初始棋盤顏色 [col][row]
+  final List<List<BlockColor>>? initialColors;
+  /// 教學戰鬥索引（0=第一場, 1=第二場, null=非教學）
+  final int? tutorialBattleIndex;
 
-  const BattleScreen({super.key, required this.stage, this.onBattleEnd});
+  const BattleScreen({super.key, required this.stage, this.onBattleEnd, this.initialColors, this.tutorialBattleIndex});
 
   @override
   State<BattleScreen> createState() => _BattleScreenState();
@@ -67,6 +72,11 @@ class _BattleScreenState extends State<BattleScreen> {
   int _battleGuideStep = -1; // -1=不顯示, 0=第一步, 1=第二步
   bool _isFirstBattle = false;
 
+  // 教學戰鬥介紹
+  bool _showTutorialIntro = false;
+  final GlobalKey _gamePanelKey = GlobalKey();
+  final GlobalKey _agentPanelKey = GlobalKey();
+
   @override
   void initState() {
     super.initState();
@@ -81,6 +91,11 @@ class _BattleScreenState extends State<BattleScreen> {
     if (widget.stage.id == '1-1' && !progress.values.any((p) => p.cleared)) {
       _isFirstBattle = true;
       _battleGuideStep = 0;
+    }
+
+    // 教學戰鬥介紹（第一場 & 第二場）
+    if (widget.tutorialBattleIndex != null && widget.tutorialBattleIndex! < 2) {
+      _showTutorialIntro = true;
     }
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -137,7 +152,7 @@ class _BattleScreenState extends State<BattleScreen> {
       return gameProvider.applyBoardEffect(effect, agentColor);
     };
 
-    gameProvider.startGame(battleMode);
+    gameProvider.startGame(battleMode, initialColors: widget.initialColors);
   }
 
   Future<void> _saveResult(bool isVictory, int score) async {
@@ -371,11 +386,14 @@ class _BattleScreenState extends State<BattleScreen> {
                                 // 棋盤在左（獨立 Consumer 隔離重繪）
                                 Expanded(
                                   flex: 6,
-                                  child: RepaintBoundary(
-                                    child: Consumer<GameProvider>(
-                                      builder: (_, game, __) => _GamePanel(
-                                        battleState: battleState,
-                                        gameState: game.state,
+                                  child: Container(
+                                    key: _gamePanelKey,
+                                    child: RepaintBoundary(
+                                      child: Consumer<GameProvider>(
+                                        builder: (_, game, __) => _GamePanel(
+                                          battleState: battleState,
+                                          gameState: game.state,
+                                        ),
                                       ),
                                     ),
                                   ),
@@ -384,11 +402,14 @@ class _BattleScreenState extends State<BattleScreen> {
                                 if (battleState != null)
                                   Expanded(
                                     flex: 4,
-                                    child: RepaintBoundary(
-                                      child: _CatAgentPanel(
-                                        battleState: battleState,
-                                        battleProvider: battle,
-                                        attackAnimPlaying: _attackAnimPlaying,
+                                    child: Container(
+                                      key: _agentPanelKey,
+                                      child: RepaintBoundary(
+                                        child: _CatAgentPanel(
+                                          battleState: battleState,
+                                          battleProvider: battle,
+                                          attackAnimPlaying: _attackAnimPlaying,
+                                        ),
                                       ),
                                     ),
                                   ),
@@ -398,22 +419,28 @@ class _BattleScreenState extends State<BattleScreen> {
                                 if (battleState != null)
                                   Expanded(
                                     flex: 4,
-                                    child: RepaintBoundary(
-                                      child: _CatAgentPanel(
-                                        battleState: battleState,
-                                        battleProvider: battle,
-                                        attackAnimPlaying: _attackAnimPlaying,
+                                    child: Container(
+                                      key: _agentPanelKey,
+                                      child: RepaintBoundary(
+                                        child: _CatAgentPanel(
+                                          battleState: battleState,
+                                          battleProvider: battle,
+                                          attackAnimPlaying: _attackAnimPlaying,
+                                        ),
                                       ),
                                     ),
                                   ),
                                 // 棋盤在右
                                 Expanded(
                                   flex: 6,
-                                  child: RepaintBoundary(
-                                    child: Consumer<GameProvider>(
-                                      builder: (_, game, __) => _GamePanel(
-                                        battleState: battleState,
-                                        gameState: game.state,
+                                  child: Container(
+                                    key: _gamePanelKey,
+                                    child: RepaintBoundary(
+                                      child: Consumer<GameProvider>(
+                                        builder: (_, game, __) => _GamePanel(
+                                          battleState: battleState,
+                                          gameState: game.state,
+                                        ),
                                       ),
                                     ),
                                   ),
@@ -493,8 +520,21 @@ class _BattleScreenState extends State<BattleScreen> {
                     },
                   ),
 
-                // 首戰引導 Overlay
-                if (_battleGuideStep >= 0)
+                // 教學戰鬥介紹 Overlay（角色立繪對話 + 高亮引導）
+                if (_showTutorialIntro)
+                  _TutorialBattleIntro(
+                    battleIndex: widget.tutorialBattleIndex!,
+                    gamePanelKey: _gamePanelKey,
+                    agentPanelKey: _agentPanelKey,
+                    onComplete: () {
+                      if (mounted) {
+                        setState(() => _showTutorialIntro = false);
+                      }
+                    },
+                  ),
+
+                // 首戰引導 Overlay（非教學模式的 1-1）
+                if (_battleGuideStep >= 0 && !_showTutorialIntro)
                   _FirstBattleGuide(
                     step: _battleGuideStep,
                     onNext: () {
@@ -4689,6 +4729,561 @@ class _FirstBattleGuide extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+// ═══════════════════════════════════════════
+// 教學戰鬥介紹 Overlay（角色立繪對話 + 高亮引導）
+// ═══════════════════════════════════════════
+
+/// 教學介紹步驟資料
+class _IntroStep {
+  final bool isDialogue;
+  final String? speakerName;
+  final String? emoji;
+  final String? agentId;
+  final bool isPlayerSide;
+  final String text;
+  final String? guideTitle;
+  final String? buttonText;
+  /// 高亮引導目標：'board' = 棋盤面板, 'agent' = 角色面板
+  final String? highlightTarget;
+
+  const _IntroStep._({
+    required this.isDialogue,
+    this.speakerName,
+    this.emoji,
+    this.agentId,
+    required this.isPlayerSide,
+    required this.text,
+    this.guideTitle,
+    this.buttonText,
+    this.highlightTarget,
+  });
+
+  static _IntroStep dialogue(
+    String name, String? emoji, bool isPlayer, String text,
+    {String? agentId}
+  ) {
+    return _IntroStep._(
+      isDialogue: true, speakerName: name, emoji: emoji,
+      agentId: agentId, isPlayerSide: isPlayer, text: text,
+    );
+  }
+
+  static _IntroStep guide(
+    String title, String text,
+    {String? buttonText, String? highlightTarget}
+  ) {
+    return _IntroStep._(
+      isDialogue: false, isPlayerSide: false, text: text,
+      guideTitle: title, buttonText: buttonText,
+      highlightTarget: highlightTarget,
+    );
+  }
+}
+
+class _TutorialBattleIntro extends StatefulWidget {
+  final int battleIndex;
+  final GlobalKey gamePanelKey;
+  final GlobalKey agentPanelKey;
+  final VoidCallback onComplete;
+
+  const _TutorialBattleIntro({
+    required this.battleIndex,
+    required this.gamePanelKey,
+    required this.agentPanelKey,
+    required this.onComplete,
+  });
+
+  @override
+  State<_TutorialBattleIntro> createState() => _TutorialBattleIntroState();
+}
+
+class _TutorialBattleIntroState extends State<_TutorialBattleIntro>
+    with SingleTickerProviderStateMixin {
+  int _step = 0;
+  String _displayedText = '';
+  bool _isTyping = false;
+
+  late final List<_IntroStep> _steps;
+  late AnimationController _fadeCtrl;
+  late Animation<double> _fadeAnim;
+
+  @override
+  void initState() {
+    super.initState();
+    _steps = _buildSteps(widget.battleIndex);
+    _fadeCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 400),
+    );
+    _fadeAnim = CurvedAnimation(parent: _fadeCtrl, curve: Curves.easeOut);
+    HapticFeedback.mediumImpact();
+    _startStep();
+  }
+
+  @override
+  void dispose() {
+    _fadeCtrl.dispose();
+    super.dispose();
+  }
+
+  static List<_IntroStep> _buildSteps(int battleIndex) {
+    switch (battleIndex) {
+      case 0:
+        return [
+          _IntroStep.dialogue(
+            '發霉小餐包', '🍞', false,
+            '哼！誰准你進來的？這裡是我們的地盤！',
+          ),
+          _IntroStep.dialogue(
+            '小麥', null, true,
+            '才不怕你！我要用食材的力量把你趕出去！',
+            agentId: 'blaze',
+          ),
+          _IntroStep.guide(
+            '⚔️ 消除方塊攻擊！',
+            '滑動並消除棋盤上的方塊，\n就能對搗蛋鬼造成傷害！\n消除越多、連鎖越長，傷害越高！',
+            highlightTarget: 'board',
+          ),
+          _IntroStep.guide(
+            '❤️ 打敗搗蛋鬼！',
+            '注意左上方搗蛋鬼的血量條，\n把它打到 0 就勝利了！',
+            buttonText: '開始戰鬥！',
+            highlightTarget: 'agent',
+          ),
+        ];
+      case 1:
+        return [
+          _IntroStep.dialogue(
+            '發霉小餐包', '🍞', false,
+            '又來了？這次有兩個，你打不過我們的！',
+          ),
+          _IntroStep.dialogue(
+            '小麥', null, true,
+            '不用擔心！我的技能快準備好了！',
+            agentId: 'blaze',
+          ),
+          _IntroStep.guide(
+            '🐱 夥伴技能',
+            '消除方塊時，左側夥伴的技能條會充能。\n充滿後會自動施放強力技能！\n\n消除 ☀️ 方塊能更快幫小麥充能喔！',
+            buttonText: '開始戰鬥！',
+            highlightTarget: 'agent',
+          ),
+        ];
+      default:
+        return [];
+    }
+  }
+
+  void _startStep() {
+    if (_step >= _steps.length) {
+      widget.onComplete();
+      return;
+    }
+    _fadeCtrl.reset();
+    _fadeCtrl.forward();
+    final step = _steps[_step];
+    if (step.isDialogue) {
+      _typeText(step.text);
+    } else {
+      setState(() {
+        _displayedText = step.text;
+        _isTyping = false;
+      });
+    }
+  }
+
+  void _typeText(String fullText) {
+    _isTyping = true;
+    _displayedText = '';
+    int idx = 0;
+    Future.doWhile(() async {
+      if (!mounted || idx >= fullText.length) {
+        if (mounted) setState(() => _isTyping = false);
+        return false;
+      }
+      await Future.delayed(const Duration(milliseconds: 35));
+      if (!mounted) return false;
+      idx++;
+      setState(() => _displayedText = fullText.substring(0, idx));
+      return idx < fullText.length;
+    });
+  }
+
+  void _onTap() {
+    final step = _steps[_step];
+    if (_isTyping) {
+      setState(() {
+        _displayedText = step.text;
+        _isTyping = false;
+      });
+      return;
+    }
+    HapticFeedback.lightImpact();
+    if (_step < _steps.length - 1) {
+      setState(() => _step++);
+      _startStep();
+    } else {
+      widget.onComplete();
+    }
+  }
+
+  Rect? _resolveKeyRect(GlobalKey key) {
+    final renderBox = key.currentContext?.findRenderObject() as RenderBox?;
+    if (renderBox == null || !renderBox.hasSize) return null;
+    final offset = renderBox.localToGlobal(Offset.zero);
+    return Rect.fromLTWH(
+      offset.dx, offset.dy, renderBox.size.width, renderBox.size.height,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_steps.isEmpty) return const SizedBox.shrink();
+    final step = _steps[_step.clamp(0, _steps.length - 1)];
+    final screenSize = MediaQuery.of(context).size;
+
+    // 高亮區域
+    Rect? highlightRect;
+    if (!step.isDialogue && step.highlightTarget != null) {
+      final key = step.highlightTarget == 'board'
+          ? widget.gamePanelKey
+          : widget.agentPanelKey;
+      highlightRect = _resolveKeyRect(key)?.inflate(4);
+    }
+
+    return GestureDetector(
+      onTap: (step.buttonText != null && !_isTyping) ? null : _onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Stack(
+        children: [
+          // 遮罩（帶高亮挖孔或全遮）
+          Positioned.fill(
+            child: IgnorePointer(
+              child: CustomPaint(
+                painter: _TutorialSpotlightPainter(
+                  highlightRect: highlightRect,
+                  overlayColor: Colors.black.withAlpha(step.isDialogue ? 180 : 150),
+                ),
+              ),
+            ),
+          ),
+
+          // 高亮區域脈動邊框
+          if (highlightRect != null)
+            Positioned(
+              left: highlightRect.left - 2,
+              top: highlightRect.top - 2,
+              width: highlightRect.width + 4,
+              height: highlightRect.height + 4,
+              child: IgnorePointer(
+                child: _PulsingBorder(
+                  color: const Color(0xFFFBBF24),
+                ),
+              ),
+            ),
+
+          // 角色立繪（對話步驟）
+          if (step.isDialogue)
+            _buildPortrait(step, screenSize),
+
+          // 對話框 / 引導面板
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            child: FadeTransition(
+              opacity: _fadeAnim,
+              child: step.isDialogue
+                  ? _buildDialogueBox(step)
+                  : _buildGuidePanel(step),
+            ),
+          ),
+
+          // 提示文字
+          if (step.buttonText == null)
+            Positioned(
+              right: 20,
+              bottom: MediaQuery.of(context).padding.bottom + 12,
+              child: Text(
+                '▶ 點擊繼續',
+                style: TextStyle(
+                  color: Colors.white.withAlpha(180),
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPortrait(_IntroStep step, Size screenSize) {
+    final isPlayer = step.isPlayerSide;
+
+    return Positioned(
+      left: isPlayer ? null : 0,
+      right: isPlayer ? 0 : null,
+      bottom: screenSize.height * 0.15,
+      child: FadeTransition(
+        opacity: _fadeAnim,
+        child: SizedBox(
+          height: screenSize.height * 0.45,
+          width: screenSize.width * 0.5,
+          child: step.agentId != null
+              ? Image.asset(
+                  ImageAssets.characterImage(step.agentId!) ?? '',
+                  fit: BoxFit.contain,
+                  errorBuilder: (_, __, ___) => Center(
+                    child: Text(
+                      '🐱',
+                      style: TextStyle(fontSize: screenSize.width * 0.15),
+                    ),
+                  ),
+                )
+              : Center(
+                  child: Container(
+                    width: screenSize.width * 0.28,
+                    height: screenSize.width * 0.28,
+                    decoration: BoxDecoration(
+                      color: Colors.red.withAlpha(40),
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: Colors.red.withAlpha(120),
+                        width: 3,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.red.withAlpha(40),
+                          blurRadius: 20,
+                          spreadRadius: 4,
+                        ),
+                      ],
+                    ),
+                    child: Center(
+                      child: Text(
+                        step.emoji ?? '❓',
+                        style: TextStyle(fontSize: screenSize.width * 0.12),
+                      ),
+                    ),
+                  ),
+                ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDialogueBox(_IntroStep step) {
+    final bottomPadding = MediaQuery.of(context).padding.bottom;
+    return Container(
+      padding: EdgeInsets.fromLTRB(20, 16, 20, bottomPadding + 40),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            Colors.black.withAlpha(0),
+            Colors.black.withAlpha(220),
+            Colors.black.withAlpha(240),
+          ],
+          stops: const [0.0, 0.25, 1.0],
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // 說話者名牌
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+            decoration: BoxDecoration(
+              color: step.isPlayerSide
+                  ? const Color(0xFF4DABF7).withAlpha(180)
+                  : Colors.red.withAlpha(180),
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: Text(
+              step.speakerName ?? '',
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+          // 對話文字（打字機效果）
+          SizedBox(
+            height: 50,
+            child: Text(
+              _displayedText,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 16,
+                height: 1.5,
+                shadows: [Shadow(color: Colors.black, blurRadius: 4)],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildGuidePanel(_IntroStep step) {
+    final bottomPadding = MediaQuery.of(context).padding.bottom;
+    return Padding(
+      padding: EdgeInsets.fromLTRB(20, 0, 20, bottomPadding + 24),
+      child: Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: _panelBg,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: _woodBorder, width: 2),
+          boxShadow: [
+            BoxShadow(
+              color: _woodDark.withAlpha(60),
+              blurRadius: 16,
+              spreadRadius: 2,
+            ),
+          ],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              step.guideTitle ?? '',
+              style: const TextStyle(
+                color: Color(0xFF5D4037),
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 10),
+            Text(
+              _displayedText,
+              style: TextStyle(
+                color: const Color(0xFF5D4037).withAlpha(200),
+                fontSize: 14,
+                height: 1.5,
+              ),
+            ),
+            if (step.buttonText != null) ...[
+              const SizedBox(height: 16),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: _onTap,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: _woodDark,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                  child: Text(
+                    step.buttonText!,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// 教學聚光燈畫筆（遮罩 + 高亮挖孔）
+class _TutorialSpotlightPainter extends CustomPainter {
+  final Rect? highlightRect;
+  final Color overlayColor;
+
+  _TutorialSpotlightPainter({this.highlightRect, required this.overlayColor});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()..color = overlayColor;
+    if (highlightRect == null) {
+      canvas.drawRect(Rect.fromLTWH(0, 0, size.width, size.height), paint);
+      return;
+    }
+    final path = Path()
+      ..addRect(Rect.fromLTWH(0, 0, size.width, size.height))
+      ..addRRect(RRect.fromRectAndRadius(highlightRect!, const Radius.circular(12)))
+      ..fillType = PathFillType.evenOdd;
+    canvas.drawPath(path, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant _TutorialSpotlightPainter old) =>
+      old.highlightRect != highlightRect || old.overlayColor != overlayColor;
+}
+
+/// 脈動邊框（教學引導用）
+class _PulsingBorder extends StatefulWidget {
+  final Color color;
+  const _PulsingBorder({required this.color});
+
+  @override
+  State<_PulsingBorder> createState() => _PulsingBorderState();
+}
+
+class _PulsingBorderState extends State<_PulsingBorder>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _ctrl;
+  late Animation<double> _anim;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1200),
+    )..repeat(reverse: true);
+    _anim = Tween<double>(begin: 0.4, end: 1.0).animate(
+      CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _anim,
+      builder: (context, _) {
+        return Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: widget.color.withAlpha((_anim.value * 200).toInt()),
+              width: 2.5,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: widget.color.withAlpha((_anim.value * 60).toInt()),
+                blurRadius: 12,
+                spreadRadius: 2,
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }

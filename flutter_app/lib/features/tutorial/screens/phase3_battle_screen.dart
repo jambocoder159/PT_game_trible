@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../config/stage_data.dart';
+import '../../../core/models/block.dart';
 import '../../../core/models/cat_agent.dart';
 import '../../../core/models/enemy.dart';
 import '../../agents/providers/player_provider.dart';
@@ -119,6 +120,22 @@ class _Phase3BattleScreenState extends State<Phase3BattleScreen> {
     ),
   ];
 
+  /// 教學用：預設棋盤顏色 [col][row]（3 列 × 10 行）
+  /// 確保有足夠 coral 方塊讓小麥可以充能攻擊
+  /// C=coral, M=mint, T=teal, G=gold, R=rose
+  static const _c = BlockColor.coral;
+  static const _m = BlockColor.mint;
+  static const _t = BlockColor.teal;
+  static const _g = BlockColor.gold;
+  static const _r = BlockColor.rose;
+
+  static final _tutorialGrid = [
+    // col 0           col 1           col 2
+    [_c,_m,_t,_c,_g,_c,_r,_m,_c,_t],  // col 0
+    [_t,_c,_c,_m,_c,_g,_c,_t,_r,_c],  // col 1
+    [_m,_g,_c,_t,_r,_c,_m,_c,_g,_c],  // col 2
+  ];
+
   // 第一關前：包含原 Phase 2 的劇情（地下室聲響）
   static const _stage1PreDialogues = [
     TutorialDialogues.t017, // 小貓：地下室有聲音
@@ -157,6 +174,21 @@ class _Phase3BattleScreenState extends State<Phase3BattleScreen> {
     super.initState();
     final tutorial = context.read<TutorialProvider>();
     _battleIndex = tutorial.state.currentBattleStage.clamp(0, 2);
+
+    // 中斷恢復：若露露已被救出，直接推進到下一階段
+    if (tutorial.state.luluRescued) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) tutorial.advancePhase();
+      });
+      return;
+    }
+
+    // 安全處理：若 battleStage >= 3（不應發生），直接進入救援場景
+    if (_battleIndex > 2) {
+      _battleIndex = 2;
+      _showPreDialogue = false;
+      _showLuluRescue = true;
+    }
   }
 
   void _onPreDialogueTap() {
@@ -287,6 +319,8 @@ class _Phase3BattleScreenState extends State<Phase3BattleScreen> {
       child: BattleScreen(
         stage: _tutorialStages[_battleIndex],
         onBattleEnd: _onBattleComplete,
+        initialColors: _tutorialGrid,
+        tutorialBattleIndex: _battleIndex,
       ),
     );
   }
