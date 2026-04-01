@@ -70,10 +70,17 @@ class _TutorialHighlightOverlayState extends State<TutorialHighlightOverlay> {
     final renderBox =
         widget.highlightKey!.currentContext?.findRenderObject() as RenderBox?;
     if (renderBox == null || !renderBox.hasSize) return null;
-    final offset = renderBox.localToGlobal(Offset.zero);
+    final targetOffset = renderBox.localToGlobal(Offset.zero);
+
+    // 將螢幕絕對座標轉換為 overlay 自身座標系統
+    // 避免 SafeArea 等祖先 widget 的偏移導致 highlight 位置偏移
+    final overlayBox = context.findRenderObject() as RenderBox?;
+    final overlayOffset = overlayBox?.localToGlobal(Offset.zero) ?? Offset.zero;
+    final relativeOffset = targetOffset - overlayOffset;
+
     return Rect.fromLTWH(
-      offset.dx,
-      offset.dy,
+      relativeOffset.dx,
+      relativeOffset.dy,
       renderBox.size.width,
       renderBox.size.height,
     );

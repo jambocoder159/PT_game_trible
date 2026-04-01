@@ -577,7 +577,7 @@ class _BattleScreenState extends State<BattleScreen> {
                       }
                     },
                     onRetry: () => _retryBattle(context),
-                    onNextStage: (battle.isBattleOver && battle.isVictory)
+                    onNextStage: (battle.isBattleOver && battle.isVictory && widget.onBattleEnd == null)
                         ? _getNextStageCallback(context, battle)
                         : null,
                   ),
