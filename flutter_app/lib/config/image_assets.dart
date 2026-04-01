@@ -155,7 +155,7 @@ class ImageAssets {
       return '$_base/bosses/$bossName.png';
     }
     // 再查通用怪
-    final name = _enemyImageNames[enemyId] ?? 'wolf'; // fallback
+    final name = _enemyImageNames[enemyId] ?? 'moldy_bun'; // fallback
     return '$_base/enemies/enemy_$name.png';
   }
 
