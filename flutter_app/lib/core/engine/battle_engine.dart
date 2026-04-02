@@ -1,6 +1,8 @@
 /// 戰鬥引擎
 /// 處理傷害計算、技能效果、敵人回擊
 import 'dart:math';
+import '../../config/balance_config.dart';
+import '../../config/battle_params.dart';
 import '../../config/skill_tier_data.dart';
 import '../models/battle_state.dart';
 import '../models/cat_agent.dart';
@@ -107,6 +109,7 @@ class BattleEngine {
   BattleEngine._();
 
   static final _random = Random();
+  static BattleParams get _params => BalanceConfig.instance.battleParams;
 
   /// 處理一個 tick（消方塊驅動時間軸）
   static TickResult processTick(
@@ -180,15 +183,15 @@ class BattleEngine {
       var baseDamage = battle.calculateAutoAttackDamage(agent, enemy);
       var damage = baseDamage;
 
-      // 消除數量加成：每多消 1 個方塊增加 20% 傷害
+      // 消除數量加成
       if (matchCount > 1) {
-        damage = (damage * (1 + (matchCount - 1) * 0.2)).round();
+        damage = (damage * (1 + (matchCount - 1) * _params.matchDamageBonusPerBlock)).round();
       }
 
       // Combo 加成
       double actualComboMult = 1.0;
       if (combo > 1) {
-        actualComboMult = 1 + (combo - 1) * 0.1;
+        actualComboMult = 1 + (combo - 1) * _params.comboBonusPerCombo;
         for (final a in battle.team) {
           final comboBonus = a.getTalentBonus(TalentEffectType.comboBonus);
           if (comboBonus > 0) {
@@ -260,7 +263,7 @@ class BattleEngine {
           final counter = agent.getPassive(PassiveEffectType.counterAttack);
           if (counter != null && !enemy.isDead) {
             if (_random.nextDouble() < counter.effectValue) {
-              final counterDmg = (agent.atk * 0.5).round();
+              final counterDmg = (agent.atk * _params.counterDamageMultiplier).round();
               enemy.takeDamage(counterDmg);
               if (enemy.isDead) {
                 _processKillEffects(battle);
@@ -305,9 +308,9 @@ class BattleEngine {
       // 計算傷害
       var damage = battle.calculateMatchDamage(color, count);
 
-      // Combo 加成（每 combo +10%）
+      // Combo 加成
       if (combo > 1) {
-        double comboMult = 1 + (combo - 1) * 0.1;
+        double comboMult = 1 + (combo - 1) * _params.comboBonusPerCombo;
 
         // 天賦：連擊傷害加成
         for (final agent in battle.team) {
@@ -562,7 +565,7 @@ class BattleEngine {
 
     // 被動：低血量增傷
     final lowHp = agent.getPassive(PassiveEffectType.lowHpBoost);
-    if (lowHp != null && battle.teamCurrentHp < battle.teamMaxHp * 0.25) {
+    if (lowHp != null && battle.teamCurrentHp < battle.teamMaxHp * _params.lowHpThreshold) {
       passiveSkillMult += lowHp.effectValue;
     }
 
@@ -604,10 +607,10 @@ class BattleEngine {
       case SkillEffectType.delay:
         final enemy = battle.currentEnemy;
         if (enemy != null) {
-          enemy.attackCountdown += 2;
+          enemy.attackCountdown += _params.delaySkillTurns;
         }
         result = SkillResult(
-          description: '${skill.name}！敵人攻擊延遲 2 回合',
+          description: '${skill.name}！敵人攻擊延遲 ${_params.delaySkillTurns} 回合',
         );
         break;
     }
@@ -661,7 +664,7 @@ class BattleEngine {
         case SkillTierMechanic.dot:
           battle.activeDots.add(DotEffect(
             damagePerTurn: (agent.atk * mech.mechanicValue).round(),
-            turnsRemaining: 2,
+            turnsRemaining: _params.dotDefaultDuration,
           ));
           break;
         case SkillTierMechanic.aoeSplash:
@@ -672,7 +675,7 @@ class BattleEngine {
           }
           break;
         case SkillTierMechanic.defBreak:
-          battle.defDebuffTurns = 2;
+          battle.defDebuffTurns = _params.defBreakDefaultDuration;
           battle.defDebuffPercent = mech.mechanicValue;
           break;
         default:
@@ -719,7 +722,7 @@ class BattleEngine {
           break;
         case SkillTierMechanic.durationExtend:
           // HoT
-          battle.hotTurnsLeft = 2;
+          battle.hotTurnsLeft = _params.dotDefaultDuration;
           battle.hotPercent = mech.mechanicValue;
           break;
         case SkillTierMechanic.energyRefund:
@@ -748,7 +751,7 @@ class BattleEngine {
     final shieldBoost = agent.getTalentBonus(TalentEffectType.shieldBoost);
     final effectiveMult = multiplier * (1 + shieldBoost / 100);
 
-    int shieldDuration = 2;
+    int shieldDuration = _params.shieldDefaultDuration;
 
     // 技能強化機制
     for (final mech in mechanics) {
@@ -814,7 +817,7 @@ class BattleEngine {
     for (final mech in mechanics) {
       switch (mech.newMechanic) {
         case SkillTierMechanic.defBreak:
-          battle.defDebuffTurns = 2;
+          battle.defDebuffTurns = _params.defBreakDefaultDuration;
           battle.defDebuffPercent = mech.mechanicValue;
           break;
         case SkillTierMechanic.aoeSplash:
@@ -873,7 +876,7 @@ class BattleEngine {
     }
 
     // 斬殺門檻
-    double executeThreshold = 0.3;
+    double executeThreshold = _params.executeThresholdBase;
 
     // 技能強化：門檻提升
     for (final mech in mechanics) {
@@ -889,7 +892,7 @@ class BattleEngine {
     }
 
     if (enemy.hpPercent < executeThreshold) {
-      damage = (damage * 1.5).round();
+      damage = (damage * _params.executeBonusMultiplier).round();
     }
 
     enemy.takeDamage(damage);
@@ -899,7 +902,7 @@ class BattleEngine {
       if (mech.newMechanic == SkillTierMechanic.dot) {
         battle.activeDots.add(DotEffect(
           damagePerTurn: (agent.atk * mech.mechanicValue).round(),
-          turnsRemaining: 2,
+          turnsRemaining: _params.dotDefaultDuration,
         ));
       }
     }

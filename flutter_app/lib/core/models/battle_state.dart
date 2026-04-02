@@ -1,5 +1,7 @@
 /// 戰鬥狀態
 /// 管理一場戰鬥中的隊伍、敵人、技能充能等狀態
+import '../../config/balance_config.dart';
+import '../../config/battle_params.dart';
 import 'cat_agent.dart';
 import 'enemy.dart';
 import 'block.dart';
@@ -166,6 +168,8 @@ class BattleState {
   })  : activeDots = activeDots ?? [],
         triggeredOnce = triggeredOnce ?? {};
 
+  BattleParams get _params => BalanceConfig.instance.battleParams;
+
   EnemyInstance? get currentEnemy {
     if (currentEnemyIndex >= enemies.length) return null;
     return enemies[currentEnemyIndex];
@@ -183,7 +187,7 @@ class BattleState {
   int calculateMatchDamage(BlockColor blockColor, int matchCount) {
     final agent = findAgentByBlockColor(blockColor);
     if (agent == null) {
-      return matchCount * 5;
+      return matchCount * _params.noAgentMatchDamage;
     }
 
     final enemy = currentEnemy;
@@ -192,7 +196,7 @@ class BattleState {
     final multiplier = agent.definition.attribute
         .damageMultiplierAgainst(enemy.definition.attribute);
 
-    var damage = (agent.atk * matchCount * multiplier * 0.5).round();
+    var damage = (agent.atk * matchCount * multiplier * _params.matchDamageCoefficient).round();
 
     // 天賦：消除傷害加成
     final matchDmgUp = agent.getTalentBonus(TalentEffectType.matchDamageUp);
@@ -210,13 +214,13 @@ class BattleState {
 
     // 被動：攻擊低血敵人加成
     final lowEnemyBonus = agent.getPassive(PassiveEffectType.lowEnemyHpBonus);
-    if (lowEnemyBonus != null && enemy.hpPercent < 0.5) {
+    if (lowEnemyBonus != null && enemy.hpPercent < _params.lowEnemyHpThreshold) {
       damage = (damage * (1 + lowEnemyBonus.effectValue)).round();
     }
 
-    // 被動：長連鎖加成 (5+方塊)
+    // 被動：長連鎖加成
     final chainBonus = agent.getPassive(PassiveEffectType.matchChainBonus);
-    if (chainBonus != null && matchCount >= 5) {
+    if (chainBonus != null && matchCount >= _params.longChainThreshold) {
       damage = (damage * (1 + chainBonus.effectValue)).round();
     }
 
@@ -251,7 +255,7 @@ class BattleState {
 
     // 被動：攻擊低血敵人加成
     final lowEnemyBonus = agent.getPassive(PassiveEffectType.lowEnemyHpBonus);
-    if (lowEnemyBonus != null && target.hpPercent < 0.5) {
+    if (lowEnemyBonus != null && target.hpPercent < _params.lowEnemyHpThreshold) {
       damage = (damage * (1 + lowEnemyBonus.effectValue)).round();
     }
 
@@ -334,7 +338,7 @@ class BattleState {
     }
 
     // 被動：急救本能（露露的一次性自動治療）
-    if (teamCurrentHp > 0 && teamCurrentHp < teamMaxHp * 0.4) {
+    if (teamCurrentHp > 0 && teamCurrentHp < teamMaxHp * _params.emergencyHealThreshold) {
       for (final agent in team) {
         if (agent.definition.id == 'tide') {
           final emergencyHeal = agent.getPassive(PassiveEffectType.lowHpBoost);

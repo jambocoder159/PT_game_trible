@@ -63,6 +63,7 @@ flutter:
     - assets/images/output/evolutions/
     - assets/images/output/app_icons/
     - assets/images/icons/
+    - assets/balance/
     - assets/audio/sfx/
     - assets/audio/bgm/
     - assets/fonts/

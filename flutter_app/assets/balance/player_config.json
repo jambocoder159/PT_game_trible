@@ -1,0 +1,37 @@
+{
+  "_doc": "玩家初始值與成長公式",
+
+  "_初始資源": "──────────────────────────",
+  "startingGold": 100,
+  "startingGold_desc": "新玩家初始金幣",
+
+  "startingDiamonds": 50,
+  "startingDiamonds_desc": "新玩家初始鑽石",
+
+  "startingAgentId": "blaze",
+  "startingAgentId_desc": "新玩家初始角色 ID",
+
+  "_體力系統": "──────────────────────────",
+  "baseMaxStamina": 60,
+  "baseMaxStamina_desc": "基礎體力上限",
+
+  "staminaRecoveryMinutes": 8,
+  "staminaRecoveryMinutes_desc": "每恢復 1 點體力需要的分鐘數",
+
+  "staminaBonusPerMilestone": 5,
+  "staminaBonusPerMilestone_desc": "每到里程碑等級增加的體力上限",
+
+  "staminaMilestoneLevels": 10,
+  "staminaMilestoneLevels_desc": "每幾級觸發一次體力上限提升",
+
+  "_玩家升級": "──────────────────────────",
+  "playerExpPerLevel": 100,
+  "playerExpPerLevel_desc": "每級所需經驗公式：此值 × 當前等級",
+
+  "_每日任務": "──────────────────────────",
+  "dailyQuestStagesRequired": 3,
+  "dailyQuestStagesRequired_desc": "每日任務：需完成關卡數",
+
+  "dailyQuestBlocksRequired": 200,
+  "dailyQuestBlocksRequired_desc": "每日任務：需消除方塊數"
+}

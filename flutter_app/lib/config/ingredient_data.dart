@@ -6,6 +6,17 @@ import '../core/models/dessert.dart';
 class IngredientDefinitions {
   IngredientDefinitions._();
 
+  static void loadFromJson(Map<String, dynamic> json) {
+    final rawList = json['ingredients'] as List<dynamic>? ?? [];
+    final parsed = <IngredientDefinition>[];
+    for (final item in rawList) {
+      if (item is Map<String, dynamic> && item.containsKey('id')) {
+        parsed.add(IngredientDefinition.fromJson(item));
+      }
+    }
+    if (parsed.isNotEmpty) all = parsed;
+  }
+
   // ────────── ☀️ 烘焙瓶 (coral) ──────────
   static const flour = IngredientDefinition(
     id: 'flour', name: '麵粉', emoji: '🌾',
@@ -167,7 +178,7 @@ class IngredientDefinitions {
   );
 
   /// 全部食材清單
-  static const List<IngredientDefinition> all = [
+  static List<IngredientDefinition> all = const [
     // 烘焙
     flour, butter, egg, yeast, honey, goldenSyrup,
     // 香草
@@ -204,6 +215,17 @@ class IngredientDefinitions {
 /// 所有甜點食譜定義（20 道）
 class DessertDefinitions {
   DessertDefinitions._();
+
+  static void loadFromJson(Map<String, dynamic> json) {
+    final rawList = json['recipes'] as List<dynamic>? ?? [];
+    final parsed = <DessertRecipe>[];
+    for (final item in rawList) {
+      if (item is Map<String, dynamic> && item.containsKey('id')) {
+        parsed.add(DessertRecipe.fromJson(item));
+      }
+    }
+    if (parsed.isNotEmpty) all = parsed;
+  }
 
   // ── Tier 1: 新手（預設解鎖）──
   static const butterRoll = DessertRecipe(
@@ -314,7 +336,7 @@ class DessertDefinitions {
   );
 
   /// 全部食譜
-  static const List<DessertRecipe> all = [
+  static List<DessertRecipe> all = const [
     // Tier 1
     butterRoll, mintTea, cocoaCookie, freshJuice,
     // Tier 2

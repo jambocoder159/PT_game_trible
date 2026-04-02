@@ -6,8 +6,25 @@ import '../core/models/material.dart';
 class EvolutionData {
   EvolutionData._();
 
+  static void loadFromJson(Map<String, dynamic> json) {
+    for (final rarity in ['n', 'r', 'sr', 'ssr']) {
+      final list = json[rarity] as List<dynamic>?;
+      if (list == null) continue;
+      final parsed = list
+          .where((e) => e is Map<String, dynamic> && e.containsKey('stage'))
+          .map((e) => EvolutionStageDefinition.fromJson(e as Map<String, dynamic>))
+          .toList();
+      switch (rarity) {
+        case 'n':   nEvolutions = parsed; break;
+        case 'r':   rEvolutions = parsed; break;
+        case 'sr':  srEvolutions = parsed; break;
+        case 'ssr': ssrEvolutions = parsed; break;
+      }
+    }
+  }
+
   /// N 稀有度進化（Lv15 → Lv25）
-  static const nEvolutions = <EvolutionStageDefinition>[
+  static List<EvolutionStageDefinition> nEvolutions = const <EvolutionStageDefinition>[
     EvolutionStageDefinition(
       stage: 1, nameSuffix: '·改',
       requiredLevel: 15,
@@ -34,7 +51,7 @@ class EvolutionData {
   ];
 
   /// R 稀有度進化（Lv20 → Lv35）
-  static const rEvolutions = <EvolutionStageDefinition>[
+  static List<EvolutionStageDefinition> rEvolutions = const <EvolutionStageDefinition>[
     EvolutionStageDefinition(
       stage: 1, nameSuffix: '·改',
       requiredLevel: 20,
@@ -63,7 +80,7 @@ class EvolutionData {
   ];
 
   /// SR 稀有度進化（Lv25 → Lv45）
-  static const srEvolutions = <EvolutionStageDefinition>[
+  static List<EvolutionStageDefinition> srEvolutions = const <EvolutionStageDefinition>[
     EvolutionStageDefinition(
       stage: 1, nameSuffix: '·改',
       requiredLevel: 25,
@@ -92,7 +109,7 @@ class EvolutionData {
   ];
 
   /// SSR 稀有度進化
-  static const ssrEvolutions = <EvolutionStageDefinition>[
+  static List<EvolutionStageDefinition> ssrEvolutions = const <EvolutionStageDefinition>[
     EvolutionStageDefinition(
       stage: 1, nameSuffix: '·改',
       requiredLevel: 30,

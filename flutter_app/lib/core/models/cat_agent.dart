@@ -3,7 +3,8 @@
 /// 屬性系統：5 屬性（剪刀石頭布式相剋）
 /// - 三角相剋：A(☀️太陽) → 剋 B(🍃葉子) → 剋 C(💧水滴) → 剋 A
 /// - 互相剋制：D(⭐星星) ⟷ E(🌙月亮)
-/// - 剋制倍率：被剋 1.5x，剋制 0.75x
+/// - 剋制倍率：可透過 BattleParams 調整
+import '../../config/balance_config.dart';
 import 'block.dart';
 
 /// 角色屬性（對應 5 種方塊顏色）
@@ -41,42 +42,46 @@ enum AgentAttribute {
 
   /// 計算對目標屬性的傷害倍率
   double damageMultiplierAgainst(AgentAttribute target) {
+    final params = BalanceConfig.instance.battleParams;
+    final adv = params.attributeAdvantageMultiplier;
+    final disadv = params.attributeDisadvantageMultiplier;
+
     // 三角相剋：A → B → C → A
     if (this == AgentAttribute.attributeA &&
         target == AgentAttribute.attributeB) {
-      return 1.5;
+      return adv;
     }
     if (this == AgentAttribute.attributeB &&
         target == AgentAttribute.attributeC) {
-      return 1.5;
+      return adv;
     }
     if (this == AgentAttribute.attributeC &&
         target == AgentAttribute.attributeA) {
-      return 1.5;
+      return adv;
     }
 
     // 三角被剋
     if (this == AgentAttribute.attributeB &&
         target == AgentAttribute.attributeA) {
-      return 0.75;
+      return disadv;
     }
     if (this == AgentAttribute.attributeC &&
         target == AgentAttribute.attributeB) {
-      return 0.75;
+      return disadv;
     }
     if (this == AgentAttribute.attributeA &&
         target == AgentAttribute.attributeC) {
-      return 0.75;
+      return disadv;
     }
 
     // 互相剋制：D ⟷ E
     if (this == AgentAttribute.attributeD &&
         target == AgentAttribute.attributeE) {
-      return 1.5;
+      return adv;
     }
     if (this == AgentAttribute.attributeE &&
         target == AgentAttribute.attributeD) {
-      return 1.5;
+      return adv;
     }
 
     return 1.0;
@@ -286,25 +291,16 @@ class CatAgentDefinition {
 
   /// 等級上限
   int get maxLevel {
-    switch (rarity) {
-      case AgentRarity.n:
-        return 30;
-      case AgentRarity.r:
-        return 40;
-      case AgentRarity.sr:
-        return 50;
-      case AgentRarity.ssr:
-        return 50;
-    }
+    return BalanceConfig.instance.battleParams.maxLevelByRarity[rarity] ?? 50;
   }
 
   /// 升到指定等級所需的累計 EXP
   int expRequiredForLevel(int level) {
     if (level <= 1) return 0;
-    // 簡單公式：每級所需 EXP 遞增
+    final params = BalanceConfig.instance.battleParams;
     int total = 0;
     for (int l = 2; l <= level; l++) {
-      total += (10 + (l - 1) * 5) * rarity.tier;
+      total += (params.expBasePerLevel + (l - 1) * params.expGrowthPerLevel) * rarity.tier;
     }
     return total;
   }

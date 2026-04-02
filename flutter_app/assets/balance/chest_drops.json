@@ -1,0 +1,65 @@
+{
+  "_doc": "寶箱掉落機率表 — 各等級寶箱開出的素材種類與機率",
+  "_status": "骨架檔案，數值待填入",
+  "_fields": "chestType(寶箱類型), drops(掉落物列表), 每個 drop: materialId, minAmount, maxAmount, weight(權重，越高越容易開到)",
+  "_how_weight_works": "同一寶箱內所有 drop 的 weight 加總為分母，單個 weight 為分子。例如 weight=70 在總和 100 中 = 70% 機率",
+
+  "chests": [
+    {
+      "id": "wooden_chest",
+      "name": "木質寶箱",
+      "name_desc": "通關普通關卡獲得",
+      "drops": [
+        { "materialId": "commonShard",   "minAmount": 1, "maxAmount": 3, "weight": 70, "_note": "70% 機率" },
+        { "materialId": "advancedShard", "minAmount": 1, "maxAmount": 1, "weight": 20, "_note": "20% 機率" },
+        { "materialId": "gold",          "minAmount": 50, "maxAmount": 150, "weight": 10, "_note": "10% 機率" }
+      ]
+    },
+    {
+      "id": "silver_chest",
+      "name": "銀質寶箱",
+      "name_desc": "通關三星關卡獲得",
+      "drops": [
+        { "materialId": "commonShard",   "minAmount": 2, "maxAmount": 5, "weight": 50 },
+        { "materialId": "advancedShard", "minAmount": 1, "maxAmount": 3, "weight": 30 },
+        { "materialId": "rareShard",     "minAmount": 1, "maxAmount": 1, "weight": 10 },
+        { "materialId": "skillCore",     "minAmount": 1, "maxAmount": 1, "weight": 5 },
+        { "materialId": "gold",          "minAmount": 100, "maxAmount": 300, "weight": 5 }
+      ]
+    },
+    {
+      "id": "gold_chest",
+      "name": "金質寶箱",
+      "name_desc": "通關 Boss 關卡獲得",
+      "drops": [
+        { "materialId": "advancedShard", "minAmount": 2, "maxAmount": 5, "weight": 35 },
+        { "materialId": "rareShard",     "minAmount": 1, "maxAmount": 3, "weight": 25 },
+        { "materialId": "skillCore",     "minAmount": 1, "maxAmount": 2, "weight": 15 },
+        { "materialId": "talentScroll",  "minAmount": 1, "maxAmount": 2, "weight": 10 },
+        { "materialId": "passiveGem",    "minAmount": 1, "maxAmount": 1, "weight": 10 },
+        { "materialId": "gold",          "minAmount": 200, "maxAmount": 500, "weight": 5 }
+      ]
+    },
+    {
+      "id": "diamond_chest",
+      "name": "鑽石寶箱",
+      "name_desc": "特殊活動或商店購買",
+      "drops": [
+        { "materialId": "rareShard",     "minAmount": 3, "maxAmount": 8, "weight": 30 },
+        { "materialId": "skillCore",     "minAmount": 2, "maxAmount": 4, "weight": 20 },
+        { "materialId": "talentScroll",  "minAmount": 2, "maxAmount": 3, "weight": 15 },
+        { "materialId": "passiveGem",    "minAmount": 1, "maxAmount": 3, "weight": 15 },
+        { "materialId": "essenceRandom", "minAmount": 2, "maxAmount": 5, "weight": 10, "_note": "隨機一種屬性精華" },
+        { "materialId": "gold",          "minAmount": 500, "maxAmount": 1000, "weight": 5 },
+        { "materialId": "diamonds",      "minAmount": 10, "maxAmount": 30, "weight": 5 }
+      ]
+    }
+  ],
+
+  "_TODO": [
+    "確認各等級寶箱的實際掉落權重",
+    "決定每種寶箱可以開出幾個 drop（目前骨架假設每次開 1 個 drop）",
+    "加入保底機制？（例如連開 10 個木箱沒拿到 advancedShard 則保底）",
+    "決定寶箱的取得方式（關卡掉落、商店購買、每日任務獎勵）"
+  ]
+}

@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'config/balance_loader.dart';
 import 'config/theme.dart';
 import 'core/services/local_storage.dart';
 import 'core/services/settings_service.dart';
@@ -38,6 +39,9 @@ void main() async {
 
   // 初始化設定服務
   await SettingsService.instance.init();
+
+  // 載入遊戲數值配置
+  await BalanceLoader.loadFromAssets();
 
   runApp(const Match3App());
 }

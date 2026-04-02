@@ -1,0 +1,93 @@
+{
+  "_doc": "遊戲模式設定 — 各模式的列數、計分、特殊規則",
+  "_scoringFields": "baseScore(每方塊基礎分), comboMultiplier(combo加成係數), chainMultiplier(連鎖加成係數), comboMilestones(combo里程碑獎勵分)",
+
+  "modes": {
+    "classic": {
+      "title": "三消挑戰",
+      "description": "經典單排模式",
+      "numCols": 1,
+      "numRows": 10,
+      "actionPointsStart": 5,
+      "hasSkills": true,
+      "hasTimer": false,
+      "gameDuration": 0,
+      "enableHorizontalMatches": false,
+      "scoring": {
+        "baseScore": 10,
+        "comboMultiplier": 0.5,
+        "chainMultiplier": 2,
+        "comboMilestones": { "5": 100, "10": 300, "15": 500, "20": 1000, "30": 2000 }
+      }
+    },
+    "double": {
+      "title": "雙排挑戰",
+      "description": "快速雙排模式",
+      "numCols": 2,
+      "numRows": 10,
+      "actionPointsStart": 5,
+      "hasSkills": true,
+      "hasTimer": false,
+      "gameDuration": 0,
+      "enableHorizontalMatches": false,
+      "scoring": {
+        "baseScore": 15,
+        "comboMultiplier": 0.6,
+        "chainMultiplier": 2.5,
+        "comboMilestones": { "5": 150, "10": 400, "15": 750, "20": 1500, "30": 3000 }
+      }
+    },
+    "triple": {
+      "title": "三排挑戰",
+      "description": "進階三排模式",
+      "numCols": 3,
+      "numRows": 10,
+      "actionPointsStart": 5,
+      "hasSkills": true,
+      "hasTimer": false,
+      "gameDuration": 0,
+      "enableHorizontalMatches": true,
+      "scoring": {
+        "baseScore": 20,
+        "comboMultiplier": 0.7,
+        "chainMultiplier": 3,
+        "comboMilestones": { "5": 200, "10": 500, "15": 1000, "20": 2000, "30": 4000 }
+      }
+    },
+    "timeLimit": {
+      "title": "45秒限時挑戰",
+      "description": "限時挑戰模式",
+      "numCols": 3,
+      "numRows": 10,
+      "actionPointsStart": 0,
+      "hasSkills": false,
+      "hasTimer": true,
+      "gameDuration": 45000,
+      "gameDuration_desc": "毫秒",
+      "enableHorizontalMatches": true,
+      "scoring": {
+        "baseScore": 25,
+        "comboMultiplier": 1.0,
+        "chainMultiplier": 4,
+        "comboMilestones": { "3": 200, "5": 500, "10": 1000, "15": 2500, "20": 5000 }
+      }
+    },
+    "idle": {
+      "title": "放置消除",
+      "description": "輕鬆消除，餵養貓咪",
+      "numCols": 3,
+      "numRows": 10,
+      "actionPointsStart": 0,
+      "hasSkills": false,
+      "hasTimer": false,
+      "gameDuration": 0,
+      "enableHorizontalMatches": true,
+      "scoring": {
+        "baseScore": 1,
+        "comboMultiplier": 0.3,
+        "chainMultiplier": 1.5,
+        "comboMilestones": { "3": 5, "5": 10, "10": 25, "15": 50 }
+      }
+    }
+  }
+}

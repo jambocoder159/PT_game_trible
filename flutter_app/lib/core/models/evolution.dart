@@ -25,4 +25,26 @@ class EvolutionStageDefinition {
     required this.hpMultiplier,
     required this.maxLevelIncrease,
   });
+
+  factory EvolutionStageDefinition.fromJson(Map<String, dynamic> json) {
+    final rawMaterials = json['materialCost'] as Map<String, dynamic>? ?? {};
+    final materials = <GameMaterial, int>{};
+    for (final entry in rawMaterials.entries) {
+      final mat = GameMaterial.values.where((m) => m.name == entry.key);
+      if (mat.isNotEmpty) {
+        materials[mat.first] = (entry.value as num).toInt();
+      }
+    }
+    return EvolutionStageDefinition(
+      stage: (json['stage'] as num).toInt(),
+      nameSuffix: json['nameSuffix'] as String? ?? '',
+      requiredLevel: (json['requiredLevel'] as num).toInt(),
+      goldCost: (json['goldCost'] as num).toInt(),
+      materialCost: materials,
+      atkMultiplier: (json['atkMultiplier'] as num).toDouble(),
+      defMultiplier: (json['defMultiplier'] as num).toDouble(),
+      hpMultiplier: (json['hpMultiplier'] as num).toDouble(),
+      maxLevelIncrease: (json['maxLevelIncrease'] as num?)?.toInt() ?? 10,
+    );
+  }
 }

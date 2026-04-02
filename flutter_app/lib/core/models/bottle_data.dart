@@ -28,6 +28,17 @@ class BottleLevelData {
     this.upgradeCostGold = 0,
     this.upgradeMaterials = const {},
   });
+
+  factory BottleLevelData.fromJson(Map<String, dynamic> json) {
+    final rawMaterials = json['upgradeMaterials'] as Map<String, dynamic>? ?? {};
+    return BottleLevelData(
+      level: (json['level'] as num).toInt(),
+      capacity: (json['capacity'] as num).toInt(),
+      stageGateId: json['stageGateId'] as String?,
+      upgradeCostGold: (json['upgradeCostGold'] as num?)?.toInt() ?? 0,
+      upgradeMaterials: rawMaterials.map((k, v) => MapEntry(k, (v as num).toInt())),
+    );
+  }
 }
 
 /// 瓶子實例狀態（可序列化）
@@ -90,6 +101,18 @@ class BottleStatus {
 class BottleDefinitions {
   BottleDefinitions._();
 
+  static void loadFromJson(Map<String, dynamic> json) {
+    final rawLevels = json['levels'] as List<dynamic>? ?? [];
+    final parsed = <BottleLevelData>[];
+    for (final item in rawLevels) {
+      if (item is Map<String, dynamic> && item.containsKey('level')) {
+        parsed.add(BottleLevelData.fromJson(item));
+      }
+    }
+    if (parsed.isNotEmpty) levels = parsed;
+    if (json.containsKey('maxLevel')) maxLevel = (json['maxLevel'] as num).toInt();
+  }
+
   static const all = [
     BottleDefinition(color: BlockColor.coral, name: '烘焙魔法瓶', emoji: '☀️'),
     BottleDefinition(color: BlockColor.mint,  name: '香草魔法瓶', emoji: '🍃'),
@@ -103,7 +126,7 @@ class BottleDefinitions {
   }
 
   /// 等級曲線：capacity ≈ 100 + 80*(lv-1) + 10*(lv-1)²
-  static const List<BottleLevelData> levels = [
+  static List<BottleLevelData> levels = const [
     BottleLevelData(level: 1,  capacity: 100),
     BottleLevelData(level: 2,  capacity: 180,  stageGateId: '1-3',  upgradeCostGold: 200,   upgradeMaterials: {'commonShard': 3}),
     BottleLevelData(level: 3,  capacity: 280,  stageGateId: '1-5',  upgradeCostGold: 500,   upgradeMaterials: {'commonShard': 5}),
@@ -116,7 +139,7 @@ class BottleDefinitions {
     BottleLevelData(level: 10, capacity: 1850, stageGateId: '3-8',  upgradeCostGold: 18000, upgradeMaterials: {'rareShard': 12, '_matchingEssence': 12}),
   ];
 
-  static const int maxLevel = 10;
+  static int maxLevel = 10;
 
   static BottleLevelData getLevelData(int level) {
     final idx = (level - 1).clamp(0, levels.length - 1);

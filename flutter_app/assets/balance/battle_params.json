@@ -1,0 +1,79 @@
+{
+  "_doc": "戰鬥數值參數 — 修改後 hot restart 即可生效",
+
+  "_消除與連擊": "──────────────────────────",
+  "matchDamageBonusPerBlock": 0.2,
+  "matchDamageBonusPerBlock_desc": "每多消 1 個方塊增加的傷害比例（0.2 = +20%）",
+
+  "comboBonusPerCombo": 0.1,
+  "comboBonusPerCombo_desc": "每 combo 增加的傷害比例（0.1 = +10%）",
+
+  "matchDamageCoefficient": 0.5,
+  "matchDamageCoefficient_desc": "消除傷害係數，公式：ATK × 消除數 × 屬性倍率 × 此值",
+
+  "noAgentMatchDamage": 5,
+  "noAgentMatchDamage_desc": "無對應角色時，每個方塊造成的固定傷害",
+
+  "_反擊與斬殺": "──────────────────────────",
+  "counterDamageMultiplier": 0.5,
+  "counterDamageMultiplier_desc": "反擊傷害倍率，公式：ATK × 此值",
+
+  "executeThresholdBase": 0.3,
+  "executeThresholdBase_desc": "斬殺基礎門檻，敵人血量低於此比例時觸發（0.3 = 30%）",
+
+  "executeBonusMultiplier": 1.5,
+  "executeBonusMultiplier_desc": "斬殺觸發時的額外傷害倍率",
+
+  "_屬性剋制": "──────────────────────────",
+  "attributeAdvantageMultiplier": 1.5,
+  "attributeAdvantageMultiplier_desc": "剋制時的傷害倍率（A→B、B→C、C→A、D⟷E）",
+
+  "attributeDisadvantageMultiplier": 0.75,
+  "attributeDisadvantageMultiplier_desc": "被剋時的傷害倍率",
+
+  "_效果持續時間": "──────────────────────────",
+  "shieldDefaultDuration": 2,
+  "shieldDefaultDuration_desc": "護盾預設持續回合數",
+
+  "dotDefaultDuration": 2,
+  "dotDefaultDuration_desc": "DoT / HoT 預設持續回合數",
+
+  "defBreakDefaultDuration": 2,
+  "defBreakDefaultDuration_desc": "破防預設持續回合數",
+
+  "delaySkillTurns": 2,
+  "delaySkillTurns_desc": "延遲技能增加的敵人攻擊倒數回合",
+
+  "_被動門檻": "──────────────────────────",
+  "lowHpThreshold": 0.25,
+  "lowHpThreshold_desc": "低血量增傷觸發門檻（0.25 = 我方血量低於 25%）",
+
+  "lowEnemyHpThreshold": 0.5,
+  "lowEnemyHpThreshold_desc": "攻擊低血敵人加成門檻（0.5 = 敵人血量低於 50%）",
+
+  "emergencyHealThreshold": 0.4,
+  "emergencyHealThreshold_desc": "急救本能觸發門檻（0.4 = 我方血量低於 40%）",
+
+  "longChainThreshold": 5,
+  "longChainThreshold_desc": "長連鎖加成需要的最低消除方塊數",
+
+  "_經驗曲線": "──────────────────────────",
+  "expBasePerLevel": 10,
+  "expBasePerLevel_desc": "每級基礎 EXP，公式：(此值 + (等級-1) × expGrowthPerLevel) × 稀有度倍率",
+
+  "expGrowthPerLevel": 5,
+  "expGrowthPerLevel_desc": "每級 EXP 增量",
+
+  "_等級上限": "──────────────────────────",
+  "maxLevelByRarity": {
+    "n": 30,
+    "r": 40,
+    "sr": 50,
+    "ssr": 50
+  },
+  "maxLevelByRarity_desc": "各稀有度的等級上限（進化前）",
+
+  "_技能": "──────────────────────────",
+  "defaultLevelScaling": 0.05,
+  "defaultLevelScaling_desc": "技能每級倍率增量預設值"
+}

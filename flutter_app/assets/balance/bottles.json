@@ -1,0 +1,20 @@
+{
+  "_doc": "魔法瓶升級曲線 — 10 個等級的容量、費用、素材、關卡門檻",
+  "_fields": "level, capacity(能量容量), stageGateId(需通關關卡), upgradeCostGold, upgradeMaterials",
+  "_note": "_matchingEssence 會在程式中替換為對應瓶子顏色的精華（essenceA~E）",
+
+  "levels": [
+    { "level": 1,  "capacity": 100 },
+    { "level": 2,  "capacity": 180,  "stageGateId": "1-3",  "upgradeCostGold": 200,   "upgradeMaterials": { "commonShard": 3 } },
+    { "level": 3,  "capacity": 280,  "stageGateId": "1-5",  "upgradeCostGold": 500,   "upgradeMaterials": { "commonShard": 5 } },
+    { "level": 4,  "capacity": 400,  "stageGateId": "1-8",  "upgradeCostGold": 1000,  "upgradeMaterials": { "advancedShard": 3 } },
+    { "level": 5,  "capacity": 550,  "stageGateId": "2-1",  "upgradeCostGold": 2000,  "upgradeMaterials": { "advancedShard": 5, "_matchingEssence": 1 } },
+    { "level": 6,  "capacity": 730,  "stageGateId": "2-5",  "upgradeCostGold": 3500,  "upgradeMaterials": { "advancedShard": 8, "_matchingEssence": 2 } },
+    { "level": 7,  "capacity": 950,  "stageGateId": "2-8",  "upgradeCostGold": 5500,  "upgradeMaterials": { "rareShard": 3, "_matchingEssence": 3 } },
+    { "level": 8,  "capacity": 1200, "stageGateId": "3-1",  "upgradeCostGold": 8000,  "upgradeMaterials": { "rareShard": 5, "_matchingEssence": 5 } },
+    { "level": 9,  "capacity": 1500, "stageGateId": "3-5",  "upgradeCostGold": 12000, "upgradeMaterials": { "rareShard": 8, "_matchingEssence": 8 } },
+    { "level": 10, "capacity": 1850, "stageGateId": "3-8",  "upgradeCostGold": 18000, "upgradeMaterials": { "rareShard": 12, "_matchingEssence": 12 } }
+  ],
+
+  "maxLevel": 10
+}

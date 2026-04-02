@@ -1,0 +1,46 @@
+{
+  "_doc": "食材定義 — 30 種食材，每瓶 6 種（common/uncommon/rare/epic）",
+  "_fields": "id, name, emoji, tier, bottleColor, bottleLevelRequired（需要瓶子等級）, energyCost（兌換消耗能量）, sellPrice（直接出售價格）",
+
+  "ingredients": [
+    { "_section": "☀️ 烘焙瓶 (coral)" },
+    { "id": "flour",         "name": "麵粉",       "emoji": "🌾", "tier": "common",   "bottleColor": "coral", "bottleLevelRequired": 1, "energyCost": 30,  "sellPrice": 5 },
+    { "id": "butter",        "name": "奶油",       "emoji": "🧈", "tier": "common",   "bottleColor": "coral", "bottleLevelRequired": 1, "energyCost": 30,  "sellPrice": 5 },
+    { "id": "egg",           "name": "雞蛋",       "emoji": "🥚", "tier": "uncommon", "bottleColor": "coral", "bottleLevelRequired": 3, "energyCost": 60,  "sellPrice": 12 },
+    { "id": "yeast",         "name": "酵母",       "emoji": "🫧", "tier": "uncommon", "bottleColor": "coral", "bottleLevelRequired": 5, "energyCost": 80,  "sellPrice": 18 },
+    { "id": "honey",         "name": "蜂蜜",       "emoji": "🍯", "tier": "rare",     "bottleColor": "coral", "bottleLevelRequired": 7, "energyCost": 120, "sellPrice": 30 },
+    { "id": "golden_syrup",  "name": "金色糖漿",   "emoji": "🥇", "tier": "epic",     "bottleColor": "coral", "bottleLevelRequired": 9, "energyCost": 180, "sellPrice": 50 },
+
+    { "_section": "🍃 香草瓶 (mint)" },
+    { "id": "mint_leaf",     "name": "薄荷葉",     "emoji": "🍃", "tier": "common",   "bottleColor": "mint", "bottleLevelRequired": 1, "energyCost": 30,  "sellPrice": 5 },
+    { "id": "matcha",        "name": "抹茶粉",     "emoji": "🍵", "tier": "common",   "bottleColor": "mint", "bottleLevelRequired": 1, "energyCost": 30,  "sellPrice": 5 },
+    { "id": "vanilla_pod",   "name": "香草莢",     "emoji": "🌿", "tier": "uncommon", "bottleColor": "mint", "bottleLevelRequired": 3, "energyCost": 60,  "sellPrice": 12 },
+    { "id": "cinnamon",      "name": "肉桂",       "emoji": "🪵", "tier": "uncommon", "bottleColor": "mint", "bottleLevelRequired": 5, "energyCost": 80,  "sellPrice": 18 },
+    { "id": "saffron",       "name": "藏紅花",     "emoji": "🌸", "tier": "rare",     "bottleColor": "mint", "bottleLevelRequired": 7, "energyCost": 120, "sellPrice": 30 },
+    { "id": "enchanted_herb","name": "魔法香草精華","emoji": "✨",  "tier": "epic",     "bottleColor": "mint", "bottleLevelRequired": 9, "energyCost": 180, "sellPrice": 50 },
+
+    { "_section": "💧 飲品瓶 (teal)" },
+    { "id": "milk",           "name": "牛奶",     "emoji": "🥛", "tier": "common",   "bottleColor": "teal", "bottleLevelRequired": 1, "energyCost": 30,  "sellPrice": 5 },
+    { "id": "juice",          "name": "果汁",     "emoji": "🧃", "tier": "common",   "bottleColor": "teal", "bottleLevelRequired": 1, "energyCost": 30,  "sellPrice": 5 },
+    { "id": "cream",          "name": "鮮奶油",   "emoji": "🍦", "tier": "uncommon", "bottleColor": "teal", "bottleLevelRequired": 3, "energyCost": 60,  "sellPrice": 12 },
+    { "id": "condensed_milk", "name": "煉乳",     "emoji": "🫙", "tier": "uncommon", "bottleColor": "teal", "bottleLevelRequired": 5, "energyCost": 80,  "sellPrice": 18 },
+    { "id": "coconut_milk",   "name": "椰奶",     "emoji": "🥥", "tier": "rare",     "bottleColor": "teal", "bottleLevelRequired": 7, "energyCost": 120, "sellPrice": 30 },
+    { "id": "starlight_dew",  "name": "星光露水", "emoji": "💫",  "tier": "epic",     "bottleColor": "teal", "bottleLevelRequired": 9, "energyCost": 180, "sellPrice": 50 },
+
+    { "_section": "⭐ 裝飾瓶 (gold)" },
+    { "id": "powdered_sugar",    "name": "糖粉",       "emoji": "🍚", "tier": "common",   "bottleColor": "gold", "bottleLevelRequired": 1, "energyCost": 30,  "sellPrice": 5 },
+    { "id": "choco_chips",       "name": "巧克力碎片", "emoji": "🍫", "tier": "common",   "bottleColor": "gold", "bottleLevelRequired": 1, "energyCost": 30,  "sellPrice": 5 },
+    { "id": "fruit_slices",      "name": "水果切片",   "emoji": "🍓", "tier": "uncommon", "bottleColor": "gold", "bottleLevelRequired": 3, "energyCost": 60,  "sellPrice": 12 },
+    { "id": "gold_leaf",         "name": "食用金箔",   "emoji": "🏅", "tier": "uncommon", "bottleColor": "gold", "bottleLevelRequired": 5, "energyCost": 80,  "sellPrice": 18 },
+    { "id": "rainbow_sprinkles", "name": "彩虹糖珠",   "emoji": "🌈", "tier": "rare",     "bottleColor": "gold", "bottleLevelRequired": 7, "energyCost": 120, "sellPrice": 30 },
+    { "id": "magic_stardust",    "name": "魔法星塵",   "emoji": "🌟", "tier": "epic",     "bottleColor": "gold", "bottleLevelRequired": 9, "energyCost": 180, "sellPrice": 50 },
+
+    { "_section": "🌙 夜甜點瓶 (rose)" },
+    { "id": "cocoa_powder",      "name": "可可粉",   "emoji": "🤎", "tier": "common",   "bottleColor": "rose", "bottleLevelRequired": 1, "energyCost": 30,  "sellPrice": 5 },
+    { "id": "brown_sugar",       "name": "黑糖",     "emoji": "🟫", "tier": "common",   "bottleColor": "rose", "bottleLevelRequired": 1, "energyCost": 30,  "sellPrice": 5 },
+    { "id": "dark_chocolate",    "name": "黑巧克力", "emoji": "🍫", "tier": "uncommon", "bottleColor": "rose", "bottleLevelRequired": 3, "energyCost": 60,  "sellPrice": 12 },
+    { "id": "coffee_grounds",    "name": "咖啡粉",   "emoji": "☕",  "tier": "uncommon", "bottleColor": "rose", "bottleLevelRequired": 5, "energyCost": 80,  "sellPrice": 18 },
+    { "id": "purple_yam",        "name": "紫薯泥",   "emoji": "🟣", "tier": "rare",     "bottleColor": "rose", "bottleLevelRequired": 7, "energyCost": 120, "sellPrice": 30 },
+    { "id": "moonlight_essence", "name": "月光精粹", "emoji": "🌙", "tier": "epic",     "bottleColor": "rose", "bottleLevelRequired": 9, "energyCost": 180, "sellPrice": 50 }
+  ]
+}

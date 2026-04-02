@@ -13,6 +13,16 @@ class ScoringConfig {
     required this.chainMultiplier,
     required this.comboMilestones,
   });
+
+  factory ScoringConfig.fromJson(Map<String, dynamic> json) {
+    final rawMilestones = json['comboMilestones'] as Map<String, dynamic>? ?? {};
+    return ScoringConfig(
+      baseScore: (json['baseScore'] as num).toInt(),
+      comboMultiplier: (json['comboMultiplier'] as num).toDouble(),
+      chainMultiplier: (json['chainMultiplier'] as num).toDouble(),
+      comboMilestones: rawMilestones.map((k, v) => MapEntry(int.parse(k), (v as num).toInt())),
+    );
+  }
 }
 
 class GameModeConfig {
@@ -41,12 +51,38 @@ class GameModeConfig {
     this.enableHorizontalMatches = false,
     required this.scoring,
   });
+
+  factory GameModeConfig.fromJson(String id, Map<String, dynamic> json) {
+    return GameModeConfig(
+      id: id,
+      title: json['title'] as String? ?? '',
+      description: json['description'] as String? ?? '',
+      numCols: (json['numCols'] as num?)?.toInt() ?? 1,
+      numRows: (json['numRows'] as num?)?.toInt() ?? 10,
+      actionPointsStart: (json['actionPointsStart'] as num?)?.toInt() ?? 5,
+      hasSkills: json['hasSkills'] as bool? ?? true,
+      hasTimer: json['hasTimer'] as bool? ?? false,
+      gameDuration: (json['gameDuration'] as num?)?.toInt() ?? 0,
+      enableHorizontalMatches: json['enableHorizontalMatches'] as bool? ?? false,
+      scoring: ScoringConfig.fromJson(json['scoring'] as Map<String, dynamic>? ?? {}),
+    );
+  }
 }
 
 class GameModes {
   GameModes._();
 
-  static const classic = GameModeConfig(
+  static void loadFromJson(Map<String, dynamic> json) {
+    final modes = json['modes'] as Map<String, dynamic>? ?? {};
+    if (modes.containsKey('classic'))   classic   = GameModeConfig.fromJson('classic',   modes['classic']);
+    if (modes.containsKey('double'))    double_   = GameModeConfig.fromJson('double',    modes['double']);
+    if (modes.containsKey('triple'))    triple    = GameModeConfig.fromJson('triple',    modes['triple']);
+    if (modes.containsKey('timeLimit')) timeLimit = GameModeConfig.fromJson('timeLimit', modes['timeLimit']);
+    if (modes.containsKey('idle'))      idle      = GameModeConfig.fromJson('idle',      modes['idle']);
+    allModes = [classic, double_, triple, timeLimit];
+  }
+
+  static GameModeConfig classic = const GameModeConfig(
     id: 'classic',
     title: '三消挑戰',
     description: '經典單排模式',
@@ -60,7 +96,7 @@ class GameModes {
     ),
   );
 
-  static const double_ = GameModeConfig(
+  static GameModeConfig double_ = const GameModeConfig(
     id: 'double',
     title: '雙排挑戰',
     description: '快速雙排模式',
@@ -74,7 +110,7 @@ class GameModes {
     ),
   );
 
-  static const triple = GameModeConfig(
+  static GameModeConfig triple = const GameModeConfig(
     id: 'triple',
     title: '三排挑戰',
     description: '進階三排模式',
@@ -89,7 +125,7 @@ class GameModes {
     ),
   );
 
-  static const timeLimit = GameModeConfig(
+  static GameModeConfig timeLimit = const GameModeConfig(
     id: 'timeLimit',
     title: '45秒限時挑戰',
     description: '限時挑戰模式',
@@ -108,7 +144,7 @@ class GameModes {
   );
 
   /// 首頁放置模式 — 3 列 8 行，無行動點限制，無計時，無 game over
-  static const idle = GameModeConfig(
+  static GameModeConfig idle = const GameModeConfig(
     id: 'idle',
     title: '放置消除',
     description: '輕鬆消除，餵養貓咪',
@@ -126,7 +162,7 @@ class GameModes {
     ),
   );
 
-  static const List<GameModeConfig> allModes = [
+  static List<GameModeConfig> allModes = [
     classic,
     double_,
     triple,

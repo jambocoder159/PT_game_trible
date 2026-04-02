@@ -1,0 +1,108 @@
+{
+  "_doc": "進化系統數值 — 各稀有度 2 階進化的素材、費用、倍率",
+
+  "n": [
+    {
+      "stage": 1,
+      "nameSuffix": "·改",
+      "nameSuffix_desc": "進化後角色名稱後綴",
+      "requiredLevel": 15,
+      "requiredLevel_desc": "需達到的角色等級",
+      "goldCost": 1000,
+      "materialCost": { "commonShard": 10, "advancedShard": 3 },
+      "materialCost_desc": "所需素材種類與數量",
+      "atkMultiplier": 1.15,
+      "defMultiplier": 1.15,
+      "hpMultiplier": 1.15,
+      "multiplier_desc": "進化後三圍乘數（1.15 = +15%）",
+      "maxLevelIncrease": 10,
+      "maxLevelIncrease_desc": "進化後等級上限提升量"
+    },
+    {
+      "stage": 2,
+      "nameSuffix": "·極",
+      "requiredLevel": 30,
+      "goldCost": 3000,
+      "materialCost": { "advancedShard": 8, "rareShard": 3, "skillCore": 2 },
+      "atkMultiplier": 1.35,
+      "defMultiplier": 1.35,
+      "hpMultiplier": 1.35,
+      "maxLevelIncrease": 10
+    }
+  ],
+
+  "r": [
+    {
+      "stage": 1,
+      "nameSuffix": "·改",
+      "requiredLevel": 20,
+      "goldCost": 2000,
+      "materialCost": { "commonShard": 15, "advancedShard": 5, "talentScroll": 2 },
+      "atkMultiplier": 1.2,
+      "defMultiplier": 1.2,
+      "hpMultiplier": 1.2,
+      "maxLevelIncrease": 10
+    },
+    {
+      "stage": 2,
+      "nameSuffix": "·極",
+      "requiredLevel": 40,
+      "goldCost": 5000,
+      "materialCost": { "advancedShard": 10, "rareShard": 5, "skillCore": 3, "passiveGem": 2 },
+      "atkMultiplier": 1.45,
+      "defMultiplier": 1.45,
+      "hpMultiplier": 1.45,
+      "maxLevelIncrease": 10
+    }
+  ],
+
+  "sr": [
+    {
+      "stage": 1,
+      "nameSuffix": "·改",
+      "requiredLevel": 25,
+      "goldCost": 3000,
+      "materialCost": { "advancedShard": 8, "rareShard": 3, "talentScroll": 3 },
+      "atkMultiplier": 1.25,
+      "defMultiplier": 1.25,
+      "hpMultiplier": 1.25,
+      "maxLevelIncrease": 10
+    },
+    {
+      "stage": 2,
+      "nameSuffix": "·極",
+      "requiredLevel": 45,
+      "goldCost": 8000,
+      "materialCost": { "rareShard": 8, "skillCore": 5, "passiveGem": 3, "talentScroll": 5 },
+      "atkMultiplier": 1.55,
+      "defMultiplier": 1.55,
+      "hpMultiplier": 1.55,
+      "maxLevelIncrease": 10
+    }
+  ],
+
+  "ssr": [
+    {
+      "stage": 1,
+      "nameSuffix": "·改",
+      "requiredLevel": 30,
+      "goldCost": 5000,
+      "materialCost": { "advancedShard": 10, "rareShard": 5, "talentScroll": 5, "skillCore": 3 },
+      "atkMultiplier": 1.3,
+      "defMultiplier": 1.3,
+      "hpMultiplier": 1.3,
+      "maxLevelIncrease": 10
+    },
+    {
+      "stage": 2,
+      "nameSuffix": "·極",
+      "requiredLevel": 50,
+      "goldCost": 12000,
+      "materialCost": { "rareShard": 12, "skillCore": 8, "passiveGem": 5, "talentScroll": 8 },
+      "atkMultiplier": 1.65,
+      "defMultiplier": 1.65,
+      "hpMultiplier": 1.65,
+      "maxLevelIncrease": 10
+    }
+  ]
+}

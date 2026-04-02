@@ -32,4 +32,23 @@ class IngredientDefinition {
     required this.energyCost,
     required this.sellPrice,
   });
+
+  factory IngredientDefinition.fromJson(Map<String, dynamic> json) {
+    return IngredientDefinition(
+      id: json['id'] as String,
+      name: json['name'] as String,
+      emoji: json['emoji'] as String,
+      tier: IngredientTier.values.firstWhere(
+        (t) => t.name == json['tier'],
+        orElse: () => IngredientTier.common,
+      ),
+      bottleColor: BlockColor.values.firstWhere(
+        (c) => c.name == json['bottleColor'],
+        orElse: () => BlockColor.coral,
+      ),
+      bottleLevelRequired: (json['bottleLevelRequired'] as num).toInt(),
+      energyCost: (json['energyCost'] as num).toInt(),
+      sellPrice: (json['sellPrice'] as num).toInt(),
+    );
+  }
 }
