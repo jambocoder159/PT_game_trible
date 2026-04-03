@@ -819,6 +819,12 @@ class PlayerProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// 標記延遲教學提示已顯示
+  void markFeatureHintShown(String key) {
+    _data.shownFeatureHints.add(key);
+    notifyAndSave();
+  }
+
   /// 重置教學（GM 用）
   Future<void> gmResetTutorial() async {
     _data.tutorialCompleted = false;

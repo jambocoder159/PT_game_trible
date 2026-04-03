@@ -16,6 +16,7 @@ import '../widgets/skill_enhance_widget.dart';
 import '../widgets/passive_skill_widget.dart';
 import '../../tutorial/widgets/tutorial_highlight_overlay.dart';
 import '../../tutorial/widgets/tutorial_dialogue_box.dart';
+import '../../tutorial/widgets/tutorial_floating_hint.dart';
 import '../../tutorial/models/tutorial_dialogue_data.dart';
 
 // ─── 配色常數（陽光鄉村風） ───
@@ -46,14 +47,22 @@ class _AgentDetailScreenState extends State<AgentDetailScreen> {
   static final GlobalKey _trainingButtonKey = GlobalKey();
   bool _tutorialDone = false;
   int _initialLevel = 0;
+  bool _showFeatureHint = false;
 
   @override
   void initState() {
     super.initState();
+    final provider = context.read<PlayerProvider>();
     if (widget.tutorialMode) {
-      final provider = context.read<PlayerProvider>();
       final instance = provider.data.agents[widget.definition.id];
       _initialLevel = instance?.level ?? 1;
+    }
+    // 延遲教學：首次進入角色詳情頁
+    if (!widget.tutorialMode &&
+        provider.data.tutorialCompleted &&
+        !provider.data.shownFeatureHints.contains('agentUpgrade')) {
+      _showFeatureHint = true;
+      provider.markFeatureHintShown('agentUpgrade');
     }
   }
 
@@ -142,6 +151,16 @@ class _AgentDetailScreenState extends State<AgentDetailScreen> {
                     dialogue: TutorialDialogues.t044,
                     onTap: () {},
                     showTapHint: false,
+                  ),
+                // 延遲教學提示
+                if (_showFeatureHint)
+                  TutorialFloatingHint(
+                    text: '用☕咖啡幫夥伴升級變強！',
+                    emoji: '💪',
+                    displayDuration: const Duration(seconds: 4),
+                    onDismissed: () {
+                      if (mounted) setState(() => _showFeatureHint = false);
+                    },
                   ),
               ],
             ),

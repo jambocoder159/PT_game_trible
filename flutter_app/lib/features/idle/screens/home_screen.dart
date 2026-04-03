@@ -24,6 +24,7 @@ import '../widgets/auto_eliminate_bar.dart';
 import '../widgets/crafting_panel.dart';
 import '../widgets/energy_orb_overlay.dart';
 import '../widgets/home_guide_overlay.dart';
+import '../../tutorial/widgets/tutorial_floating_hint.dart';
 import '../providers/crafting_provider.dart';
 import '../../../config/ingredient_data.dart';
 import '../../../core/models/cat_agent.dart';
@@ -90,6 +91,7 @@ class _HomeScreenState extends State<HomeScreen> {
   final GlobalKey _guideBottleAreaKey = GlobalKey();
   final GlobalKey _guideNavBarKey = GlobalKey();
   bool _showHomeGuide = false;
+  bool _showStaminaHint = false;
 
   // 瓶子滿提示節流（避免重複提醒）
   final Set<BlockColor> _notifiedFullBottles = {};
@@ -152,6 +154,15 @@ class _HomeScreenState extends State<HomeScreen> {
         if (mounted) {
           setState(() => _showHomeGuide = true);
         }
+      });
+    }
+    // 延遲教學：元氣系統提示
+    if (player.isInitialized &&
+        player.data.tutorialCompleted &&
+        !player.data.shownFeatureHints.contains('staminaSystem')) {
+      player.markFeatureHintShown('staminaSystem');
+      Future.delayed(const Duration(milliseconds: 800), () {
+        if (mounted) setState(() => _showStaminaHint = true);
       });
     }
   }
@@ -381,6 +392,18 @@ class _HomeScreenState extends State<HomeScreen> {
               setState(() => _currentNavIndex = index);
             },
           ),
+
+        // 延遲教學：元氣系統提示
+        if (_showStaminaHint)
+          TutorialFloatingHint(
+            text: '探索地下室需要🔥元氣，會自動恢復的！',
+            emoji: '💡',
+            position: TutorialHintPosition.top,
+            displayDuration: const Duration(seconds: 5),
+            onDismissed: () {
+              if (mounted) setState(() => _showStaminaHint = false);
+            },
+          ),
       ],
     );
   }
@@ -440,6 +463,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           externalConvertButtonKey: widget.externalConvertButtonKey,
                           externalCraftButtonKey: widget.externalCraftButtonKey,
                           tutorialAutoSwitchKey: widget.tutorialAutoSwitchKey,
+                          tutorialMode: widget.tutorialMode,
                         ),
                       ),
                       const SizedBox(width: 4),
@@ -660,6 +684,7 @@ class _LeftPanel extends StatelessWidget {
   final GlobalKey? externalConvertButtonKey;
   final GlobalKey? externalCraftButtonKey;
   final GlobalKey? tutorialAutoSwitchKey;
+  final bool tutorialMode;
 
   const _LeftPanel({
     required this.bottleKeys,
@@ -670,6 +695,7 @@ class _LeftPanel extends StatelessWidget {
     this.externalConvertButtonKey,
     this.externalCraftButtonKey,
     this.tutorialAutoSwitchKey,
+    this.tutorialMode = false,
   });
 
   @override
@@ -803,7 +829,7 @@ class _LeftPanel extends StatelessWidget {
           padding: const EdgeInsets.only(bottom: 3),
           child: GestureDetector(
             key: bottleKeys[def.color],
-            onTap: () {
+            onTap: tutorialMode ? null : () {
               HapticFeedback.lightImpact();
               onConvertIngredient();
             },

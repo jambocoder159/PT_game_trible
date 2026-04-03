@@ -34,16 +34,6 @@ class _Phase0OpeningScreenState extends State<Phase0OpeningScreen>
       colors: [Color(0xFFFFE0B2), Color(0xFFBCAAA4)],
       dialogue: TutorialDialogues.t002,
     ),
-    _SlideData(
-      emoji: '👻',
-      colors: [Color(0xFFBCAAA4), Color(0xFF8D6E63)],
-      dialogue: TutorialDialogues.t003,
-    ),
-    _SlideData(
-      emoji: '🐱',
-      colors: [Color(0xFF8D6E63), Color(0xFFFFCC80)],
-      dialogue: TutorialDialogues.t004,
-    ),
     // 信件特寫
     _SlideData(
       emoji: '✉️',
@@ -65,7 +55,7 @@ class _Phase0OpeningScreenState extends State<Phase0OpeningScreen>
 
   void _startAutoAdvance() {
     _autoTimer?.cancel();
-    _autoTimer = Timer(const Duration(seconds: 7), () {
+    _autoTimer = Timer(const Duration(seconds: 4), () {
       if (_currentPage < _slides.length - 1) {
         _goToPage(_currentPage + 1);
       }

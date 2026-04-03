@@ -20,6 +20,7 @@ class Speakers {
   static const narrator = '旁白';
   static const letter = '信件';
   static const grandpa = '爺爺';
+  static const note = '爺爺的筆記';
   static const kitten = '小貓';
   static const lulu = '露露';
   static const unknown = '???';
@@ -36,7 +37,7 @@ class TutorialDialogues {
   );
   static const t002 = TutorialDialogue(
     id: 'T002', speaker: Speakers.narrator, canSkip: true,
-    content: '直到有一天，甜點街的守護者——點心爺爺離開了小鎮。',
+    content: '但最近甜點街變得冷清了……點心爺爺需要一位新幫手。',
   );
   static const t003 = TutorialDialogue(
     id: 'T003', speaker: Speakers.narrator, canSkip: true,
@@ -48,7 +49,7 @@ class TutorialDialogues {
   );
   static const t005 = TutorialDialogue(
     id: 'T005', speaker: Speakers.letter, canSkip: true,
-    content: '親愛的孩子，甜點街就交給你了。\n地下室的鑰匙在信封裡。\n——點心爺爺',
+    content: '親愛的孩子，來幫爺爺一起經營甜點街吧！\n店裡的鑰匙在信封裡喔。\n——點心爺爺',
   );
 
   static const phase0 = [t001, t002, t003, t004, t005];

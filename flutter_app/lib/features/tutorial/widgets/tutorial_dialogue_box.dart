@@ -188,6 +188,9 @@ class _TutorialDialogueBoxState extends State<TutorialDialogueBox>
       case Speakers.grandpa:
         emoji = '👴';
         bgColor = const Color(0xFFFFE0B2);
+      case Speakers.note:
+        emoji = '📝';
+        bgColor = const Color(0xFFFFF3E0);
       case Speakers.kitten:
         emoji = '🐱';
         bgColor = const Color(0xFFFFCC80);

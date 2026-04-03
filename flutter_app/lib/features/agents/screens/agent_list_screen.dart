@@ -8,6 +8,7 @@ import '../../../config/image_assets.dart';
 import '../../../config/theme.dart';
 import '../../../core/models/cat_agent.dart';
 import '../../../core/widgets/attribute_badge.dart';
+import '../../tutorial/widgets/tutorial_floating_hint.dart';
 import '../providers/player_provider.dart';
 import '../widgets/agent_unlock_animation.dart';
 import 'agent_detail_screen.dart';
@@ -35,6 +36,19 @@ class _AgentListScreenState extends State<AgentListScreen> {
   AgentAttribute? _attributeFilter;
   AgentRarity? _rarityFilter;
   AgentSortBy _sortBy = AgentSortBy.rarity;
+  bool _showFeatureHint = false;
+
+  @override
+  void initState() {
+    super.initState();
+    final player = context.read<PlayerProvider>();
+    if (player.data.tutorialCompleted &&
+        !player.data.shownFeatureHints.contains('teamSetup') &&
+        widget.tutorialHighlightAgentId == null) {
+      _showFeatureHint = true;
+      player.markFeatureHintShown('teamSetup');
+    }
+  }
 
   List<AgentInfo> _filterAndSort(List<AgentInfo> agents) {
     var filtered = agents.where((a) {
@@ -70,7 +84,9 @@ class _AgentListScreenState extends State<AgentListScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return Stack(
+      children: [
+        Scaffold(
       backgroundColor: AppTheme.bgPrimary,
       body: Consumer<PlayerProvider>(
         builder: (context, provider, _) {
@@ -168,6 +184,17 @@ class _AgentListScreenState extends State<AgentListScreen> {
           );
         },
       ),
+    ),
+        if (_showFeatureHint)
+          TutorialFloatingHint(
+            text: '把露露加入隊伍，一起冒險吧！',
+            emoji: '💧',
+            displayDuration: const Duration(seconds: 4),
+            onDismissed: () {
+              if (mounted) setState(() => _showFeatureHint = false);
+            },
+          ),
+      ],
     );
   }
 }

@@ -6,6 +6,7 @@ import '../../../core/models/player_data.dart';
 import '../../agents/providers/player_provider.dart';
 import '../../tutorial/widgets/tutorial_highlight_overlay.dart';
 import '../../tutorial/widgets/tutorial_dialogue_box.dart';
+import '../../tutorial/widgets/tutorial_floating_hint.dart';
 import '../../tutorial/models/tutorial_dialogue_data.dart';
 
 class DailyQuestScreen extends StatefulWidget {
@@ -26,14 +27,22 @@ class _DailyQuestScreenState extends State<DailyQuestScreen>
   late TabController _tabController;
   static final GlobalKey _claimButtonKey = GlobalKey();
   bool _rewardWasClaimed = false;
+  bool _showFeatureHint = false;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
+    final provider = context.read<PlayerProvider>();
     if (widget.tutorialMode) {
-      final provider = context.read<PlayerProvider>();
       _rewardWasClaimed = provider.data.dailyQuests.rewardsClaimed;
+    }
+    // 延遲教學：首次進入每日任務頁
+    if (!widget.tutorialMode &&
+        provider.data.tutorialCompleted &&
+        !provider.data.shownFeatureHints.contains('dailyQuest')) {
+      _showFeatureHint = true;
+      provider.markFeatureHintShown('dailyQuest');
     }
   }
 
@@ -105,6 +114,16 @@ class _DailyQuestScreenState extends State<DailyQuestScreen>
                 );
               }
               return const SizedBox.shrink();
+            },
+          ),
+        // 延遲教學提示
+        if (_showFeatureHint)
+          TutorialFloatingHint(
+            text: '每天完成任務拿額外獎勵！',
+            emoji: '📋',
+            displayDuration: const Duration(seconds: 4),
+            onDismissed: () {
+              if (mounted) setState(() => _showFeatureHint = false);
             },
           ),
       ],

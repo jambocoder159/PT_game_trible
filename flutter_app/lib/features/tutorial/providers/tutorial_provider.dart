@@ -130,34 +130,29 @@ class TutorialProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// 完成教學（正常流程走完）
-  Future<void> completeTutorial(PlayerProvider player) async {
+  /// 完成教學（正常流程走完 & 跳過共用）
+  /// 一律解鎖露露 + 標記關卡 1-1~1-3 通過
+  Future<void> completeTutorial(
+    PlayerProvider player, {
+    List<String>? stagesToClear,
+    String? agentToUnlock,
+  }) async {
     _state.currentPhase = TutorialPhase.completed;
     await _save();
 
-    // 給予獎勵
     await player.completeTutorial(
       bonusGold: TutorialConfig.rewardGold,
       bonusDiamonds: TutorialConfig.rewardDiamonds,
+      stagesToClear: stagesToClear ?? ['1-1'],
+      agentToUnlock: agentToUnlock ?? TutorialConfig.luluAgentId,
     );
 
     notifyListeners();
   }
 
-  /// 跳過整個教學
+  /// 跳過整個教學（向下相容別名）
   Future<void> skipEntireTutorial(PlayerProvider player) async {
-    _state.currentPhase = TutorialPhase.completed;
-    await _save();
-
-    // 給予獎勵 + 標記關卡通過 + 解鎖露露
-    await player.completeTutorial(
-      bonusGold: TutorialConfig.rewardGold,
-      bonusDiamonds: TutorialConfig.rewardDiamonds,
-      stagesToClear: ['1-1', '1-2', '1-3'],
-      agentToUnlock: TutorialConfig.luluAgentId,
-    );
-
-    notifyListeners();
+    await completeTutorial(player);
   }
 
   /// 重設教學（GM 用）

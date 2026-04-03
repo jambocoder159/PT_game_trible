@@ -38,6 +38,9 @@ class PlayerData {
   // 首頁導覽（教學完成後的放置大廳引導）
   bool homeGuideCompleted;
 
+  // 延遲教學：已顯示的功能提示 key
+  Set<String> shownFeatureHints;
+
   // 素材庫存（GameMaterial.name → 數量）
   Map<String, int> materials;
 
@@ -64,6 +67,7 @@ class PlayerData {
     this.maxStamina = 60,
     this.tutorialCompleted = false,
     this.homeGuideCompleted = false,
+    Set<String>? shownFeatureHints,
     DateTime? lastStaminaRecover,
     Map<String, CatAgentInstance>? agents,
     List<String>? team,
@@ -86,6 +90,7 @@ class PlayerData {
         materials = materials ?? {},
         ingredients = ingredients ?? {},
         desserts = desserts ?? {},
+        shownFeatureHints = shownFeatureHints ?? {},
         bottleStates = bottleStates ?? {},
         unlockedRecipes = unlockedRecipes ?? {};
 
@@ -144,6 +149,7 @@ class PlayerData {
       maxStamina: json['maxStamina'] as int? ?? 60,
       tutorialCompleted: json['tutorialCompleted'] as bool? ?? false,
       homeGuideCompleted: json['homeGuideCompleted'] as bool? ?? false,
+      shownFeatureHints: (json['shownFeatureHints'] as List<dynamic>?)?.cast<String>().toSet() ?? {},
       lastStaminaRecover: json['lastStaminaRecover'] != null
           ? DateTime.parse(json['lastStaminaRecover'] as String)
           : DateTime.now(),
@@ -178,6 +184,7 @@ class PlayerData {
       'maxStamina': maxStamina,
       'tutorialCompleted': tutorialCompleted,
       'homeGuideCompleted': homeGuideCompleted,
+      'shownFeatureHints': shownFeatureHints.toList(),
       'lastStaminaRecover': lastStaminaRecover.toIso8601String(),
       'agents': agents.map((k, v) => MapEntry(k, v.toJson())),
       'team': team,
