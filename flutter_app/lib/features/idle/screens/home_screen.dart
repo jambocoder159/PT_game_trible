@@ -142,13 +142,10 @@ class _HomeScreenState extends State<HomeScreen> {
         context.read<PlayerProvider>().addBlocksEliminated(count);
       }
     };
-    // 設定隊伍（技能系統用 + 能量加成）
+    // 設定隊伍（技能系統用）
     final player = context.read<PlayerProvider>();
     final team = player.data.team;
-    final teamLevels = team
-        .map((id) => player.data.agents[id]?.level ?? 1)
-        .toList();
-    idle.setTeam(team, teamLevels: teamLevels);
+    idle.setTeam(team);
   }
 
   /// 一次性遷移：舊版食材自動售出換金幣
