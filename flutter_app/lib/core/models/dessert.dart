@@ -1,3 +1,5 @@
+import 'block.dart';
+
 /// 甜點解鎖方式
 enum DessertUnlockType {
   defaultUnlocked, // 預設解鎖
@@ -43,9 +45,14 @@ class DessertRecipe {
   final String name;
   final String emoji;
   final int tier; // 1~4
-  final Map<String, int> ingredients; // ingredientId → 數量
+  final Map<String, int> ingredients; // ingredientId → 數量（舊系統，保留相容）
   final int sellPrice;
   final DessertUnlockCondition unlock;
+
+  /// 直接產出：哪個瓶子產出此甜點（null = 僅手動工坊製作）
+  final BlockColor? sourceBottle;
+  /// 直接產出的能量消耗
+  final int? directEnergyCost;
 
   const DessertRecipe({
     required this.id,
@@ -55,11 +62,14 @@ class DessertRecipe {
     required this.ingredients,
     required this.sellPrice,
     required this.unlock,
+    this.sourceBottle,
+    this.directEnergyCost,
   });
 
   factory DessertRecipe.fromJson(Map<String, dynamic> json) {
     final rawIngredients = json['ingredients'] as Map<String, dynamic>? ?? {};
     final ingredients = rawIngredients.map((k, v) => MapEntry(k, (v as num).toInt()));
+    final sourceBottleIdx = json['sourceBottle'] as int?;
     return DessertRecipe(
       id: json['id'] as String,
       name: json['name'] as String,
@@ -68,6 +78,10 @@ class DessertRecipe {
       ingredients: ingredients,
       sellPrice: (json['sellPrice'] as num).toInt(),
       unlock: DessertUnlockCondition.fromJson(json['unlock'] as Map<String, dynamic>? ?? {}),
+      sourceBottle: sourceBottleIdx != null && sourceBottleIdx < BlockColor.values.length
+          ? BlockColor.values[sourceBottleIdx]
+          : null,
+      directEnergyCost: (json['directEnergyCost'] as num?)?.toInt(),
     );
   }
 }

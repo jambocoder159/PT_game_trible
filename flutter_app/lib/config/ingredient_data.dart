@@ -232,21 +232,31 @@ class DessertDefinitions {
     id: 'butter_roll', name: '奶油小餐包', emoji: '🍞', tier: 1,
     ingredients: {'flour': 2, 'butter': 1, 'egg': 1},
     sellPrice: 40, unlock: DessertUnlockCondition.defaultUnlocked(),
+    sourceBottle: BlockColor.coral, directEnergyCost: 30,
   );
   static const mintTea = DessertRecipe(
     id: 'mint_tea', name: '薄荷茶', emoji: '🍵', tier: 1,
     ingredients: {'mint_leaf': 2, 'milk': 1},
     sellPrice: 30, unlock: DessertUnlockCondition.defaultUnlocked(),
+    sourceBottle: BlockColor.mint, directEnergyCost: 30,
   );
   static const cocoaCookie = DessertRecipe(
     id: 'cocoa_cookie', name: '可可餅乾', emoji: '🍪', tier: 1,
     ingredients: {'cocoa_powder': 2, 'flour': 1, 'butter': 1},
     sellPrice: 40, unlock: DessertUnlockCondition.defaultUnlocked(),
+    sourceBottle: BlockColor.gold, directEnergyCost: 30,
   );
   static const freshJuice = DessertRecipe(
     id: 'fresh_juice', name: '鮮果汁', emoji: '🥤', tier: 1,
     ingredients: {'juice': 2, 'fruit_slices': 1},
     sellPrice: 35, unlock: DessertUnlockCondition.defaultUnlocked(),
+    sourceBottle: BlockColor.teal, directEnergyCost: 30,
+  );
+  static const rosePudding = DessertRecipe(
+    id: 'rose_pudding', name: '黑糖布丁', emoji: '🍮', tier: 1,
+    ingredients: {},
+    sellPrice: 35, unlock: DessertUnlockCondition.defaultUnlocked(),
+    sourceBottle: BlockColor.rose, directEnergyCost: 30,
   );
 
   // ── Tier 2: 中級（Chapter 1 解鎖）──
@@ -254,11 +264,13 @@ class DessertDefinitions {
     id: 'honey_toast', name: '蜂蜜吐司', emoji: '🍯', tier: 2,
     ingredients: {'flour': 2, 'egg': 1, 'honey': 1, 'butter': 1},
     sellPrice: 80, unlock: DessertUnlockCondition.stageClear('1-5'),
+    sourceBottle: BlockColor.coral, directEnergyCost: 60,
   );
   static const matchaLatte = DessertRecipe(
     id: 'matcha_latte', name: '抹茶拿鐵', emoji: '🍵', tier: 2,
     ingredients: {'matcha': 2, 'milk': 1, 'cream': 1},
     sellPrice: 75, unlock: DessertUnlockCondition.stageClear('1-5'),
+    sourceBottle: BlockColor.mint, directEnergyCost: 60,
   );
   static const chocolateCake = DessertRecipe(
     id: 'chocolate_cake', name: '巧克力蛋糕', emoji: '🎂', tier: 2,
@@ -274,6 +286,7 @@ class DessertDefinitions {
     id: 'cinnamon_roll', name: '肉桂捲', emoji: '🥐', tier: 2,
     ingredients: {'flour': 2, 'yeast': 1, 'cinnamon': 1, 'butter': 1},
     sellPrice: 80, unlock: DessertUnlockCondition.stageClear('1-10'),
+    sourceBottle: BlockColor.coral, directEnergyCost: 80,
   );
 
   // ── Tier 3: 進階（Chapter 2 解鎖）──
@@ -286,21 +299,25 @@ class DessertDefinitions {
     id: 'coconut_taro_sago', name: '椰奶紫芋西米露', emoji: '🥥', tier: 3,
     ingredients: {'coconut_milk': 2, 'purple_yam': 1, 'brown_sugar': 1},
     sellPrice: 140, unlock: DessertUnlockCondition.stageClear('2-5'),
+    sourceBottle: BlockColor.teal, directEnergyCost: 60,
   );
   static const starryLollipop = DessertRecipe(
     id: 'starry_lollipop', name: '星空棒棒糖', emoji: '🍭', tier: 3,
     ingredients: {'rainbow_sprinkles': 1, 'gold_leaf': 1, 'powdered_sugar': 2, 'golden_syrup': 1},
     sellPrice: 160, unlock: DessertUnlockCondition.stageClear('2-5'),
+    sourceBottle: BlockColor.gold, directEnergyCost: 60,
   );
   static const tiramisu = DessertRecipe(
     id: 'tiramisu', name: '提拉米蘇', emoji: '🍰', tier: 3,
     ingredients: {'coffee_grounds': 2, 'dark_chocolate': 1, 'cream': 2, 'cocoa_powder': 1},
     sellPrice: 170, unlock: DessertUnlockCondition.stageClear('2-8'),
+    sourceBottle: BlockColor.teal, directEnergyCost: 80,
   );
   static const saffronMillefeuille = DessertRecipe(
     id: 'saffron_millefeuille', name: '藏紅花千層', emoji: '🧁', tier: 3,
     ingredients: {'flour': 2, 'butter': 1, 'saffron': 1, 'cream': 1, 'vanilla_pod': 1},
     sellPrice: 180, unlock: DessertUnlockCondition.stageClear('2-10'),
+    sourceBottle: BlockColor.mint, directEnergyCost: 80,
   );
 
   // ── Tier 4: 大師（Chapter 3 / 食譜購買）──
@@ -308,6 +325,7 @@ class DessertDefinitions {
     id: 'moonlight_macaron', name: '月光馬卡龍', emoji: '🌙', tier: 4,
     ingredients: {'egg': 2, 'moonlight_essence': 1, 'powdered_sugar': 1, 'vanilla_pod': 1},
     sellPrice: 280, unlock: DessertUnlockCondition.stageClear('3-3'),
+    sourceBottle: BlockColor.rose, directEnergyCost: 60,
   );
   static const magicRainbowCake = DessertRecipe(
     id: 'magic_rainbow_cake', name: '魔法彩虹蛋糕', emoji: '🌈', tier: 4,
@@ -318,6 +336,7 @@ class DessertDefinitions {
     id: 'stardust_truffle', name: '星塵巧克力松露', emoji: '🍫', tier: 4,
     ingredients: {'dark_chocolate': 2, 'magic_stardust': 1, 'moonlight_essence': 1, 'cream': 1},
     sellPrice: 380, unlock: DessertUnlockCondition.stageClear('3-8'),
+    sourceBottle: BlockColor.gold, directEnergyCost: 80,
   );
   static const goldenCrownPuff = DessertRecipe(
     id: 'golden_crown_puff', name: '金箔皇冠泡芙', emoji: '👑', tier: 4,
@@ -333,12 +352,13 @@ class DessertDefinitions {
     id: 'patissier_masterpiece', name: '夢幻甜點師之作', emoji: '🏆', tier: 4,
     ingredients: {'golden_syrup': 1, 'enchanted_herb': 1, 'starlight_dew': 1, 'magic_stardust': 1, 'moonlight_essence': 1},
     sellPrice: 500, unlock: DessertUnlockCondition.purchase(12000),
+    sourceBottle: BlockColor.rose, directEnergyCost: 80,
   );
 
   /// 全部食譜
   static List<DessertRecipe> all = const [
     // Tier 1
-    butterRoll, mintTea, cocoaCookie, freshJuice,
+    butterRoll, mintTea, cocoaCookie, freshJuice, rosePudding,
     // Tier 2
     honeyToast, matchaLatte, chocolateCake, fruitTart, cinnamonRoll,
     // Tier 3

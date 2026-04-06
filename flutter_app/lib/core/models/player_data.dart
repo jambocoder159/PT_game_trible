@@ -58,6 +58,9 @@ class PlayerData {
   // 已解鎖的食譜 ID（purchase 類型需手動解鎖）
   Set<String> unlockedRecipes;
 
+  // 食材一次性遷移旗標（v2：食材層移除後自動售出）
+  bool ingredientsMigrated;
+
   PlayerData({
     this.playerLevel = 1,
     this.playerExp = 0,
@@ -80,6 +83,7 @@ class PlayerData {
     Map<String, int>? desserts,
     Map<String, dynamic>? bottleStates,
     Set<String>? unlockedRecipes,
+    this.ingredientsMigrated = false,
   })  : lastStaminaRecover = lastStaminaRecover ?? DateTime.now(),
         agents = agents ?? {},
         team = team ?? [],
@@ -170,6 +174,7 @@ class PlayerData {
       desserts: desserts,
       bottleStates: json['bottleStates'] as Map<String, dynamic>? ?? {},
       unlockedRecipes: (json['unlockedRecipes'] as List<dynamic>?)?.cast<String>().toSet() ?? {},
+      ingredientsMigrated: json['ingredientsMigrated'] as bool? ?? false,
     );
   }
 
@@ -197,6 +202,7 @@ class PlayerData {
       'desserts': desserts,
       'bottleStates': bottleStates,
       'unlockedRecipes': unlockedRecipes.toList(),
+      'ingredientsMigrated': ingredientsMigrated,
     };
   }
 

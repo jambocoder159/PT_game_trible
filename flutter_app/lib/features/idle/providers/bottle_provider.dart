@@ -1,33 +1,51 @@
 import 'dart:math';
 import 'package:flutter/foundation.dart';
+import '../../../config/bottle_dessert_map.dart';
 import '../../../config/ingredient_data.dart';
 import '../../../core/models/block.dart';
 import '../../../core/models/bottle_data.dart';
+import '../../../core/models/dessert.dart';
 import '../../../core/models/ingredient.dart';
 import '../../../core/models/player_data.dart';
 import '../../../core/services/local_storage.dart';
 
-/// 轉換結果
-class ConvertResult {
-  final IngredientDefinition ingredient;
-  final bool isCritical;
-  final IngredientDefinition? bonusIngredient;
+/// 收成結果
+class HarvestResult {
+  final Map<String, int> dessertsProduced; // dessertId → count
+  final int totalGold;
+  final int critBonusGold;
 
-  const ConvertResult({
-    required this.ingredient,
-    required this.isCritical,
-    this.bonusIngredient,
+  const HarvestResult({
+    required this.dessertsProduced,
+    required this.totalGold,
+    required this.critBonusGold,
   });
+
+  bool get isEmpty => totalGold == 0;
 }
 
-/// 魔法瓶管理 Provider — 能量累積、食材轉換、瓶子升級
+/// 魔法瓶管理 Provider — 能量累積、收成、瓶子升級
 class BottleProvider extends ChangeNotifier {
   final Map<BlockColor, BottleStatus> _bottles = {};
   bool _isInitialized = false;
   final _random = Random();
 
-  /// 爆擊基礎機率
+  /// 爆擊基礎機率（+50% 金幣）
   static const double baseCritChance = 0.15;
+
+  /// 自動收成開關
+  bool _autoHarvestEnabled = false;
+  bool get autoHarvestEnabled => _autoHarvestEnabled;
+
+  void setAutoHarvest(bool enabled) {
+    _autoHarvestEnabled = enabled;
+    notifyListeners();
+    _saveAutoHarvest();
+  }
+
+  Future<void> _saveAutoHarvest() async {
+    await LocalStorageService.instance.setJson('auto_harvest', _autoHarvestEnabled);
+  }
 
   Map<BlockColor, BottleStatus> get bottles => _bottles;
   bool get isInitialized => _isInitialized;
@@ -50,6 +68,10 @@ class BottleProvider extends ChangeNotifier {
     for (final color in BlockColor.values) {
       _bottles.putIfAbsent(color, () => BottleStatus(color: color));
     }
+
+    // 載入自動收成設定
+    final autoHarvest = LocalStorageService.instance.getJson('auto_harvest');
+    if (autoHarvest is bool) _autoHarvestEnabled = autoHarvest;
 
     _isInitialized = true;
     notifyListeners();
@@ -79,14 +101,152 @@ class BottleProvider extends ChangeNotifier {
     _save();
   }
 
-  /// 取得某瓶在當前等級下可產出的食材
+  // ═══════════════════════════════════════════
+  // 收成系統（新）
+  // ═══════════════════════════════════════════
+
+  /// 一鍵收成：所有瓶子的能量 → 甜點 → 直接賣出拿金幣
+  HarvestResult harvest(PlayerData playerData) {
+    final dessertsProduced = <String, int>{};
+    int totalGold = 0;
+    int critBonusGold = 0;
+
+    for (final color in BlockColor.values) {
+      final bottle = _bottles[color];
+      if (bottle == null || bottle.currentEnergy <= 0) continue;
+
+      // 取得當前生產的甜點
+      final dessertId = bottle.currentDessertId ??
+          BottleDessertMap.getBestForLevel(color, bottle.level)?.dessertId;
+      if (dessertId == null) continue;
+
+      final recipe = DessertDefinitions.getById(dessertId);
+      if (recipe == null) continue;
+
+      final energyCost = recipe.directEnergyCost ??
+          BottleDessertMap.getBestForLevel(color, bottle.level)?.energyCost ??
+          30;
+
+      // 計算產出數量
+      final count = bottle.currentEnergy ~/ energyCost;
+      if (count <= 0) continue;
+
+      // 扣除能量
+      bottle.consumeEnergy(count * energyCost);
+
+      // 計算金幣
+      int gold = count * recipe.sellPrice;
+
+      // 爆擊判定（每瓶獨立判定）
+      if (_random.nextDouble() < baseCritChance) {
+        final bonus = (gold * 0.5).round();
+        critBonusGold += bonus;
+        gold += bonus;
+      }
+
+      dessertsProduced[dessertId] = (dessertsProduced[dessertId] ?? 0) + count;
+      totalGold += gold;
+    }
+
+    if (totalGold > 0) {
+      playerData.gold += totalGold;
+      notifyListeners();
+      _save();
+    }
+
+    return HarvestResult(
+      dessertsProduced: dessertsProduced,
+      totalGold: totalGold,
+      critBonusGold: critBonusGold,
+    );
+  }
+
+  /// 滿瓶數量
+  int getFullBottleCount() {
+    return _bottles.values.where((b) => b.isFull).length;
+  }
+
+  /// 有能量可收成的瓶子數量（能量 >= 該瓶最低 energyCost）
+  int getHarvestableCount() {
+    int count = 0;
+    for (final bottle in _bottles.values) {
+      if (bottle.currentEnergy <= 0) continue;
+      final dessertId = bottle.currentDessertId ??
+          BottleDessertMap.getBestForLevel(bottle.color, bottle.level)?.dessertId;
+      if (dessertId == null) continue;
+      final recipe = DessertDefinitions.getById(dessertId);
+      final energyCost = recipe?.directEnergyCost ??
+          BottleDessertMap.getBestForLevel(bottle.color, bottle.level)?.energyCost ??
+          30;
+      if (bottle.currentEnergy >= energyCost) count++;
+    }
+    return count;
+  }
+
+  /// 最接近滿的瓶子的填充進度 (0.0~1.0)
+  double getNearestProgress() {
+    double best = 0.0;
+    for (final bottle in _bottles.values) {
+      if (bottle.fillProgress > best) best = bottle.fillProgress;
+    }
+    return best;
+  }
+
+  /// 預估收成金幣
+  int estimateHarvestGold() {
+    int total = 0;
+    for (final bottle in _bottles.values) {
+      if (bottle.currentEnergy <= 0) continue;
+      final dessertId = bottle.currentDessertId ??
+          BottleDessertMap.getBestForLevel(bottle.color, bottle.level)?.dessertId;
+      if (dessertId == null) continue;
+      final recipe = DessertDefinitions.getById(dessertId);
+      if (recipe == null) continue;
+      final energyCost = recipe.directEnergyCost ??
+          BottleDessertMap.getBestForLevel(bottle.color, bottle.level)?.energyCost ??
+          30;
+      final count = bottle.currentEnergy ~/ energyCost;
+      total += count * recipe.sellPrice;
+    }
+    return total;
+  }
+
+  /// 設定某瓶當前生產的甜點
+  void setCurrentDessert(BlockColor color, String? dessertId) {
+    final bottle = _bottles[color];
+    if (bottle == null) return;
+    bottle.currentDessertId = dessertId;
+    notifyListeners();
+    _save();
+  }
+
+  /// 取得某瓶當前生產的甜點
+  DessertRecipe? getCurrentDessert(BlockColor color) {
+    final bottle = _bottles[color];
+    if (bottle == null) return null;
+
+    if (bottle.currentDessertId != null) {
+      final recipe = DessertDefinitions.getById(bottle.currentDessertId!);
+      if (recipe != null) return recipe;
+    }
+    // 回退：取該瓶等級的最佳甜點
+    final tier = BottleDessertMap.getBestForLevel(color, bottle.level);
+    if (tier == null) return null;
+    return DessertDefinitions.getById(tier.dessertId);
+  }
+
+  // ═══════════════════════════════════════════
+  // 舊系統相容（deprecated）
+  // ═══════════════════════════════════════════
+
+  /// @deprecated 使用 harvest() 代替
   List<IngredientDefinition> getAvailableIngredients(BlockColor color) {
     final bottle = _bottles[color];
     if (bottle == null) return [];
     return IngredientDefinitions.getAvailable(color, bottle.level);
   }
 
-  /// 轉換能量為食材
+  /// @deprecated 使用 harvest() 代替
   ConvertResult? convertIngredient(
     BlockColor bottleColor,
     String ingredientId,
@@ -101,14 +261,10 @@ class BottleProvider extends ChangeNotifier {
     if (ingredient.bottleLevelRequired > bottle.level) return null;
     if (bottle.currentEnergy < ingredient.energyCost) return null;
 
-    // 扣除能量
     bottle.consumeEnergy(ingredient.energyCost);
-
-    // 加入食材到玩家庫存
     playerData.ingredients[ingredientId] =
         (playerData.ingredients[ingredientId] ?? 0) + 1;
 
-    // 爆擊判定
     final isCritical = _random.nextDouble() < baseCritChance;
     IngredientDefinition? bonusIngredient;
     if (isCritical) {
@@ -129,14 +285,12 @@ class BottleProvider extends ChangeNotifier {
     );
   }
 
-  /// 爆擊額外產出：同瓶更高稀有度食材，或同品 +1
   IngredientDefinition? _getCritBonus(
     BlockColor color,
     IngredientDefinition current,
     int bottleLevel,
   ) {
     final allInBottle = IngredientDefinitions.getByBottleColor(color);
-    // 找比目前更高稀有度且已解鎖的食材
     final higherTier = allInBottle
         .where((i) =>
             i.tier.index > current.tier.index &&
@@ -145,16 +299,50 @@ class BottleProvider extends ChangeNotifier {
     if (higherTier.isNotEmpty) {
       return higherTier[_random.nextInt(higherTier.length)];
     }
-    // 已是最高稀有度：額外 +1 同品
     return current;
   }
 
-  /// 升級瓶子
-  /// 回傳是否成功
-  bool upgradeBottle(
-    BlockColor color,
-    PlayerData playerData,
-  ) {
+  /// @deprecated 使用 setCurrentDessert() 代替
+  void setDefaultIngredient(BlockColor color, String? ingredientId) {
+    final bottle = _bottles[color];
+    if (bottle == null) return;
+    // 映射到新系統：忽略，不再設定食材
+    notifyListeners();
+    _save();
+  }
+
+  /// @deprecated 使用 getCurrentDessert() 代替
+  IngredientDefinition? getDefaultIngredient(BlockColor color) {
+    final bottle = _bottles[color];
+    if (bottle == null) return null;
+    if (bottle.currentDessertId != null) {
+      // 新系統：不再回傳食材
+    }
+    final available = getAvailableIngredients(color);
+    if (available.isEmpty) return null;
+    available.sort((a, b) => a.energyCost.compareTo(b.energyCost));
+    return available.first;
+  }
+
+  /// @deprecated 使用 harvest() 代替
+  Map<String, int> convertAllDefault(PlayerData playerData) {
+    // 委派給 harvest 然後返回相容格式
+    final result = harvest(playerData);
+    final compat = <String, int>{};
+    for (final entry in result.dessertsProduced.entries) {
+      final recipe = DessertDefinitions.getById(entry.key);
+      if (recipe != null) {
+        compat[recipe.name] = entry.value;
+      }
+    }
+    return compat;
+  }
+
+  // ═══════════════════════════════════════════
+  // 瓶子升級（不變）
+  // ═══════════════════════════════════════════
+
+  bool upgradeBottle(BlockColor color, PlayerData playerData) {
     final bottle = _bottles[color];
     if (bottle == null) return false;
     if (bottle.level >= BottleDefinitions.maxLevel) return false;
@@ -162,90 +350,30 @@ class BottleProvider extends ChangeNotifier {
     final targetLevel = bottle.level + 1;
     final levelData = BottleDefinitions.getLevelData(targetLevel);
 
-    // 檢查關卡門檻
     if (levelData.stageGateId != null) {
       final progress = playerData.stageProgress[levelData.stageGateId!];
       if (progress == null || !progress.cleared) return false;
     }
 
-    // 檢查金幣
     if (playerData.gold < levelData.upgradeCostGold) return false;
 
-    // 檢查材料
     final materials = BottleDefinitions.getUpgradeMaterials(targetLevel, color);
     for (final entry in materials.entries) {
       if ((playerData.materials[entry.key] ?? 0) < entry.value) return false;
     }
 
-    // 扣除金幣和材料
     playerData.gold -= levelData.upgradeCostGold;
     for (final entry in materials.entries) {
       playerData.materials[entry.key] =
           (playerData.materials[entry.key] ?? 0) - entry.value;
     }
 
-    // 升級
     bottle.level = targetLevel;
-
     notifyListeners();
     _save();
     return true;
   }
 
-  /// 設定某瓶的預設兌換食材
-  void setDefaultIngredient(BlockColor color, String? ingredientId) {
-    final bottle = _bottles[color];
-    if (bottle == null) return;
-    bottle.defaultIngredientId = ingredientId;
-    notifyListeners();
-    _save();
-  }
-
-  /// 取得某瓶的預設兌換食材（若未設定，回傳該瓶等級內能量消耗最低的食材）
-  IngredientDefinition? getDefaultIngredient(BlockColor color) {
-    final bottle = _bottles[color];
-    if (bottle == null) return null;
-
-    if (bottle.defaultIngredientId != null) {
-      final def = IngredientDefinitions.getById(bottle.defaultIngredientId!);
-      if (def != null && def.bottleLevelRequired <= bottle.level) return def;
-    }
-    // 回退：取能量消耗最低的可用食材
-    final available = getAvailableIngredients(color);
-    if (available.isEmpty) return null;
-    available.sort((a, b) => a.energyCost.compareTo(b.energyCost));
-    return available.first;
-  }
-
-  /// 一鍵兌換：遍歷所有瓶子，用預設食材連續兌換至能量不足
-  /// 回傳兌換結果摘要 {ingredientName: count}
-  Map<String, int> convertAllDefault(PlayerData playerData) {
-    final results = <String, int>{};
-    int totalCrits = 0;
-
-    for (final color in BlockColor.values) {
-      final bottle = _bottles[color];
-      if (bottle == null || bottle.currentEnergy <= 0) continue;
-
-      final defaultIngredient = getDefaultIngredient(color);
-      if (defaultIngredient == null) continue;
-
-      while (bottle.currentEnergy >= defaultIngredient.energyCost) {
-        final result = convertIngredient(color, defaultIngredient.id, playerData);
-        if (result == null) break;
-        results[defaultIngredient.name] =
-            (results[defaultIngredient.name] ?? 0) + 1;
-        if (result.isCritical && result.bonusIngredient != null) {
-          results[result.bonusIngredient!.name] =
-              (results[result.bonusIngredient!.name] ?? 0) + 1;
-          totalCrits++;
-        }
-      }
-    }
-    return results;
-  }
-
-  /// 檢查瓶子是否可升級
   bool canUpgrade(BlockColor color, PlayerData playerData) {
     final bottle = _bottles[color];
     if (bottle == null || bottle.level >= BottleDefinitions.maxLevel) return false;
@@ -274,4 +402,17 @@ class BottleProvider extends ChangeNotifier {
     }
     await storage.setJson('bottle_states', json);
   }
+}
+
+/// @deprecated 舊版轉換結果
+class ConvertResult {
+  final IngredientDefinition ingredient;
+  final bool isCritical;
+  final IngredientDefinition? bonusIngredient;
+
+  const ConvertResult({
+    required this.ingredient,
+    required this.isCritical,
+    this.bonusIngredient,
+  });
 }

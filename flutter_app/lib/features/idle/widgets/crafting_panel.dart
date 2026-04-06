@@ -92,6 +92,47 @@ class _CraftingPanelState extends State<CraftingPanel> {
                     ),
                     const SizedBox(height: 8),
 
+                    // 一鍵售出
+                    if (playerProvider.data.desserts.values.any((v) => v > 0))
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: GestureDetector(
+                          onTap: () => _sellAll(context, craftingProvider, playerProvider),
+                          child: Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.symmetric(vertical: 8),
+                            decoration: BoxDecoration(
+                              gradient: const LinearGradient(
+                                colors: [Color(0xFFFFD43B), Color(0xFFFCC419)],
+                              ),
+                              borderRadius: BorderRadius.circular(8),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: const Color(0xFFFFD43B).withAlpha(60),
+                                  blurRadius: 6,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ],
+                            ),
+                            child: const Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Text('💰', style: TextStyle(fontSize: 16)),
+                                SizedBox(width: 6),
+                                Text(
+                                  '一鍵售出全部甜點',
+                                  style: TextStyle(
+                                    color: Color(0xFF7C5E10),
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+
                     // 食譜列表
                     Expanded(
                       child: ListView.builder(
@@ -146,6 +187,30 @@ class _CraftingPanelState extends State<CraftingPanel> {
         SnackBar(
           content: Text('售出 ${recipe.name}，獲得 $income 🍬'),
           duration: const Duration(seconds: 1),
+        ),
+      );
+    }
+  }
+
+  void _sellAll(BuildContext context,
+      CraftingProvider craftingProvider, PlayerProvider playerProvider) {
+    final result = craftingProvider.sellAllDesserts(playerProvider.data);
+    if (result.totalIncome > 0) {
+      HapticFeedback.mediumImpact();
+      playerProvider.notifyAndSave();
+      setState(() {});
+      final summary = result.items.entries.map((e) => '${e.key} x${e.value}').join('、');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('售出 $summary，共獲得 ${result.totalIncome} 🍬'),
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('目前沒有甜點可以售出'),
+          duration: Duration(seconds: 1),
         ),
       );
     }

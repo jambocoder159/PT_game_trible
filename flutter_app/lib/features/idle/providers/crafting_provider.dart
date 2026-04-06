@@ -103,8 +103,54 @@ class CraftingProvider extends ChangeNotifier {
     return income;
   }
 
+  /// 一鍵售出所有甜點，回傳 {甜點名稱: 數量} 與總收入
+  ({Map<String, int> items, int totalIncome}) sellAllDesserts(PlayerData playerData) {
+    final items = <String, int>{};
+    int totalIncome = 0;
+
+    for (final entry in playerData.desserts.entries.toList()) {
+      if (entry.value <= 0) continue;
+      final recipe = DessertDefinitions.getById(entry.key);
+      if (recipe == null) continue;
+
+      final income = recipe.sellPrice * entry.value;
+      items[recipe.name] = entry.value;
+      totalIncome += income;
+      playerData.desserts[entry.key] = 0;
+    }
+
+    if (totalIncome > 0) {
+      playerData.gold += totalIncome;
+      notifyListeners();
+    }
+    return (items: items, totalIncome: totalIncome);
+  }
+
   /// 取得所有可見的食譜（包含鎖定的，按 tier 排序）
   List<DessertRecipe> getAllRecipes() {
     return DessertDefinitions.all;
+  }
+
+  /// 一次性遷移：把所有舊食材以 sellPrice 賣出換金幣
+  /// 回傳總收入
+  int migrateIngredients(PlayerData playerData) {
+    if (playerData.ingredientsMigrated) return 0;
+
+    int totalIncome = 0;
+    for (final entry in playerData.ingredients.entries.toList()) {
+      if (entry.value <= 0) continue;
+      final ingredient = IngredientDefinitions.getById(entry.key);
+      if (ingredient == null) continue;
+      totalIncome += ingredient.sellPrice * entry.value;
+    }
+
+    if (totalIncome > 0) {
+      playerData.gold += totalIncome;
+      playerData.ingredients.clear();
+    }
+
+    playerData.ingredientsMigrated = true;
+    notifyListeners();
+    return totalIncome;
   }
 }

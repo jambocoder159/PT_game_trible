@@ -1,4 +1,5 @@
 import 'block.dart';
+import '../../config/bottle_dessert_map.dart';
 
 /// 魔法瓶定義（5 瓶對應 5 屬性）
 class BottleDefinition {
@@ -47,14 +48,14 @@ class BottleStatus {
   int level;
   int currentEnergy;
 
-  /// 預設兌換食材 ID（一鍵兌換時使用）
-  String? defaultIngredientId;
+  /// 當前生產的甜點 ID
+  String? currentDessertId;
 
   BottleStatus({
     required this.color,
     this.level = 1,
     this.currentEnergy = 0,
-    this.defaultIngredientId,
+    this.currentDessertId,
   });
 
   /// 當前等級的容量上限
@@ -81,11 +82,18 @@ class BottleStatus {
   }
 
   factory BottleStatus.fromJson(Map<String, dynamic> json) {
+    final color = BlockColor.values[json['colorIndex'] as int? ?? 0];
+    final level = json['level'] as int? ?? 1;
+    // 向下相容：舊版 defaultIngredientId → 自動映射為 currentDessertId
+    var dessertId = json['currentDessertId'] as String?;
+    if (dessertId == null && json.containsKey('defaultIngredientId')) {
+      dessertId = BottleDessertMap.getBestForLevel(color, level)?.dessertId;
+    }
     return BottleStatus(
-      color: BlockColor.values[json['colorIndex'] as int? ?? 0],
-      level: json['level'] as int? ?? 1,
+      color: color,
+      level: level,
       currentEnergy: json['currentEnergy'] as int? ?? 0,
-      defaultIngredientId: json['defaultIngredientId'] as String?,
+      currentDessertId: dessertId,
     );
   }
 
@@ -93,7 +101,7 @@ class BottleStatus {
     'colorIndex': color.index,
     'level': level,
     'currentEnergy': currentEnergy,
-    if (defaultIngredientId != null) 'defaultIngredientId': defaultIngredientId,
+    if (currentDessertId != null) 'currentDessertId': currentDessertId,
   };
 }
 

@@ -9,9 +9,7 @@ import '../../agents/providers/player_provider.dart';
 import '../../game/providers/game_provider.dart';
 import '../../game/widgets/game_board.dart';
 import '../../idle/providers/bottle_provider.dart';
-import '../../idle/providers/crafting_provider.dart';
 import '../../idle/screens/home_screen.dart';
-import '../../../config/ingredient_data.dart';
 import '../models/tutorial_dialogue_data.dart';
 import '../providers/tutorial_provider.dart';
 import '../widgets/tutorial_dialogue_box.dart';
@@ -40,23 +38,20 @@ class _Phase1HomeScreenState extends State<Phase1HomeScreen> {
   // Part B
   bool _showHomeScreen = false;
   // Part B 步驟：
-  // 0: 高亮「一鍵兌換」+ 浮動提示 + 等用戶點擊
-  // 1: 高亮「製作甜點」+ 浮動提示 + 等用戶點擊
-  // 2: 高亮底部導航「闖關」→ 阻斷對話 → 等用戶點擊 → 完成 Phase 1
+  // 0: 高亮「收成！」+ 浮動提示 + 等用戶點擊收成
+  // 1: 高亮底部導航「闖關」→ 阻斷對話 → 等用戶點擊 → 完成 Phase 1
   int _homeTutorialStep = 0;
-  bool _showHomeTutorialDialogue = false; // 只有 step 2 用阻斷對話
+  bool _showHomeTutorialDialogue = false; // 只有 step 1 用阻斷對話
 
-  bool _waitingForHomeTutorialAction = false; // 恢復狀態追蹤用
-  bool _hasConverted = false;
-  bool _hasCrafted = false;
+  bool _waitingForHomeTutorialAction = false;
+  bool _hasHarvested = false;
 
   // HomeScreen 的 GlobalKey
   final GlobalKey<State> _homeScreenKey = GlobalKey();
 
   // Part B 高亮用 GlobalKey
   final GlobalKey _highlightBottleAreaKey = GlobalKey();
-  final GlobalKey _highlightConvertButtonKey = GlobalKey();
-  final GlobalKey _highlightCraftButtonKey = GlobalKey();
+  final GlobalKey _highlightHarvestButtonKey = GlobalKey();
   final GlobalKey _highlightNavBarKey = GlobalKey();
 
   // 浮動提示控制
@@ -110,7 +105,7 @@ class _Phase1HomeScreenState extends State<Phase1HomeScreen> {
     // 新版 Part B（step >= 4，對應 homeTutorialStep = step - 4）
     if (_step >= 4) {
       _showHomeScreen = true;
-      _homeTutorialStep = (_step - 4).clamp(0, 2);
+      _homeTutorialStep = (_step - 4).clamp(0, 1);
       _restoreHomeTutorialState();
     }
 
@@ -126,16 +121,13 @@ class _Phase1HomeScreenState extends State<Phase1HomeScreen> {
   void _restoreHomeTutorialState() {
     switch (_homeTutorialStep) {
       case -1:
-        // 自由探索中，不做特殊處理
         break;
       case 0:
         _waitingForHomeTutorialAction = true;
-      case 1:
-        _waitingForHomeTutorialAction = true;
         WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) _ensureCanCraft();
+          if (mounted) _ensureBottleFull();
         });
-      case 2:
+      case 1:
         _waitingForHomeTutorialAction = true;
         _showHomeTutorialDialogue = true;
     }
@@ -225,9 +217,8 @@ class _Phase1HomeScreenState extends State<Phase1HomeScreen> {
   // ═══════════════════════════════════
   // homeTutorialStep:
   //   -1: 自由探索（等瓶子滿）
-  //    0: 瓶子滿了 → 高亮一鍵兌換
-  //    1: 兌換完 → 高亮製作甜點
-  //    2: 製作完 → 高亮闖關 Tab
+  //    0: 瓶子滿了 → 高亮「收成！」
+  //    1: 收成完 → 高亮闖關 Tab
 
   void _enterHomeScreen() {
     _goToStep(4);
@@ -245,42 +236,22 @@ class _Phase1HomeScreenState extends State<Phase1HomeScreen> {
       _homeTutorialStep = 0;
       _waitingForHomeTutorialAction = true;
     });
-    _showFloatingHint('瓶子滿了！點「一鍵兌換」獲得食材', emoji: '🧪');
+    _showFloatingHint('瓶子滿了！點「收成！」收穫甜點', emoji: '🧪');
   }
 
-  void _onUserConverted() {
-    if (_homeTutorialStep == 0 && !_hasConverted) {
+  /// 用戶按了收成按鈕（偵測金幣增加）
+  void _onUserHarvested() {
+    if (_homeTutorialStep == 0 && !_hasHarvested) {
       setState(() {
-        _hasConverted = true;
+        _hasHarvested = true;
         _waitingForHomeTutorialAction = false;
         _floatingHintText = null;
       });
-      _ensureCanCraft();
       Future.delayed(const Duration(milliseconds: 500), () {
         if (mounted) {
           _goToStep(5);
           setState(() {
             _homeTutorialStep = 1;
-            _waitingForHomeTutorialAction = true;
-          });
-          _showFloatingHint('有食材了！點「製作甜點」', emoji: '🧁');
-        }
-      });
-    }
-  }
-
-  void _onUserCrafted() {
-    if (_homeTutorialStep == 1 && !_hasCrafted) {
-      setState(() {
-        _hasCrafted = true;
-        _waitingForHomeTutorialAction = false;
-        _floatingHintText = null;
-      });
-      Future.delayed(const Duration(milliseconds: 500), () {
-        if (mounted) {
-          _goToStep(6);
-          setState(() {
-            _homeTutorialStep = 2;
             _waitingForHomeTutorialAction = true;
             _showHomeTutorialDialogue = true;
           });
@@ -303,31 +274,21 @@ class _Phase1HomeScreenState extends State<Phase1HomeScreen> {
     });
   }
 
-  /// 教學用：確保有食材可以製作甜點
-  /// 直接補足「薄荷茶」所需的食材（最簡單的配方：mint_leaf x2 + milk x1）
-  void _ensureCanCraft() {
-    final player = context.read<PlayerProvider>();
-    final crafting = context.read<CraftingProvider>();
-    final canCraft = DessertDefinitions.all.any(
-      (r) => crafting.canCraft(r.id, player.data),
-    );
-    if (!canCraft) {
-      // 直接補薄荷茶的材料
-      player.data.ingredients['mint_leaf'] =
-          (player.data.ingredients['mint_leaf'] ?? 0) + 4;
-      player.data.ingredients['milk'] =
-          (player.data.ingredients['milk'] ?? 0) + 2;
-      player.notifyAndSave();
+  /// 教學用：確保至少一個瓶子能量已滿
+  void _ensureBottleFull() {
+    final bottleProvider = context.read<BottleProvider>();
+    final coralBottle = bottleProvider.getBottle(BlockColor.coral);
+    if (!coralBottle.isFull) {
+      coralBottle.currentEnergy = coralBottle.capacity;
+      bottleProvider.addEnergyBatch({}); // 觸發 notifyListeners + save
     }
   }
 
   GlobalKey? _highlightKeyForStep() {
     switch (_homeTutorialStep) {
-      case 0:  // 瓶子滿→高亮兌換
-        return _highlightConvertButtonKey;
-      case 1:  // 有食材→高亮製作
-        return _highlightCraftButtonKey;
-      case 2:  // 做完→高亮闖關
+      case 0:  // 瓶子滿→高亮收成
+        return _highlightHarvestButtonKey;
+      case 1:  // 收成完→高亮闖關
         return _highlightNavBarKey;
       default: // -1 自由探索，不高亮
         return null;
@@ -384,21 +345,18 @@ class _Phase1HomeScreenState extends State<Phase1HomeScreen> {
         HomeScreen(
           key: _homeScreenKey,
           tutorialMode: true,
-          onTutorialNavTap: _homeTutorialStep == 2 ? _onUserTappedBattle : null,
+          onTutorialNavTap: _homeTutorialStep == 1 ? _onUserTappedBattle : null,
           externalBottleAreaKey: _highlightBottleAreaKey,
-          externalConvertButtonKey: _highlightConvertButtonKey,
-          externalCraftButtonKey: _highlightCraftButtonKey,
+          externalConvertButtonKey: _highlightHarvestButtonKey,
           externalNavBarKey: _highlightNavBarKey,
         ),
 
-        // 監聯瓶子滿、兌換、製作狀態
+        // 監聽瓶子滿、收成狀態
         _HomeActionListener(
           onBottleFull: _onBottleFull,
-          onConverted: _onUserConverted,
-          onCrafted: _onUserCrafted,
+          onHarvested: _onUserHarvested,
           listenBottleFull: _homeTutorialStep == -1,
-          listenConvert: _homeTutorialStep == 0 && !_hasConverted,
-          listenCraft: _homeTutorialStep == 1 && !_hasCrafted,
+          listenHarvest: _homeTutorialStep == 0 && !_hasHarvested,
         ),
 
         // 高亮 overlay
@@ -419,7 +377,7 @@ class _Phase1HomeScreenState extends State<Phase1HomeScreen> {
           ),
 
         // 阻斷對話框（只有最後一步：去闘關）
-        if (_showHomeTutorialDialogue && _homeTutorialStep == 2)
+        if (_showHomeTutorialDialogue && _homeTutorialStep == 1)
           TutorialDialogueBox(
             dialogue: const TutorialDialogue(
               id: 'H06',
@@ -637,22 +595,18 @@ class _Phase1HomeScreenState extends State<Phase1HomeScreen> {
   }
 }
 
-/// 監聽瓶子滿、兌換、製作狀態
+/// 監聽瓶子滿、收成狀態
 class _HomeActionListener extends StatefulWidget {
   final VoidCallback? onBottleFull;
-  final VoidCallback onConverted;
-  final VoidCallback onCrafted;
+  final VoidCallback onHarvested;
   final bool listenBottleFull;
-  final bool listenConvert;
-  final bool listenCraft;
+  final bool listenHarvest;
 
   const _HomeActionListener({
     this.onBottleFull,
-    required this.onConverted,
-    required this.onCrafted,
+    required this.onHarvested,
     this.listenBottleFull = false,
-    required this.listenConvert,
-    required this.listenCraft,
+    required this.listenHarvest,
   });
 
   @override
@@ -660,69 +614,44 @@ class _HomeActionListener extends StatefulWidget {
 }
 
 class _HomeActionListenerState extends State<_HomeActionListener> {
-  int _lastIngredientCount = 0;
-  int _lastDessertCount = 0;
+  int _lastGold = 0;
 
   @override
   void initState() {
     super.initState();
     final player = context.read<PlayerProvider>();
-    _lastIngredientCount = _totalIngredients(player);
-    _lastDessertCount = _totalDesserts(player);
-  }
-
-  int _totalIngredients(PlayerProvider p) {
-    return p.data.ingredients.values.fold(0, (a, b) => a + b);
-  }
-
-  int _totalDesserts(PlayerProvider p) {
-    return p.data.desserts.values.fold(0, (a, b) => a + b);
+    _lastGold = player.data.gold;
   }
 
   @override
   Widget build(BuildContext context) {
-    // 偵測瓶子滿
-    if (widget.listenBottleFull) {
-      return Consumer2<PlayerProvider, BottleProvider>(
-        builder: (context, player, bottleProvider, _) {
-          if (bottleProvider.isInitialized) {
-            final hasAnyFull = BottleDefinitions.all.any(
-              (def) => bottleProvider.getBottle(def.color).isFull,
-            );
-            if (hasAnyFull) {
-              WidgetsBinding.instance.addPostFrameCallback((_) {
-                widget.onBottleFull?.call();
-              });
-            }
+    return Consumer2<PlayerProvider, BottleProvider>(
+      builder: (context, player, bottleProvider, _) {
+        // 偵測瓶子滿
+        if (widget.listenBottleFull && bottleProvider.isInitialized) {
+          final hasAnyFull = BottleDefinitions.all.any(
+            (def) => bottleProvider.getBottle(def.color).isFull,
+          );
+          if (hasAnyFull) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              widget.onBottleFull?.call();
+            });
           }
-          return _buildPlayerListener(player);
-        },
-      );
-    }
-    return Consumer<PlayerProvider>(
-      builder: (context, player, _) => _buildPlayerListener(player),
-    );
-  }
+        }
 
-  Widget _buildPlayerListener(PlayerProvider player) {
-    if (widget.listenConvert) {
-      final current = _totalIngredients(player);
-      if (current > _lastIngredientCount) {
-        _lastIngredientCount = current;
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          widget.onConverted();
-        });
-      }
-    }
-    if (widget.listenCraft) {
-      final current = _totalDesserts(player);
-      if (current > _lastDessertCount) {
-        _lastDessertCount = current;
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          widget.onCrafted();
-        });
-      }
-    }
-    return const SizedBox.shrink();
+        // 偵測收成（金幣增加 = 已收成）
+        if (widget.listenHarvest) {
+          final currentGold = player.data.gold;
+          if (currentGold > _lastGold) {
+            _lastGold = currentGold;
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              widget.onHarvested();
+            });
+          }
+        }
+
+        return const SizedBox.shrink();
+      },
+    );
   }
 }
