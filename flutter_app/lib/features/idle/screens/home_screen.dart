@@ -829,7 +829,7 @@ class _LeftPanel extends StatelessWidget {
     );
   }
 
-  // ─── B. 瓶子區：5 張獨立卡片 ───
+  // ─── B. 瓶子區：5 張獨立卡片（液面填充設計） ───
   Widget _buildBottleColumn(BottleProvider bp, PlayerProvider pp) {
     if (!bp.isInitialized) return const SizedBox.shrink();
 
@@ -846,84 +846,111 @@ class _LeftPanel extends StatelessWidget {
 
         return Expanded(
           child: Padding(
-            padding: const EdgeInsets.only(bottom: 3),
+            padding: const EdgeInsets.only(bottom: 2),
             child: GestureDetector(
               onTap: tutorialMode ? null : onWorkshopDetail,
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 3),
+                clipBehavior: Clip.antiAlias,
                 decoration: BoxDecoration(
                   color: AppTheme.bgCard,
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
                   border: Border.all(
                     color: isFull
                         ? def.color.color.withAlpha(160)
-                        : AppTheme.accentSecondary.withAlpha(30),
+                        : def.color.color.withAlpha(30),
+                    width: isFull ? 1.5 : 0.5,
                   ),
                   boxShadow: isFull
-                      ? [BoxShadow(color: def.color.color.withAlpha(40), blurRadius: 4)]
-                      : null,
+                      ? [
+                          BoxShadow(color: def.color.color.withAlpha(50), blurRadius: 8, spreadRadius: 1),
+                          BoxShadow(color: def.color.color.withAlpha(30), blurRadius: 12, spreadRadius: 2),
+                        ]
+                      : [BoxShadow(color: Colors.black.withAlpha(8), blurRadius: 3, offset: const Offset(0, 1))],
                 ),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                child: Stack(
                   children: [
-                    // 第一行：emoji + 進度條 + 等級
-                    Row(
-                      children: [
-                        KeyedSubtree(
-                          key: bottleKeys[def.color]!,
-                          child: Stack(
-                            clipBehavior: Clip.none,
-                            children: [
-                              Text(def.emoji, style: const TextStyle(fontSize: 14)),
-                              if (canUpgrade)
-                                Positioned(
-                                  top: -2, right: -4,
-                                  child: Container(
-                                    width: 6, height: 6,
-                                    decoration: BoxDecoration(
-                                      color: AppTheme.accentPrimary,
-                                      shape: BoxShape.circle,
-                                      border: Border.all(color: AppTheme.bgCard, width: 0.5),
-                                    ),
-                                  ),
-                                ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(width: 3),
-                        Expanded(
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(3),
-                            child: LinearProgressIndicator(
-                              value: bottle.fillProgress, minHeight: 6,
-                              backgroundColor: AppTheme.bgSecondary,
-                              valueColor: AlwaysStoppedAnimation(
-                                def.color.color.withAlpha(isFull ? 200 : 100),
+                    // Layer 1: 液面填充背景
+                    Positioned.fill(
+                      child: Align(
+                        alignment: Alignment.bottomCenter,
+                        child: FractionallySizedBox(
+                          heightFactor: bottle.fillProgress,
+                          widthFactor: 1.0,
+                          child: Container(
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                begin: Alignment.topCenter,
+                                end: Alignment.bottomCenter,
+                                colors: [
+                                  def.color.color.withAlpha(isFull ? 70 : 40),
+                                  def.color.color.withAlpha(isFull ? 130 : 80),
+                                ],
                               ),
                             ),
                           ),
                         ),
-                        const SizedBox(width: 3),
-                        Text(
-                          isFull ? '✓' : 'Lv${bottle.level}',
-                          style: TextStyle(
-                            color: isFull ? const Color(0xFF4CAF50) : def.color.color.withAlpha(180),
-                            fontSize: 8,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ],
+                      ),
                     ),
-                    // 第二行：甜點名稱 + 售價
-                    if (dessert != null)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 1),
-                        child: Text(
-                          '${dessert.emoji} ${dessert.name} ${dessert.sellPrice}🍬',
-                          style: TextStyle(color: AppTheme.textSecondary.withAlpha(130), fontSize: 8),
-                          overflow: TextOverflow.ellipsis,
-                          maxLines: 1,
+                    // Layer 2: 內容
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 3),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                        children: [
+                          // 瓶子 emoji
+                          KeyedSubtree(
+                            key: bottleKeys[def.color]!,
+                            child: Text(def.emoji, style: const TextStyle(fontSize: 20)),
+                          ),
+                          // 等級膠囊徽章
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                            decoration: BoxDecoration(
+                              color: isFull
+                                  ? def.color.color.withAlpha(200)
+                                  : AppTheme.bgCard.withAlpha(200),
+                              borderRadius: BorderRadius.circular(6),
+                              border: Border.all(
+                                color: def.color.color.withAlpha(isFull ? 180 : 60),
+                                width: 0.5,
+                              ),
+                            ),
+                            child: Text(
+                              isFull ? '✓ Lv${bottle.level}' : 'Lv${bottle.level}',
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                                color: isFull ? Colors.white : def.color.color,
+                              ),
+                            ),
+                          ),
+                          // 甜點 emoji + 售價
+                          if (dessert != null) ...[
+                            Text(dessert.emoji, style: const TextStyle(fontSize: 14)),
+                            Text(
+                              '${dessert.sellPrice}🍬',
+                              style: TextStyle(
+                                fontSize: 9,
+                                fontWeight: FontWeight.w600,
+                                color: AppTheme.textSecondary.withAlpha(180),
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                    // Layer 3: 升級紅點
+                    if (canUpgrade)
+                      Positioned(
+                        top: 3, right: 3,
+                        child: Container(
+                          width: 8, height: 8,
+                          decoration: BoxDecoration(
+                            color: AppTheme.accentPrimary,
+                            shape: BoxShape.circle,
+                            border: Border.all(color: AppTheme.bgCard, width: 1),
+                            boxShadow: [BoxShadow(color: AppTheme.accentPrimary.withAlpha(100), blurRadius: 4)],
+                          ),
                         ),
                       ),
                   ],
