@@ -151,9 +151,9 @@ class TutorialProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// 跳過整個教學（向下相容別名）
+  /// 跳過整個教學（不解鎖露露，讓 1-3 自然解鎖）
   Future<void> skipEntireTutorial(PlayerProvider player) async {
-    await completeTutorial(player);
+    await completeTutorial(player, skipAgentUnlock: true);
   }
 
   /// 重設教學（GM 用）

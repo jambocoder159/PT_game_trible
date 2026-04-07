@@ -88,12 +88,12 @@ class PlayerInfoBar extends StatelessWidget {
 
                   const SizedBox(width: 12),
 
-                  // 金幣
-                  _CurrencyChip(icon: '🪙', value: data.gold),
+                  // 金幣（帶計數器動畫）
+                  _AnimatedCurrencyChip(icon: '🪙', value: data.gold),
                   const SizedBox(width: 8),
 
                   // 鑽石
-                  _CurrencyChip(icon: '💎', value: data.diamonds),
+                  _AnimatedCurrencyChip(icon: '💎', value: data.diamonds),
                 ],
               ),
             ],
@@ -104,28 +104,112 @@ class PlayerInfoBar extends StatelessWidget {
   }
 }
 
-class _CurrencyChip extends StatelessWidget {
+/// 帶計數器跳動動畫的貨幣顯示
+class _AnimatedCurrencyChip extends StatefulWidget {
   final String icon;
   final int value;
 
-  const _CurrencyChip({required this.icon, required this.value});
+  const _AnimatedCurrencyChip({required this.icon, required this.value});
+
+  @override
+  State<_AnimatedCurrencyChip> createState() => _AnimatedCurrencyChipState();
+}
+
+class _AnimatedCurrencyChipState extends State<_AnimatedCurrencyChip>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _ctrl;
+  late Animation<double> _countAnim;
+  late Animation<double> _scaleAnim;
+  int _prevValue = 0;
+  bool _isAnimating = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _prevValue = widget.value;
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 800),
+    );
+    _countAnim = Tween<double>(
+      begin: widget.value.toDouble(),
+      end: widget.value.toDouble(),
+    ).animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeOut));
+    // 數值跳動時的縮放彈跳
+    _scaleAnim = TweenSequence<double>([
+      TweenSequenceItem(tween: Tween(begin: 1.0, end: 1.3), weight: 15),
+      TweenSequenceItem(tween: Tween(begin: 1.3, end: 1.0)
+          .chain(CurveTween(curve: Curves.elasticOut)), weight: 85),
+    ]).animate(_ctrl);
+  }
+
+  @override
+  void didUpdateWidget(_AnimatedCurrencyChip oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.value != widget.value) {
+      final diff = widget.value - oldWidget.value;
+      // 只對增加做動畫（收成），減少直接跳轉
+      if (diff > 0) {
+        _prevValue = oldWidget.value;
+        _countAnim = Tween<double>(
+          begin: _prevValue.toDouble(),
+          end: widget.value.toDouble(),
+        ).animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeOut));
+        _ctrl.reset();
+        _ctrl.forward();
+        _isAnimating = true;
+        _ctrl.addStatusListener(_onAnimEnd);
+      } else {
+        _prevValue = widget.value;
+      }
+    }
+  }
+
+  void _onAnimEnd(AnimationStatus status) {
+    if (status == AnimationStatus.completed) {
+      _isAnimating = false;
+      _ctrl.removeStatusListener(_onAnimEnd);
+    }
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Text(icon, style: const TextStyle(fontSize: AppTheme.fontBodyLg)),
-        const SizedBox(width: 2),
-        Text(
-          _formatNumber(value),
-          style: const TextStyle(
-            color: AppTheme.textPrimary,
-            fontSize: AppTheme.fontBodyMd,
-            fontWeight: FontWeight.bold,
+    return AnimatedBuilder(
+      animation: _ctrl,
+      builder: (context, _) {
+        final displayValue = _isAnimating
+            ? _countAnim.value.toInt()
+            : widget.value;
+        final scale = _isAnimating ? _scaleAnim.value : 1.0;
+        final color = _isAnimating
+            ? Color.lerp(const Color(0xFFFFD43B), AppTheme.textPrimary, _ctrl.value)!
+            : AppTheme.textPrimary;
+
+        return Transform.scale(
+          scale: scale,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(widget.icon, style: const TextStyle(fontSize: AppTheme.fontBodyLg)),
+              const SizedBox(width: 2),
+              Text(
+                _formatNumber(displayValue),
+                style: TextStyle(
+                  color: color,
+                  fontSize: AppTheme.fontBodyMd,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
           ),
-        ),
-      ],
+        );
+      },
     );
   }
 

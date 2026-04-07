@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -423,12 +424,14 @@ class _HomeScreenState extends State<HomeScreen> {
     final result = bottleProvider.harvest(playerProvider.data);
     if (result.isEmpty) return;
     HapticFeedback.mediumImpact();
-    playerProvider.notifyAndSave();
-    _showHarvestAnimation(result);
+    // 延遲通知：等粒子飛到錢幣區域後再觸發計數器動畫
+    _showHarvestAnimation(result, onParticlesArrived: () {
+      playerProvider.notifyAndSave();
+    });
   }
 
   /// 收成動畫：甜點圖示飛出 → 金幣數字放大
-  void _showHarvestAnimation(HarvestResult result) {
+  void _showHarvestAnimation(HarvestResult result, {VoidCallback? onParticlesArrived}) {
     final overlay = Overlay.of(context);
     late OverlayEntry entry;
 
@@ -437,6 +440,7 @@ class _HomeScreenState extends State<HomeScreen> {
         totalGold: result.totalGold,
         critBonusGold: result.critBonusGold,
         dessertCount: result.dessertsProduced.values.fold(0, (a, b) => a + b),
+        onParticlesArrived: onParticlesArrived,
         onComplete: () => entry.remove(),
       ),
     );
@@ -735,17 +739,17 @@ class _LeftPanel extends StatelessWidget {
             Expanded(
               child: _wrapWithKey(bottleAreaKey, _buildBottleColumn(bottleProvider, playerProvider)),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 6),
 
-            // ── C. 自動化區（極簡兩行） ──
-            _buildAutoSection(context, idleProvider, bottleProvider),
-            const SizedBox(height: 8),
-
-            // ── D. 收成按鈕（底部錨定） ──
+            // ── C. 收成按鈕 ──
             _wrapWithKey(externalHarvestButtonKey, _HarvestButton(
               bottleProvider: bottleProvider,
               onTap: onHarvest,
             )),
+            const SizedBox(height: 6),
+
+            // ── D. 自動化區 ──
+            _buildAutoSection(context, idleProvider, bottleProvider),
             const SizedBox(height: 4),
           ],
         );
@@ -826,7 +830,7 @@ class _LeftPanel extends StatelessWidget {
     );
   }
 
-  // ─── B. 瓶子區：5 張獨立卡片（液面填充設計） ───
+  // ─── B. 瓶子區：5 張橫式卡片（進度條底色填充） ───
   Widget _buildBottleColumn(BottleProvider bp, PlayerProvider pp) {
     if (!bp.isInitialized) return const SizedBox.shrink();
 
@@ -840,10 +844,11 @@ class _LeftPanel extends StatelessWidget {
         final isFull = bottle.isFull;
         final canUpgrade = bp.canUpgrade(def.color, pp.data);
         final dessert = bp.getCurrentDessert(def.color);
+        final clr = def.color.color;
 
         return Expanded(
           child: Padding(
-            padding: const EdgeInsets.only(bottom: 2),
+            padding: const EdgeInsets.only(bottom: 3),
             child: GestureDetector(
               onTap: tutorialMode ? null : onWorkshopDetail,
               child: Container(
@@ -852,35 +857,28 @@ class _LeftPanel extends StatelessWidget {
                   color: AppTheme.bgCard,
                   borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
                   border: Border.all(
-                    color: isFull
-                        ? def.color.color.withAlpha(160)
-                        : def.color.color.withAlpha(30),
+                    color: isFull ? clr.withAlpha(180) : clr.withAlpha(30),
                     width: isFull ? 1.5 : 0.5,
                   ),
                   boxShadow: isFull
-                      ? [
-                          BoxShadow(color: def.color.color.withAlpha(50), blurRadius: 8, spreadRadius: 1),
-                          BoxShadow(color: def.color.color.withAlpha(30), blurRadius: 12, spreadRadius: 2),
-                        ]
-                      : [BoxShadow(color: Colors.black.withAlpha(8), blurRadius: 3, offset: const Offset(0, 1))],
+                      ? [BoxShadow(color: clr.withAlpha(40), blurRadius: 8)]
+                      : [BoxShadow(color: Colors.black.withAlpha(6), blurRadius: 2)],
                 ),
                 child: Stack(
                   children: [
-                    // Layer 1: 液面填充背景
+                    // 進度條底色（左→右填充）
                     Positioned.fill(
                       child: Align(
-                        alignment: Alignment.bottomCenter,
+                        alignment: Alignment.centerLeft,
                         child: FractionallySizedBox(
-                          heightFactor: bottle.fillProgress,
-                          widthFactor: 1.0,
+                          widthFactor: bottle.fillProgress,
+                          heightFactor: 1.0,
                           child: Container(
                             decoration: BoxDecoration(
                               gradient: LinearGradient(
-                                begin: Alignment.topCenter,
-                                end: Alignment.bottomCenter,
                                 colors: [
-                                  def.color.color.withAlpha(isFull ? 70 : 40),
-                                  def.color.color.withAlpha(isFull ? 130 : 80),
+                                  clr.withAlpha(isFull ? 80 : 35),
+                                  clr.withAlpha(isFull ? 140 : 65),
                                 ],
                               ),
                             ),
@@ -888,55 +886,67 @@ class _LeftPanel extends StatelessWidget {
                         ),
                       ),
                     ),
-                    // Layer 2: 內容
+                    // 橫式內容：emoji | 能量文字 | 甜點資訊
                     Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 3),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      padding: const EdgeInsets.symmetric(horizontal: 6),
+                      child: Row(
                         children: [
-                          // 瓶子 emoji
+                          // 左：瓶子 emoji
                           KeyedSubtree(
                             key: bottleKeys[def.color]!,
-                            child: Text(def.emoji, style: const TextStyle(fontSize: AppTheme.fontDisplayMd)),
+                            child: Text(def.emoji,
+                                style: const TextStyle(fontSize: AppTheme.fontTitleLg)),
                           ),
-                          // 等級膠囊徽章
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-                            decoration: BoxDecoration(
-                              color: isFull
-                                  ? def.color.color.withAlpha(200)
-                                  : AppTheme.bgCard.withAlpha(200),
-                              borderRadius: BorderRadius.circular(6),
-                              border: Border.all(
-                                color: def.color.color.withAlpha(isFull ? 180 : 60),
-                                width: 0.5,
-                              ),
-                            ),
-                            child: Text(
-                              isFull ? '✓ Lv${bottle.level}' : 'Lv${bottle.level}',
-                              style: TextStyle(
-                                fontSize: AppTheme.fontLabelLg,
-                                fontWeight: FontWeight.bold,
-                                color: isFull ? Colors.white : def.color.color,
-                              ),
+                          const SizedBox(width: 5),
+                          // 中：等級 + 能量
+                          Expanded(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                // 能量數字
+                                Text(
+                                  isFull
+                                      ? '${bottle.currentEnergy} ✓'
+                                      : '${bottle.currentEnergy}/${bottle.capacity}',
+                                  style: TextStyle(
+                                    fontSize: AppTheme.fontBodyLg,
+                                    fontWeight: FontWeight.bold,
+                                    color: isFull ? clr : AppTheme.textPrimary,
+                                  ),
+                                ),
+                                // 等級
+                                Text(
+                                  'Lv${bottle.level}',
+                                  style: TextStyle(
+                                    fontSize: AppTheme.fontLabelLg,
+                                    color: AppTheme.textSecondary.withAlpha(160),
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
-                          // 甜點 emoji + 售價
-                          if (dessert != null) ...[
-                            Text(dessert.emoji, style: const TextStyle(fontSize: AppTheme.fontBodyLg)),
-                            Text(
-                              '${dessert.sellPrice}🍬',
-                              style: TextStyle(
-                                fontSize: AppTheme.fontLabelSm,
-                                fontWeight: FontWeight.w600,
-                                color: AppTheme.textSecondary.withAlpha(180),
-                              ),
+                          // 右：甜點 + 售價
+                          if (dessert != null)
+                            Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Text(dessert.emoji,
+                                    style: const TextStyle(fontSize: AppTheme.fontTitleMd)),
+                                Text(
+                                  '${dessert.sellPrice}🍬',
+                                  style: TextStyle(
+                                    fontSize: AppTheme.fontLabelLg,
+                                    fontWeight: FontWeight.w600,
+                                    color: AppTheme.textSecondary.withAlpha(180),
+                                  ),
+                                ),
+                              ],
                             ),
-                          ],
                         ],
                       ),
                     ),
-                    // Layer 3: 升級紅點
+                    // 升級紅點
                     if (canUpgrade)
                       Positioned(
                         top: 3, right: 3,
@@ -960,10 +970,16 @@ class _LeftPanel extends StatelessWidget {
     );
   }
 
-  // ─── C. 自動化區：極簡兩行開關 ───
+  // ─── C. 自動化區：極簡兩行開關（關卡解鎖） ───
   Widget _buildAutoSection(BuildContext context, IdleProvider idle, BottleProvider bp) {
     final config = idle.autoConfig;
-    final isAutoUnlocked = config.unlockedStage.index >= AutoEliminateStage.stage2.index;
+    final playerProvider = context.read<PlayerProvider>();
+    final progress = playerProvider.data.stageProgress;
+
+    // 自動收成：突破 1-5 解鎖
+    final isHarvestUnlocked = progress[AutoEliminateConfig.autoHarvestUnlockStage]?.cleared ?? false;
+    // 自動消除：突破 1-10 解鎖
+    final isEliminateUnlocked = progress[AutoEliminateConfig.autoEliminateUnlockStage]?.cleared ?? false;
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
@@ -974,9 +990,38 @@ class _LeftPanel extends StatelessWidget {
       ),
       child: Column(
         children: [
-          // 自動消除
+          // 自動收成（上方）
+          Row(
+            children: [
+              Icon(Icons.autorenew, size: 13,
+                color: isHarvestUnlocked && bp.autoHarvestEnabled
+                    ? const Color(0xFFFFD43B) : AppTheme.textSecondary.withAlpha(80)),
+              const SizedBox(width: 4),
+              Expanded(
+                child: Text(
+                  isHarvestUnlocked ? '自動收成' : '通關 1-5 解鎖',
+                  style: TextStyle(
+                    color: isHarvestUnlocked ? AppTheme.textPrimary : AppTheme.textSecondary.withAlpha(100),
+                    fontSize: AppTheme.fontLabelLg,
+                  ),
+                ),
+              ),
+              SizedBox(
+                width: 32, height: 18,
+                child: FittedBox(
+                  child: Switch(
+                    value: isHarvestUnlocked && bp.autoHarvestEnabled,
+                    onChanged: isHarvestUnlocked ? (v) => bp.setAutoHarvest(v) : null,
+                    activeColor: const Color(0xFFFFD43B),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          // 自動消除（下方）
           GestureDetector(
-            onTap: () {
+            onTap: isEliminateUnlocked ? () {
               showModalBottomSheet(
                 context: context,
                 isScrollControlled: true,
@@ -986,18 +1031,19 @@ class _LeftPanel extends StatelessWidget {
                 ),
                 builder: (_) => const AutoEliminateSettings(),
               );
-            },
+            } : null,
             behavior: HitTestBehavior.opaque,
             child: Row(
               children: [
                 Icon(Icons.flash_auto, size: 13,
-                  color: config.isAutoActive ? AppTheme.accentSecondary : AppTheme.textSecondary.withAlpha(80)),
+                  color: isEliminateUnlocked && config.isAutoActive
+                      ? AppTheme.accentSecondary : AppTheme.textSecondary.withAlpha(80)),
                 const SizedBox(width: 4),
                 Expanded(
                   child: Text(
-                    isAutoUnlocked ? '自動消除' : 'Lv.${AutoEliminateConfig.unlockLevelRequirements[AutoEliminateStage.stage2]} 解鎖',
+                    isEliminateUnlocked ? '自動消除' : '通關 1-10 解鎖',
                     style: TextStyle(
-                      color: isAutoUnlocked ? AppTheme.textPrimary : AppTheme.textSecondary.withAlpha(100),
+                      color: isEliminateUnlocked ? AppTheme.textPrimary : AppTheme.textSecondary.withAlpha(100),
                       fontSize: AppTheme.fontLabelLg,
                     ),
                   ),
@@ -1008,8 +1054,8 @@ class _LeftPanel extends StatelessWidget {
                     width: 32, height: 18,
                     child: FittedBox(
                       child: Switch(
-                        value: config.isEnabled && isAutoUnlocked,
-                        onChanged: isAutoUnlocked ? (v) => idle.toggleAutoEliminate(v) : null,
+                        value: isEliminateUnlocked && config.isEnabled,
+                        onChanged: isEliminateUnlocked ? (v) => idle.toggleAutoEliminate(v) : null,
                         activeColor: AppTheme.accentSecondary,
                       ),
                     ),
@@ -1017,34 +1063,6 @@ class _LeftPanel extends StatelessWidget {
                 ),
               ],
             ),
-          ),
-          const SizedBox(height: 4),
-          // 自動收成
-          Row(
-            children: [
-              Icon(Icons.autorenew, size: 13,
-                color: bp.autoHarvestEnabled ? const Color(0xFFFFD43B) : AppTheme.textSecondary.withAlpha(80)),
-              const SizedBox(width: 4),
-              Expanded(
-                child: Text(
-                  '自動收成',
-                  style: TextStyle(
-                    color: bp.autoHarvestEnabled ? AppTheme.textPrimary : AppTheme.textSecondary.withAlpha(120),
-                    fontSize: AppTheme.fontLabelLg,
-                  ),
-                ),
-              ),
-              SizedBox(
-                width: 32, height: 18,
-                child: FittedBox(
-                  child: Switch(
-                    value: bp.autoHarvestEnabled,
-                    onChanged: (v) => bp.setAutoHarvest(v),
-                    activeColor: const Color(0xFFFFD43B),
-                  ),
-                ),
-              ),
-            ],
           ),
         ],
       ),
@@ -1242,19 +1260,21 @@ class _HarvestButtonState extends State<_HarvestButton>
 }
 
 // ═══════════════════════════════════════════
-// 收成動畫 — 開寶箱風格
+// 收成動畫 — 糖果粒子散開 → 飛向資源區 + 計數器跳動
 // ═══════════════════════════════════════════
 
 class _HarvestAnimationOverlay extends StatefulWidget {
   final int totalGold;
   final int critBonusGold;
   final int dessertCount;
+  final VoidCallback? onParticlesArrived;
   final VoidCallback onComplete;
 
   const _HarvestAnimationOverlay({
     required this.totalGold,
     required this.critBonusGold,
     required this.dessertCount,
+    this.onParticlesArrived,
     required this.onComplete,
   });
 
@@ -1263,138 +1283,182 @@ class _HarvestAnimationOverlay extends StatefulWidget {
 }
 
 class _HarvestAnimationOverlayState extends State<_HarvestAnimationOverlay>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _ctrl;
-  late Animation<double> _scaleAnim;
-  late Animation<double> _fadeAnim;
-  late Animation<double> _slideAnim;
+    with TickerProviderStateMixin {
+  late AnimationController _burstCtrl;   // 粒子散開
+  late AnimationController _flyCtrl;     // 粒子飛向資源區
+
+  late List<_CandyParticle> _particles;
+  static const _particleCount = 12;
+  static const _candyEmojis = ['🍬', '🍭', '🧁', '🍪', '🍩'];
 
   @override
   void initState() {
     super.initState();
-    _ctrl = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1800),
+
+    // Phase 1: 粒子爆開 (600ms)
+    _burstCtrl = AnimationController(
+      vsync: this, duration: const Duration(milliseconds: 600),
     );
 
-    // 0.0-0.3: scale up (彈出)
-    _scaleAnim = TweenSequence<double>([
-      TweenSequenceItem(tween: Tween(begin: 0.0, end: 1.2).chain(CurveTween(curve: Curves.easeOut)), weight: 20),
-      TweenSequenceItem(tween: Tween(begin: 1.2, end: 1.0).chain(CurveTween(curve: Curves.elasticOut)), weight: 15),
-      TweenSequenceItem(tween: ConstantTween(1.0), weight: 40),
-      TweenSequenceItem(tween: Tween(begin: 1.0, end: 0.8), weight: 25),
-    ]).animate(_ctrl);
-
-    // 整體淡入淡出
-    _fadeAnim = TweenSequence<double>([
-      TweenSequenceItem(tween: Tween(begin: 0.0, end: 1.0), weight: 15),
-      TweenSequenceItem(tween: ConstantTween(1.0), weight: 55),
-      TweenSequenceItem(tween: Tween(begin: 1.0, end: 0.0), weight: 30),
-    ]).animate(_ctrl);
-
-    // 往上飄
-    _slideAnim = Tween<double>(begin: 0, end: -60).animate(
-      CurvedAnimation(parent: _ctrl, curve: const Interval(0.5, 1.0, curve: Curves.easeIn)),
+    // Phase 2: 粒子飛向右上角 (800ms)
+    _flyCtrl = AnimationController(
+      vsync: this, duration: const Duration(milliseconds: 800),
     );
 
-    _ctrl.forward().then((_) => widget.onComplete());
+    _particles = _generateParticles();
 
-    // 震動反饋：開始和暴擊
-    Future.delayed(const Duration(milliseconds: 200), () {
-      HapticFeedback.heavyImpact();
+    _startSequence();
+  }
+
+  List<_CandyParticle> _generateParticles() {
+    final rng = math.Random();
+    return List.generate(_particleCount, (i) {
+      final angle = (i / _particleCount) * 2 * math.pi + rng.nextDouble() * 0.5;
+      return _CandyParticle(
+        emoji: _candyEmojis[rng.nextInt(_candyEmojis.length)],
+        angle: angle,
+        burstRadius: 40 + rng.nextDouble() * 60,
+        delay: rng.nextDouble() * 0.15,
+      );
     });
+  }
+
+  bool _arrivedFired = false;
+
+  Future<void> _startSequence() async {
+    HapticFeedback.heavyImpact();
+    // Phase 1: 爆開
+    await _burstCtrl.forward();
+    if (!mounted) return;
+    // Phase 2: 飛行 — 粒子到達錢幣區域時才觸發計數器
+    _flyCtrl.addListener(_checkArrival);
+    _flyCtrl.forward();
     if (widget.critBonusGold > 0) {
-      Future.delayed(const Duration(milliseconds: 600), () {
-        HapticFeedback.heavyImpact();
+      Future.delayed(const Duration(milliseconds: 300), () {
+        if (mounted) HapticFeedback.heavyImpact();
       });
     }
+    await _flyCtrl.forward();
+    if (!mounted) return;
+    // 確保到達回呼一定觸發
+    _fireArrived();
+    // 短暫停留讓計數器跑完
+    await Future.delayed(const Duration(milliseconds: 600));
+    if (mounted) widget.onComplete();
+  }
+
+  void _checkArrival() {
+    // easeInCubic 在 85% 時間時粒子已視覺到達目標附近
+    if (_flyCtrl.value >= 0.85) {
+      _fireArrived();
+    }
+  }
+
+  void _fireArrived() {
+    if (_arrivedFired) return;
+    _arrivedFired = true;
+    _flyCtrl.removeListener(_checkArrival);
+    widget.onParticlesArrived?.call();
   }
 
   @override
   void dispose() {
-    _ctrl.dispose();
+    _burstCtrl.dispose();
+    _flyCtrl.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    final screenSize = MediaQuery.of(context).size;
+    final safeTop = MediaQuery.of(context).padding.top;
     final isCrit = widget.critBonusGold > 0;
 
+    // 起始位置：左側面板中下方（收成按鈕附近）
+    final originX = screenSize.width * 0.16;
+    final originY = screenSize.height * 0.65;
+    // 目標位置：右上方資源區（金幣 🪙 位置）
+    final targetX = screenSize.width * 0.85;
+    final targetY = safeTop + 20;
+
     return AnimatedBuilder(
-      animation: _ctrl,
+      animation: Listenable.merge([_burstCtrl, _flyCtrl]),
       builder: (context, _) {
         return IgnorePointer(
-          child: Center(
-            child: Transform.translate(
-              offset: Offset(0, _slideAnim.value),
-              child: Opacity(
-                opacity: _fadeAnim.value.clamp(0.0, 1.0),
-                child: Transform.scale(
-                  scale: _scaleAnim.value,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 20),
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: isCrit
-                            ? [const Color(0xFFFFD43B), const Color(0xFFFFA94D)]
-                            : [const Color(0xFF6BAF5B), const Color(0xFF4CAF50)],
-                      ),
-                      borderRadius: BorderRadius.circular(20),
-                      boxShadow: [
-                        BoxShadow(
-                          color: (isCrit ? const Color(0xFFFFD43B) : const Color(0xFF4CAF50)).withAlpha(120),
-                          blurRadius: 30,
-                          spreadRadius: 5,
-                        ),
-                      ],
+          child: Stack(
+            children: [
+              // 糖果粒子
+              ..._particles.map((p) {
+                final burstT = (_burstCtrl.value - p.delay).clamp(0.0, 1.0) / (1.0 - p.delay);
+                final flyT = Curves.easeInCubic.transform(_flyCtrl.value);
+
+                // Phase 1: 從中心爆開
+                final burstX = originX + math.cos(p.angle) * p.burstRadius * burstT;
+                final burstY = originY + math.sin(p.angle) * p.burstRadius * burstT;
+
+                // Phase 2: 從爆開位置飛向目標
+                final currentX = burstX + (targetX - burstX) * flyT;
+                final currentY = burstY + (targetY - burstY) * flyT;
+
+                // 透明度：爆開時漸入，飛行末段漸出
+                final alpha = burstT > 0
+                    ? (1.0 - flyT * flyT).clamp(0.0, 1.0)
+                    : 0.0;
+                // 縮放：飛行時逐漸縮小
+                final scale = 1.0 - flyT * 0.6;
+
+                return Positioned(
+                  left: currentX - 12,
+                  top: currentY - 12,
+                  child: Opacity(
+                    opacity: alpha,
+                    child: Transform.scale(
+                      scale: scale,
+                      child: Text(p.emoji,
+                          style: const TextStyle(fontSize: AppTheme.fontTitleLg)),
                     ),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          isCrit ? '暴擊！✨' : '收成完成！',
-                          style: TextStyle(
-                            color: isCrit ? const Color(0xFF7C5E10) : Colors.white,
-                            fontSize: AppTheme.fontBodyLg,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          '+${widget.totalGold}',
-                          style: TextStyle(
-                            color: isCrit ? const Color(0xFF7C5E10) : Colors.white,
-                            fontSize: 36,
-                            fontWeight: FontWeight.w900,
-                          ),
-                        ),
-                        Text(
-                          '🍬',
-                          style: const TextStyle(fontSize: AppTheme.fontDisplayMd),
-                        ),
-                        if (widget.dessertCount > 0) ...[
-                          const SizedBox(height: 4),
-                          Text(
-                            '${widget.dessertCount} 份甜點售出',
-                            style: TextStyle(
-                              color: (isCrit ? const Color(0xFF7C5E10) : Colors.white).withAlpha(180),
-                              fontSize: AppTheme.fontLabelLg,
-                            ),
-                          ),
-                        ],
-                      ],
+                  ),
+                );
+              }),
+
+              // 暴擊提示（僅暴擊時短暫顯示）
+              if (isCrit && _burstCtrl.value > 0.3 && _flyCtrl.value < 0.8)
+                Positioned(
+                  left: originX - 40,
+                  top: originY - 45,
+                  width: 80,
+                  child: Text(
+                    '暴擊！✨',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: const Color(0xFFFFD43B),
+                      fontSize: AppTheme.fontTitleMd,
+                      fontWeight: FontWeight.bold,
+                      shadows: [Shadow(color: Colors.black.withAlpha(200), blurRadius: 6)],
                     ),
                   ),
                 ),
-              ),
-            ),
+            ],
           ),
         );
       },
     );
   }
+}
+
+/// 糖果粒子資料
+class _CandyParticle {
+  final String emoji;
+  final double angle;
+  final double burstRadius;
+  final double delay;
+
+  const _CandyParticle({
+    required this.emoji,
+    required this.angle,
+    required this.burstRadius,
+    required this.delay,
+  });
 }
 
 // ═══════════════════════════════════════════

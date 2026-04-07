@@ -88,11 +88,18 @@ class AutoEliminateConfig {
     AutoIntervalLevel(level: 4, intervalMs: 2000, cost: 5000),
   ];
 
-  // ─── 階段解鎖條件（玩家等級） ───
+  // ─── 階段解鎖條件（關卡突破） ───
 
+  /// 自動消除解鎖需通關 1-10
+  static const String autoEliminateUnlockStage = '1-10';
+
+  /// 自動收成解鎖需通關 1-5
+  static const String autoHarvestUnlockStage = '1-5';
+
+  /// @deprecated 改用關卡解鎖，保留向下相容
   static const Map<AutoEliminateStage, int> unlockLevelRequirements = {
     AutoEliminateStage.stage1: 1,
-    AutoEliminateStage.stage2: 5,
+    AutoEliminateStage.stage2: 1,
     AutoEliminateStage.stage3: 15,
   };
 
