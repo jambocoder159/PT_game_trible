@@ -11,6 +11,7 @@ import '../../../core/models/cat_agent.dart';
 import '../providers/player_provider.dart';
 import '../widgets/material_inventory.dart';
 import '../widgets/evolution_widget.dart';
+import '../widgets/agent_evolution_animation.dart';
 import '../widgets/talent_tree_widget.dart';
 import '../widgets/skill_enhance_widget.dart';
 import '../widgets/passive_skill_widget.dart';
@@ -48,6 +49,12 @@ class _AgentDetailScreenState extends State<AgentDetailScreen> {
   bool _tutorialDone = false;
   int _initialLevel = 0;
   bool _showFeatureHint = false;
+
+  // 進化動畫狀態
+  bool _showEvolutionAnimation = false;
+  int _evoFromStage = 0;
+  int _evoToStage = 0;
+  String _evoNewName = '';
 
   @override
   void initState() {
@@ -136,10 +143,31 @@ class _AgentDetailScreenState extends State<AgentDetailScreen> {
                         agentLevel: agentInfo.level,
                         instance: agentInfo.instance,
                         attrColor: attrColor,
+                        onEvolutionSuccess: (def, from, to, name) {
+                          setState(() {
+                            _showEvolutionAnimation = true;
+                            _evoFromStage = from;
+                            _evoToStage = to;
+                            _evoNewName = name;
+                          });
+                        },
                       ),
                     ),
                   ],
                 ),
+                // ── 進化動畫 overlay ──
+                if (_showEvolutionAnimation)
+                  AgentEvolutionAnimation(
+                    definition: widget.definition,
+                    fromStage: _evoFromStage,
+                    toStage: _evoToStage,
+                    newDisplayName: _evoNewName,
+                    onComplete: () {
+                      if (mounted) {
+                        setState(() => _showEvolutionAnimation = false);
+                      }
+                    },
+                  ),
                 // ── 教學高亮 overlay ──
                 if (widget.tutorialMode && !_tutorialDone)
                   TutorialHighlightOverlay(
@@ -281,7 +309,8 @@ class _CharacterCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final charPath = ImageAssets.characterImage(definition.id);
+    final evoStage = agentInfo.instance?.evolutionStage ?? 0;
+    final charPath = ImageAssets.characterImage(definition.id, evolutionStage: evoStage);
 
     return Container(
       decoration: BoxDecoration(
@@ -358,7 +387,7 @@ class _CharacterCard extends StatelessWidget {
                             ),
                           ),
                         ),
-                        // 角色立繪
+                        // 角色立繪（進化圖不存在時 fallback 到基礎圖）
                         Positioned.fill(
                           child: Padding(
                             padding: const EdgeInsets.all(8),
@@ -366,7 +395,18 @@ class _CharacterCard extends StatelessWidget {
                                 ? Image.asset(
                                     charPath,
                                     fit: BoxFit.contain,
-                                    errorBuilder: (_, __, ___) => _fallbackImage(),
+                                    errorBuilder: (_, __, ___) {
+                                      // 嘗試 fallback 到基礎立繪
+                                      final basePath = ImageAssets.characterImageBase(definition.id);
+                                      if (basePath != null && basePath != charPath) {
+                                        return Image.asset(
+                                          basePath,
+                                          fit: BoxFit.contain,
+                                          errorBuilder: (_, __, ___) => _fallbackImage(),
+                                        );
+                                      }
+                                      return _fallbackImage();
+                                    },
                                   )
                                 : _fallbackImage(),
                           ),
@@ -914,12 +954,14 @@ class _TabSection extends StatefulWidget {
   final int agentLevel;
   final CatAgentInstance? instance;
   final Color attrColor;
+  final OnEvolutionSuccess? onEvolutionSuccess;
 
   const _TabSection({
     required this.agentId,
     required this.agentLevel,
     this.instance,
     required this.attrColor,
+    this.onEvolutionSuccess,
   });
 
   @override
@@ -987,6 +1029,7 @@ class _TabSectionState extends State<_TabSection>
                     definition: CatAgentData.getById(widget.agentId)!,
                     currentStage: instance?.evolutionStage ?? 0,
                     currentLevel: instance?.level ?? 1,
+                    onEvolutionSuccess: widget.onEvolutionSuccess,
                   ),
                   TalentTreeWidget(
                     agentId: widget.agentId,

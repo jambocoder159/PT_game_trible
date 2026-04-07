@@ -9,16 +9,22 @@ import '../../../core/models/evolution.dart';
 import '../../../core/models/material.dart';
 import '../providers/player_provider.dart';
 
+/// 進化成功時的回呼：帶進化前後階段資訊
+typedef OnEvolutionSuccess = void Function(
+    CatAgentDefinition definition, int fromStage, int toStage, String newName);
+
 class EvolutionWidget extends StatelessWidget {
   final CatAgentDefinition definition;
   final int currentStage;
   final int currentLevel;
+  final OnEvolutionSuccess? onEvolutionSuccess;
 
   const EvolutionWidget({
     super.key,
     required this.definition,
     required this.currentStage,
     required this.currentLevel,
+    this.onEvolutionSuccess,
   });
 
   @override
@@ -48,6 +54,7 @@ class EvolutionWidget extends StatelessWidget {
               isNext: isNext,
               canEvolve: canEvolve,
               currentLevel: currentLevel,
+              onEvolutionSuccess: onEvolutionSuccess,
             );
           }),
         ],
@@ -184,6 +191,7 @@ class _EvolutionStageCard extends StatelessWidget {
   final bool isNext;
   final bool canEvolve;
   final int currentLevel;
+  final OnEvolutionSuccess? onEvolutionSuccess;
 
   const _EvolutionStageCard({
     required this.definition,
@@ -192,6 +200,7 @@ class _EvolutionStageCard extends StatelessWidget {
     required this.isNext,
     required this.canEvolve,
     required this.currentLevel,
+    this.onEvolutionSuccess,
   });
 
   @override
@@ -309,20 +318,32 @@ class _EvolutionStageCard extends StatelessWidget {
                 child: ElevatedButton(
                   onPressed: canEvolve
                       ? () async {
+                          final fromStage =
+                              context.read<PlayerProvider>()
+                                  .data.agents[definition.id]
+                                  ?.evolutionStage ?? 0;
                           final provider = context.read<PlayerProvider>();
                           final success = await provider.evolveAgent(
                             definition.id,
                           );
                           if (context.mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text(success
-                                    ? '進化成功！${definition.name}${evo.nameSuffix}'
-                                    : '資源不足'),
-                                backgroundColor:
-                                    success ? Colors.green : Colors.red,
-                              ),
-                            );
+                            if (success && onEvolutionSuccess != null) {
+                              final newName =
+                                  '${definition.name}${evo.nameSuffix}';
+                              onEvolutionSuccess!(
+                                definition,
+                                fromStage,
+                                evo.stage,
+                                newName,
+                              );
+                            } else if (!success && context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('資源不足'),
+                                  backgroundColor: Colors.red,
+                                ),
+                              );
+                            }
                           }
                         }
                       : null,

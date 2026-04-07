@@ -22,21 +22,24 @@ class _Phase0OpeningScreenState extends State<Phase0OpeningScreen>
   Timer? _autoTimer;
   late AnimationController _fadeController;
 
-  // 每頁的主題配色 + emoji
+  // 每頁的主題配色 + 背景圖 + fallback emoji
   static const _slides = [
     _SlideData(
       emoji: '🏘️',
+      bgImage: 'assets/images/output/background/bg_tutorial_town.png',
       colors: [Color(0xFFFFF3E0), Color(0xFFFFE0B2)],
       dialogue: TutorialDialogues.t001,
     ),
     _SlideData(
       emoji: '🌙',
+      bgImage: 'assets/images/output/background/bg_tutorial_night.png',
       colors: [Color(0xFFFFE0B2), Color(0xFFBCAAA4)],
       dialogue: TutorialDialogues.t002,
     ),
     // 信件特寫
     _SlideData(
       emoji: '✉️',
+      bgImage: 'assets/images/output/background/bg_tutorial_letter.png',
       colors: [Color(0xFFFFF9C4), Color(0xFFFFE082)],
       dialogue: TutorialDialogues.t005,
       isLetter: true,
@@ -221,43 +224,75 @@ class _Phase0OpeningScreenState extends State<Phase0OpeningScreen>
   }
 
   Widget _buildSlide(_SlideData slide) {
-    return Container(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: slide.colors,
-        ),
-      ),
-      child: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 32),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              // Placeholder 插圖
-              Container(
-                width: 200,
-                height: 200,
-                decoration: BoxDecoration(
-                  color: Colors.white.withAlpha(40),
-                  shape: BoxShape.circle,
-                ),
-                child: Center(
-                  child: Text(
-                    slide.emoji,
-                    style: const TextStyle(fontSize: 80),
-                  ),
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        // 背景圖（全螢幕）
+        if (slide.bgImage != null)
+          Image.asset(
+            slide.bgImage!,
+            fit: BoxFit.cover,
+            errorBuilder: (_, __, ___) => Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: slide.colors,
                 ),
               ),
-              const SizedBox(height: 40),
-
-              // 對話文字
-              if (slide.isLetter) _buildLetterCard(slide) else _buildNarration(slide),
-            ],
+              child: Center(
+                child: Text(slide.emoji, style: const TextStyle(fontSize: 80)),
+              ),
+            ),
+          )
+        else
+          Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: slide.colors,
+              ),
+            ),
+          ),
+        // 底部漸層遮罩（讓文字更清楚）
+        Positioned(
+          left: 0,
+          right: 0,
+          bottom: 0,
+          height: MediaQuery.of(context).size.height * 0.55,
+          child: Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  Colors.black.withAlpha(0),
+                  Colors.black.withAlpha(120),
+                  Colors.black.withAlpha(180),
+                ],
+                stops: const [0.0, 0.5, 1.0],
+              ),
+            ),
           ),
         ),
-      ),
+        // 對話文字
+        SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 32),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                if (slide.isLetter)
+                  _buildLetterCard(slide)
+                else
+                  _buildNarration(slide),
+                SizedBox(height: MediaQuery.of(context).size.height * 0.15),
+              ],
+            ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -265,11 +300,14 @@ class _Phase0OpeningScreenState extends State<Phase0OpeningScreen>
     return Text(
       slide.dialogue.content,
       textAlign: TextAlign.center,
-      style: const TextStyle(
-        color: AppTheme.textPrimary,
+      style: TextStyle(
+        color: Colors.white,
         fontSize: AppTheme.fontTitleLg,
         height: 1.8,
         fontWeight: FontWeight.w500,
+        shadows: [
+          Shadow(color: Colors.black.withAlpha(180), blurRadius: 6),
+        ],
       ),
     );
   }
@@ -308,12 +346,14 @@ class _Phase0OpeningScreenState extends State<Phase0OpeningScreen>
 
 class _SlideData {
   final String emoji;
+  final String? bgImage;
   final List<Color> colors;
   final TutorialDialogue dialogue;
   final bool isLetter;
 
   const _SlideData({
     required this.emoji,
+    this.bgImage,
     required this.colors,
     required this.dialogue,
     this.isLetter = false,

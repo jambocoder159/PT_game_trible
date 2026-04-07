@@ -180,50 +180,57 @@ class _TutorialDialogueBoxState extends State<TutorialDialogueBox>
     );
   }
 
+  // 說話者 → 頭像圖片路徑（對應 tutorial_assets_spec.md）
+  static const _speakerAvatars = {
+    Speakers.grandpa: 'assets/images/output/avatars/avatar_grandpa.png',
+    Speakers.kitten: 'assets/images/output/avatars/avatar_kitten.png',
+    Speakers.letter: 'assets/images/output/avatars/avatar_letter.png',
+    Speakers.narrator: 'assets/images/output/avatars/avatar_narrator.png',
+  };
+
+  // 說話者 → fallback emoji + 背景色
+  static const _speakerFallbacks = {
+    Speakers.grandpa: ('👴', Color(0xFFFFE0B2)),
+    Speakers.note: ('📝', Color(0xFFFFF3E0)),
+    Speakers.kitten: ('🐱', Color(0xFFFFCC80)),
+    Speakers.lulu: ('💧', Color(0xFFB3E5FC)),
+    Speakers.narrator: ('📖', Color(0xFFE0E0E0)),
+    Speakers.letter: ('✉️', Color(0xFFFFF9C4)),
+    Speakers.unknown: ('❓', Color(0xFFE0E0E0)),
+  };
+
   Widget _buildSpeakerAvatar() {
     final speaker = widget.dialogue.speaker;
-    String emoji;
-    Color bgColor;
-    switch (speaker) {
-      case Speakers.grandpa:
-        emoji = '👴';
-        bgColor = const Color(0xFFFFE0B2);
-      case Speakers.note:
-        emoji = '📝';
-        bgColor = const Color(0xFFFFF3E0);
-      case Speakers.kitten:
-        emoji = '🐱';
-        bgColor = const Color(0xFFFFCC80);
-      case Speakers.lulu:
-        emoji = '💧';
-        bgColor = const Color(0xFFB3E5FC);
-      case Speakers.narrator:
-        emoji = '📖';
-        bgColor = const Color(0xFFE0E0E0);
-      case Speakers.letter:
-        emoji = '✉️';
-        bgColor = const Color(0xFFFFF9C4);
-      case Speakers.unknown:
-        emoji = '❓';
-        bgColor = const Color(0xFFE0E0E0);
-      default:
-        emoji = '💬';
-        bgColor = const Color(0xFFE0E0E0);
-    }
+    final avatarPath = _speakerAvatars[speaker];
+    final fallback = _speakerFallbacks[speaker] ?? ('💬', const Color(0xFFE0E0E0));
 
     return Container(
       width: 40,
       height: 40,
       decoration: BoxDecoration(
-        color: bgColor,
+        color: fallback.$2,
         shape: BoxShape.circle,
         border: Border.all(
           color: AppTheme.accentSecondary.withAlpha(80),
           width: 1.5,
         ),
       ),
-      child: Center(
-        child: Text(emoji, style: const TextStyle(fontSize: AppTheme.fontDisplayMd)),
+      child: ClipOval(
+        child: avatarPath != null
+            ? Image.asset(
+                avatarPath,
+                width: 40,
+                height: 40,
+                fit: BoxFit.cover,
+                errorBuilder: (_, __, ___) => Center(
+                  child: Text(fallback.$1,
+                      style: const TextStyle(fontSize: AppTheme.fontDisplayMd)),
+                ),
+              )
+            : Center(
+                child: Text(fallback.$1,
+                    style: const TextStyle(fontSize: AppTheme.fontDisplayMd)),
+              ),
       ),
     );
   }

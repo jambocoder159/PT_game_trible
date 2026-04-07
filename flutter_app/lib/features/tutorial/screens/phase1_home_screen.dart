@@ -457,7 +457,12 @@ class _Phase1HomeScreenState extends State<Phase1HomeScreen> {
                         child: Center(
                           child: AbsorbPointer(
                             absorbing: !_waitingForAction,
-                            child: const GameBoard(),
+                            child: GameBoard(
+                              // Step 2：高亮 col 1 row 7 的 coral 方塊，引導向下滑
+                              tutorialHintBlock: _step == 2
+                                  ? (col: 1, row: 7)
+                                  : null,
+                            ),
                           ),
                         ),
                       ),
@@ -515,14 +520,25 @@ class _Phase1HomeScreenState extends State<Phase1HomeScreen> {
       backgroundColor: const Color(0xFF8D6E63),
       body: Stack(
         children: [
-          Container(
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [Color(0xFFA1887F), Color(0xFF6D4C41)],
+          // 背景圖（麵包店門口）
+          Positioned.fill(
+            child: Image.asset(
+              'assets/images/output/background/bg_ch1_shop.png',
+              fit: BoxFit.cover,
+              errorBuilder: (_, __, ___) => Container(
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [Color(0xFFA1887F), Color(0xFF6D4C41)],
+                  ),
+                ),
               ),
             ),
+          ),
+          // 暗幕讓門更突出
+          Positioned.fill(
+            child: Container(color: Colors.black.withAlpha(80)),
           ),
           Center(
             child: GestureDetector(

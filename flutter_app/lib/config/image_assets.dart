@@ -38,24 +38,45 @@ class ImageAssets {
     'eclipse': 'berry',
   };
 
-  /// 取得角色立繪路徑
-  static String? characterImage(String agentId) {
+  /// 進化階段後綴（0=無, 1=_evo1, 2=_evo2）
+  static String _evoSuffix(int stage) =>
+      stage > 0 ? '_evo$stage' : '';
+
+  /// 取得角色立繪路徑（支援進化階段變體）
+  /// 嘗試載入 char_wheat_evo1.png，不存在則 fallback 到 char_wheat.png
+  static String? characterImage(String agentId, {int evolutionStage = 0}) {
+    final name = _agentImageNames[agentId];
+    if (name == null) return null;
+    if (evolutionStage > 0) {
+      return '$_base/characters/char_$name${_evoSuffix(evolutionStage)}.png';
+    }
+    return '$_base/characters/char_$name.png';
+  }
+
+  /// 取得進化前的基礎立繪（不帶進化後綴）
+  static String? characterImageBase(String agentId) {
     final name = _agentImageNames[agentId];
     if (name == null) return null;
     return '$_base/characters/char_$name.png';
   }
 
-  /// 取得角色頭像路徑
-  static String? avatarImage(String agentId) {
+  /// 取得角色頭像路徑（支援進化階段變體）
+  static String? avatarImage(String agentId, {int evolutionStage = 0}) {
     final name = _agentImageNames[agentId];
     if (name == null) return null;
+    if (evolutionStage > 0) {
+      return '$_base/avatars/avatar_$name${_evoSuffix(evolutionStage)}.png';
+    }
     return '$_base/avatars/avatar_$name.png';
   }
 
-  /// 取得角色小圖示路徑
-  static String? iconImage(String agentId) {
+  /// 取得角色小圖示路徑（支援進化階段變體）
+  static String? iconImage(String agentId, {int evolutionStage = 0}) {
     final name = _agentImageNames[agentId];
     if (name == null) return null;
+    if (evolutionStage > 0) {
+      return '$_base/icons/icon_$name${_evoSuffix(evolutionStage)}.png';
+    }
     return '$_base/icons/icon_$name.png';
   }
 

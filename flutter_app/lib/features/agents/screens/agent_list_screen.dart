@@ -404,8 +404,9 @@ class _AgentPortraitCard extends StatelessWidget {
     final isUnlocked = agentInfo.isUnlocked;
     final rarityColors = AppTheme.rarityGradient(def.rarity.display);
     final glowColor = AppTheme.rarityColor(def.rarity.display);
-    final avatarPath = ImageAssets.avatarImage(def.id);
-    final charPath = ImageAssets.characterImage(def.id);
+    final evoStage = agentInfo.instance?.evolutionStage ?? 0;
+    final avatarPath = ImageAssets.avatarImage(def.id, evolutionStage: evoStage);
+    final charPath = ImageAssets.characterImage(def.id, evolutionStage: evoStage);
 
     return GestureDetector(
       onTap: () => _onTap(context),
@@ -1074,8 +1075,9 @@ class _BottomTeamBar extends StatelessWidget {
             ...List.generate(3, (i) {
               if (i < teamAgents.length) {
                 final agent = teamAgents[i];
-                final avatarPath =
-                    ImageAssets.avatarImage(agent.definition.id);
+                final avatarPath = ImageAssets.avatarImage(
+                    agent.definition.id,
+                    evolutionStage: agent.instance?.evolutionStage ?? 0);
                 return _TeamSlot(
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(8),

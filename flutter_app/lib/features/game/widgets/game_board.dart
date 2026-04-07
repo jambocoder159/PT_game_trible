@@ -10,7 +10,10 @@ import 'score_popup.dart';
 
 /// 遊戲棋盤 — Stack + AnimatedPositioned + 長按拖曳引導
 class GameBoard extends StatefulWidget {
-  const GameBoard({super.key});
+  /// 教學提示：高亮指定方塊 (col, row)，null 表示不顯示
+  final ({int col, int row})? tutorialHintBlock;
+
+  const GameBoard({super.key, this.tutorialHintBlock});
 
   @override
   State<GameBoard> createState() => _GameBoardState();
@@ -382,6 +385,20 @@ class _GameBoardState extends State<GameBoard>
                       }),
                       // 方塊層
                       ...blockWidgets,
+                      // 教學遮罩（遮暗其他方塊，挖出目標方塊）
+                      if (widget.tutorialHintBlock != null && !_isDragging)
+                        Positioned.fill(
+                          child: IgnorePointer(
+                            child: CustomPaint(
+                              painter: _BoardSpotlightPainter(
+                                highlightRect: _getBlockRect(layout, widget.tutorialHintBlock!),
+                              ),
+                            ),
+                          ),
+                        ),
+                      // 教學方塊高亮提示
+                      if (widget.tutorialHintBlock != null && !_isDragging)
+                        _buildTutorialBlockHint(layout),
                       // 箭頭層
                       ...arrowWidgets,
                       // 浮動拖曳方塊
@@ -422,6 +439,131 @@ class _GameBoardState extends State<GameBoard>
       },
     );
   }
+
+  /// 取得方塊的 Rect
+  Rect _getBlockRect(_BoardLayout layout, ({int col, int row}) hint) {
+    final pos = _cellTopLeft(layout, hint.col, hint.row);
+    return Rect.fromLTWH(pos.dx, pos.dy, layout.blockSize, layout.blockSize);
+  }
+
+  /// 教學方塊高亮 — 脈動邊框 + 下箭頭
+  Widget _buildTutorialBlockHint(_BoardLayout layout) {
+    final hint = widget.tutorialHintBlock!;
+    final pos = _cellTopLeft(layout, hint.col, hint.row);
+
+    return Positioned(
+      left: pos.dx - 4,
+      top: pos.dy - 4,
+      width: layout.blockSize + 8,
+      height: layout.blockSize + 8,
+      child: IgnorePointer(
+        child: _TutorialBlockGlow(
+          blockSize: layout.blockSize,
+        ),
+      ),
+    );
+  }
+}
+
+/// 教學方塊發光動畫（脈動邊框 + 下箭頭）
+class _TutorialBlockGlow extends StatefulWidget {
+  final double blockSize;
+
+  const _TutorialBlockGlow({required this.blockSize});
+
+  @override
+  State<_TutorialBlockGlow> createState() => _TutorialBlockGlowState();
+}
+
+class _TutorialBlockGlowState extends State<_TutorialBlockGlow>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _ctrl;
+  late Animation<double> _pulse;
+  late Animation<double> _arrowBounce;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1000),
+    )..repeat(reverse: true);
+    _pulse = Tween<double>(begin: 0.5, end: 1.0).animate(
+      CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut),
+    );
+    _arrowBounce = Tween<double>(begin: 0, end: 8).animate(
+      CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _ctrl,
+      builder: (context, _) {
+        return Stack(
+          clipBehavior: Clip.none,
+          children: [
+            // 脈動邊框
+            Container(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(AppTheme.radiusBlock + 2),
+                border: Border.all(
+                  color: Colors.amber.withAlpha((_pulse.value * 230).toInt()),
+                  width: 3,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.amber.withAlpha((_pulse.value * 80).toInt()),
+                    blurRadius: 12,
+                    spreadRadius: 3,
+                  ),
+                ],
+              ),
+            ),
+            // 下箭頭
+            Positioned(
+              left: (widget.blockSize + 8 - 28) / 2,
+              bottom: -28 - _arrowBounce.value,
+              child: Icon(
+                Icons.keyboard_double_arrow_down_rounded,
+                color: Colors.amber.withAlpha((_pulse.value * 240).toInt()),
+                size: 28,
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+/// 棋盤聚光燈畫筆（遮暗整個棋盤，挖出目標方塊）
+class _BoardSpotlightPainter extends CustomPainter {
+  final Rect highlightRect;
+
+  _BoardSpotlightPainter({required this.highlightRect});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()..color = Colors.black.withAlpha(150);
+    final path = Path()
+      ..addRect(Rect.fromLTWH(0, 0, size.width, size.height))
+      ..addRRect(RRect.fromRectAndRadius(
+          highlightRect.inflate(3), const Radius.circular(16)))
+      ..fillType = PathFillType.evenOdd;
+    canvas.drawPath(path, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant _BoardSpotlightPainter old) =>
+      old.highlightRect != highlightRect;
 }
 
 /// 處理棋盤觸控事件的透明層

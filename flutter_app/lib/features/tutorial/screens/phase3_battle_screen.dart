@@ -55,11 +55,18 @@ class _Phase3BattleScreenState extends State<Phase3BattleScreen> {
   static const _g = BlockColor.gold;
   static const _r = BlockColor.rose;
 
+  // 教學棋盤設計：
+  // col 1 row 0 是 _t (水滴)，往下滑後 col 1 頂部露出 c c c → 3 連消！
+  // 提示玩家：「長按 col 1 row 0 的水滴方塊，往下滑」
   static final _tutorialGrid = [
     [_c, _m, _t, _c, _g, _c, _r, _m, _c, _t],
-    [_t, _c, _c, _m, _c, _g, _c, _t, _r, _c],
+    [_t, _c, _c, _c, _m, _g, _t, _r, _m, _g],
     [_m, _g, _c, _t, _r, _c, _m, _c, _g, _c],
   ];
+
+  // 教學提示：長按 col 1 row 0 的方塊，往下滑
+  static const tutorialHintCol = 1;
+  static const tutorialHintRow = 0;
 
   static const _preDialogues = [
     TutorialDialogues.t017,
@@ -112,39 +119,61 @@ class _Phase3BattleScreenState extends State<Phase3BattleScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFF4E342E),
       body: Stack(
+        fit: StackFit.expand,
         children: [
-          Container(
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [Color(0xFF6D4C41), Color(0xFF3E2723)],
+          // 背景圖（地下室入口）
+          Image.asset(
+            'assets/images/output/background/bg_tutorial_basement.png',
+            fit: BoxFit.cover,
+            errorBuilder: (_, __, ___) => Container(
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [Color(0xFF6D4C41), Color(0xFF3E2723)],
+                ),
               ),
             ),
           ),
+          // 底部漸層遮罩
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            height: MediaQuery.of(context).size.height * 0.5,
+            child: Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Colors.black.withAlpha(0),
+                    Colors.black.withAlpha(140),
+                    Colors.black.withAlpha(200),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          // 關卡標題
           Center(
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Container(
-                  width: 160,
-                  height: 160,
-                  decoration: BoxDecoration(
-                    color: Colors.white.withAlpha(15),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Center(
-                    child: Text('🔑', style: TextStyle(fontSize: 64)),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                const Text('第 1 關',
-                    style: TextStyle(color: Colors.white60, fontSize: AppTheme.fontTitleMd)),
-                const Text('推開店門',
+                Text('第 1 關',
                     style: TextStyle(
-                        color: Colors.white,
-                        fontSize: AppTheme.fontDisplayMd,
-                        fontWeight: FontWeight.bold)),
+                      color: Colors.white.withAlpha(180),
+                      fontSize: AppTheme.fontTitleMd,
+                      shadows: [Shadow(color: Colors.black.withAlpha(180), blurRadius: 6)],
+                    )),
+                const SizedBox(height: 4),
+                Text('推開店門',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: AppTheme.fontDisplayMd,
+                      fontWeight: FontWeight.bold,
+                      shadows: [Shadow(color: Colors.black.withAlpha(200), blurRadius: 8)],
+                    )),
               ],
             ),
           ),
@@ -168,6 +197,7 @@ class _Phase3BattleScreenState extends State<Phase3BattleScreen> {
         onBattleEnd: _onBattleComplete,
         initialColors: _tutorialGrid,
         tutorialBattleIndex: 0,
+        tutorialSwipeHint: (col: tutorialHintCol, row: tutorialHintRow),
       ),
     );
   }

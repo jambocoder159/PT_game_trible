@@ -43,8 +43,10 @@ class BattleScreen extends StatefulWidget {
   final List<List<BlockColor>>? initialColors;
   /// 教學戰鬥索引（0=第一場, 1=第二場, null=非教學）
   final int? tutorialBattleIndex;
+  /// 教學提示：高亮指定方塊並引導滑動方向 (col, row)
+  final ({int col, int row})? tutorialSwipeHint;
 
-  const BattleScreen({super.key, required this.stage, this.onBattleEnd, this.initialColors, this.tutorialBattleIndex});
+  const BattleScreen({super.key, required this.stage, this.onBattleEnd, this.initialColors, this.tutorialBattleIndex, this.tutorialSwipeHint});
 
   @override
   State<BattleScreen> createState() => _BattleScreenState();
@@ -74,6 +76,7 @@ class _BattleScreenState extends State<BattleScreen> {
 
   // 教學戰鬥介紹
   bool _showTutorialIntro = false;
+  bool _showTutorialSwipeHint = false;
   final GlobalKey _gamePanelKey = GlobalKey();
   final GlobalKey _agentPanelKey = GlobalKey();
 
@@ -393,6 +396,7 @@ class _BattleScreenState extends State<BattleScreen> {
                                         builder: (_, game, __) => _GamePanel(
                                           battleState: battleState,
                                           gameState: game.state,
+                                          tutorialHintBlock: widget.tutorialSwipeHint,
                                         ),
                                       ),
                                     ),
@@ -440,6 +444,7 @@ class _BattleScreenState extends State<BattleScreen> {
                                         builder: (_, game, __) => _GamePanel(
                                           battleState: battleState,
                                           gameState: game.state,
+                                          tutorialHintBlock: widget.tutorialSwipeHint,
                                         ),
                                       ),
                                     ),
@@ -528,7 +533,22 @@ class _BattleScreenState extends State<BattleScreen> {
                     agentPanelKey: _agentPanelKey,
                     onComplete: () {
                       if (mounted) {
-                        setState(() => _showTutorialIntro = false);
+                        setState(() {
+                          _showTutorialIntro = false;
+                          if (widget.tutorialSwipeHint != null) {
+                            _showTutorialSwipeHint = true;
+                          }
+                        });
+                      }
+                    },
+                  ),
+
+                // 教學滑動提示 Overlay
+                if (_showTutorialSwipeHint && widget.tutorialSwipeHint != null)
+                  _TutorialSwipeHint(
+                    onDismiss: () {
+                      if (mounted) {
+                        setState(() => _showTutorialSwipeHint = false);
                       }
                     },
                   ),
@@ -2847,8 +2867,9 @@ class _InfoStat extends StatelessWidget {
 class _GamePanel extends StatelessWidget {
   final BattleState? battleState;
   final GameState? gameState;
+  final ({int col, int row})? tutorialHintBlock;
 
-  const _GamePanel({required this.battleState, required this.gameState});
+  const _GamePanel({required this.battleState, required this.gameState, this.tutorialHintBlock});
 
   @override
   Widget build(BuildContext context) {
@@ -2866,10 +2887,10 @@ class _GamePanel extends StatelessWidget {
             _ComboBar(combo: gameState!.combo),
 
           // 棋盤
-          const Expanded(
+          Expanded(
             child: Padding(
-              padding: EdgeInsets.all(4),
-              child: Center(child: GameBoard()),
+              padding: const EdgeInsets.all(4),
+              child: Center(child: GameBoard(tutorialHintBlock: tutorialHintBlock)),
             ),
           ),
 
@@ -5284,6 +5305,92 @@ class _PulsingBorderState extends State<_PulsingBorder>
           ),
         );
       },
+    );
+  }
+}
+
+// ═══════════════════════════════════════════
+// 教學滑動提示 Overlay（高亮特定方塊 + 動畫箭頭）
+// ═══════════════════════════════════════════
+
+class _TutorialSwipeHint extends StatefulWidget {
+  final VoidCallback onDismiss;
+
+  const _TutorialSwipeHint({
+    required this.onDismiss,
+  });
+
+  @override
+  State<_TutorialSwipeHint> createState() => _TutorialSwipeHintState();
+}
+
+class _TutorialSwipeHintState extends State<_TutorialSwipeHint> {
+  @override
+  Widget build(BuildContext context) {
+    // 提示文字面板（不遮擋棋盤互動，方塊高亮由 GameBoard 自行渲染）
+    return Positioned(
+      left: 20,
+      right: 20,
+      bottom: MediaQuery.of(context).padding.bottom + 24,
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: _panelBg,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: _woodBorder, width: 2),
+          boxShadow: [
+            BoxShadow(
+              color: _woodDark.withAlpha(60),
+              blurRadius: 12,
+            ),
+          ],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              '👆 長按發光的方塊，往下滑！',
+              style: TextStyle(
+                color: Color(0xFF5D4037),
+                fontSize: AppTheme.fontTitleMd,
+                fontWeight: FontWeight.bold,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              '將方塊移到最下方，讓同色方塊排在一起就能消除！',
+              style: TextStyle(
+                color: const Color(0xFF5D4037).withAlpha(180),
+                fontSize: AppTheme.fontBodyLg,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: widget.onDismiss,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: _woodDark,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                child: const Text(
+                  '我知道了！',
+                  style: TextStyle(
+                    fontSize: AppTheme.fontBodyLg,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
