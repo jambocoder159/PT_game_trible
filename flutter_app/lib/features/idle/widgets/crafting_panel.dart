@@ -65,7 +65,7 @@ class _CraftingPanelState extends State<CraftingPanel> {
                       '🧁 甜點工坊',
                       style: TextStyle(
                         color: AppTheme.textPrimary,
-                        fontSize: 16,
+                        fontSize: AppTheme.fontTitleMd,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
@@ -117,13 +117,13 @@ class _CraftingPanelState extends State<CraftingPanel> {
                             child: const Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                Text('💰', style: TextStyle(fontSize: 16)),
+                                Text('💰', style: TextStyle(fontSize: AppTheme.fontTitleMd)),
                                 SizedBox(width: 6),
                                 Text(
                                   '一鍵售出全部甜點',
                                   style: TextStyle(
                                     color: Color(0xFF7C5E10),
-                                    fontSize: 13,
+                                    fontSize: AppTheme.fontBodyLg,
                                     fontWeight: FontWeight.bold,
                                   ),
                                 ),
@@ -263,7 +263,7 @@ class _FilterChip extends StatelessWidget {
           label,
           style: TextStyle(
             color: isSelected ? AppTheme.accentPrimary : AppTheme.textSecondary,
-            fontSize: 11,
+            fontSize: AppTheme.fontLabelLg,
             fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
           ),
         ),
@@ -314,7 +314,7 @@ class _RecipeCard extends StatelessWidget {
           // 標題行
           Row(
             children: [
-              Text(recipe.emoji, style: const TextStyle(fontSize: 22)),
+              Text(recipe.emoji, style: const TextStyle(fontSize: AppTheme.fontDisplayMd)),
               const SizedBox(width: 8),
               Expanded(
                 child: Column(
@@ -328,7 +328,7 @@ class _RecipeCard extends StatelessWidget {
                             color: isUnlocked
                                 ? AppTheme.textPrimary
                                 : AppTheme.textSecondary,
-                            fontSize: 14,
+                            fontSize: AppTheme.fontBodyLg,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
@@ -344,7 +344,7 @@ class _RecipeCard extends StatelessWidget {
                               'x$owned',
                               style: const TextStyle(
                                 color: AppTheme.accentPrimary,
-                                fontSize: 10,
+                                fontSize: AppTheme.fontLabelLg,
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
@@ -356,7 +356,7 @@ class _RecipeCard extends StatelessWidget {
                       '售價 ${recipe.sellPrice} 🍬',
                       style: TextStyle(
                         color: AppTheme.textSecondary.withAlpha(150),
-                        fontSize: 10,
+                        fontSize: AppTheme.fontLabelLg,
                       ),
                     ),
                   ],
@@ -381,7 +381,7 @@ class _RecipeCard extends StatelessWidget {
                         '售出',
                         style: TextStyle(
                           color: Color(0xFFB8860B),
-                          fontSize: 10,
+                          fontSize: AppTheme.fontLabelLg,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
@@ -406,7 +406,7 @@ class _RecipeCard extends StatelessWidget {
                         color: canCraft
                             ? Colors.white
                             : AppTheme.textSecondary.withAlpha(100),
-                        fontSize: 11,
+                        fontSize: AppTheme.fontLabelLg,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
@@ -442,7 +442,7 @@ class _RecipeCard extends StatelessWidget {
                       color: hasEnough
                           ? const Color(0xFF51CF66)
                           : const Color(0xFFFF6B6B),
-                      fontSize: 10,
+                      fontSize: AppTheme.fontLabelLg,
                     ),
                   ),
                 );
@@ -469,7 +469,7 @@ class _RecipeCard extends StatelessWidget {
             '${recipe.unlock.purchaseCost} 🍬',
             style: const TextStyle(
               color: Color(0xFFB8860B),
-              fontSize: 10,
+              fontSize: AppTheme.fontLabelLg,
               fontWeight: FontWeight.bold,
             ),
           ),
@@ -485,7 +485,7 @@ class _RecipeCard extends StatelessWidget {
           _unlockText(),
           style: TextStyle(
             color: AppTheme.textSecondary.withAlpha(100),
-            fontSize: 9,
+            fontSize: AppTheme.fontLabelSm,
           ),
         ),
       ],

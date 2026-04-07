@@ -95,7 +95,7 @@ class _SkillTierCard extends StatelessWidget {
                     'Tier ${tier.tier}',
                     style: TextStyle(
                       color: borderColor,
-                      fontSize: 12,
+                      fontSize: AppTheme.fontBodyMd,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
@@ -108,7 +108,7 @@ class _SkillTierCard extends StatelessWidget {
                       color: isUnlocked
                           ? AppTheme.textPrimary
                           : AppTheme.textSecondary,
-                      fontSize: 15,
+                      fontSize: AppTheme.fontTitleMd,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
@@ -125,7 +125,7 @@ class _SkillTierCard extends StatelessWidget {
                       '當前',
                       style: TextStyle(
                           color: Colors.amber,
-                          fontSize: 11,
+                          fontSize: AppTheme.fontLabelLg,
                           fontWeight: FontWeight.bold),
                     ),
                   ),
@@ -138,7 +138,7 @@ class _SkillTierCard extends StatelessWidget {
                 color: isUnlocked
                     ? AppTheme.textSecondary
                     : AppTheme.textSecondary.withValues(alpha: 0.6),
-                fontSize: 13,
+                fontSize: AppTheme.fontBodyLg,
               ),
             ),
             if (tier.newMechanic != null) ...[
@@ -151,7 +151,7 @@ class _SkillTierCard extends StatelessWidget {
                     '新機制：${tier.newMechanic!.label}',
                     style: TextStyle(
                       color: Colors.amber.shade300,
-                      fontSize: 12,
+                      fontSize: AppTheme.fontBodyMd,
                     ),
                   ),
                 ],
@@ -200,12 +200,12 @@ class _UpgradeButton extends StatelessWidget {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Text('升級', style: TextStyle(fontSize: 14)),
+            const Text('升級', style: TextStyle(fontSize: AppTheme.fontBodyLg)),
             const SizedBox(width: 8),
             Text(
               '(${_costText()})',
               style: TextStyle(
-                  fontSize: 11, color: AppTheme.textSecondary),
+                  fontSize: AppTheme.fontLabelLg, color: AppTheme.textSecondary),
             ),
           ],
         ),

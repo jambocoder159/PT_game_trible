@@ -63,7 +63,7 @@ class _PauseMenuState extends State<PauseMenu> {
                 // 標題
                 const Text(
                   '暫停',
-                  style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
+                  style: TextStyle(fontSize: AppTheme.fontDisplayLg, fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 24),
 
@@ -190,7 +190,7 @@ class _SettingsPanelState extends State<SettingsPanel> {
             const Text(
               '音效設定',
               style: TextStyle(
-                fontSize: 16,
+                fontSize: AppTheme.fontTitleMd,
                 fontWeight: FontWeight.bold,
                 color: AppTheme.textPrimary,
               ),
@@ -237,7 +237,7 @@ class _SettingsPanelState extends State<SettingsPanel> {
           children: [
             const Text(
               '震動回饋',
-              style: TextStyle(fontSize: 14, color: AppTheme.textPrimary),
+              style: TextStyle(fontSize: AppTheme.fontBodyLg, color: AppTheme.textPrimary),
             ),
             Switch(
               value: _settings.hapticEnabled,
@@ -273,7 +273,7 @@ class _VolumeRow extends StatelessWidget {
           child: Text(
             label,
             style: TextStyle(
-              fontSize: 13,
+              fontSize: AppTheme.fontBodyLg,
               color: muted ? AppTheme.textSecondary : AppTheme.textPrimary,
             ),
           ),
@@ -301,7 +301,7 @@ class _VolumeRow extends StatelessWidget {
             '${(value * 100).round()}',
             textAlign: TextAlign.end,
             style: TextStyle(
-              fontSize: 12,
+              fontSize: AppTheme.fontBodyMd,
               color: muted ? AppTheme.textSecondary : AppTheme.textPrimary,
             ),
           ),

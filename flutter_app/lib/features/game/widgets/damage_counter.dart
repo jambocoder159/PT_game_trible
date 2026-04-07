@@ -3,6 +3,7 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../../../config/theme.dart';
 
 class DamageCounterWidget extends StatefulWidget {
   final Offset position;
@@ -366,7 +367,7 @@ class _DamageCounterWidgetState extends State<DamageCounterWidget>
           label,
           textAlign: TextAlign.center,
           style: const TextStyle(
-            fontSize: 14,
+            fontSize: AppTheme.fontBodyLg,
             fontWeight: FontWeight.w900,
             color: Colors.white,
             shadows: [

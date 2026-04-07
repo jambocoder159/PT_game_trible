@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../config/stage_data.dart';
+import '../../../config/theme.dart';
 import '../../../core/models/block.dart';
 import '../../../core/models/cat_agent.dart';
 import '../../../core/models/enemy.dart';
@@ -73,7 +74,7 @@ class _Phase3BattleScreenState extends State<Phase3BattleScreen> {
 
     if (tutorial.state.currentBattleStage > 0 || tutorial.state.luluRescued) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) tutorial.completeTutorial(player);
+        if (mounted) tutorial.completeTutorial(player, skipAgentUnlock: true);
       });
     }
   }
@@ -92,7 +93,11 @@ class _Phase3BattleScreenState extends State<Phase3BattleScreen> {
   void _onBattleComplete() {
     final player = context.read<PlayerProvider>();
     player.markTutorialStageCleared('1-1');
-    context.read<TutorialProvider>().completeTutorial(player);
+    // 教學精簡版：不提前解鎖露露，讓 1-3 自然解鎖
+    context.read<TutorialProvider>().completeTutorial(
+      player,
+      skipAgentUnlock: true,
+    );
   }
 
   @override
@@ -134,11 +139,11 @@ class _Phase3BattleScreenState extends State<Phase3BattleScreen> {
                 ),
                 const SizedBox(height: 16),
                 const Text('第 1 關',
-                    style: TextStyle(color: Colors.white60, fontSize: 16)),
+                    style: TextStyle(color: Colors.white60, fontSize: AppTheme.fontTitleMd)),
                 const Text('推開店門',
                     style: TextStyle(
                         color: Colors.white,
-                        fontSize: 22,
+                        fontSize: AppTheme.fontDisplayMd,
                         fontWeight: FontWeight.bold)),
               ],
             ),

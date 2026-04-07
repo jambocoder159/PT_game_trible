@@ -27,7 +27,7 @@ class MaterialInventoryBar extends StatelessWidget {
           child: owned.isEmpty
               ? const Text(
                   '暫無素材',
-                  style: TextStyle(color: AppTheme.textSecondary, fontSize: 12),
+                  style: TextStyle(color: AppTheme.textSecondary, fontSize: AppTheme.fontBodyMd),
                 )
               : SingleChildScrollView(
                   scrollDirection: Axis.horizontal,
@@ -39,13 +39,13 @@ class MaterialInventoryBar extends StatelessWidget {
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Text(type.emoji, style: const TextStyle(fontSize: 14)),
+                            Text(type.emoji, style: const TextStyle(fontSize: AppTheme.fontBodyLg)),
                             const SizedBox(width: 3),
                             Text(
                               '$count',
                               style: const TextStyle(
                                 color: AppTheme.textPrimary,
-                                fontSize: 13,
+                                fontSize: AppTheme.fontBodyLg,
                                 fontWeight: FontWeight.bold,
                               ),
                             ),

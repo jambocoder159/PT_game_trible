@@ -222,7 +222,7 @@ class _NameBanner extends StatelessWidget {
                 displayName,
                 style: const TextStyle(
                   color: AppTheme.textPrimary,
-                  fontSize: 18,
+                  fontSize: AppTheme.fontTitleLg,
                   fontWeight: FontWeight.bold,
                   letterSpacing: 2,
                 ),
@@ -240,7 +240,7 @@ class _NameBanner extends StatelessWidget {
               'Lv.$level',
               style: const TextStyle(
                 color: AppTheme.textPrimary,
-                fontSize: 13,
+                fontSize: AppTheme.fontBodyLg,
                 fontWeight: FontWeight.bold,
               ),
             ),
@@ -325,7 +325,7 @@ class _CharacterCard extends StatelessWidget {
                           '${definition.role.label}型',
                           style: TextStyle(
                             color: attrColor,
-                            fontSize: 12,
+                            fontSize: AppTheme.fontBodyMd,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
@@ -339,7 +339,7 @@ class _CharacterCard extends StatelessWidget {
                       '種族：${definition.breed}',
                       style: const TextStyle(
                         color: AppTheme.textSecondary,
-                        fontSize: 10,
+                        fontSize: AppTheme.fontLabelLg,
                       ),
                     ),
                   ),
@@ -458,7 +458,7 @@ class _CharacterCard extends StatelessWidget {
                                   definition.skill.name,
                                   style: TextStyle(
                                     color: attrColor,
-                                    fontSize: 12,
+                                    fontSize: AppTheme.fontBodyMd,
                                     fontWeight: FontWeight.bold,
                                   ),
                                   overflow: TextOverflow.ellipsis,
@@ -475,7 +475,7 @@ class _CharacterCard extends StatelessWidget {
                                   '${definition.skill.energyCost}',
                                   style: TextStyle(
                                     color: Colors.amber.shade800,
-                                    fontSize: 10,
+                                    fontSize: AppTheme.fontLabelLg,
                                     fontWeight: FontWeight.bold,
                                   ),
                                 ),
@@ -487,7 +487,7 @@ class _CharacterCard extends StatelessWidget {
                             definition.passiveDescription,
                             style: const TextStyle(
                               color: AppTheme.textSecondary,
-                              fontSize: 10,
+                              fontSize: AppTheme.fontLabelLg,
                             ),
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
@@ -608,7 +608,7 @@ class _StatRow extends StatelessWidget {
                       '$value',
                       style: TextStyle(
                         color: AppTheme.textPrimary,
-                        fontSize: 12,
+                        fontSize: AppTheme.fontBodyMd,
                         fontWeight: FontWeight.bold,
                         shadows: [Shadow(color: Colors.white.withAlpha(200), blurRadius: 4)],
                       ),
@@ -661,7 +661,7 @@ class _RarityStars extends StatelessWidget {
             rarity.display,
             style: TextStyle(
               color: starColor,
-              fontSize: 10,
+              fontSize: AppTheme.fontLabelLg,
               fontWeight: FontWeight.bold,
             ),
           ),
@@ -725,7 +725,7 @@ class _TrainingBar extends StatelessWidget {
               'EXP',
               style: TextStyle(
                 color: Colors.green.shade700,
-                fontSize: 10,
+                fontSize: AppTheme.fontLabelLg,
                 fontWeight: FontWeight.bold,
               ),
             ),
@@ -762,7 +762,7 @@ class _TrainingBar extends StatelessWidget {
                       isMaxLevel ? 'MAX' : '$currentExp / $expForNext',
                       style: TextStyle(
                         color: AppTheme.textPrimary,
-                        fontSize: 9,
+                        fontSize: AppTheme.fontLabelSm,
                         fontWeight: FontWeight.bold,
                         shadows: [Shadow(color: Colors.white.withAlpha(200), blurRadius: 3)],
                       ),
@@ -784,15 +784,40 @@ class _TrainingBar extends StatelessWidget {
               onTap: () {
                 final provider = context.read<PlayerProvider>();
                 if (provider.data.gold >= 50) {
+                  // 記錄升級前的數值
+                  final agent = provider.data.agents[definition.id]!;
+                  final lvBefore = agent.level;
+                  final atkBefore = definition.atkAtLevel(lvBefore);
+                  final defBefore = definition.defAtLevel(lvBefore);
+                  final hpBefore = definition.hpAtLevel(lvBefore);
+
                   HapticFeedback.lightImpact();
                   provider.addGold(-50);
                   provider.levelUpAgent(definition.id, 30);
+
+                  final lvAfter = agent.level;
+                  final didLevelUp = lvAfter > lvBefore;
+
+                  String msg;
+                  if (didLevelUp) {
+                    final atkAfter = definition.atkAtLevel(lvAfter);
+                    final defAfter = definition.defAtLevel(lvAfter);
+                    final hpAfter = definition.hpAtLevel(lvAfter);
+                    msg = '🎉 Lv.$lvBefore → Lv.$lvAfter！'
+                        ' ATK $atkBefore→$atkAfter'
+                        ' DEF $defBefore→$defAfter'
+                        ' HP $hpBefore→$hpAfter';
+                  } else {
+                    msg = '獲得 30 EXP！(消耗 50 金幣)';
+                  }
+
                   ScaffoldMessenger.of(context)
                     ..clearSnackBars()
                     ..showSnackBar(
-                      const SnackBar(
-                        content: Text('獲得 30 EXP！(消耗 50 金幣)'),
+                      SnackBar(
+                        content: Text(msg),
                         backgroundColor: Colors.green,
+                        duration: Duration(seconds: didLevelUp ? 3 : 2),
                       ),
                     );
                 } else {
@@ -853,7 +878,7 @@ class _ActionButton extends StatelessWidget {
               label,
               style: TextStyle(
                 color: enabled ? Colors.white : AppTheme.textSecondary,
-                fontSize: 11,
+                fontSize: AppTheme.fontLabelLg,
                 fontWeight: FontWeight.bold,
               ),
             ),
@@ -862,12 +887,12 @@ class _ActionButton extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   if (costIcon != null)
-                    Text(costIcon!, style: const TextStyle(fontSize: 10)),
+                    Text(costIcon!, style: const TextStyle(fontSize: AppTheme.fontLabelLg)),
                   Text(
                     '$cost',
                     style: TextStyle(
                       color: enabled ? Colors.white70 : AppTheme.textSecondary,
-                      fontSize: 10,
+                      fontSize: AppTheme.fontLabelLg,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
@@ -940,10 +965,10 @@ class _TabSectionState extends State<_TabSection>
                 labelColor: widget.attrColor,
                 unselectedLabelColor: AppTheme.textSecondary,
                 labelStyle: const TextStyle(
-                  fontSize: 13,
+                  fontSize: AppTheme.fontBodyLg,
                   fontWeight: FontWeight.bold,
                 ),
-                unselectedLabelStyle: const TextStyle(fontSize: 12),
+                unselectedLabelStyle: const TextStyle(fontSize: AppTheme.fontBodyMd),
                 dividerColor: Colors.transparent,
                 tabs: const [
                   Tab(text: '進化', height: 36),

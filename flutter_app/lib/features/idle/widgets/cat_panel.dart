@@ -154,7 +154,7 @@ class CatPanel extends StatelessWidget {
                 '${agentDef.name} — ${agentDef.skill.name}',
                 style: const TextStyle(
                   color: AppTheme.textPrimary,
-                  fontSize: 15,
+                  fontSize: AppTheme.fontTitleMd,
                   fontWeight: FontWeight.bold,
                 ),
                 textAlign: TextAlign.center,
@@ -171,7 +171,7 @@ class CatPanel extends StatelessWidget {
                     '🎯 ${effect.description}',
                     style: TextStyle(
                       color: attrColor,
-                      fontSize: 12,
+                      fontSize: AppTheme.fontBodyMd,
                     ),
                     textAlign: TextAlign.center,
                   ),
@@ -253,7 +253,7 @@ class CatPanel extends StatelessWidget {
                 '選擇欄位 ${slotIndex + 1} 的角色',
                 style: const TextStyle(
                   color: AppTheme.textPrimary,
-                  fontSize: 16,
+                  fontSize: AppTheme.fontTitleMd,
                   fontWeight: FontWeight.bold,
                 ),
               ),
@@ -280,7 +280,7 @@ class CatPanel extends StatelessWidget {
                       child: const Center(
                         child: Text(
                           '移除此欄位角色',
-                          style: TextStyle(color: Colors.red, fontSize: 13),
+                          style: TextStyle(color: Colors.red, fontSize: AppTheme.fontBodyLg),
                         ),
                       ),
                     ),
@@ -335,7 +335,7 @@ class CatPanel extends StatelessWidget {
                                   color: inTeam
                                       ? AppTheme.textSecondary
                                       : AppTheme.textPrimary,
-                                  fontSize: 14,
+                                  fontSize: AppTheme.fontBodyLg,
                                   fontWeight: FontWeight.bold,
                                 ),
                               ),
@@ -343,7 +343,7 @@ class CatPanel extends StatelessWidget {
                                 '${info.definition.role.label} · Lv.${info.level}',
                                 style: const TextStyle(
                                   color: AppTheme.textSecondary,
-                                  fontSize: 11,
+                                  fontSize: AppTheme.fontLabelLg,
                                 ),
                               ),
                             ],
@@ -354,7 +354,7 @@ class CatPanel extends StatelessWidget {
                             '已上陣',
                             style: TextStyle(
                               color: AppTheme.textSecondary,
-                              fontSize: 11,
+                              fontSize: AppTheme.fontLabelLg,
                             ),
                           ),
                       ],
@@ -501,13 +501,13 @@ class _CollectButton extends StatelessWidget {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Text('🎁', style: TextStyle(fontSize: 14)),
+            const Text('🎁', style: TextStyle(fontSize: AppTheme.fontBodyLg)),
             const SizedBox(width: 4),
             Text(
               '收集寶箱 x$totalChests',
               style: const TextStyle(
                 color: Colors.white,
-                fontSize: 11,
+                fontSize: AppTheme.fontLabelLg,
                 fontWeight: FontWeight.bold,
               ),
             ),
@@ -641,7 +641,7 @@ class _AgentCardState extends State<_AgentCard>
                         widget.agentDef.name,
                         style: const TextStyle(
                           color: AppTheme.textPrimary,
-                          fontSize: 10,
+                          fontSize: AppTheme.fontLabelLg,
                           fontWeight: FontWeight.bold,
                         ),
                         overflow: TextOverflow.ellipsis,
@@ -675,7 +675,7 @@ class _AgentCardState extends State<_AgentCard>
                       '施放',
                       style: TextStyle(
                         color: Colors.white,
-                        fontSize: 8,
+                        fontSize: AppTheme.fontLabelSm,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
@@ -685,7 +685,7 @@ class _AgentCardState extends State<_AgentCard>
                     '$energy/$cost',
                     style: TextStyle(
                       color: AppTheme.textSecondary.withAlpha(120),
-                      fontSize: 8,
+                      fontSize: AppTheme.fontLabelSm,
                     ),
                   ),
               ],
@@ -742,7 +742,7 @@ class _EmptySlot extends StatelessWidget {
               '欄位 ${index + 1}',
               style: TextStyle(
                 color: AppTheme.textSecondary.withAlpha(120),
-                fontSize: 10,
+                fontSize: AppTheme.fontLabelLg,
               ),
             ),
           ],
@@ -785,7 +785,7 @@ class _FoodOverview extends StatelessWidget {
             padding: const EdgeInsets.symmetric(vertical: 1),
             child: Row(
               children: [
-                Text(catDef.emoji, style: const TextStyle(fontSize: 9)),
+                Text(catDef.emoji, style: const TextStyle(fontSize: AppTheme.fontLabelSm)),
                 const SizedBox(width: 3),
                 Expanded(
                   child: ClipRRect(
@@ -803,7 +803,7 @@ class _FoodOverview extends StatelessWidget {
                 if (isFull)
                   const Padding(
                     padding: EdgeInsets.only(left: 2),
-                    child: Text('🎁', style: TextStyle(fontSize: 8)),
+                    child: Text('🎁', style: TextStyle(fontSize: AppTheme.fontLabelSm)),
                   ),
               ],
             ),
@@ -946,7 +946,7 @@ class _RewardDialogState extends State<_RewardDialog>
                         '開啟 ${widget.chestCount} 個寶箱',
                         style: TextStyle(
                           color: rarityColor,
-                          fontSize: 14,
+                          fontSize: AppTheme.fontBodyLg,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
@@ -961,7 +961,7 @@ class _RewardDialogState extends State<_RewardDialog>
                         _rarityLabel(widget.maxRarity),
                         style: TextStyle(
                           color: rarityColor,
-                          fontSize: 11,
+                          fontSize: AppTheme.fontLabelLg,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
@@ -971,13 +971,13 @@ class _RewardDialogState extends State<_RewardDialog>
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        const Text('🪙', style: TextStyle(fontSize: 20)),
+                        const Text('🪙', style: TextStyle(fontSize: AppTheme.fontDisplayMd)),
                         const SizedBox(width: 4),
                         Text(
                           '+${widget.totalGold}',
                           style: const TextStyle(
                             color: Color(0xFFFFD700),
-                            fontSize: 20,
+                            fontSize: AppTheme.fontDisplayMd,
                             fontWeight: FontWeight.bold,
                           ),
                         ),

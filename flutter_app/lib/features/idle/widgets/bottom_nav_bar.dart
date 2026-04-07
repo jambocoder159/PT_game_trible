@@ -142,7 +142,7 @@ class _NavBarItem extends StatelessWidget {
           label,
           style: TextStyle(
             color: color,
-            fontSize: 10,
+            fontSize: AppTheme.fontLabelLg,
             fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
           ),
         ),

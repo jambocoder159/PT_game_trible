@@ -642,7 +642,7 @@ class _WoodTopBar extends StatelessWidget {
                 Text(
                   'STAGE ${stage.id}',
                   style: const TextStyle(
-                    fontSize: 9,
+                    fontSize: AppTheme.fontLabelSm,
                     fontWeight: FontWeight.w600,
                     color: Colors.white70,
                     letterSpacing: 0.5,
@@ -651,7 +651,7 @@ class _WoodTopBar extends StatelessWidget {
                 Text(
                   stage.name,
                   style: const TextStyle(
-                    fontSize: 14,
+                    fontSize: AppTheme.fontBodyLg,
                     fontWeight: FontWeight.w800,
                     color: Color(0xFFFFF3CD),
                     shadows: [Shadow(color: Colors.black38, blurRadius: 2)],
@@ -1311,7 +1311,7 @@ class _PhaseBannerWidgetState extends State<_PhaseBannerWidget>
                 widget.text,
                 style: const TextStyle(
                   color: Colors.white,
-                  fontSize: 18,
+                  fontSize: AppTheme.fontTitleLg,
                   fontWeight: FontWeight.w900,
                   letterSpacing: 3,
                   shadows: [
@@ -1585,11 +1585,11 @@ class _RushAttackWidgetState extends State<_RushAttackWidget>
           fit: BoxFit.cover,
           errorBuilder: (_, __, ___) => Text(
             data.emoji,
-            style: const TextStyle(fontSize: 24),
+            style: const TextStyle(fontSize: AppTheme.fontDisplayLg),
           ),
         );
       } else {
-        imageWidget = Text(data.emoji, style: const TextStyle(fontSize: 24));
+        imageWidget = Text(data.emoji, style: const TextStyle(fontSize: AppTheme.fontDisplayLg));
       }
     } else if (!isPlayer && agentId != null) {
       imageWidget = GameImage(
@@ -1599,7 +1599,7 @@ class _RushAttackWidgetState extends State<_RushAttackWidget>
         height: 36,
       );
     } else {
-      imageWidget = Text(data.emoji, style: const TextStyle(fontSize: 24));
+      imageWidget = Text(data.emoji, style: const TextStyle(fontSize: AppTheme.fontDisplayLg));
     }
 
     return Container(
@@ -1987,7 +1987,7 @@ class _EnemyCard extends StatelessWidget {
                   '${enemy.definition.name} ✕',
                   style: TextStyle(
                     color: AppTheme.textSecondary.withAlpha(100),
-                    fontSize: 10,
+                    fontSize: AppTheme.fontLabelLg,
                     decoration: TextDecoration.lineThrough,
                   ),
                 ),
@@ -2101,7 +2101,7 @@ class _EnemyCard extends StatelessWidget {
                               enemy.definition.name,
                               style: const TextStyle(
                                 color: Colors.white,
-                                fontSize: 12,
+                                fontSize: AppTheme.fontBodyMd,
                                 fontWeight: FontWeight.bold,
                                 shadows: [
                                   Shadow(color: Colors.black87, blurRadius: 3)
@@ -2141,7 +2141,7 @@ class _EnemyCard extends StatelessWidget {
                             '${enemy.currentHp}/${enemy.maxHp}',
                             style: const TextStyle(
                               color: Colors.white70,
-                              fontSize: 9,
+                              fontSize: AppTheme.fontLabelSm,
                               fontWeight: FontWeight.bold,
                             ),
                           ),
@@ -2150,7 +2150,7 @@ class _EnemyCard extends StatelessWidget {
                             'ATK ${enemy.atk}',
                             style: TextStyle(
                               color: Colors.red.shade200,
-                              fontSize: 9,
+                              fontSize: AppTheme.fontLabelSm,
                               fontWeight: FontWeight.bold,
                             ),
                           ),
@@ -2318,7 +2318,7 @@ class _PlayerCardsSection extends StatelessWidget {
                 '${agent.definition.name} — ${agent.definition.skill.name}',
                 style: const TextStyle(
                   color: AppTheme.textPrimary,
-                  fontSize: 15,
+                  fontSize: AppTheme.fontTitleMd,
                   fontWeight: FontWeight.bold,
                 ),
                 textAlign: TextAlign.center,
@@ -2334,7 +2334,7 @@ class _PlayerCardsSection extends StatelessWidget {
                   ),
                   child: Text(
                     '🎯 ${effect.description}',
-                    style: TextStyle(color: color, fontSize: 12),
+                    style: TextStyle(color: color, fontSize: AppTheme.fontBodyMd),
                     textAlign: TextAlign.center,
                   ),
                 ),
@@ -2353,7 +2353,7 @@ class _PlayerCardsSection extends StatelessWidget {
                           battleProvider.activateSkill(index,
                               useAttackOnly: true);
                         },
-                        icon: const Text('⚔️', style: TextStyle(fontSize: 16)),
+                        icon: const Text('⚔️', style: TextStyle(fontSize: AppTheme.fontTitleMd)),
                         label: const Text('進攻'),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.red.shade700,
@@ -2376,9 +2376,9 @@ class _PlayerCardsSection extends StatelessWidget {
                           battleProvider.activateSkill(index,
                               useBoardOnly: true);
                         },
-                        icon: const Text('🧩', style: TextStyle(fontSize: 16)),
+                        icon: const Text('🧩', style: TextStyle(fontSize: AppTheme.fontTitleMd)),
                         label: Text(effect.description,
-                            style: const TextStyle(fontSize: 12)),
+                            style: const TextStyle(fontSize: AppTheme.fontBodyMd)),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: color,
                           foregroundColor: Colors.white,
@@ -2502,7 +2502,7 @@ class _CatAgentCard extends StatelessWidget {
                           '${def.name} Lv.${agent.level}',
                           style: const TextStyle(
                             color: AppTheme.textPrimary,
-                            fontSize: 16,
+                            fontSize: AppTheme.fontTitleMd,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
@@ -2510,7 +2510,7 @@ class _CatAgentCard extends StatelessWidget {
                           '${def.breed} · ${def.role.label}',
                           style: const TextStyle(
                             color: AppTheme.textSecondary,
-                            fontSize: 12,
+                            fontSize: AppTheme.fontBodyMd,
                           ),
                         ),
                       ],
@@ -2543,7 +2543,7 @@ class _CatAgentCard extends StatelessWidget {
                       style: const TextStyle(
                         color: AppTheme.textPrimary,
                         fontWeight: FontWeight.bold,
-                        fontSize: 13,
+                        fontSize: AppTheme.fontBodyLg,
                       ),
                     ),
                     const SizedBox(height: 4),
@@ -2551,7 +2551,7 @@ class _CatAgentCard extends StatelessWidget {
                       def.skill.description,
                       style: const TextStyle(
                         color: AppTheme.textSecondary,
-                        fontSize: 12,
+                        fontSize: AppTheme.fontBodyMd,
                       ),
                     ),
                     const SizedBox(height: 4),
@@ -2559,7 +2559,7 @@ class _CatAgentCard extends StatelessWidget {
                       '能量消耗: ${def.skill.energyCost}',
                       style: TextStyle(
                         color: Colors.amber.shade300,
-                        fontSize: 11,
+                        fontSize: AppTheme.fontLabelLg,
                       ),
                     ),
                     if (def.skill.boardEffect != null)
@@ -2569,7 +2569,7 @@ class _CatAgentCard extends StatelessWidget {
                           '🧩 ${def.skill.boardEffect!.description}',
                           style: TextStyle(
                             color: Colors.cyan.shade300,
-                            fontSize: 11,
+                            fontSize: AppTheme.fontLabelLg,
                           ),
                         ),
                       ),
@@ -2581,7 +2581,7 @@ class _CatAgentCard extends StatelessWidget {
                 '💡 被動：${def.passiveDescription}',
                 style: const TextStyle(
                   color: AppTheme.textSecondary,
-                  fontSize: 12,
+                  fontSize: AppTheme.fontBodyMd,
                 ),
               ),
               const SizedBox(height: 16),
@@ -2703,7 +2703,7 @@ class _CatAgentCard extends StatelessWidget {
                                 agent.definition.name,
                                 style: const TextStyle(
                                   color: Colors.white,
-                                  fontSize: 12,
+                                  fontSize: AppTheme.fontBodyMd,
                                   fontWeight: FontWeight.bold,
                                   shadows: [
                                     Shadow(color: Colors.black87, blurRadius: 3)
@@ -2722,7 +2722,7 @@ class _CatAgentCard extends StatelessWidget {
                                 'Lv.${agent.level}',
                                 style: TextStyle(
                                   color: color,
-                                  fontSize: 9,
+                                  fontSize: AppTheme.fontLabelSm,
                                   fontWeight: FontWeight.bold,
                                 ),
                               ),
@@ -2737,7 +2737,7 @@ class _CatAgentCard extends StatelessWidget {
                               'ATK ${agent.atk}',
                               style: TextStyle(
                                 color: Colors.orange.shade200,
-                                fontSize: 10,
+                                fontSize: AppTheme.fontLabelLg,
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
@@ -2746,7 +2746,7 @@ class _CatAgentCard extends StatelessWidget {
                               'DEF ${agent.def}',
                               style: TextStyle(
                                 color: Colors.blue.shade200,
-                                fontSize: 10,
+                                fontSize: AppTheme.fontLabelLg,
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
@@ -2771,7 +2771,7 @@ class _CatAgentCard extends StatelessWidget {
                             '▶ 點擊施放技能',
                             style: TextStyle(
                               color: Colors.amber,
-                              fontSize: 9,
+                              fontSize: AppTheme.fontLabelSm,
                               fontWeight: FontWeight.bold,
                             ),
                           )
@@ -2780,7 +2780,7 @@ class _CatAgentCard extends StatelessWidget {
                             '能量 ${agent.currentEnergy}/${agent.maxEnergy}',
                             style: const TextStyle(
                               color: Colors.white54,
-                              fontSize: 9,
+                              fontSize: AppTheme.fontLabelSm,
                             ),
                           ),
                       ],
@@ -2824,7 +2824,7 @@ class _InfoStat extends StatelessWidget {
           value,
           style: TextStyle(
             color: color,
-            fontSize: 18,
+            fontSize: AppTheme.fontTitleLg,
             fontWeight: FontWeight.bold,
           ),
         ),
@@ -2832,7 +2832,7 @@ class _InfoStat extends StatelessWidget {
           label,
           style: const TextStyle(
             color: AppTheme.textSecondary,
-            fontSize: 11,
+            fontSize: AppTheme.fontLabelLg,
           ),
         ),
       ],
@@ -2930,7 +2930,7 @@ class _WoodBottomBar extends StatelessWidget {
             style: TextStyle(
               color: isLow ? Colors.red : const Color(0xFFFBBF24),
               fontWeight: FontWeight.w900,
-              fontSize: 16,
+              fontSize: AppTheme.fontTitleMd,
             ),
           ),
         ],
@@ -2968,7 +2968,7 @@ class _ComboBar extends StatelessWidget {
             '${combo}x Combo!',
             style: const TextStyle(
               color: Colors.white,
-              fontSize: 12,
+              fontSize: AppTheme.fontBodyMd,
               fontWeight: FontWeight.bold,
             ),
           ),
@@ -3010,7 +3010,7 @@ class _SkillEffectBar extends StatelessWidget {
               event.message,
               style: TextStyle(
                 color: color,
-                fontSize: 10,
+                fontSize: AppTheme.fontLabelLg,
                 fontWeight: FontWeight.bold,
               ),
               maxLines: 1,
@@ -3130,7 +3130,7 @@ class _BattleEndOverlay extends StatelessWidget {
                     Text(
                       isVictory ? '任務完成！' : '任務失敗',
                       style: TextStyle(
-                        fontSize: 26,
+                        fontSize: AppTheme.fontDisplayLg,
                         fontWeight: FontWeight.bold,
                         color: titleColor,
                       ),
@@ -3194,7 +3194,7 @@ class _BattleEndOverlay extends StatelessWidget {
                             '(重複通關 — 半額獎勵)',
                             style: TextStyle(
                               color: AppTheme.textSecondary.withAlpha(180),
-                              fontSize: 11,
+                              fontSize: AppTheme.fontLabelLg,
                             ),
                           ),
                         ),
@@ -3208,7 +3208,7 @@ class _BattleEndOverlay extends StatelessWidget {
                             '素材掉落',
                             style: TextStyle(
                               color: AppTheme.textSecondary,
-                              fontSize: 12,
+                              fontSize: AppTheme.fontBodyMd,
                               fontWeight: FontWeight.w600,
                             ),
                           ),
@@ -3231,7 +3231,7 @@ class _BattleEndOverlay extends StatelessWidget {
                                 '${e.key.emoji} x${e.value}',
                                 style: const TextStyle(
                                   color: AppTheme.textPrimary,
-                                  fontSize: 13,
+                                  fontSize: AppTheme.fontBodyLg,
                                 ),
                               ),
                             );
@@ -3278,14 +3278,14 @@ class _BattleEndOverlay extends StatelessWidget {
                             child: Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                const Text('🎉', style: TextStyle(fontSize: 20)),
+                                const Text('🎉', style: TextStyle(fontSize: AppTheme.fontDisplayMd)),
                                 const SizedBox(width: 8),
                                 Text(
                                   '新夥伴加入！點擊查看',
                                   style: TextStyle(
                                     color: Colors.amber,
                                     fontWeight: FontWeight.bold,
-                                    fontSize: 15,
+                                    fontSize: AppTheme.fontTitleMd,
                                   ),
                                 ),
                               ],
@@ -3302,7 +3302,7 @@ class _BattleEndOverlay extends StatelessWidget {
                         '調整隊伍再挑戰一次吧！',
                         style: TextStyle(
                           color: AppTheme.textSecondary,
-                          fontSize: 14,
+                          fontSize: AppTheme.fontBodyLg,
                         ),
                       ),
                     ],
@@ -3333,7 +3333,7 @@ class _BattleEndOverlay extends StatelessWidget {
                               onPressed: onExit,
                               icon: const Icon(Icons.map_outlined, size: 16),
                               label: const Text('返回地圖',
-                                  style: TextStyle(fontSize: 13)),
+                                  style: TextStyle(fontSize: AppTheme.fontBodyLg)),
                               style: OutlinedButton.styleFrom(
                                 foregroundColor: AppTheme.textPrimary,
                                 side: BorderSide(
@@ -3349,7 +3349,7 @@ class _BattleEndOverlay extends StatelessWidget {
                               onPressed: onRetry,
                               icon: const Icon(Icons.refresh, size: 16),
                               label: const Text('再戰一次',
-                                  style: TextStyle(fontSize: 13)),
+                                  style: TextStyle(fontSize: AppTheme.fontBodyLg)),
                               style: OutlinedButton.styleFrom(
                                 foregroundColor: AppTheme.textPrimary,
                                 side: BorderSide(
@@ -3430,7 +3430,7 @@ class _RewardSection extends StatelessWidget {
           label,
           style: const TextStyle(
             color: AppTheme.textSecondary,
-            fontSize: 14,
+            fontSize: AppTheme.fontBodyLg,
           ),
         ),
         const Spacer(),
@@ -3438,7 +3438,7 @@ class _RewardSection extends StatelessWidget {
           value,
           style: const TextStyle(
             color: AppTheme.textPrimary,
-            fontSize: 18,
+            fontSize: AppTheme.fontTitleLg,
             fontWeight: FontWeight.bold,
           ),
         ),
@@ -3472,13 +3472,13 @@ class _RewardCard extends StatelessWidget {
       ),
       child: Column(
         children: [
-          Text(emoji, style: const TextStyle(fontSize: 22)),
+          Text(emoji, style: const TextStyle(fontSize: AppTheme.fontDisplayMd)),
           const SizedBox(height: 4),
           Text(
             value,
             style: TextStyle(
               color: color,
-              fontSize: 16,
+              fontSize: AppTheme.fontTitleMd,
               fontWeight: FontWeight.bold,
             ),
           ),
@@ -3486,7 +3486,7 @@ class _RewardCard extends StatelessWidget {
             label,
             style: const TextStyle(
               color: AppTheme.textSecondary,
-              fontSize: 11,
+              fontSize: AppTheme.fontLabelLg,
             ),
           ),
         ],
@@ -3576,7 +3576,7 @@ class _AttackIntent extends StatelessWidget {
               '$atk',
               style: const TextStyle(
                 color: Colors.red,
-                fontSize: 8,
+                fontSize: AppTheme.fontLabelSm,
                 fontWeight: FontWeight.bold,
               ),
             ),
@@ -3590,7 +3590,7 @@ class _AttackIntent extends StatelessWidget {
               '$countdown',
               style: TextStyle(
                 color: isWarning ? Colors.orange : Colors.white54,
-                fontSize: 8,
+                fontSize: AppTheme.fontLabelSm,
                 fontWeight: FontWeight.bold,
               ),
             ),
@@ -3654,7 +3654,7 @@ class _TeamStatusBar extends StatelessWidget {
                 '${battleState.teamCurrentHp}',
                 style: const TextStyle(
                   color: Colors.white,
-                  fontSize: 8,
+                  fontSize: AppTheme.fontLabelSm,
                   fontWeight: FontWeight.bold,
                 ),
               ),
@@ -3987,7 +3987,7 @@ class _SkillBannerAnimationState extends State<_SkillBannerAnimation>
                                   widget.agentName,
                                   style: TextStyle(
                                     color: widget.color,
-                                    fontSize: 14,
+                                    fontSize: AppTheme.fontBodyLg,
                                     fontWeight: FontWeight.bold,
                                     letterSpacing: 2,
                                     shadows: [
@@ -4004,7 +4004,7 @@ class _SkillBannerAnimationState extends State<_SkillBannerAnimation>
                                   widget.skillName,
                                   style: TextStyle(
                                     color: Colors.white,
-                                    fontSize: 22,
+                                    fontSize: AppTheme.fontDisplayMd,
                                     fontWeight: FontWeight.w900,
                                     letterSpacing: 3,
                                     shadows: [
@@ -4543,7 +4543,7 @@ class _BossIntroOverlayState extends State<_BossIntroOverlay>
                               dialogue.bossName,
                               style: const TextStyle(
                                 color: Colors.white,
-                                fontSize: 14,
+                                fontSize: AppTheme.fontBodyLg,
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
@@ -4556,7 +4556,7 @@ class _BossIntroOverlayState extends State<_BossIntroOverlay>
                               _displayedText,
                               style: const TextStyle(
                                 color: Colors.white,
-                                fontSize: 16,
+                                fontSize: AppTheme.fontTitleMd,
                                 height: 1.5,
                                 shadows: [
                                   Shadow(
@@ -4577,7 +4577,7 @@ class _BossIntroOverlayState extends State<_BossIntroOverlay>
                                 color: isLastLine
                                     ? Colors.amber
                                     : Colors.white.withAlpha(180),
-                                fontSize: 12,
+                                fontSize: AppTheme.fontBodyMd,
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
@@ -4667,7 +4667,7 @@ class _FirstBattleGuide extends StatelessWidget {
                   s.title,
                   style: const TextStyle(
                     color: Color(0xFF5D4037),
-                    fontSize: 18,
+                    fontSize: AppTheme.fontTitleLg,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
@@ -4676,7 +4676,7 @@ class _FirstBattleGuide extends StatelessWidget {
                   s.description,
                   style: TextStyle(
                     color: const Color(0xFF5D4037).withAlpha(200),
-                    fontSize: 14,
+                    fontSize: AppTheme.fontBodyLg,
                     height: 1.5,
                   ),
                 ),
@@ -4696,7 +4696,7 @@ class _FirstBattleGuide extends StatelessWidget {
                     child: Text(
                       s.buttonText,
                       style: const TextStyle(
-                        fontSize: 16,
+                        fontSize: AppTheme.fontTitleMd,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
@@ -5012,7 +5012,7 @@ class _TutorialBattleIntroState extends State<_TutorialBattleIntro>
                 '▶ 點擊繼續',
                 style: TextStyle(
                   color: Colors.white.withAlpha(180),
-                  fontSize: 12,
+                  fontSize: AppTheme.fontBodyMd,
                   fontWeight: FontWeight.bold,
                 ),
               ),
@@ -5110,7 +5110,7 @@ class _TutorialBattleIntroState extends State<_TutorialBattleIntro>
               step.speakerName ?? '',
               style: const TextStyle(
                 color: Colors.white,
-                fontSize: 14,
+                fontSize: AppTheme.fontBodyLg,
                 fontWeight: FontWeight.bold,
               ),
             ),
@@ -5123,7 +5123,7 @@ class _TutorialBattleIntroState extends State<_TutorialBattleIntro>
               _displayedText,
               style: const TextStyle(
                 color: Colors.white,
-                fontSize: 16,
+                fontSize: AppTheme.fontTitleMd,
                 height: 1.5,
                 shadows: [Shadow(color: Colors.black, blurRadius: 4)],
               ),
@@ -5160,7 +5160,7 @@ class _TutorialBattleIntroState extends State<_TutorialBattleIntro>
               step.guideTitle ?? '',
               style: const TextStyle(
                 color: Color(0xFF5D4037),
-                fontSize: 18,
+                fontSize: AppTheme.fontTitleLg,
                 fontWeight: FontWeight.bold,
               ),
             ),
@@ -5169,7 +5169,7 @@ class _TutorialBattleIntroState extends State<_TutorialBattleIntro>
               _displayedText,
               style: TextStyle(
                 color: const Color(0xFF5D4037).withAlpha(200),
-                fontSize: 14,
+                fontSize: AppTheme.fontBodyLg,
                 height: 1.5,
               ),
             ),
@@ -5190,7 +5190,7 @@ class _TutorialBattleIntroState extends State<_TutorialBattleIntro>
                   child: Text(
                     step.buttonText!,
                     style: const TextStyle(
-                      fontSize: 16,
+                      fontSize: AppTheme.fontTitleMd,
                       fontWeight: FontWeight.bold,
                     ),
                   ),

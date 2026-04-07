@@ -96,7 +96,7 @@ class _CurrentStageCard extends StatelessWidget {
             ),
             child: Center(
               child: Text(definition.attribute.emoji,
-                  style: const TextStyle(fontSize: 24)),
+                  style: const TextStyle(fontSize: AppTheme.fontDisplayLg)),
             ),
           ),
           const SizedBox(width: 12),
@@ -108,7 +108,7 @@ class _CurrentStageCard extends StatelessWidget {
                   _getDisplayName(),
                   style: const TextStyle(
                     color: AppTheme.textPrimary,
-                    fontSize: 16,
+                    fontSize: AppTheme.fontTitleMd,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
@@ -125,7 +125,7 @@ class _CurrentStageCard extends StatelessWidget {
                         stageName,
                         style: TextStyle(
                           color: stageColor,
-                          fontSize: 11,
+                          fontSize: AppTheme.fontLabelLg,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
@@ -136,7 +136,7 @@ class _CurrentStageCard extends StatelessWidget {
                         _getMultiplierText(),
                         style: TextStyle(
                           color: Colors.green.shade300,
-                          fontSize: 11,
+                          fontSize: AppTheme.fontLabelLg,
                         ),
                       ),
                     ],
@@ -229,7 +229,7 @@ class _EvolutionStageCard extends StatelessWidget {
                     '${evo.stage} 階進化',
                     style: TextStyle(
                       color: borderColor,
-                      fontSize: 12,
+                      fontSize: AppTheme.fontBodyMd,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
@@ -241,7 +241,7 @@ class _EvolutionStageCard extends StatelessWidget {
                     color: isUnlocked
                         ? AppTheme.textPrimary
                         : AppTheme.textSecondary,
-                    fontSize: 15,
+                    fontSize: AppTheme.fontTitleMd,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
@@ -297,7 +297,7 @@ class _EvolutionStageCard extends StatelessWidget {
                       color: currentLevel >= evo.requiredLevel
                           ? Colors.green
                           : Colors.red.shade300,
-                      fontSize: 12,
+                      fontSize: AppTheme.fontBodyMd,
                     ),
                   ),
                 ],
@@ -337,12 +337,12 @@ class _EvolutionStageCard extends StatelessWidget {
                       const Icon(Icons.auto_awesome, size: 16),
                       const SizedBox(width: 6),
                       Text(canEvolve ? '進化！' : '等級不足',
-                          style: const TextStyle(fontSize: 14)),
+                          style: const TextStyle(fontSize: AppTheme.fontBodyLg)),
                       const SizedBox(width: 8),
                       Text(
                         '(${_costText()})',
                         style: TextStyle(
-                            fontSize: 11,
+                            fontSize: AppTheme.fontLabelLg,
                             color: AppTheme.textSecondary),
                       ),
                     ],
@@ -383,7 +383,7 @@ class _BonusChip extends StatelessWidget {
       ),
       child: Text(
         '$label $value',
-        style: TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.bold),
+        style: TextStyle(color: color, fontSize: AppTheme.fontLabelLg, fontWeight: FontWeight.bold),
       ),
     );
   }

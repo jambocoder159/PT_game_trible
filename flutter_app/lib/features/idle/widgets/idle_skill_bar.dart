@@ -196,7 +196,7 @@ class _SkillButtonState extends State<_SkillButton>
               widget.def.name,
               style: TextStyle(
                 color: isReady ? AppTheme.textPrimary : AppTheme.textSecondary,
-                fontSize: 8,
+                fontSize: AppTheme.fontLabelSm,
                 fontWeight: isReady ? FontWeight.bold : FontWeight.normal,
               ),
             ),
@@ -206,7 +206,7 @@ class _SkillButtonState extends State<_SkillButton>
                 '可施放',
                 style: TextStyle(
                   color: attrColor,
-                  fontSize: 7,
+                  fontSize: AppTheme.fontLabelSm,
                   fontWeight: FontWeight.bold,
                 ),
               ),

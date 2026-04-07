@@ -162,7 +162,7 @@ class _Phase0OpeningScreenState extends State<Phase0OpeningScreen>
                   ),
                   child: const Text(
                     '跳過 →',
-                    style: TextStyle(color: Colors.white70, fontSize: 14),
+                    style: TextStyle(color: Colors.white70, fontSize: AppTheme.fontBodyLg),
                   ),
                 ),
               ),
@@ -210,7 +210,7 @@ class _Phase0OpeningScreenState extends State<Phase0OpeningScreen>
                   ),
                   child: const Text(
                     '開始冒險！',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    style: TextStyle(fontSize: AppTheme.fontTitleLg, fontWeight: FontWeight.bold),
                   ),
                 ),
               ),
@@ -267,7 +267,7 @@ class _Phase0OpeningScreenState extends State<Phase0OpeningScreen>
       textAlign: TextAlign.center,
       style: const TextStyle(
         color: AppTheme.textPrimary,
-        fontSize: 18,
+        fontSize: AppTheme.fontTitleLg,
         height: 1.8,
         fontWeight: FontWeight.w500,
       ),
@@ -297,7 +297,7 @@ class _Phase0OpeningScreenState extends State<Phase0OpeningScreen>
         textAlign: TextAlign.center,
         style: const TextStyle(
           color: Color(0xFF4E342E),
-          fontSize: 17,
+          fontSize: AppTheme.fontTitleLg,
           height: 2.0,
           fontStyle: FontStyle.italic,
         ),

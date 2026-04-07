@@ -278,7 +278,7 @@ class _FilterSection extends StatelessWidget {
                   '排序',
                   style: TextStyle(
                     color: AppTheme.textSecondary.withAlpha(150),
-                    fontSize: 11,
+                    fontSize: AppTheme.fontLabelLg,
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -336,7 +336,7 @@ class _FilterPill extends StatelessWidget {
           label,
           style: TextStyle(
             color: isSelected ? c : AppTheme.textSecondary,
-            fontSize: 12,
+            fontSize: AppTheme.fontBodyMd,
             fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
           ),
         ),
@@ -374,7 +374,7 @@ class _SortChip extends StatelessWidget {
             color: isSelected
                 ? AppTheme.accentSecondary
                 : AppTheme.textSecondary.withAlpha(120),
-            fontSize: 11,
+            fontSize: AppTheme.fontLabelLg,
             fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
           ),
         ),
@@ -523,7 +523,7 @@ class _AgentPortraitCard extends StatelessWidget {
                         isUnlocked ? agentInfo.displayName : '???',
                         style: const TextStyle(
                           color: Colors.white,
-                          fontSize: 14,
+                          fontSize: AppTheme.fontBodyLg,
                           fontWeight: FontWeight.bold,
                           shadows: [
                             Shadow(
@@ -543,7 +543,7 @@ class _AgentPortraitCard extends StatelessWidget {
                             def.role.label,
                             style: TextStyle(
                               color: Colors.white.withAlpha(180),
-                              fontSize: 11,
+                              fontSize: AppTheme.fontLabelLg,
                             ),
                           ),
                           if (isUnlocked) ...[
@@ -552,7 +552,7 @@ class _AgentPortraitCard extends StatelessWidget {
                               'Lv.${agentInfo.level}',
                               style: const TextStyle(
                                 color: Colors.white,
-                                fontSize: 12,
+                                fontSize: AppTheme.fontBodyMd,
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
@@ -592,7 +592,7 @@ class _AgentPortraitCard extends StatelessWidget {
                     def.rarity.display,
                     style: const TextStyle(
                       color: Colors.white,
-                      fontSize: 10,
+                      fontSize: AppTheme.fontLabelLg,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
@@ -754,7 +754,7 @@ class _QuickPreviewSheet extends StatelessWidget {
                 Text(
                   isUnlocked ? agentInfo.displayName : def.name,
                   style: const TextStyle(
-                    fontSize: 20,
+                    fontSize: AppTheme.fontDisplayMd,
                     fontWeight: FontWeight.bold,
                     color: AppTheme.textPrimary,
                   ),
@@ -772,7 +772,7 @@ class _QuickPreviewSheet extends StatelessWidget {
                     def.rarity.display,
                     style: TextStyle(
                       color: rarityColor,
-                      fontSize: 12,
+                      fontSize: AppTheme.fontBodyMd,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
@@ -786,7 +786,7 @@ class _QuickPreviewSheet extends StatelessWidget {
                 '${def.codename} · ${def.breed} · ${def.role.label}',
                 style: const TextStyle(
                   color: AppTheme.textSecondary,
-                  fontSize: 13,
+                  fontSize: AppTheme.fontBodyLg,
                 ),
               ),
             ),
@@ -822,7 +822,7 @@ class _QuickPreviewSheet extends StatelessWidget {
                     style: const TextStyle(
                       color: AppTheme.textPrimary,
                       fontWeight: FontWeight.bold,
-                      fontSize: 14,
+                      fontSize: AppTheme.fontBodyLg,
                     ),
                   ),
                   const SizedBox(height: 4),
@@ -830,7 +830,7 @@ class _QuickPreviewSheet extends StatelessWidget {
                     def.skill.description,
                     style: const TextStyle(
                       color: AppTheme.textSecondary,
-                      fontSize: 12,
+                      fontSize: AppTheme.fontBodyMd,
                     ),
                   ),
                 ],
@@ -887,7 +887,7 @@ class _QuickStat extends StatelessWidget {
           '$value',
           style: const TextStyle(
             color: AppTheme.textPrimary,
-            fontSize: 18,
+            fontSize: AppTheme.fontTitleLg,
             fontWeight: FontWeight.bold,
           ),
         ),
@@ -895,7 +895,7 @@ class _QuickStat extends StatelessWidget {
           label,
           style: const TextStyle(
             color: AppTheme.textSecondary,
-            fontSize: 11,
+            fontSize: AppTheme.fontLabelLg,
           ),
         ),
       ],
@@ -939,7 +939,7 @@ class _LockedAgentSheet extends StatelessWidget {
             Text(
               def.name,
               style: const TextStyle(
-                fontSize: 20,
+                fontSize: AppTheme.fontDisplayMd,
                 fontWeight: FontWeight.bold,
                 color: AppTheme.textPrimary,
               ),
@@ -949,7 +949,7 @@ class _LockedAgentSheet extends StatelessWidget {
               '${def.breed} · ${def.role.label}',
               style: const TextStyle(
                 color: AppTheme.textSecondary,
-                fontSize: 13,
+                fontSize: AppTheme.fontBodyLg,
               ),
             ),
             const SizedBox(height: 16),
@@ -970,7 +970,7 @@ class _LockedAgentSheet extends StatelessWidget {
                     '解鎖條件',
                     style: TextStyle(
                       color: Colors.amber,
-                      fontSize: 13,
+                      fontSize: AppTheme.fontBodyLg,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
@@ -996,7 +996,7 @@ class _LockedAgentSheet extends StatelessWidget {
                   backgroundColor: AppTheme.accentPrimary,
                   padding: const EdgeInsets.symmetric(vertical: 12),
                 ),
-                child: const Text('解鎖', style: TextStyle(fontSize: 15)),
+                child: const Text('解鎖', style: TextStyle(fontSize: AppTheme.fontTitleMd)),
               ),
             ),
           ],
@@ -1022,7 +1022,7 @@ class _ConditionRow extends StatelessWidget {
             label,
             style: const TextStyle(
               color: AppTheme.textSecondary,
-              fontSize: 13,
+              fontSize: AppTheme.fontBodyLg,
             ),
           ),
           const Spacer(),
@@ -1030,7 +1030,7 @@ class _ConditionRow extends StatelessWidget {
             value,
             style: const TextStyle(
               color: AppTheme.textPrimary,
-              fontSize: 13,
+              fontSize: AppTheme.fontBodyLg,
               fontWeight: FontWeight.bold,
             ),
           ),
@@ -1117,7 +1117,7 @@ class _BottomTeamBar extends StatelessWidget {
                     '出擊隊伍',
                     style: TextStyle(
                       color: AppTheme.textSecondary.withAlpha(180),
-                      fontSize: 11,
+                      fontSize: AppTheme.fontLabelLg,
                     ),
                   ),
                   Text(
@@ -1126,7 +1126,7 @@ class _BottomTeamBar extends StatelessWidget {
                         : 'ATK ${teamAgents.fold<int>(0, (sum, a) => sum + a.atk)}',
                     style: const TextStyle(
                       color: AppTheme.textPrimary,
-                      fontSize: 14,
+                      fontSize: AppTheme.fontBodyLg,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
@@ -1172,7 +1172,7 @@ class _SlotEmoji extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Text(emoji, style: const TextStyle(fontSize: 22));
+    return Text(emoji, style: const TextStyle(fontSize: AppTheme.fontDisplayMd));
   }
 }
 
@@ -1222,7 +1222,7 @@ class _CurrencyChip extends StatelessWidget {
             '$amount',
             style: const TextStyle(
               color: AppTheme.textPrimary,
-              fontSize: 13,
+              fontSize: AppTheme.fontBodyLg,
               fontWeight: FontWeight.bold,
             ),
           ),

@@ -91,7 +91,7 @@ class _BackpackScreenState extends State<BackpackScreen> {
                       _sortLabel(),
                       style: TextStyle(
                         color: AppTheme.textSecondary.withAlpha(150),
-                        fontSize: 11,
+                        fontSize: AppTheme.fontLabelLg,
                       ),
                     ),
                     const Spacer(),
@@ -99,7 +99,7 @@ class _BackpackScreenState extends State<BackpackScreen> {
                       '${_getFilteredMaterials(provider).where((e) => e.$2 > 0).length} 種素材',
                       style: TextStyle(
                         color: AppTheme.textSecondary.withAlpha(120),
-                        fontSize: 11,
+                        fontSize: AppTheme.fontLabelLg,
                       ),
                     ),
                   ],
@@ -129,7 +129,7 @@ class _BackpackScreenState extends State<BackpackScreen> {
             const SizedBox(width: 16),
           const SizedBox(width: 8),
           Text(label,
-              style: const TextStyle(color: AppTheme.textPrimary, fontSize: 14)),
+              style: const TextStyle(color: AppTheme.textPrimary, fontSize: AppTheme.fontBodyLg)),
         ],
       ),
     );
@@ -336,7 +336,7 @@ class _CategoryPill extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(emoji, style: const TextStyle(fontSize: 14)),
+            Text(emoji, style: const TextStyle(fontSize: AppTheme.fontBodyLg)),
             const SizedBox(width: 6),
             Text(
               label,
@@ -344,7 +344,7 @@ class _CategoryPill extends StatelessWidget {
                 color: isSelected
                     ? AppTheme.textPrimary
                     : AppTheme.textSecondary,
-                fontSize: 13,
+                fontSize: AppTheme.fontBodyLg,
                 fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
               ),
             ),
@@ -365,7 +365,7 @@ class _CategoryPill extends StatelessWidget {
                     color: isSelected
                         ? AppTheme.textPrimary
                         : AppTheme.textSecondary.withAlpha(150),
-                    fontSize: 10,
+                    fontSize: AppTheme.fontLabelLg,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
@@ -477,7 +477,7 @@ class _MaterialCard extends StatelessWidget {
                   color: isEmpty
                       ? AppTheme.textSecondary.withAlpha(80)
                       : AppTheme.textPrimary,
-                  fontSize: 11,
+                  fontSize: AppTheme.fontLabelLg,
                   fontWeight: FontWeight.w500,
                 ),
                 textAlign: TextAlign.center,
@@ -502,7 +502,7 @@ class _MaterialCard extends StatelessWidget {
                   color: isEmpty
                       ? AppTheme.textSecondary.withAlpha(60)
                       : rarityColor,
-                  fontSize: 13,
+                  fontSize: AppTheme.fontBodyLg,
                   fontWeight: FontWeight.bold,
                 ),
               ),
@@ -568,7 +568,7 @@ class _EmptyState extends StatelessWidget {
             category != null ? '${category!.label} 分類暫無素材' : '背包空空如也',
             style: TextStyle(
               color: AppTheme.textSecondary.withAlpha(120),
-              fontSize: 15,
+              fontSize: AppTheme.fontTitleMd,
             ),
           ),
           const SizedBox(height: 4),
@@ -576,7 +576,7 @@ class _EmptyState extends StatelessWidget {
             '通關闘卡來獲得素材吧！',
             style: TextStyle(
               color: AppTheme.textSecondary.withAlpha(80),
-              fontSize: 12,
+              fontSize: AppTheme.fontBodyMd,
             ),
           ),
         ],
@@ -658,7 +658,7 @@ class _MaterialDetailSheet extends StatelessWidget {
               material.label,
               style: const TextStyle(
                 color: AppTheme.textPrimary,
-                fontSize: 22,
+                fontSize: AppTheme.fontDisplayMd,
                 fontWeight: FontWeight.bold,
               ),
             ),
@@ -688,7 +688,7 @@ class _MaterialDetailSheet extends StatelessWidget {
               material.description,
               style: const TextStyle(
                 color: AppTheme.textSecondary,
-                fontSize: 14,
+                fontSize: AppTheme.fontBodyLg,
               ),
               textAlign: TextAlign.center,
             ),
@@ -709,7 +709,7 @@ class _MaterialDetailSheet extends StatelessWidget {
                     '持有數量',
                     style: TextStyle(
                       color: AppTheme.textSecondary,
-                      fontSize: 14,
+                      fontSize: AppTheme.fontBodyLg,
                     ),
                   ),
                   const SizedBox(width: 16),
@@ -719,7 +719,7 @@ class _MaterialDetailSheet extends StatelessWidget {
                       color: count > 0
                           ? AppTheme.textPrimary
                           : AppTheme.textSecondary,
-                      fontSize: 26,
+                      fontSize: AppTheme.fontDisplayLg,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
@@ -747,7 +747,7 @@ class _MaterialDetailSheet extends StatelessWidget {
                       '通過闘關模式通關可獲得此素材',
                       style: TextStyle(
                         color: AppTheme.textSecondary.withAlpha(120),
-                        fontSize: 12,
+                        fontSize: AppTheme.fontBodyMd,
                       ),
                     ),
                   ),
@@ -809,7 +809,7 @@ class _InfoTag extends StatelessWidget {
         label,
         style: TextStyle(
           color: filled ? color : AppTheme.textSecondary,
-          fontSize: 11,
+          fontSize: AppTheme.fontLabelLg,
           fontWeight: FontWeight.bold,
         ),
       ),
@@ -841,7 +841,7 @@ class _CurrencyBadge extends StatelessWidget {
         const SizedBox(width: 3),
         Text(
           '$amount',
-          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+          style: const TextStyle(fontSize: AppTheme.fontBodyLg, fontWeight: FontWeight.bold),
         ),
       ],
     );

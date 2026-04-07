@@ -387,7 +387,7 @@ class _SectionTitle extends StatelessWidget {
         text,
         style: const TextStyle(
           color: AppTheme.textSecondary,
-          fontSize: 13,
+          fontSize: AppTheme.fontBodyLg,
           fontWeight: FontWeight.bold,
         ),
       ),
@@ -407,8 +407,8 @@ class _StatusRow extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label, style: const TextStyle(color: AppTheme.textSecondary, fontSize: 13)),
-          Text(value, style: const TextStyle(color: AppTheme.textPrimary, fontSize: 13)),
+          Text(label, style: const TextStyle(color: AppTheme.textSecondary, fontSize: AppTheme.fontBodyLg)),
+          Text(value, style: const TextStyle(color: AppTheme.textPrimary, fontSize: AppTheme.fontBodyLg)),
         ],
       ),
     );
@@ -433,7 +433,7 @@ class _GmButton extends StatelessWidget {
     return ElevatedButton.icon(
       onPressed: onTap,
       icon: Icon(icon, size: 18),
-      label: Text(label, style: const TextStyle(fontSize: 13)),
+      label: Text(label, style: const TextStyle(fontSize: AppTheme.fontBodyLg)),
       style: ElevatedButton.styleFrom(
         backgroundColor: color.withAlpha(40),
         foregroundColor: color,

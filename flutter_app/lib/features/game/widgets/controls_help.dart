@@ -27,7 +27,7 @@ class ControlsHelpDialog extends StatelessWidget {
           children: [
             const Text(
               '操作說明',
-              style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+              style: TextStyle(fontSize: AppTheme.fontDisplayMd, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 20),
             _HelpItem(
@@ -101,7 +101,7 @@ class _HelpItem extends StatelessWidget {
               Text(
                 title,
                 style: const TextStyle(
-                  fontSize: 15,
+                  fontSize: AppTheme.fontTitleMd,
                   fontWeight: FontWeight.bold,
                   color: AppTheme.textPrimary,
                 ),
@@ -110,7 +110,7 @@ class _HelpItem extends StatelessWidget {
               Text(
                 description,
                 style: const TextStyle(
-                  fontSize: 13,
+                  fontSize: AppTheme.fontBodyLg,
                   color: AppTheme.textSecondary,
                 ),
               ),

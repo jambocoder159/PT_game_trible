@@ -21,7 +21,7 @@ class _ShopScreenState extends State<ShopScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(length: 2, vsync: this);
   }
 
   @override
@@ -47,7 +47,7 @@ class _ShopScreenState extends State<ShopScreen>
                     '商城',
                     style: TextStyle(
                       color: AppTheme.textPrimary,
-                      fontSize: 20,
+                      fontSize: AppTheme.fontDisplayMd,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
@@ -105,11 +105,10 @@ class _ShopScreenState extends State<ShopScreen>
                 unselectedLabelColor: AppTheme.textSecondary,
                 labelStyle: const TextStyle(
                   fontWeight: FontWeight.bold,
-                  fontSize: 13,
+                  fontSize: AppTheme.fontBodyLg,
                 ),
                 tabs: const [
                   Tab(text: '精選推薦'),
-                  Tab(text: '鑽石商店'),
                   Tab(text: '素材兌換'),
                 ],
               ),
@@ -123,7 +122,6 @@ class _ShopScreenState extends State<ShopScreen>
                 controller: _tabController,
                 children: const [
                   _FeaturedTab(),
-                  _DiamondShopTab(),
                   _MaterialExchangeTab(),
                 ],
               ),
@@ -160,78 +158,14 @@ class _FeaturedTabState extends State<_FeaturedTab> {
     return ListView(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       children: [
-        // ─── 精選 Banner PageView ───
-        SizedBox(
-          height: 140,
-          child: PageView(
-            controller: _pageController,
-            children: [
-              _FeaturedBanner(
-                title: '月卡',
-                subtitle: '購買即得 300 鑽石\n每日額外 80 鑽石 × 30 天',
-                icon: '🎫',
-                gradient: [Colors.amber.shade700, Colors.orange.shade400],
-                onTap: () => _showComingSoon(context),
-              ),
-              _FeaturedBanner(
-                title: '新手特惠包',
-                subtitle: '600 鑽石 + 10 掃蕩券\n限購一次',
-                icon: '🎁',
-                gradient: [Colors.purple.shade600, Colors.pink.shade300],
-                badge: '限定',
-                onTap: () => _showComingSoon(context),
-              ),
-              _FeaturedBanner(
-                title: '每週特惠',
-                subtitle: '200 鑽石 + 5000 金幣\n每週重置',
-                icon: '🏷️',
-                gradient: [Colors.teal.shade600, Colors.cyan.shade300],
-                onTap: () => _showComingSoon(context),
-              ),
-            ],
-          ),
-        ),
-
-        const SizedBox(height: 6),
-        // Page indicator
-        Center(
-          child: SizedBox(
-            height: 16,
-            child: AnimatedBuilder(
-              animation: _pageController,
-              builder: (context, _) {
-                final page = _pageController.hasClients
-                    ? (_pageController.page ?? 0)
-                    : 0.0;
-                return Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: List.generate(3, (i) {
-                    final distance = (page - i).abs().clamp(0.0, 1.0);
-                    return Container(
-                      width: 6 + (1 - distance) * 8,
-                      height: 6,
-                      margin: const EdgeInsets.symmetric(horizontal: 2),
-                      decoration: BoxDecoration(
-                        color: AppTheme.accentSecondary
-                            .withAlpha((255 * (1 - distance * 0.6)).round()),
-                        borderRadius: BorderRadius.circular(3),
-                      ),
-                    );
-                  }),
-                );
-              },
-            ),
-          ),
-        ),
-
-        const SizedBox(height: 20),
+        const SizedBox(height: 8),
 
         // ─── 每日特價區 ───
         const Text(
           '每日特價',
           style: TextStyle(
             color: AppTheme.textSecondary,
-            fontSize: 13,
+            fontSize: AppTheme.fontBodyLg,
             fontWeight: FontWeight.bold,
           ),
         ),
@@ -372,13 +306,13 @@ class _FeaturedBanner extends StatelessWidget {
                 children: [
                   Row(
                     children: [
-                      Text(icon, style: const TextStyle(fontSize: 28)),
+                      Text(icon, style: const TextStyle(fontSize: AppTheme.fontDisplayLg)),
                       const SizedBox(width: 8),
                       Text(
                         title,
                         style: const TextStyle(
                           color: Colors.white,
-                          fontSize: 20,
+                          fontSize: AppTheme.fontDisplayMd,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
@@ -395,7 +329,7 @@ class _FeaturedBanner extends StatelessWidget {
                             badge!,
                             style: const TextStyle(
                               color: Colors.white,
-                              fontSize: 10,
+                              fontSize: AppTheme.fontLabelLg,
                               fontWeight: FontWeight.bold,
                             ),
                           ),
@@ -408,7 +342,7 @@ class _FeaturedBanner extends StatelessWidget {
                     subtitle,
                     style: TextStyle(
                       color: Colors.white.withAlpha(220),
-                      fontSize: 13,
+                      fontSize: AppTheme.fontBodyLg,
                       height: 1.3,
                     ),
                   ),
@@ -546,7 +480,7 @@ class _DiamondPackCard extends StatelessWidget {
                     badge!,
                     style: const TextStyle(
                       color: Colors.white,
-                      fontSize: 10,
+                      fontSize: AppTheme.fontLabelLg,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
@@ -572,7 +506,7 @@ class _DiamondPackCard extends StatelessWidget {
                       ],
                     ),
                     child: const Center(
-                      child: Text('💎', style: TextStyle(fontSize: 24)),
+                      child: Text('💎', style: TextStyle(fontSize: AppTheme.fontDisplayLg)),
                     ),
                   ),
                   const SizedBox(height: 8),
@@ -580,7 +514,7 @@ class _DiamondPackCard extends StatelessWidget {
                     '$amount',
                     style: TextStyle(
                       color: color,
-                      fontSize: 22,
+                      fontSize: AppTheme.fontDisplayMd,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
@@ -596,7 +530,7 @@ class _DiamondPackCard extends StatelessWidget {
                       price,
                       style: TextStyle(
                         color: color,
-                        fontSize: 13,
+                        fontSize: AppTheme.fontBodyLg,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
@@ -653,13 +587,13 @@ class _MaterialExchangeTab extends StatelessWidget {
               ),
               child: Row(
                 children: [
-                  const Text('✨', style: TextStyle(fontSize: 18)),
+                  const Text('✨', style: TextStyle(fontSize: AppTheme.fontTitleLg)),
                   const SizedBox(width: 8),
                   const Text(
                     '水晶粉塵',
                     style: TextStyle(
                       color: AppTheme.textPrimary,
-                      fontSize: 14,
+                      fontSize: AppTheme.fontBodyLg,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
@@ -668,7 +602,7 @@ class _MaterialExchangeTab extends StatelessWidget {
                     '$dustCount',
                     style: const TextStyle(
                       color: Colors.cyan,
-                      fontSize: 18,
+                      fontSize: AppTheme.fontTitleLg,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
@@ -779,7 +713,7 @@ class _MaterialExchangeCard extends StatelessWidget {
               ),
               child: Center(
                 child: Text(material.emoji,
-                    style: const TextStyle(fontSize: 20)),
+                    style: const TextStyle(fontSize: AppTheme.fontDisplayMd)),
               ),
             ),
             const SizedBox(height: 6),
@@ -790,7 +724,7 @@ class _MaterialExchangeCard extends StatelessWidget {
                 color: canAfford
                     ? AppTheme.textPrimary
                     : AppTheme.textSecondary.withAlpha(100),
-                fontSize: 11,
+                fontSize: AppTheme.fontLabelLg,
                 fontWeight: FontWeight.w600,
               ),
               maxLines: 1,
@@ -803,7 +737,7 @@ class _MaterialExchangeCard extends StatelessWidget {
                 color: canAfford
                     ? material.iconColor
                     : AppTheme.textSecondary.withAlpha(60),
-                fontSize: 12,
+                fontSize: AppTheme.fontBodyMd,
                 fontWeight: FontWeight.bold,
               ),
             ),
@@ -822,7 +756,7 @@ class _MaterialExchangeCard extends StatelessWidget {
                 '✨ $dustCost',
                 style: TextStyle(
                   color: canAfford ? Colors.cyan : Colors.grey,
-                  fontSize: 11,
+                  fontSize: AppTheme.fontLabelLg,
                   fontWeight: FontWeight.bold,
                 ),
               ),
@@ -866,7 +800,7 @@ class _CurrencyChip extends StatelessWidget {
             _format(value),
             style: const TextStyle(
               color: AppTheme.textPrimary,
-              fontSize: 12,
+              fontSize: AppTheme.fontBodyMd,
               fontWeight: FontWeight.bold,
             ),
           ),
@@ -896,13 +830,13 @@ class _DustChip extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Text('✨', style: TextStyle(fontSize: 12)),
+          const Text('✨', style: TextStyle(fontSize: AppTheme.fontBodyMd)),
           const SizedBox(width: 3),
           Text(
             '$value',
             style: const TextStyle(
               color: Colors.cyan,
-              fontSize: 12,
+              fontSize: AppTheme.fontBodyMd,
               fontWeight: FontWeight.bold,
             ),
           ),
@@ -963,14 +897,14 @@ class _QuickBuyCard extends StatelessWidget {
                     style: const TextStyle(
                       color: AppTheme.textPrimary,
                       fontWeight: FontWeight.bold,
-                      fontSize: 14,
+                      fontSize: AppTheme.fontBodyLg,
                     ),
                   ),
                   Text(
                     subtitle,
                     style: const TextStyle(
                       color: AppTheme.textSecondary,
-                      fontSize: 11,
+                      fontSize: AppTheme.fontLabelLg,
                     ),
                   ),
                 ],
@@ -989,7 +923,7 @@ class _QuickBuyCard extends StatelessWidget {
                 style: TextStyle(
                   color: priceColor,
                   fontWeight: FontWeight.bold,
-                  fontSize: 13,
+                  fontSize: AppTheme.fontBodyLg,
                 ),
               ),
             ),

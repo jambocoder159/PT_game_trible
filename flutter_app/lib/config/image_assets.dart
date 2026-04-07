@@ -65,8 +65,8 @@ class ImageAssets {
 
   static const Map<BlockColor, String> _blockImageNames = {
     BlockColor.coral: 'block_sun',
-    BlockColor.teal: 'block_herb',
-    BlockColor.mint: 'block_water',
+    BlockColor.teal: 'block_water',
+    BlockColor.mint: 'block_herb',
     BlockColor.gold: 'block_star',
     BlockColor.rose: 'block_moon',
   };

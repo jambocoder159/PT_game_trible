@@ -51,7 +51,7 @@ class PlayerInfoBar extends StatelessWidget {
                       'Lv.${data.playerLevel}',
                       style: const TextStyle(
                         color: Colors.white,
-                        fontSize: 13,
+                        fontSize: AppTheme.fontBodyLg,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
@@ -79,7 +79,7 @@ class PlayerInfoBar extends StatelessWidget {
                           '${data.playerExp}/$expNeeded',
                           style: TextStyle(
                             color: AppTheme.textSecondary.withAlpha(150),
-                            fontSize: 9,
+                            fontSize: AppTheme.fontLabelSm,
                           ),
                         ),
                       ],
@@ -115,13 +115,13 @@ class _CurrencyChip extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text(icon, style: const TextStyle(fontSize: 14)),
+        Text(icon, style: const TextStyle(fontSize: AppTheme.fontBodyLg)),
         const SizedBox(width: 2),
         Text(
           _formatNumber(value),
           style: const TextStyle(
             color: AppTheme.textPrimary,
-            fontSize: 12,
+            fontSize: AppTheme.fontBodyMd,
             fontWeight: FontWeight.bold,
           ),
         ),

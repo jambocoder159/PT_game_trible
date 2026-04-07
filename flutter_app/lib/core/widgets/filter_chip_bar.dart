@@ -78,7 +78,7 @@ class FilterChipBar<T> extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             if (emoji != null) ...[
-              Text(emoji, style: const TextStyle(fontSize: 13)),
+              Text(emoji, style: const TextStyle(fontSize: AppTheme.fontBodyLg)),
               const SizedBox(width: 4),
             ],
             Text(
@@ -87,7 +87,7 @@ class FilterChipBar<T> extends StatelessWidget {
                 color: isSelected
                     ? (color ?? AppTheme.accentPrimary)
                     : AppTheme.textSecondary,
-                fontSize: 12,
+                fontSize: AppTheme.fontBodyMd,
                 fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
               ),
             ),

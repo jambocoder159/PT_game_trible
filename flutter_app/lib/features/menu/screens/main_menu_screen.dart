@@ -49,7 +49,7 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                 Text(
                   'Kitty Pastry House',
                   style: TextStyle(
-                    fontSize: 16,
+                    fontSize: AppTheme.fontTitleMd,
                     color: AppTheme.textSecondary.withAlpha(180),
                     letterSpacing: 6,
                   ),
@@ -195,7 +195,7 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                     AppVersion.displayVersion,
                     style: TextStyle(
                       color: AppTheme.textSecondary.withAlpha(100),
-                      fontSize: 12,
+                      fontSize: AppTheme.fontBodyMd,
                     ),
                   ),
                 ),
@@ -228,7 +228,7 @@ class _InfoChip extends StatelessWidget {
           text,
           style: const TextStyle(
             color: AppTheme.textPrimary,
-            fontSize: 13,
+            fontSize: AppTheme.fontBodyLg,
             fontWeight: FontWeight.bold,
           ),
         ),
@@ -272,7 +272,7 @@ class _MainButton extends StatelessWidget {
         ),
         child: Row(
           children: [
-            Text(icon, style: const TextStyle(fontSize: 24)),
+            Text(icon, style: const TextStyle(fontSize: AppTheme.fontDisplayLg)),
             const SizedBox(width: 14),
             Expanded(
               child: Column(
@@ -281,14 +281,14 @@ class _MainButton extends StatelessWidget {
                   Text(
                     label,
                     style: const TextStyle(
-                      fontSize: 18,
+                      fontSize: AppTheme.fontTitleLg,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
                   Text(
                     description,
                     style: TextStyle(
-                      fontSize: 12,
+                      fontSize: AppTheme.fontBodyMd,
                       color: AppTheme.textSecondary,
                     ),
                   ),
@@ -332,11 +332,11 @@ class _SmallButton extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Text(icon, style: const TextStyle(fontSize: 18)),
+          Text(icon, style: const TextStyle(fontSize: AppTheme.fontTitleLg)),
           const SizedBox(width: 8),
           Text(
             label,
-            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+            style: const TextStyle(fontSize: AppTheme.fontBodyLg, fontWeight: FontWeight.bold),
           ),
         ],
       ),

@@ -172,7 +172,7 @@ class _ProfileHeader extends StatelessWidget {
                         'Lv.${data.playerLevel}',
                         style: const TextStyle(
                           color: Colors.white,
-                          fontSize: 14,
+                          fontSize: AppTheme.fontBodyLg,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
@@ -198,7 +198,7 @@ class _ProfileHeader extends StatelessWidget {
                           'EXP ${data.playerExp} / $expNeeded',
                           style: TextStyle(
                             color: AppTheme.textSecondary.withAlpha(180),
-                            fontSize: 11,
+                            fontSize: AppTheme.fontLabelLg,
                           ),
                         ),
                       ],
@@ -263,7 +263,7 @@ class _CurrencyBadge extends StatelessWidget {
           '$value${suffix ?? ''}',
           style: const TextStyle(
             color: AppTheme.textPrimary,
-            fontSize: 12,
+            fontSize: AppTheme.fontBodyMd,
             fontWeight: FontWeight.bold,
           ),
         ),
@@ -352,7 +352,7 @@ class _StatsGrid extends StatelessWidget {
                 stat.value,
                 style: TextStyle(
                   color: stat.color,
-                  fontSize: 16,
+                  fontSize: AppTheme.fontTitleMd,
                   fontWeight: FontWeight.bold,
                 ),
               ),
@@ -361,7 +361,7 @@ class _StatsGrid extends StatelessWidget {
                 stat.label,
                 style: TextStyle(
                   color: AppTheme.textSecondary.withAlpha(180),
-                  fontSize: 10,
+                  fontSize: AppTheme.fontLabelLg,
                 ),
               ),
             ],
@@ -436,7 +436,7 @@ class _ChapterProgressList extends StatelessWidget {
                       '第${chapter.number}章',
                       style: const TextStyle(
                         color: AppTheme.accentSecondary,
-                        fontSize: 11,
+                        fontSize: AppTheme.fontLabelLg,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
@@ -447,7 +447,7 @@ class _ChapterProgressList extends StatelessWidget {
                       chapter.name,
                       style: const TextStyle(
                         color: AppTheme.textPrimary,
-                        fontSize: 14,
+                        fontSize: AppTheme.fontBodyLg,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
@@ -460,7 +460,7 @@ class _ChapterProgressList extends StatelessWidget {
                     '$totalStars/$maxStars',
                     style: TextStyle(
                       color: AppTheme.textSecondary.withAlpha(180),
-                      fontSize: 12,
+                      fontSize: AppTheme.fontBodyMd,
                     ),
                   ),
                 ],
@@ -492,7 +492,7 @@ class _ChapterProgressList extends StatelessWidget {
                       color: progress >= 1.0
                           ? AppTheme.stageCleared
                           : AppTheme.textSecondary,
-                      fontSize: 12,
+                      fontSize: AppTheme.fontBodyMd,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
@@ -574,7 +574,7 @@ class _AgentCollectionGrid extends StatelessWidget {
                   color: agent.isUnlocked
                       ? AppTheme.textPrimary
                       : AppTheme.textSecondary.withAlpha(80),
-                  fontSize: 9,
+                  fontSize: AppTheme.fontLabelSm,
                   fontWeight: FontWeight.w500,
                 ),
                 maxLines: 1,
@@ -586,7 +586,7 @@ class _AgentCollectionGrid extends StatelessWidget {
                   'Lv.${agent.level}',
                   style: TextStyle(
                     color: color.withAlpha(200),
-                    fontSize: 8,
+                    fontSize: AppTheme.fontLabelSm,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
@@ -618,7 +618,7 @@ class _SectionTitle extends StatelessWidget {
           title,
           style: const TextStyle(
             color: AppTheme.textSecondary,
-            fontSize: 13,
+            fontSize: AppTheme.fontBodyLg,
             fontWeight: FontWeight.bold,
             letterSpacing: 0.5,
           ),

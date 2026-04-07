@@ -96,6 +96,17 @@ class AppTheme {
   static const Duration animCardAppear = Duration(milliseconds: 200);
   static const Duration animPulse = Duration(milliseconds: 1500);
 
+  // ─── 字級系統 ───
+  // 常規 8 層級，特效文字（傷害數字、慶祝 emoji 等）維持 inline
+  static const double fontDisplayLg = 28.0; // 頁面大標題
+  static const double fontDisplayMd = 22.0; // 區塊標題、對話框標題
+  static const double fontTitleLg = 18.0;   // 卡片標題、角色名
+  static const double fontTitleMd = 16.0;   // 小節標題、按鈕文字
+  static const double fontBodyLg = 14.0;    // 主要內文、說明
+  static const double fontBodyMd = 12.0;    // 次要內文、標籤
+  static const double fontLabelLg = 11.0;   // 徽章、chips、狀態
+  static const double fontLabelSm = 9.0;    // 極小註解
+
   // ─── ThemeData ───
   static ThemeData get darkTheme {
     return ThemeData(
@@ -109,17 +120,33 @@ class AppTheme {
       fontFamily: 'jf-openhuninn',
       textTheme: const TextTheme(
         headlineLarge: TextStyle(
-          fontSize: 28,
+          fontSize: fontDisplayLg,
           fontWeight: FontWeight.bold,
           color: textPrimary,
         ),
         headlineMedium: TextStyle(
-          fontSize: 22,
+          fontSize: fontDisplayMd,
           fontWeight: FontWeight.bold,
           color: textPrimary,
         ),
-        bodyLarge: TextStyle(fontSize: 16, color: textPrimary),
-        bodyMedium: TextStyle(fontSize: 14, color: textSecondary),
+        titleLarge: TextStyle(
+          fontSize: fontTitleLg,
+          fontWeight: FontWeight.bold,
+          color: textPrimary,
+        ),
+        titleMedium: TextStyle(
+          fontSize: fontTitleMd,
+          fontWeight: FontWeight.w600,
+          color: textPrimary,
+        ),
+        bodyLarge: TextStyle(fontSize: fontBodyLg, color: textPrimary),
+        bodyMedium: TextStyle(fontSize: fontBodyMd, color: textSecondary),
+        labelLarge: TextStyle(
+          fontSize: fontLabelLg,
+          fontWeight: FontWeight.w500,
+          color: textSecondary,
+        ),
+        labelSmall: TextStyle(fontSize: fontLabelSm, color: textSecondary),
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
@@ -133,4 +160,55 @@ class AppTheme {
       ),
     );
   }
+}
+
+/// 預組合 TextStyle 常數，方便 inline 使用
+/// 用法：`style: AppTextStyle.displayLg` 或 `.titleMd.copyWith(color: ...)`
+class AppTextStyle {
+  AppTextStyle._();
+
+  // ─── Display（頁面標題級） ───
+  static const displayLg = TextStyle(
+    fontSize: AppTheme.fontDisplayLg,
+    fontWeight: FontWeight.bold,
+    color: AppTheme.textPrimary,
+  );
+  static const displayMd = TextStyle(
+    fontSize: AppTheme.fontDisplayMd,
+    fontWeight: FontWeight.bold,
+    color: AppTheme.textPrimary,
+  );
+
+  // ─── Title（區塊 / 卡片標題級） ───
+  static const titleLg = TextStyle(
+    fontSize: AppTheme.fontTitleLg,
+    fontWeight: FontWeight.bold,
+    color: AppTheme.textPrimary,
+  );
+  static const titleMd = TextStyle(
+    fontSize: AppTheme.fontTitleMd,
+    fontWeight: FontWeight.w600,
+    color: AppTheme.textPrimary,
+  );
+
+  // ─── Body（內文級） ───
+  static const bodyLg = TextStyle(
+    fontSize: AppTheme.fontBodyLg,
+    color: AppTheme.textPrimary,
+  );
+  static const bodyMd = TextStyle(
+    fontSize: AppTheme.fontBodyMd,
+    color: AppTheme.textSecondary,
+  );
+
+  // ─── Label（標籤 / 註解級） ───
+  static const labelLg = TextStyle(
+    fontSize: AppTheme.fontLabelLg,
+    fontWeight: FontWeight.w500,
+    color: AppTheme.textSecondary,
+  );
+  static const labelSm = TextStyle(
+    fontSize: AppTheme.fontLabelSm,
+    color: AppTheme.textSecondary,
+  );
 }

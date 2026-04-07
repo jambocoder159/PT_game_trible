@@ -140,7 +140,7 @@ class _TutorialDialogueBoxState extends State<TutorialDialogueBox>
                     widget.dialogue.speaker,
                     style: const TextStyle(
                       color: AppTheme.accentPrimary,
-                      fontSize: 15,
+                      fontSize: AppTheme.fontTitleMd,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
@@ -152,7 +152,7 @@ class _TutorialDialogueBoxState extends State<TutorialDialogueBox>
                 _displayedText,
                 style: const TextStyle(
                   color: AppTheme.textPrimary,
-                  fontSize: 15,
+                  fontSize: AppTheme.fontTitleMd,
                   height: 1.6,
                 ),
               ),
@@ -168,7 +168,7 @@ class _TutorialDialogueBoxState extends State<TutorialDialogueBox>
                       '▼ 點擊繼續',
                       style: TextStyle(
                         color: AppTheme.textSecondary,
-                        fontSize: 12,
+                        fontSize: AppTheme.fontBodyMd,
                       ),
                     ),
                   ),
@@ -223,7 +223,7 @@ class _TutorialDialogueBoxState extends State<TutorialDialogueBox>
         ),
       ),
       child: Center(
-        child: Text(emoji, style: const TextStyle(fontSize: 20)),
+        child: Text(emoji, style: const TextStyle(fontSize: AppTheme.fontDisplayMd)),
       ),
     );
   }

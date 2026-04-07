@@ -83,13 +83,13 @@ class _CtaButton extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(emoji, style: const TextStyle(fontSize: 18)),
+            Text(emoji, style: const TextStyle(fontSize: AppTheme.fontTitleLg)),
             const SizedBox(height: 2),
             Text(
               label,
               style: TextStyle(
                 color: color,
-                fontSize: 11,
+                fontSize: AppTheme.fontLabelLg,
                 fontWeight: FontWeight.bold,
               ),
             ),

@@ -35,16 +35,18 @@ class EnergyCalculator {
   /// [isMatch] 是否為三消匹配（而非單點消除）
   /// [combo] 當前連擊數
   /// [totalBlocksInOperation] 本次操作消除的總方塊數
+  /// [teamLevelMultiplier] 隊伍等級加成（1.0 = 無加成）
   static int perBlockEnergy({
     required bool isMatch,
     required int combo,
     required int totalBlocksInOperation,
+    double teamLevelMultiplier = 1.0,
   }) {
     int energy = baseEnergy;
     if (isMatch) energy += matchBonus;
     energy += combo.clamp(0, maxComboBonus) * 3;
     energy += (totalBlocksInOperation - 4).clamp(0, maxVolumeExtraBlocks) * 2;
-    return energy;
+    return (energy * teamLevelMultiplier).round();
   }
 }
 
@@ -132,6 +134,7 @@ class IdleProvider extends ChangeNotifier {
     // 產出能量（點擊消除的方塊，非三消，基礎能量）
     final perBlock = EnergyCalculator.perBlockEnergy(
       isMatch: false, combo: 0, totalBlocksInOperation: 1,
+      teamLevelMultiplier: _teamLevelMultiplier,
     );
     final tapEnergy = {tappedColor: perBlock};
     _energyEvents.add(EnergyEvent(
@@ -269,6 +272,7 @@ class IdleProvider extends ChangeNotifier {
         isMatch: true,
         combo: s.combo,
         totalBlocksInOperation: totalBlocks,
+        teamLevelMultiplier: _teamLevelMultiplier,
       );
       final energyMap = <BlockColor, int>{};
       for (final entry in colorCount.entries) {
@@ -427,15 +431,27 @@ class IdleProvider extends ChangeNotifier {
   List<String> _teamIds = [];
   List<String> get teamIds => _teamIds;
 
+  /// 隊伍等級 → 能量加成（每級 +2%，例如平均 Lv.10 = 1.18）
+  double _teamLevelMultiplier = 1.0;
+  double get teamLevelMultiplier => _teamLevelMultiplier;
+
   /// 各角色能量（0 ~ energyCost）
   Map<String, int> _energy = {};
   int getEnergy(String agentId) => _energy[agentId] ?? 0;
 
   /// 設定隊伍（由 HomeScreen 呼叫）
-  void setTeam(List<String> team) {
+  /// [teamLevels] 各角色的等級，用來計算能量加成
+  void setTeam(List<String> team, {List<int> teamLevels = const []}) {
     _teamIds = team;
     for (final id in team) {
       _energy.putIfAbsent(id, () => 0);
+    }
+    // 計算平均等級加成：每級 +2%
+    if (teamLevels.isNotEmpty) {
+      final avgLevel = teamLevels.reduce((a, b) => a + b) / teamLevels.length;
+      _teamLevelMultiplier = 1.0 + (avgLevel - 1) * 0.02;
+    } else {
+      _teamLevelMultiplier = 1.0;
     }
     notifyListeners();
   }
@@ -768,6 +784,7 @@ class IdleProvider extends ChangeNotifier {
     // 產出能量（自動消除也給完整能量，不打折）
     final perBlock = EnergyCalculator.perBlockEnergy(
       isMatch: false, combo: 0, totalBlocksInOperation: 1,
+      teamLevelMultiplier: _teamLevelMultiplier,
     );
     final autoEnergy = {eliminatedColor: perBlock};
     _energyEvents.add(EnergyEvent(

@@ -64,7 +64,7 @@ class _BranchRow extends StatelessWidget {
             '${branch.emoji} ${branch.label}分支',
             style: const TextStyle(
               color: AppTheme.textPrimary,
-              fontSize: 14,
+              fontSize: AppTheme.fontBodyLg,
               fontWeight: FontWeight.bold,
             ),
           ),
@@ -151,7 +151,7 @@ class _TalentNode extends StatelessWidget {
               node.name,
               style: TextStyle(
                 color: color,
-                fontSize: 10,
+                fontSize: AppTheme.fontLabelLg,
                 fontWeight: FontWeight.bold,
               ),
               textAlign: TextAlign.center,
@@ -160,7 +160,7 @@ class _TalentNode extends StatelessWidget {
             ),
             Text(
               '+${node.effectValue.round()}%',
-              style: TextStyle(color: color.withValues(alpha: 0.8), fontSize: 10),
+              style: TextStyle(color: color.withValues(alpha: 0.8), fontSize: AppTheme.fontLabelLg),
             ),
           ],
         ),
@@ -183,18 +183,18 @@ class _TalentNode extends StatelessWidget {
                 style: const TextStyle(color: AppTheme.textSecondary)),
             const SizedBox(height: 12),
             Text('效果：${node.effectType.label} +${node.effectValue}%',
-                style: const TextStyle(color: AppTheme.textPrimary, fontSize: 13)),
+                style: const TextStyle(color: AppTheme.textPrimary, fontSize: AppTheme.fontBodyLg)),
             const SizedBox(height: 8),
             if (!isUnlocked) ...[
               Text('費用：',
                   style: const TextStyle(
-                      color: AppTheme.textSecondary, fontSize: 13)),
+                      color: AppTheme.textSecondary, fontSize: AppTheme.fontBodyLg)),
               Text('  金幣 ${node.goldCost}',
-                  style: TextStyle(color: Colors.amber.shade300, fontSize: 12)),
+                  style: TextStyle(color: Colors.amber.shade300, fontSize: AppTheme.fontBodyMd)),
               ...node.materialCost.entries.map((e) => Text(
                     '  ${e.key.emoji} ${e.key.label} x${e.value}',
                     style: const TextStyle(
-                        color: AppTheme.textSecondary, fontSize: 12),
+                        color: AppTheme.textSecondary, fontSize: AppTheme.fontBodyMd),
                   )),
             ],
           ],

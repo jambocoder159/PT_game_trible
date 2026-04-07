@@ -72,7 +72,7 @@ class GameScreen extends StatelessWidget {
                                 '${state.combo}x Combo!',
                                 style: const TextStyle(
                                   color: Colors.white,
-                                  fontSize: 14,
+                                  fontSize: AppTheme.fontBodyLg,
                                   fontWeight: FontWeight.bold,
                                 ),
                               ),
@@ -146,7 +146,7 @@ class _GameOverOverlay extends StatelessWidget {
             children: [
               const Text(
                 '遊戲結束',
-                style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
+                style: TextStyle(fontSize: AppTheme.fontDisplayLg, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 24),
               _ResultRow(label: '分數', value: '$score'),
@@ -188,8 +188,8 @@ class _ResultRow extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label, style: const TextStyle(fontSize: 16, color: AppTheme.textSecondary)),
-          Text(value, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+          Text(label, style: const TextStyle(fontSize: AppTheme.fontTitleMd, color: AppTheme.textSecondary)),
+          Text(value, style: const TextStyle(fontSize: AppTheme.fontDisplayMd, fontWeight: FontWeight.bold)),
         ],
       ),
     );

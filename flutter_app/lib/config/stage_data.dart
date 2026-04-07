@@ -127,6 +127,16 @@ class StageData {
     attackInterval: 3,
   );
 
+  static const _wetBread = EnemyDefinition(
+    id: 'wet_bread',
+    name: '濕軟吐司',
+    emoji: '🍞',
+    attribute: AgentAttribute.attributeC,
+    baseHp: 120,
+    baseAtk: 12,
+    attackInterval: 4,
+  );
+
   static const _strayDog = EnemyDefinition(
     id: 'stray_dog',
     name: '酸掉牛角包',
@@ -346,8 +356,8 @@ class StageData {
       chapter: 1,
       stageNumber: 3,
       staminaCost: 5,
-      moveLimit: 18,
-      enemies: [_rat, _bigRat],
+      moveLimit: 16,
+      enemies: [_wetBread, _bigRat],
       reward: const StageReward(gold: 50, exp: 20, unlockAgentId: 'tide'),
       twoStarScore: 500,
       threeStarScore: 1000,

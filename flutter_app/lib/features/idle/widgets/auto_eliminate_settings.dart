@@ -30,7 +30,7 @@ class AutoEliminateSettings extends StatelessWidget {
                     '自動消除設定',
                     style: TextStyle(
                       color: AppTheme.textPrimary,
-                      fontSize: 18,
+                      fontSize: AppTheme.fontTitleLg,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
@@ -53,7 +53,7 @@ class AutoEliminateSettings extends StatelessWidget {
                         '能量效率對照',
                         style: TextStyle(
                           color: AppTheme.textPrimary.withAlpha(200),
-                          fontSize: 12,
+                          fontSize: AppTheme.fontBodyMd,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
@@ -96,7 +96,7 @@ class AutoEliminateSettings extends StatelessWidget {
           '階段',
           style: TextStyle(
             color: AppTheme.textPrimary,
-            fontSize: 14,
+            fontSize: AppTheme.fontBodyLg,
             fontWeight: FontWeight.w600,
           ),
         ),
@@ -156,7 +156,7 @@ class AutoEliminateSettings extends StatelessWidget {
           '消除週期',
           style: TextStyle(
             color: AppTheme.textPrimary,
-            fontSize: 14,
+            fontSize: AppTheme.fontBodyLg,
             fontWeight: FontWeight.w600,
           ),
         ),
@@ -174,7 +174,7 @@ class AutoEliminateSettings extends StatelessWidget {
                 '${(currentMs / 1000).toStringAsFixed(1)}s',
                 style: const TextStyle(
                   color: AppTheme.textPrimary,
-                  fontSize: 16,
+                  fontSize: AppTheme.fontTitleMd,
                   fontWeight: FontWeight.bold,
                 ),
               ),
@@ -185,7 +185,7 @@ class AutoEliminateSettings extends StatelessWidget {
               'Lv.$currentLevel / ${AutoEliminateConfig.intervalLevels.length - 1}',
               style: TextStyle(
                 color: AppTheme.textSecondary.withAlpha(150),
-                fontSize: 12,
+                fontSize: AppTheme.fontBodyMd,
               ),
             ),
             const Spacer(),
@@ -206,10 +206,10 @@ class AutoEliminateSettings extends StatelessWidget {
                         }
                       }
                     : null,
-                icon: const Text('🪙', style: TextStyle(fontSize: 12)),
+                icon: const Text('🪙', style: TextStyle(fontSize: AppTheme.fontBodyMd)),
                 label: Text(
                   '$nextCost',
-                  style: const TextStyle(fontSize: 12),
+                  style: const TextStyle(fontSize: AppTheme.fontBodyMd),
                 ),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppTheme.accentSecondary,
@@ -234,7 +234,7 @@ class AutoEliminateSettings extends StatelessWidget {
                   'MAX',
                   style: TextStyle(
                     color: Colors.greenAccent,
-                    fontSize: 11,
+                    fontSize: AppTheme.fontLabelLg,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
@@ -253,7 +253,7 @@ class AutoEliminateSettings extends StatelessWidget {
           '目標顏色',
           style: TextStyle(
             color: AppTheme.textPrimary,
-            fontSize: 14,
+            fontSize: AppTheme.fontBodyLg,
             fontWeight: FontWeight.w600,
           ),
         ),
@@ -262,7 +262,7 @@ class AutoEliminateSettings extends StatelessWidget {
           '優先消除指定顏色，不存在時消除備用顏色',
           style: TextStyle(
             color: AppTheme.textSecondary.withAlpha(120),
-            fontSize: 10,
+            fontSize: AppTheme.fontLabelLg,
           ),
         ),
         const SizedBox(height: 8),
@@ -276,7 +276,7 @@ class AutoEliminateSettings extends StatelessWidget {
                 '主要',
                 style: TextStyle(
                   color: AppTheme.textSecondary.withAlpha(180),
-                  fontSize: 12,
+                  fontSize: AppTheme.fontBodyMd,
                 ),
               ),
             ),
@@ -302,7 +302,7 @@ class AutoEliminateSettings extends StatelessWidget {
                 '備用',
                 style: TextStyle(
                   color: AppTheme.textSecondary.withAlpha(180),
-                  fontSize: 12,
+                  fontSize: AppTheme.fontBodyMd,
                 ),
               ),
             ),
@@ -350,7 +350,7 @@ class _EfficiencyRow extends StatelessWidget {
             label,
             style: TextStyle(
               color: AppTheme.textSecondary.withAlpha(180),
-              fontSize: 11,
+              fontSize: AppTheme.fontLabelLg,
             ),
           ),
           const Spacer(),
@@ -358,7 +358,7 @@ class _EfficiencyRow extends StatelessWidget {
             value,
             style: TextStyle(
               color: color,
-              fontSize: 11,
+              fontSize: AppTheme.fontLabelLg,
               fontWeight: FontWeight.bold,
             ),
           ),
@@ -412,7 +412,7 @@ class _StageChip extends StatelessWidget {
               label,
               style: TextStyle(
                 color: isUnlocked ? AppTheme.textPrimary : AppTheme.textSecondary.withAlpha(100),
-                fontSize: 11,
+                fontSize: AppTheme.fontLabelLg,
                 fontWeight: FontWeight.bold,
               ),
             ),
@@ -425,7 +425,7 @@ class _StageChip extends StatelessWidget {
                 color: isUnlocked
                     ? AppTheme.textSecondary.withAlpha(150)
                     : AppTheme.textSecondary.withAlpha(80),
-                fontSize: 9,
+                fontSize: AppTheme.fontLabelSm,
               ),
             ),
             if (!isUnlocked && requiredLevel != null && playerLevel != null) ...[
@@ -473,7 +473,7 @@ class _ColorCircle extends StatelessWidget {
           child: Text(
             color.symbol,
             style: TextStyle(
-              fontSize: 10,
+              fontSize: AppTheme.fontLabelLg,
               color: Colors.white.withAlpha(isSelected ? 255 : 120),
             ),
           ),

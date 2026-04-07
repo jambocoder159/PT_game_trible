@@ -37,7 +37,7 @@ class TutorialDialogues {
   );
   static const t002 = TutorialDialogue(
     id: 'T002', speaker: Speakers.narrator, canSkip: true,
-    content: '但最近甜點街變得冷清了……點心爺爺需要一位新幫手。',
+    content: '但最近甜點街變得冷清了……\n壞掉的食物精靈佔據了地下室，店鋪急需有人經營和守護！',
   );
   static const t003 = TutorialDialogue(
     id: 'T003', speaker: Speakers.narrator, canSkip: true,

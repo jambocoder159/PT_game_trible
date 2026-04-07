@@ -2,11 +2,14 @@
 /// 音效/遊戲/關於 三大分區，整合 SettingsService
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
 import '../../../config/app_version.dart';
 import '../../../config/theme.dart';
 import '../../../core/services/local_storage.dart';
 import '../../../core/services/settings_service.dart';
+import '../../agents/providers/player_provider.dart';
 import '../../gm/screens/gm_screen.dart';
+import '../../tutorial/providers/tutorial_provider.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -186,7 +189,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     '清除所有資料，無法恢復',
                     style: TextStyle(
                       color: Colors.red.shade400.withAlpha(150),
-                      fontSize: 12,
+                      fontSize: AppTheme.fontBodyMd,
                     ),
                   ),
                   shape: RoundedRectangleBorder(
@@ -224,15 +227,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
             child: const Text('取消'),
           ),
           TextButton(
-            onPressed: () {
+            onPressed: () async {
               Navigator.pop(ctx);
-              // 實際重置邏輯需要在 PlayerProvider 中呼叫 gmResetAll
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('請使用 GM 工具重置（開發中）'),
-                  backgroundColor: Colors.orange,
-                ),
-              );
+
+              final player = context.read<PlayerProvider>();
+              final tutorial = context.read<TutorialProvider>();
+
+              await player.gmResetAll();
+              await tutorial.resetTutorial();
+
+              if (context.mounted) {
+                // 回到最上層，觸發 main.dart 的 Consumer 重新判斷 → 進入教學
+                Navigator.of(context).popUntil((route) => route.isFirst);
+              }
             },
             child: Text(
               '確認重置',
@@ -271,7 +278,7 @@ class _SectionHeader extends StatelessWidget {
           title,
           style: TextStyle(
             color: c,
-            fontSize: 13,
+            fontSize: AppTheme.fontBodyLg,
             fontWeight: FontWeight.bold,
             letterSpacing: 0.5,
           ),
@@ -327,7 +334,7 @@ class _ToggleRow extends StatelessWidget {
               label,
               style: const TextStyle(
                 color: AppTheme.textPrimary,
-                fontSize: 15,
+                fontSize: AppTheme.fontTitleMd,
               ),
             ),
           ),
@@ -376,7 +383,7 @@ class _SliderRow extends StatelessWidget {
                 color: enabled
                     ? AppTheme.textPrimary
                     : AppTheme.textPrimary.withAlpha(80),
-                fontSize: 14,
+                fontSize: AppTheme.fontBodyLg,
               ),
             ),
           ),
@@ -410,7 +417,7 @@ class _SliderRow extends StatelessWidget {
                 color: enabled
                     ? AppTheme.textSecondary
                     : AppTheme.textSecondary.withAlpha(60),
-                fontSize: 12,
+                fontSize: AppTheme.fontBodyMd,
               ),
             ),
           ),
@@ -448,7 +455,7 @@ class _OptionRow extends StatelessWidget {
                 label,
                 style: const TextStyle(
                   color: AppTheme.textPrimary,
-                  fontSize: 15,
+                  fontSize: AppTheme.fontTitleMd,
                 ),
               ),
             ),
@@ -456,7 +463,7 @@ class _OptionRow extends StatelessWidget {
               value,
               style: TextStyle(
                 color: AppTheme.accentSecondary,
-                fontSize: 13,
+                fontSize: AppTheme.fontBodyLg,
               ),
             ),
             const SizedBox(width: 4),
@@ -498,7 +505,7 @@ class _InfoRow extends StatelessWidget {
                 label,
                 style: const TextStyle(
                   color: AppTheme.textPrimary,
-                  fontSize: 15,
+                  fontSize: AppTheme.fontTitleMd,
                 ),
               ),
             ),
@@ -506,7 +513,7 @@ class _InfoRow extends StatelessWidget {
               value,
               style: TextStyle(
                 color: AppTheme.textSecondary.withAlpha(150),
-                fontSize: 13,
+                fontSize: AppTheme.fontBodyLg,
               ),
             ),
           ],

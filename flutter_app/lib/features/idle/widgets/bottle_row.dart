@@ -113,7 +113,7 @@ class _BottleWidget extends StatelessWidget {
                 ),
               ),
               // 瓶子 emoji
-              Text(definition.emoji, style: const TextStyle(fontSize: 18)),
+              Text(definition.emoji, style: const TextStyle(fontSize: AppTheme.fontTitleLg)),
               // 等級徽章
               Positioned(
                 top: 0,
@@ -128,7 +128,7 @@ class _BottleWidget extends StatelessWidget {
                     '${status.level}',
                     style: const TextStyle(
                       color: Colors.white,
-                      fontSize: 8,
+                      fontSize: AppTheme.fontLabelSm,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
@@ -142,7 +142,7 @@ class _BottleWidget extends StatelessWidget {
             '${status.currentEnergy}',
             style: TextStyle(
               color: AppTheme.textSecondary.withAlpha(150),
-              fontSize: 9,
+              fontSize: AppTheme.fontLabelSm,
             ),
           ),
         ],

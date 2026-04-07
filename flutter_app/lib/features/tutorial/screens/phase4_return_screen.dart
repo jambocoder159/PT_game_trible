@@ -81,8 +81,15 @@ class _Phase4ReturnScreenState extends State<Phase4ReturnScreen> {
       _step = 3;
     }
     if (state.autoEliminateDone && _step == 2) _step = 3;
-    if (state.dailyQuestDone && _step == 3) _step = 4;
-    if (state.staminaDone && _step == 4) _step = 5;
+    // 精簡教學：跳過每日任務和元氣系統（由首頁引導條和浮動提示延後教學）
+    if (_step == 3) {
+      tutorial.markDailyQuestDone();
+      _step = 4;
+    }
+    if (_step == 4) {
+      tutorial.markStaminaDone();
+      _step = 5;
+    }
 
     _currentNavIndex = _tabForStep;
   }
@@ -333,7 +340,7 @@ class _Phase4ReturnScreenState extends State<Phase4ReturnScreen> {
                     '教學完成！',
                     style: TextStyle(
                       color: AppTheme.textPrimary,
-                      fontSize: 22,
+                      fontSize: AppTheme.fontDisplayMd,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
@@ -342,7 +349,7 @@ class _Phase4ReturnScreenState extends State<Phase4ReturnScreen> {
                     '恭喜你掌握了所有基礎！\n甜點街就交給你了！',
                     style: TextStyle(
                       color: AppTheme.textSecondary,
-                      fontSize: 14,
+                      fontSize: AppTheme.fontBodyLg,
                     ),
                     textAlign: TextAlign.center,
                   ),
@@ -363,7 +370,7 @@ class _Phase4ReturnScreenState extends State<Phase4ReturnScreen> {
                           '🎁 開店禮包',
                           style: TextStyle(
                             color: AppTheme.textPrimary,
-                            fontSize: 16,
+                            fontSize: AppTheme.fontTitleMd,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
@@ -402,7 +409,7 @@ class _Phase4ReturnScreenState extends State<Phase4ReturnScreen> {
                       child: const Text(
                         '開始冒險！',
                         style: TextStyle(
-                            fontSize: 16, fontWeight: FontWeight.bold),
+                            fontSize: AppTheme.fontTitleMd, fontWeight: FontWeight.bold),
                       ),
                     ),
                   ),
@@ -419,13 +426,13 @@ class _Phase4ReturnScreenState extends State<Phase4ReturnScreen> {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text(emoji, style: const TextStyle(fontSize: 24)),
+        Text(emoji, style: const TextStyle(fontSize: AppTheme.fontDisplayLg)),
         const SizedBox(height: 4),
         Text(
           label,
           style: const TextStyle(
             color: AppTheme.textPrimary,
-            fontSize: 14,
+            fontSize: AppTheme.fontBodyLg,
             fontWeight: FontWeight.bold,
           ),
         ),

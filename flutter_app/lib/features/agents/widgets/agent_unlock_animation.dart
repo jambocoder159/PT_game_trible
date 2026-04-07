@@ -359,7 +359,7 @@ class _AgentUnlockAnimationState extends State<AgentUnlockAnimation>
                                   '— 新夥伴加入 —',
                                   style: TextStyle(
                                     color: attrColor.withAlpha(200),
-                                    fontSize: 12,
+                                    fontSize: AppTheme.fontBodyMd,
                                     letterSpacing: 4,
                                   ),
                                   textAlign: TextAlign.center,
@@ -370,7 +370,7 @@ class _AgentUnlockAnimationState extends State<AgentUnlockAnimation>
                                   widget.definition.name,
                                   style: TextStyle(
                                     color: Colors.white,
-                                    fontSize: 24,
+                                    fontSize: AppTheme.fontDisplayLg,
                                     fontWeight: FontWeight.w900,
                                     letterSpacing: 4,
                                     shadows: [
@@ -389,7 +389,7 @@ class _AgentUnlockAnimationState extends State<AgentUnlockAnimation>
                                       widget.definition.codename,
                                       style: const TextStyle(
                                         color: AppTheme.textSecondary,
-                                        fontSize: 12,
+                                        fontSize: AppTheme.fontBodyMd,
                                         letterSpacing: 1,
                                       ),
                                     ),
@@ -453,7 +453,7 @@ class _AgentUnlockAnimationState extends State<AgentUnlockAnimation>
             rarity.display,
             style: TextStyle(
               color: color,
-              fontSize: 10,
+              fontSize: AppTheme.fontLabelLg,
               fontWeight: FontWeight.bold,
             ),
           ),

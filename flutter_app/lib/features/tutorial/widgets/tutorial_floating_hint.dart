@@ -90,7 +90,7 @@ class _TutorialFloatingHintState extends State<TutorialFloatingHint>
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 if (widget.emoji != null) ...[
-                  Text(widget.emoji!, style: const TextStyle(fontSize: 20)),
+                  Text(widget.emoji!, style: const TextStyle(fontSize: AppTheme.fontDisplayMd)),
                   const SizedBox(width: 8),
                 ],
                 Flexible(
@@ -99,7 +99,7 @@ class _TutorialFloatingHintState extends State<TutorialFloatingHint>
                     textAlign: TextAlign.center,
                     style: const TextStyle(
                       color: AppTheme.textPrimary,
-                      fontSize: 15,
+                      fontSize: AppTheme.fontTitleMd,
                       fontWeight: FontWeight.w600,
                       height: 1.4,
                     ),

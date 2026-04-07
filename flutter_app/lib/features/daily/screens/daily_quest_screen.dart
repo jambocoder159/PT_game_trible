@@ -66,8 +66,8 @@ class _DailyQuestScreenState extends State<DailyQuestScreen>
               indicatorColor: AppTheme.accentSecondary,
               labelColor: AppTheme.textPrimary,
               unselectedLabelColor: AppTheme.textSecondary,
-              labelStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
-              unselectedLabelStyle: const TextStyle(fontSize: 13),
+              labelStyle: const TextStyle(fontSize: AppTheme.fontBodyLg, fontWeight: FontWeight.bold),
+              unselectedLabelStyle: const TextStyle(fontSize: AppTheme.fontBodyLg),
               tabs: const [
                 Tab(text: '每日任務'),
                 Tab(text: '七日打卡'),
@@ -211,7 +211,7 @@ class _DailyTab extends StatelessWidget {
             Center(
               child: Text(
                 '${tasks.where((t) => t.isDone).length}/3 完成',
-                style: const TextStyle(color: AppTheme.textSecondary, fontSize: 13),
+                style: const TextStyle(color: AppTheme.textSecondary, fontSize: AppTheme.fontBodyLg),
               ),
             ),
           ],
@@ -300,7 +300,7 @@ class _WeeklyTab extends StatelessWidget {
                     todayChecked ? '今日已打卡' : '第 $currentDay 天',
                     style: TextStyle(
                       color: todayChecked ? Colors.green : AppTheme.textPrimary,
-                      fontSize: 18,
+                      fontSize: AppTheme.fontTitleLg,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
@@ -309,7 +309,7 @@ class _WeeklyTab extends StatelessWidget {
                     '累計打卡 ${wc.totalChecked} / 7 天',
                     style: TextStyle(
                       color: AppTheme.textSecondary.withAlpha(180),
-                      fontSize: 12,
+                      fontSize: AppTheme.fontBodyMd,
                     ),
                   ),
                   if (!todayChecked) ...[
@@ -340,7 +340,7 @@ class _WeeklyTab extends StatelessWidget {
                         ),
                         child: const Text(
                           '打卡簽到',
-                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                          style: TextStyle(fontSize: AppTheme.fontTitleMd, fontWeight: FontWeight.bold),
                         ),
                       ),
                     ),
@@ -392,7 +392,7 @@ class _WeeklyTab extends StatelessWidget {
                           color: isChecked
                               ? Colors.green
                               : AppTheme.textSecondary.withAlpha(180),
-                          fontSize: 11,
+                          fontSize: AppTheme.fontLabelLg,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
@@ -406,7 +406,7 @@ class _WeeklyTab extends StatelessWidget {
                             color: isToday
                                 ? AppTheme.textPrimary
                                 : AppTheme.textSecondary.withAlpha(120),
-                            fontSize: 12,
+                            fontSize: AppTheme.fontBodyMd,
                             fontWeight: FontWeight.w600,
                           ),
                         ),
@@ -551,7 +551,7 @@ class _NewbieTab extends StatelessWidget {
                     '新手任務進度',
                     style: TextStyle(
                       color: AppTheme.textPrimary.withAlpha(200),
-                      fontSize: 14,
+                      fontSize: AppTheme.fontBodyLg,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
@@ -560,7 +560,7 @@ class _NewbieTab extends StatelessWidget {
                     '$completedCount / ${_newbieQuests.length}',
                     style: const TextStyle(
                       color: AppTheme.textPrimary,
-                      fontSize: 14,
+                      fontSize: AppTheme.fontBodyLg,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
@@ -624,7 +624,7 @@ class _NewbieTab extends StatelessWidget {
                               style: TextStyle(
                                 color: AppTheme.textPrimary,
                                 fontWeight: FontWeight.bold,
-                                fontSize: 13,
+                                fontSize: AppTheme.fontBodyLg,
                                 decoration: isClaimed
                                     ? TextDecoration.lineThrough
                                     : null,
@@ -634,7 +634,7 @@ class _NewbieTab extends StatelessWidget {
                               quest.description,
                               style: TextStyle(
                                 color: AppTheme.textSecondary.withAlpha(150),
-                                fontSize: 11,
+                                fontSize: AppTheme.fontLabelLg,
                               ),
                             ),
                           ],
@@ -647,7 +647,7 @@ class _NewbieTab extends StatelessWidget {
                           '已領取',
                           style: TextStyle(
                             color: Colors.green,
-                            fontSize: 11,
+                            fontSize: AppTheme.fontLabelLg,
                             fontWeight: FontWeight.bold,
                           ),
                         )
@@ -676,7 +676,7 @@ class _NewbieTab extends StatelessWidget {
                           ),
                           child: Text(
                             quest.reward,
-                            style: const TextStyle(fontSize: 11),
+                            style: const TextStyle(fontSize: AppTheme.fontLabelLg),
                           ),
                         )
                       else
@@ -684,7 +684,7 @@ class _NewbieTab extends StatelessWidget {
                           quest.reward,
                           style: TextStyle(
                             color: AppTheme.textSecondary.withAlpha(100),
-                            fontSize: 11,
+                            fontSize: AppTheme.fontLabelLg,
                           ),
                         ),
                     ],
@@ -793,7 +793,7 @@ class _TaskCard extends StatelessWidget {
                     '${task.progress}/${task.goal}',
                     style: const TextStyle(
                       color: AppTheme.textSecondary,
-                      fontSize: 11,
+                      fontSize: AppTheme.fontLabelLg,
                     ),
                   ),
                 ],
@@ -802,7 +802,7 @@ class _TaskCard extends StatelessWidget {
             const SizedBox(width: 8),
             Text(
               task.reward,
-              style: const TextStyle(color: AppTheme.textSecondary, fontSize: 12),
+              style: const TextStyle(color: AppTheme.textSecondary, fontSize: AppTheme.fontBodyMd),
             ),
           ],
         ),
@@ -861,14 +861,14 @@ class _BonusRewardCard extends StatelessWidget {
                       style: const TextStyle(
                         color: AppTheme.textPrimary,
                         fontWeight: FontWeight.bold,
-                        fontSize: 16,
+                        fontSize: AppTheme.fontTitleMd,
                       ),
                     ),
                     Text(
                       subtitle,
                       style: const TextStyle(
                         color: AppTheme.textSecondary,
-                        fontSize: 12,
+                        fontSize: AppTheme.fontBodyMd,
                       ),
                     ),
                   ],
@@ -879,7 +879,7 @@ class _BonusRewardCard extends StatelessWidget {
                 style: const TextStyle(
                   color: Colors.amber,
                   fontWeight: FontWeight.bold,
-                  fontSize: 16,
+                  fontSize: AppTheme.fontTitleMd,
                 ),
               ),
             ],

@@ -58,7 +58,7 @@ class AutoEliminateBar extends StatelessWidget {
           'Lv.$requiredLevel 解鎖自動消除',
           style: TextStyle(
             color: AppTheme.textSecondary.withAlpha(100),
-            fontSize: 9,
+            fontSize: AppTheme.fontLabelSm,
           ),
         ),
       ],
@@ -107,7 +107,7 @@ class AutoEliminateBar extends StatelessWidget {
               color: config.isAutoActive
                   ? AppTheme.accentSecondary
                   : AppTheme.textSecondary.withAlpha(120),
-              fontSize: 9,
+              fontSize: AppTheme.fontLabelSm,
               fontWeight: FontWeight.bold,
             ),
           ),
@@ -191,7 +191,7 @@ class _CountdownIndicator extends StatelessWidget {
           '${seconds}s',
           style: TextStyle(
             color: AppTheme.textSecondary.withAlpha(150),
-            fontSize: 8,
+            fontSize: AppTheme.fontLabelSm,
             fontFeatures: const [FontFeature.tabularFigures()],
           ),
         ),

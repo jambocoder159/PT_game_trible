@@ -678,7 +678,7 @@ class _SkillVfxOverlayState extends State<_SkillVfxOverlay>
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       color: Colors.white,
-                      fontSize: 20,
+                      fontSize: AppTheme.fontDisplayMd,
                       fontWeight: FontWeight.bold,
                       shadows: [
                         Shadow(color: color, blurRadius: 16),
@@ -762,7 +762,7 @@ class _LeftPanel extends StatelessWidget {
   Widget _buildCharacterSection(PlayerProvider pp, IdleProvider idle) {
     final team = pp.data.team;
     if (team.isEmpty) {
-      return const SizedBox(height: 36, child: Center(child: Text('?', style: TextStyle(fontSize: 18, color: AppTheme.textSecondary))));
+      return const SizedBox(height: 36, child: Center(child: Text('?', style: TextStyle(fontSize: AppTheme.fontTitleLg, color: AppTheme.textSecondary))));
     }
     final agentId = team.first;
     final agentDef = _findAgentDef(agentId);
@@ -814,10 +814,10 @@ class _LeftPanel extends StatelessWidget {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                     decoration: BoxDecoration(color: attrColor, borderRadius: BorderRadius.circular(6)),
-                    child: const Text('施放！', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
+                    child: const Text('施放！', style: TextStyle(color: Colors.white, fontSize: AppTheme.fontLabelLg, fontWeight: FontWeight.bold)),
                   )
                 else
-                  Text('$energy/$cost', style: TextStyle(color: AppTheme.textSecondary.withAlpha(130), fontSize: 9)),
+                  Text('$energy/$cost', style: TextStyle(color: AppTheme.textSecondary.withAlpha(130), fontSize: AppTheme.fontLabelSm)),
               ],
             ),
           ),
@@ -897,7 +897,7 @@ class _LeftPanel extends StatelessWidget {
                           // 瓶子 emoji
                           KeyedSubtree(
                             key: bottleKeys[def.color]!,
-                            child: Text(def.emoji, style: const TextStyle(fontSize: 20)),
+                            child: Text(def.emoji, style: const TextStyle(fontSize: AppTheme.fontDisplayMd)),
                           ),
                           // 等級膠囊徽章
                           Container(
@@ -915,7 +915,7 @@ class _LeftPanel extends StatelessWidget {
                             child: Text(
                               isFull ? '✓ Lv${bottle.level}' : 'Lv${bottle.level}',
                               style: TextStyle(
-                                fontSize: 10,
+                                fontSize: AppTheme.fontLabelLg,
                                 fontWeight: FontWeight.bold,
                                 color: isFull ? Colors.white : def.color.color,
                               ),
@@ -923,11 +923,11 @@ class _LeftPanel extends StatelessWidget {
                           ),
                           // 甜點 emoji + 售價
                           if (dessert != null) ...[
-                            Text(dessert.emoji, style: const TextStyle(fontSize: 14)),
+                            Text(dessert.emoji, style: const TextStyle(fontSize: AppTheme.fontBodyLg)),
                             Text(
                               '${dessert.sellPrice}🍬',
                               style: TextStyle(
-                                fontSize: 9,
+                                fontSize: AppTheme.fontLabelSm,
                                 fontWeight: FontWeight.w600,
                                 color: AppTheme.textSecondary.withAlpha(180),
                               ),
@@ -998,7 +998,7 @@ class _LeftPanel extends StatelessWidget {
                     isAutoUnlocked ? '自動消除' : 'Lv.${AutoEliminateConfig.unlockLevelRequirements[AutoEliminateStage.stage2]} 解鎖',
                     style: TextStyle(
                       color: isAutoUnlocked ? AppTheme.textPrimary : AppTheme.textSecondary.withAlpha(100),
-                      fontSize: 10,
+                      fontSize: AppTheme.fontLabelLg,
                     ),
                   ),
                 ),
@@ -1030,7 +1030,7 @@ class _LeftPanel extends StatelessWidget {
                   '自動收成',
                   style: TextStyle(
                     color: bp.autoHarvestEnabled ? AppTheme.textPrimary : AppTheme.textSecondary.withAlpha(120),
-                    fontSize: 10,
+                    fontSize: AppTheme.fontLabelLg,
                   ),
                 ),
               ),
@@ -1183,13 +1183,13 @@ class _HarvestButtonState extends State<_HarvestButton>
                           children: [
                             Text(
                               isRich ? '💰 收成！' : '🧪 收成！',
-                              style: TextStyle(color: textColor, fontSize: 14, fontWeight: FontWeight.bold),
+                              style: TextStyle(color: textColor, fontSize: AppTheme.fontBodyLg, fontWeight: FontWeight.bold),
                             ),
                             if (isRich) ...[
                               const SizedBox(height: 2),
                               Text(
                                 '+$estimatedGold🍬',
-                                style: TextStyle(color: textColor.withAlpha(200), fontSize: 11),
+                                style: TextStyle(color: textColor.withAlpha(200), fontSize: AppTheme.fontLabelLg),
                               ),
                             ],
                           ],
@@ -1210,7 +1210,7 @@ class _HarvestButtonState extends State<_HarvestButton>
                               const SizedBox(width: 6),
                               Text(
                                 '${(nearestProgress * 100).toInt()}%',
-                                style: TextStyle(color: textColor, fontSize: 11),
+                                style: TextStyle(color: textColor, fontSize: AppTheme.fontLabelLg),
                               ),
                             ],
                           ),
@@ -1228,7 +1228,7 @@ class _HarvestButtonState extends State<_HarvestButton>
                         border: Border.all(color: AppTheme.bgCard, width: 1.5),
                       ),
                       child: Center(
-                        child: Text('$fullCount', style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold)),
+                        child: Text('$fullCount', style: const TextStyle(color: Colors.white, fontSize: AppTheme.fontLabelSm, fontWeight: FontWeight.bold)),
                       ),
                     ),
                   ),
@@ -1357,7 +1357,7 @@ class _HarvestAnimationOverlayState extends State<_HarvestAnimationOverlay>
                           isCrit ? '暴擊！✨' : '收成完成！',
                           style: TextStyle(
                             color: isCrit ? const Color(0xFF7C5E10) : Colors.white,
-                            fontSize: 14,
+                            fontSize: AppTheme.fontBodyLg,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
@@ -1372,7 +1372,7 @@ class _HarvestAnimationOverlayState extends State<_HarvestAnimationOverlay>
                         ),
                         Text(
                           '🍬',
-                          style: const TextStyle(fontSize: 20),
+                          style: const TextStyle(fontSize: AppTheme.fontDisplayMd),
                         ),
                         if (widget.dessertCount > 0) ...[
                           const SizedBox(height: 4),
@@ -1380,7 +1380,7 @@ class _HarvestAnimationOverlayState extends State<_HarvestAnimationOverlay>
                             '${widget.dessertCount} 份甜點售出',
                             style: TextStyle(
                               color: (isCrit ? const Color(0xFF7C5E10) : Colors.white).withAlpha(180),
-                              fontSize: 11,
+                              fontSize: AppTheme.fontLabelLg,
                             ),
                           ),
                         ],
@@ -1450,7 +1450,7 @@ class _ToolbarIconVertical extends StatelessWidget {
           children: [
             Icon(icon, color: AppTheme.textSecondary, size: 18),
             const SizedBox(height: 2),
-            Text(label, style: TextStyle(color: AppTheme.textSecondary.withAlpha(150), fontSize: 8)),
+            Text(label, style: TextStyle(color: AppTheme.textSecondary.withAlpha(150), fontSize: AppTheme.fontLabelSm)),
           ],
         ),
       ),
@@ -1564,7 +1564,7 @@ class _ComboOverlayState extends State<_ComboOverlay>
                         '${combo}x Combo!',
                         style: const TextStyle(
                           color: Colors.white,
-                          fontSize: 16,
+                          fontSize: AppTheme.fontTitleMd,
                           fontWeight: FontWeight.bold,
                           shadows: [
                             Shadow(color: Colors.black54, blurRadius: 4),
@@ -1688,14 +1688,14 @@ class _NextQuestBanner extends StatelessWidget {
         ),
         child: Row(
           children: [
-            Text(icon, style: const TextStyle(fontSize: 14)),
+            Text(icon, style: const TextStyle(fontSize: AppTheme.fontBodyLg)),
             const SizedBox(width: 6),
             Expanded(
               child: Text(
                 text,
                 style: TextStyle(
                   color: color,
-                  fontSize: 12,
+                  fontSize: AppTheme.fontBodyMd,
                   fontWeight: FontWeight.w600,
                 ),
                 overflow: TextOverflow.ellipsis,

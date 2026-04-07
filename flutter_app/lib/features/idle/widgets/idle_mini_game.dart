@@ -235,14 +235,14 @@ class _IdleMiniGameState extends State<IdleMiniGame>
                         const SizedBox(width: 3),
                         Text(
                           '點擊消除',
-                          style: TextStyle(color: AppTheme.textSecondary.withAlpha(120), fontSize: 9),
+                          style: TextStyle(color: AppTheme.textSecondary.withAlpha(120), fontSize: AppTheme.fontLabelSm),
                         ),
                         const SizedBox(width: 8),
                         Icon(Icons.swap_vert, size: 10, color: AppTheme.textSecondary.withAlpha(120)),
                         const SizedBox(width: 3),
                         Text(
                           '滑動放置',
-                          style: TextStyle(color: AppTheme.textSecondary.withAlpha(120), fontSize: 9),
+                          style: TextStyle(color: AppTheme.textSecondary.withAlpha(120), fontSize: AppTheme.fontLabelSm),
                         ),
                       ],
                     ),

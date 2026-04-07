@@ -131,11 +131,12 @@ class TutorialProvider extends ChangeNotifier {
   }
 
   /// 完成教學（正常流程走完 & 跳過共用）
-  /// 一律解鎖露露 + 標記關卡 1-1~1-3 通過
+  /// 標記關卡 1-1 通過 + 發放獎勵
   Future<void> completeTutorial(
     PlayerProvider player, {
     List<String>? stagesToClear,
     String? agentToUnlock,
+    bool skipAgentUnlock = false,
   }) async {
     _state.currentPhase = TutorialPhase.completed;
     await _save();
@@ -144,7 +145,7 @@ class TutorialProvider extends ChangeNotifier {
       bonusGold: TutorialConfig.rewardGold,
       bonusDiamonds: TutorialConfig.rewardDiamonds,
       stagesToClear: stagesToClear ?? ['1-1'],
-      agentToUnlock: agentToUnlock ?? TutorialConfig.luluAgentId,
+      agentToUnlock: skipAgentUnlock ? null : (agentToUnlock ?? TutorialConfig.luluAgentId),
     );
 
     notifyListeners();

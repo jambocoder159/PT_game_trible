@@ -58,7 +58,7 @@ class TutorialTaskPanel extends StatelessWidget {
                 '📋 新手任務',
                 style: TextStyle(
                   color: AppTheme.textSecondary,
-                  fontSize: 11,
+                  fontSize: AppTheme.fontLabelLg,
                   fontWeight: FontWeight.bold,
                 ),
               ),
@@ -69,7 +69,7 @@ class TutorialTaskPanel extends StatelessWidget {
             title,
             style: const TextStyle(
               color: AppTheme.textPrimary,
-              fontSize: 13,
+              fontSize: AppTheme.fontBodyLg,
               fontWeight: FontWeight.w600,
             ),
           ),
@@ -91,7 +91,7 @@ class TutorialTaskPanel extends StatelessWidget {
             '進度：$current/$target',
             style: TextStyle(
               color: AppTheme.textSecondary,
-              fontSize: 11,
+              fontSize: AppTheme.fontLabelLg,
             ),
           ),
           if (reward != null) ...[
@@ -100,7 +100,7 @@ class TutorialTaskPanel extends StatelessWidget {
               '獎勵：$reward',
               style: TextStyle(
                 color: AppTheme.accentPrimary,
-                fontSize: 11,
+                fontSize: AppTheme.fontLabelLg,
               ),
             ),
           ],

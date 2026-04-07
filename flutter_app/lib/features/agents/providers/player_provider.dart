@@ -248,8 +248,10 @@ class PlayerProvider extends ChangeNotifier {
     }
     _data.dailyQuests.stagesCompleted++;
 
-    await _save();
+    // 先通知 UI 更新（解鎖下一關），再非同步存檔
+    // 避免手機上 SharedPreferences 較慢導致 UI 未刷新
     notifyListeners();
+    _save();
 
     return BattleReward(
       gold: actualGold,
@@ -736,8 +738,22 @@ class PlayerProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// 重置所有資料（回到新玩家狀態）
+  /// 徹底重置所有遊戲資料（從頭開始）
   Future<void> gmResetAll() async {
+    final storage = LocalStorageService.instance;
+
+    // 清除主要玩家存檔
+    await storage.clearAll();
+
+    // 清除所有額外的本地存檔 key
+    await storage.setJson('tutorial_state', null);
+    await storage.setJson('cat_states', null);
+    await storage.setJson('bottle_states', null);
+    await storage.setJson('auto_eliminate_config', null);
+    await storage.setJson('board_on_left', null);
+    await storage.setJson('battle_board_left', null);
+
+    // 重建全新玩家資料
     _data = PlayerData.newPlayer();
     await _save();
     notifyListeners();
@@ -753,22 +769,23 @@ class PlayerProvider extends ChangeNotifier {
     String? agentToUnlock,
   }) async {
     _data.tutorialCompleted = true;
+    _data.homeGuideCompleted = true;
     _data.gold += bonusGold;
     _data.diamonds += bonusDiamonds;
 
-    // 跳過教學時標記關卡通過
+    // 教學完成時標記關卡通過（教學引導下完成 → 3 星）
     if (stagesToClear != null) {
       for (final stageId in stagesToClear) {
         if (!(_data.stageProgress[stageId]?.cleared ?? false)) {
           _data.stageProgress[stageId] = const StageProgress(
             cleared: true,
-            stars: 1,
+            stars: 3,
           );
         }
       }
     }
 
-    // 跳過教學時解鎖角色
+    // 解鎖角色（僅當有指定時）
     if (agentToUnlock != null && !_data.agents.containsKey(agentToUnlock)) {
       _data.agents[agentToUnlock] = CatAgentInstance(
         definitionId: agentToUnlock,
@@ -780,8 +797,8 @@ class PlayerProvider extends ChangeNotifier {
       }
     }
 
-    await _save();
     notifyListeners();
+    _save();
   }
 
   /// 標記教學關卡通過（不改 tutorialCompleted 旗標）
@@ -789,10 +806,10 @@ class PlayerProvider extends ChangeNotifier {
     if (!(_data.stageProgress[stageId]?.cleared ?? false)) {
       _data.stageProgress[stageId] = const StageProgress(
         cleared: true,
-        stars: 1,
+        stars: 3,
       );
-      await _save();
       notifyListeners();
+      _save();
     }
   }
 
@@ -834,6 +851,7 @@ class PlayerProvider extends ChangeNotifier {
     await _save();
     notifyListeners();
   }
+
 }
 
 /// 角色資訊（定義 + 實例的組合）

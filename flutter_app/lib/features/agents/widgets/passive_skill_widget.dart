@@ -103,7 +103,7 @@ class _PassiveCard extends StatelessWidget {
                               color: isUnlocked
                                   ? AppTheme.textPrimary
                                   : AppTheme.textSecondary,
-                              fontSize: 15,
+                              fontSize: AppTheme.fontTitleMd,
                               fontWeight: FontWeight.bold,
                             ),
                           ),
@@ -120,7 +120,7 @@ class _PassiveCard extends StatelessWidget {
                                 '裝備中',
                                 style: TextStyle(
                                   color: Colors.amber,
-                                  fontSize: 10,
+                                  fontSize: AppTheme.fontLabelLg,
                                   fontWeight: FontWeight.bold,
                                 ),
                               ),
@@ -135,7 +135,7 @@ class _PassiveCard extends StatelessWidget {
                           color: isUnlocked
                               ? AppTheme.textSecondary
                               : AppTheme.textSecondary.withValues(alpha: 0.6),
-                          fontSize: 13,
+                          fontSize: AppTheme.fontBodyLg,
                         ),
                       ),
                     ],
@@ -159,7 +159,7 @@ class _PassiveCard extends StatelessWidget {
                       color: agentLevel >= passive.unlockAtAgentLevel
                           ? Colors.green
                           : Colors.red.shade300,
-                      fontSize: 12,
+                      fontSize: AppTheme.fontBodyMd,
                     ),
                   ),
                   const Spacer(),
@@ -171,7 +171,7 @@ class _PassiveCard extends StatelessWidget {
                 Text(
                   '需要等級 ${passive.unlockAtAgentLevel}（目前 Lv.$agentLevel）',
                   style: TextStyle(
-                      color: Colors.red.shade300, fontSize: 11),
+                      color: Colors.red.shade300, fontSize: AppTheme.fontLabelLg),
                 ),
               ],
             ],
@@ -262,12 +262,12 @@ class _UnlockButton extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Text('解鎖', style: TextStyle(fontSize: 12)),
+          const Text('解鎖', style: TextStyle(fontSize: AppTheme.fontBodyMd)),
           const SizedBox(width: 4),
           Text(
             '(${_costText()})',
             style: TextStyle(
-                fontSize: 10, color: AppTheme.textSecondary),
+                fontSize: AppTheme.fontLabelLg, color: AppTheme.textSecondary),
           ),
         ],
       ),

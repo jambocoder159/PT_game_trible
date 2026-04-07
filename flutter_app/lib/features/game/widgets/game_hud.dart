@@ -101,7 +101,7 @@ class _InfoChip extends StatelessWidget {
           Text(
             label,
             style: TextStyle(
-              fontSize: 14,
+              fontSize: AppTheme.fontBodyLg,
               fontWeight: FontWeight.bold,
               color: color,
             ),

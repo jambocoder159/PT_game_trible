@@ -61,7 +61,7 @@ class _WorkshopDetailPanelState extends State<WorkshopDetailPanel> {
                   '🧁 甜點工坊',
                   style: TextStyle(
                     color: AppTheme.textPrimary,
-                    fontSize: 16,
+                    fontSize: AppTheme.fontTitleMd,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
@@ -95,12 +95,12 @@ class _WorkshopDetailPanelState extends State<WorkshopDetailPanel> {
                           child: Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              Text(def.emoji, style: const TextStyle(fontSize: 16)),
+                              Text(def.emoji, style: const TextStyle(fontSize: AppTheme.fontTitleMd)),
                               Text(
                                 'Lv.${b.level}',
                                 style: TextStyle(
                                   color: isSelected ? color.color : AppTheme.textSecondary,
-                                  fontSize: 7,
+                                  fontSize: AppTheme.fontLabelSm,
                                   fontWeight: FontWeight.bold,
                                 ),
                               ),
@@ -127,7 +127,7 @@ class _WorkshopDetailPanelState extends State<WorkshopDetailPanel> {
                     children: [
                       Row(
                         children: [
-                          Text(bottleDef.emoji, style: const TextStyle(fontSize: 24)),
+                          Text(bottleDef.emoji, style: const TextStyle(fontSize: AppTheme.fontDisplayLg)),
                           const SizedBox(width: 8),
                           Expanded(
                             child: Column(
@@ -137,7 +137,7 @@ class _WorkshopDetailPanelState extends State<WorkshopDetailPanel> {
                                   bottleDef.name,
                                   style: const TextStyle(
                                     color: AppTheme.textPrimary,
-                                    fontSize: 13,
+                                    fontSize: AppTheme.fontBodyLg,
                                     fontWeight: FontWeight.bold,
                                   ),
                                 ),
@@ -146,7 +146,7 @@ class _WorkshopDetailPanelState extends State<WorkshopDetailPanel> {
                                     '目前生產：${currentDessert.emoji} ${currentDessert.name}  售價 ${currentDessert.sellPrice}🍬',
                                     style: TextStyle(
                                       color: AppTheme.textSecondary.withAlpha(180),
-                                      fontSize: 10,
+                                      fontSize: AppTheme.fontLabelLg,
                                     ),
                                   ),
                               ],
@@ -172,7 +172,7 @@ class _WorkshopDetailPanelState extends State<WorkshopDetailPanel> {
                         '能量 ${bottle.currentEnergy} / ${bottle.capacity}',
                         style: TextStyle(
                           color: AppTheme.textSecondary.withAlpha(130),
-                          fontSize: 9,
+                          fontSize: AppTheme.fontLabelSm,
                         ),
                       ),
                     ],
@@ -213,7 +213,7 @@ class _WorkshopDetailPanelState extends State<WorkshopDetailPanel> {
                             Text(
                               recipe.emoji,
                               style: TextStyle(
-                                fontSize: 20,
+                                fontSize: AppTheme.fontDisplayMd,
                                 color: isUnlocked ? null : AppTheme.textSecondary.withAlpha(60),
                               ),
                             ),
@@ -228,7 +228,7 @@ class _WorkshopDetailPanelState extends State<WorkshopDetailPanel> {
                                       color: isUnlocked
                                           ? AppTheme.textPrimary
                                           : AppTheme.textSecondary.withAlpha(80),
-                                      fontSize: 12,
+                                      fontSize: AppTheme.fontBodyMd,
                                       fontWeight: FontWeight.bold,
                                     ),
                                   ),
@@ -238,7 +238,7 @@ class _WorkshopDetailPanelState extends State<WorkshopDetailPanel> {
                                         : '🔒 需 Lv.${tier.requiredLevel}',
                                     style: TextStyle(
                                       color: AppTheme.textSecondary.withAlpha(isUnlocked ? 150 : 80),
-                                      fontSize: 9,
+                                      fontSize: AppTheme.fontLabelSm,
                                     ),
                                   ),
                                 ],
@@ -255,7 +255,7 @@ class _WorkshopDetailPanelState extends State<WorkshopDetailPanel> {
                                   '生產中 ✓',
                                   style: TextStyle(
                                     color: Color(0xFF51CF66),
-                                    fontSize: 9,
+                                    fontSize: AppTheme.fontLabelSm,
                                     fontWeight: FontWeight.bold,
                                   ),
                                 ),
@@ -281,7 +281,7 @@ class _WorkshopDetailPanelState extends State<WorkshopDetailPanel> {
                                     '切換',
                                     style: TextStyle(
                                       color: _selectedColor.color,
-                                      fontSize: 10,
+                                      fontSize: AppTheme.fontLabelLg,
                                       fontWeight: FontWeight.bold,
                                     ),
                                   ),
@@ -378,7 +378,7 @@ class _WorkshopDetailPanelState extends State<WorkshopDetailPanel> {
               '⬆ 升級至 Lv.$targetLevel',
               style: TextStyle(
                 color: canUpgrade ? Colors.white : AppTheme.textSecondary.withAlpha(120),
-                fontSize: 12,
+                fontSize: AppTheme.fontBodyMd,
                 fontWeight: FontWeight.bold,
               ),
             ),
@@ -388,7 +388,7 @@ class _WorkshopDetailPanelState extends State<WorkshopDetailPanel> {
                 blockReason,
                 style: TextStyle(
                   color: AppTheme.textSecondary.withAlpha(100),
-                  fontSize: 9,
+                  fontSize: AppTheme.fontLabelSm,
                 ),
               ),
             ],
@@ -398,7 +398,7 @@ class _WorkshopDetailPanelState extends State<WorkshopDetailPanel> {
                 '${levelData.upgradeCostGold} 🍬',
                 style: TextStyle(
                   color: Colors.white.withAlpha(200),
-                  fontSize: 9,
+                  fontSize: AppTheme.fontLabelSm,
                 ),
               ),
             ],

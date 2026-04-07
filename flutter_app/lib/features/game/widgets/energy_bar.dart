@@ -72,14 +72,14 @@ class _EnergyBarState extends State<EnergyBar> {
             children: [
               Row(
                 children: [
-                  const Text('⚡', style: TextStyle(fontSize: 18)),
+                  const Text('⚡', style: TextStyle(fontSize: AppTheme.fontTitleLg)),
                   const SizedBox(width: 8),
                   Text(
                     '${data.stamina}/${data.maxStamina}',
                     style: const TextStyle(
                       color: AppTheme.textPrimary,
                       fontWeight: FontWeight.bold,
-                      fontSize: 16,
+                      fontSize: AppTheme.fontTitleMd,
                     ),
                   ),
                   const Spacer(),
@@ -88,7 +88,7 @@ class _EnergyBarState extends State<EnergyBar> {
                       '下次恢復 ${_formatCountdown(provider)}',
                       style: const TextStyle(
                         color: AppTheme.textSecondary,
-                        fontSize: 12,
+                        fontSize: AppTheme.fontBodyMd,
                       ),
                     )
                   else
@@ -96,7 +96,7 @@ class _EnergyBarState extends State<EnergyBar> {
                       '體力已滿',
                       style: TextStyle(
                         color: Colors.green,
-                        fontSize: 12,
+                        fontSize: AppTheme.fontBodyMd,
                         fontWeight: FontWeight.bold,
                       ),
                     ),

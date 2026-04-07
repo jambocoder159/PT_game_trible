@@ -72,7 +72,7 @@ class CharacterDisplay extends StatelessWidget {
                         agentDef.name,
                         style: const TextStyle(
                           color: AppTheme.textPrimary,
-                          fontSize: 15,
+                          fontSize: AppTheme.fontTitleMd,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
@@ -105,7 +105,7 @@ class CharacterDisplay extends StatelessWidget {
                                 '施放！',
                                 style: TextStyle(
                                   color: Colors.white,
-                                  fontSize: 10,
+                                  fontSize: AppTheme.fontLabelLg,
                                   fontWeight: FontWeight.bold,
                                 ),
                               ),
@@ -115,7 +115,7 @@ class CharacterDisplay extends StatelessWidget {
                               '$energy/$cost',
                               style: TextStyle(
                                 color: AppTheme.textSecondary.withAlpha(150),
-                                fontSize: 10,
+                                fontSize: AppTheme.fontLabelLg,
                               ),
                             ),
                         ],
@@ -125,7 +125,7 @@ class CharacterDisplay extends StatelessWidget {
                         agentDef.skill.name,
                         style: TextStyle(
                           color: AppTheme.textSecondary.withAlpha(150),
-                          fontSize: 10,
+                          fontSize: AppTheme.fontLabelLg,
                         ),
                       ),
                     ],
@@ -148,7 +148,7 @@ class CharacterDisplay extends StatelessWidget {
           '尚未配置角色',
           style: TextStyle(
             color: AppTheme.textSecondary.withAlpha(120),
-            fontSize: 12,
+            fontSize: AppTheme.fontBodyMd,
           ),
         ),
       ),

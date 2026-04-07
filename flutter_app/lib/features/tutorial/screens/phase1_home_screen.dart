@@ -396,7 +396,7 @@ class _Phase1HomeScreenState extends State<Phase1HomeScreen> {
           child: TextButton(
             onPressed: _skipTutorial,
             child: const Text('跳過教學 →',
-                style: TextStyle(color: AppTheme.textSecondary, fontSize: 13)),
+                style: TextStyle(color: AppTheme.textSecondary, fontSize: AppTheme.fontBodyLg)),
           ),
         ),
       ],
@@ -439,14 +439,14 @@ class _Phase1HomeScreenState extends State<Phase1HomeScreen> {
                         children: [
                           const Text('🏪 教學模式',
                               style: TextStyle(
-                                  color: AppTheme.textSecondary, fontSize: 14)),
+                                  color: AppTheme.textSecondary, fontSize: AppTheme.fontBodyLg)),
                           const Spacer(),
                           TextButton(
                             onPressed: _skipTutorial,
                             child: const Text('跳過教學 →',
                                 style: TextStyle(
                                     color: AppTheme.textSecondary,
-                                    fontSize: 13)),
+                                    fontSize: AppTheme.fontBodyLg)),
                           ),
                         ],
                       ),
@@ -488,7 +488,7 @@ class _Phase1HomeScreenState extends State<Phase1HomeScreen> {
                         textAlign: TextAlign.center,
                         style: const TextStyle(
                           color: AppTheme.accentPrimary,
-                          fontSize: 15,
+                          fontSize: AppTheme.fontTitleMd,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
@@ -558,7 +558,7 @@ class _Phase1HomeScreenState extends State<Phase1HomeScreen> {
                         const Text('點擊開門',
                             style: TextStyle(
                                 color: AppTheme.bgSecondary,
-                                fontSize: 16,
+                                fontSize: AppTheme.fontTitleMd,
                                 fontWeight: FontWeight.bold)),
                       ],
                     ],
@@ -585,7 +585,7 @@ class _Phase1HomeScreenState extends State<Phase1HomeScreen> {
                   borderRadius: BorderRadius.circular(16),
                 ),
                 child: const Text('跳過教學 →',
-                    style: TextStyle(color: Colors.white70, fontSize: 14)),
+                    style: TextStyle(color: Colors.white70, fontSize: AppTheme.fontBodyLg)),
               ),
             ),
           ),

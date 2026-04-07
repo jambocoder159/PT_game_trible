@@ -221,13 +221,13 @@ class _StageSelectScreenState extends State<StageSelectScreen>
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Text('🎉', style: TextStyle(fontSize: 22)),
+                  const Text('🎉', style: TextStyle(fontSize: AppTheme.fontDisplayMd)),
                   const SizedBox(width: 8),
                   const Text(
                     '可解鎖新夥伴！',
                     style: TextStyle(
                       color: AppTheme.textPrimary,
-                      fontSize: 18,
+                      fontSize: AppTheme.fontTitleLg,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
@@ -259,11 +259,11 @@ class _StageSelectScreenState extends State<StageSelectScreen>
                           ? Image.asset(avatarImg, fit: BoxFit.cover,
                               errorBuilder: (_, __, ___) => Center(
                                 child: Text(agentDef.attribute.emoji,
-                                    style: const TextStyle(fontSize: 24)),
+                                    style: const TextStyle(fontSize: AppTheme.fontDisplayLg)),
                               ))
                           : Center(
                               child: Text(agentDef.attribute.emoji,
-                                  style: const TextStyle(fontSize: 24)),
+                                  style: const TextStyle(fontSize: AppTheme.fontDisplayLg)),
                             ),
                     ),
                     const SizedBox(width: 12),
@@ -276,7 +276,7 @@ class _StageSelectScreenState extends State<StageSelectScreen>
                             agentDef.name,
                             style: TextStyle(
                               color: attrColor,
-                              fontSize: 16,
+                              fontSize: AppTheme.fontTitleMd,
                               fontWeight: FontWeight.bold,
                             ),
                           ),
@@ -285,7 +285,7 @@ class _StageSelectScreenState extends State<StageSelectScreen>
                             '${agentDef.rarity.display} · ${agentDef.role.label}型',
                             style: const TextStyle(
                               color: AppTheme.textSecondary,
-                              fontSize: 12,
+                              fontSize: AppTheme.fontBodyMd,
                             ),
                           ),
                         ],
@@ -301,7 +301,7 @@ class _StageSelectScreenState extends State<StageSelectScreen>
                 '通關 ${stage.id}「${stage.name}」即可解鎖',
                 style: const TextStyle(
                   color: AppTheme.textSecondary,
-                  fontSize: 13,
+                  fontSize: AppTheme.fontBodyLg,
                 ),
                 textAlign: TextAlign.center,
               ),
@@ -311,7 +311,7 @@ class _StageSelectScreenState extends State<StageSelectScreen>
                   !hasTeam ? '（需先編排隊伍）' : '（體力不足）',
                   style: TextStyle(
                     color: Colors.red.shade400,
-                    fontSize: 11,
+                    fontSize: AppTheme.fontLabelLg,
                   ),
                 ),
               ],
@@ -471,7 +471,7 @@ class _StageSelectScreenState extends State<StageSelectScreen>
                                   stage.id,
                                   style: const TextStyle(
                                     color: AppTheme.stageCurrent,
-                                    fontSize: 14,
+                                    fontSize: AppTheme.fontBodyLg,
                                     fontWeight: FontWeight.bold,
                                   ),
                                 ),
@@ -482,7 +482,7 @@ class _StageSelectScreenState extends State<StageSelectScreen>
                                   stage.name,
                                   style: const TextStyle(
                                     color: AppTheme.textPrimary,
-                                    fontSize: 18,
+                                    fontSize: AppTheme.fontTitleLg,
                                     fontWeight: FontWeight.bold,
                                   ),
                                 ),
@@ -507,7 +507,7 @@ class _StageSelectScreenState extends State<StageSelectScreen>
                                         '${progress?.stars ?? 0}/3',
                                         style: const TextStyle(
                                           color: AppTheme.stageCleared,
-                                          fontSize: 12,
+                                          fontSize: AppTheme.fontBodyMd,
                                           fontWeight: FontWeight.bold,
                                         ),
                                       ),
@@ -529,7 +529,7 @@ class _StageSelectScreenState extends State<StageSelectScreen>
                                 '敵人情報',
                                 style: TextStyle(
                                   color: AppTheme.textSecondary,
-                                  fontSize: 12,
+                                  fontSize: AppTheme.fontBodyMd,
                                   fontWeight: FontWeight.bold,
                                 ),
                               ),
@@ -626,7 +626,7 @@ class _StageSelectScreenState extends State<StageSelectScreen>
                                                       const TextStyle(
                                                     color: AppTheme
                                                         .textPrimary,
-                                                    fontSize: 12,
+                                                    fontSize: AppTheme.fontBodyMd,
                                                     fontWeight:
                                                         FontWeight.bold,
                                                   ),
@@ -654,7 +654,7 @@ class _StageSelectScreenState extends State<StageSelectScreen>
                                                         color: Colors
                                                             .green
                                                             .shade300,
-                                                        fontSize: 10,
+                                                        fontSize: AppTheme.fontLabelLg,
                                                         fontWeight:
                                                             FontWeight
                                                                 .bold,
@@ -677,7 +677,7 @@ class _StageSelectScreenState extends State<StageSelectScreen>
                                                         color: Colors
                                                             .red
                                                             .shade300,
-                                                        fontSize: 10,
+                                                        fontSize: AppTheme.fontLabelLg,
                                                         fontWeight:
                                                             FontWeight
                                                                 .bold,
@@ -743,7 +743,7 @@ class _StageSelectScreenState extends State<StageSelectScreen>
                                     '出戰隊伍',
                                     style: TextStyle(
                                       color: AppTheme.textSecondary,
-                                      fontSize: 12,
+                                      fontSize: AppTheme.fontBodyMd,
                                       fontWeight: FontWeight.bold,
                                     ),
                                   ),
@@ -768,7 +768,7 @@ class _StageSelectScreenState extends State<StageSelectScreen>
                                           isEditingTeam ? '完成' : '編輯',
                                           style: const TextStyle(
                                             color: Colors.amber,
-                                            fontSize: 11,
+                                            fontSize: AppTheme.fontLabelLg,
                                             fontWeight: FontWeight.bold,
                                           ),
                                         ),
@@ -782,7 +782,7 @@ class _StageSelectScreenState extends State<StageSelectScreen>
                                 const Text(
                                   '尚未編排隊伍',
                                   style: TextStyle(
-                                      color: Colors.red, fontSize: 12),
+                                      color: Colors.red, fontSize: AppTheme.fontBodyMd),
                                 )
                               else if (isEditingTeam)
                                 // ─── 快速編隊選擇器 ───
@@ -795,7 +795,7 @@ class _StageSelectScreenState extends State<StageSelectScreen>
                                       style: TextStyle(
                                         color: AppTheme.textSecondary
                                             .withAlpha(150),
-                                        fontSize: 10,
+                                        fontSize: AppTheme.fontLabelLg,
                                       ),
                                     ),
                                     const SizedBox(height: 6),
@@ -871,7 +871,7 @@ class _StageSelectScreenState extends State<StageSelectScreen>
                                                                     .symbol,
                                                                 style: TextStyle(
                                                                     fontSize:
-                                                                        16,
+                                                                        AppTheme.fontTitleMd,
                                                                     color:
                                                                         aColor),
                                                               ),
@@ -906,7 +906,7 @@ class _StageSelectScreenState extends State<StageSelectScreen>
                                                       const TextStyle(
                                                     color: AppTheme
                                                         .textPrimary,
-                                                    fontSize: 9,
+                                                    fontSize: AppTheme.fontLabelSm,
                                                   ),
                                                   overflow: TextOverflow
                                                       .ellipsis,
@@ -972,7 +972,7 @@ class _StageSelectScreenState extends State<StageSelectScreen>
                                                               .symbol,
                                                           style: const TextStyle(
                                                               fontSize:
-                                                                  14),
+                                                                  AppTheme.fontBodyLg),
                                                         ),
                                                       ),
                                                     ),
@@ -1007,7 +1007,7 @@ class _StageSelectScreenState extends State<StageSelectScreen>
                                                     const TextStyle(
                                                   color: AppTheme
                                                       .textPrimary,
-                                                  fontSize: 11,
+                                                  fontSize: AppTheme.fontLabelLg,
                                                   fontWeight:
                                                       FontWeight.bold,
                                                 ),
@@ -1018,7 +1018,7 @@ class _StageSelectScreenState extends State<StageSelectScreen>
                                                   color: AppTheme
                                                       .textSecondary
                                                       .withAlpha(150),
-                                                  fontSize: 9,
+                                                  fontSize: AppTheme.fontLabelSm,
                                                 ),
                                               ),
                                             ],
@@ -1052,7 +1052,7 @@ class _StageSelectScreenState extends State<StageSelectScreen>
                                         ? '出戰！'
                                         : '體力不足 (需要 ${stage.staminaCost})',
                                     style: const TextStyle(
-                                      fontSize: 15,
+                                      fontSize: AppTheme.fontTitleMd,
                                       fontWeight: FontWeight.bold,
                                     ),
                                   ),
@@ -1188,7 +1188,7 @@ class _ChapterBanner extends StatelessWidget {
                         '任務選擇',
                         style: TextStyle(
                           color: AppTheme.textPrimary,
-                          fontSize: 16,
+                          fontSize: AppTheme.fontTitleMd,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
@@ -1214,7 +1214,7 @@ class _ChapterBanner extends StatelessWidget {
                               '$stamina/$maxStamina',
                               style: const TextStyle(
                                 color: AppTheme.textPrimary,
-                                fontSize: 13,
+                                fontSize: AppTheme.fontBodyLg,
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
@@ -1244,14 +1244,14 @@ class _ChapterBanner extends StatelessWidget {
                               '第${chapter.number}章',
                               style: const TextStyle(
                                 color: AppTheme.textSecondary,
-                                fontSize: 12,
+                                fontSize: AppTheme.fontBodyMd,
                               ),
                             ),
                             Text(
                               chapter.name,
                               style: const TextStyle(
                                 color: AppTheme.textPrimary,
-                                fontSize: 22,
+                                fontSize: AppTheme.fontDisplayMd,
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
@@ -1260,7 +1260,7 @@ class _ChapterBanner extends StatelessWidget {
                               chapter.description,
                               style: const TextStyle(
                                 color: AppTheme.textSecondary,
-                                fontSize: 11,
+                                fontSize: AppTheme.fontLabelLg,
                               ),
                             ),
                           ],
@@ -1357,7 +1357,7 @@ class _ChapterProgress extends StatelessWidget {
           '$cleared/$total',
           style: TextStyle(
             color: AppTheme.textPrimary,
-            fontSize: 12,
+            fontSize: AppTheme.fontBodyMd,
             fontWeight: FontWeight.bold,
           ),
         ),
@@ -1650,7 +1650,7 @@ class _StageNode extends StatelessWidget {
                       color: isUnlocked
                           ? AppTheme.textPrimary
                           : AppTheme.textSecondary.withAlpha(80),
-                      fontSize: 13,
+                      fontSize: AppTheme.fontBodyLg,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
@@ -1682,7 +1682,7 @@ class _StageNode extends StatelessWidget {
                           color: stamina >= stage.staminaCost
                               ? AppTheme.textSecondary
                               : Colors.red,
-                          fontSize: 11,
+                          fontSize: AppTheme.fontLabelLg,
                         ),
                       ),
                     ],
@@ -1732,7 +1732,7 @@ class _StageNode extends StatelessWidget {
         style: const TextStyle(
           color: AppTheme.textPrimary,
           fontWeight: FontWeight.bold,
-          fontSize: 18,
+          fontSize: AppTheme.fontTitleLg,
         ),
       );
     } else if (isUnlocked) {
@@ -1743,7 +1743,7 @@ class _StageNode extends StatelessWidget {
         style: const TextStyle(
           color: AppTheme.textPrimary,
           fontWeight: FontWeight.bold,
-          fontSize: 18,
+          fontSize: AppTheme.fontTitleLg,
         ),
       );
     } else {
@@ -1799,7 +1799,7 @@ class _StageNode extends StatelessWidget {
                 ),
                 child: const Text(
                   '👑',
-                  style: TextStyle(fontSize: 10),
+                  style: TextStyle(fontSize: AppTheme.fontLabelLg),
                 ),
               ),
             ),
@@ -1844,7 +1844,7 @@ class _InfoChip extends StatelessWidget {
               value,
               style: TextStyle(
                 color: color,
-                fontSize: 14,
+                fontSize: AppTheme.fontBodyLg,
                 fontWeight: FontWeight.bold,
               ),
             ),
@@ -1852,7 +1852,7 @@ class _InfoChip extends StatelessWidget {
               label,
               style: TextStyle(
                 color: AppTheme.textSecondary.withAlpha(150),
-                fontSize: 9,
+                fontSize: AppTheme.fontLabelSm,
               ),
             ),
           ],

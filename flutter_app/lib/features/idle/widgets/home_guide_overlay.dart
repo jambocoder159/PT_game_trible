@@ -169,7 +169,7 @@ class _HomeGuideOverlayState extends State<HomeGuideOverlay>
             step.title,
             style: const TextStyle(
               color: AppTheme.textPrimary,
-              fontSize: 18,
+              fontSize: AppTheme.fontTitleLg,
               fontWeight: FontWeight.bold,
             ),
           ),
@@ -178,7 +178,7 @@ class _HomeGuideOverlayState extends State<HomeGuideOverlay>
             step.description,
             style: const TextStyle(
               color: AppTheme.textSecondary,
-              fontSize: 14,
+              fontSize: AppTheme.fontBodyLg,
               height: 1.5,
             ),
           ),
@@ -198,7 +198,7 @@ class _HomeGuideOverlayState extends State<HomeGuideOverlay>
               child: Text(
                 step.buttonText,
                 style: const TextStyle(
-                  fontSize: 16,
+                  fontSize: AppTheme.fontTitleMd,
                   fontWeight: FontWeight.bold,
                 ),
               ),
