@@ -185,19 +185,34 @@ class BattleEngine {
     final totalBlocks = matchedBlockCounts.values.fold<int>(0, (a, b) => a + b);
     int boardDamage = 0;
 
-    final enemy = battle.currentEnemy;
+    var enemy = battle.currentEnemy;
     if (enemy != null && !enemy.isDead && totalBlocks > 0) {
       boardDamage = totalBlocks * _params.noAgentMatchDamage;
       enemy.takeDamage(boardDamage);
+      if (enemy.isDead) {
+        _processKillEffects(battle);
+        battle.advanceToNextEnemy();
+        enemy = battle.currentEnemy; // 更新 enemy 引用給後續角色傷害使用
+      }
     }
 
     // ── 2b. 角色傷害：累積到 pendingDamage（不扣血） ──
+    if (enemy == null || enemy.isDead) {
+      return TickResult(
+        tickNumber: battle.tickCount,
+        energyGained: energyGained,
+        accumEvents: accumEvents,
+        boardDamage: boardDamage,
+        totalBlocksEliminated: totalBlocks,
+        healAmount: totalHeal,
+      );
+    }
     for (final agent in battle.team) {
       final agentColor = agent.definition.attribute.blockColor;
       final matchCount = matchedBlockCounts[agentColor] ?? 0;
       if (matchCount <= 0) continue;
 
-      var baseDmg = battle.calculateAutoAttackDamage(agent, enemy!);
+      var baseDmg = battle.calculateAutoAttackDamage(agent, enemy);
       var damage = baseDmg;
 
       // 配對顏色倍率

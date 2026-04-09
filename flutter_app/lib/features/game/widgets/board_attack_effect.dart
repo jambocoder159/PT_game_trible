@@ -122,20 +122,22 @@ class _BoardAttackEffectState extends State<BoardAttackEffect>
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _controller,
-      builder: (_, __) {
-        return CustomPaint(
-          size: Size.infinite,
-          painter: _BoardAttackPainter(
-            progress: _controller.value,
-            particles: _particles,
-            sources: widget.data.sources,
-            target: widget.data.target,
-            combo: widget.data.combo,
-          ),
-        );
-      },
+    return IgnorePointer(
+      child: AnimatedBuilder(
+        animation: _controller,
+        builder: (_, __) {
+          return CustomPaint(
+            size: Size.infinite,
+            painter: _BoardAttackPainter(
+              progress: _controller.value,
+              particles: _particles,
+              sources: widget.data.sources,
+              target: widget.data.target,
+              combo: widget.data.combo,
+            ),
+          );
+        },
+      ),
     );
   }
 }

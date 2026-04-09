@@ -1359,11 +1359,13 @@ class _CatAgentPanelState extends State<_CatAgentPanel>
           );
         }),
         // 衝撞動畫層
-        ..._activeRushAnims.map((rush) => _RushAttackWidget(
-          key: rush.key,
-          data: rush,
-          onHit: () => _onRushHit(rush),
-          onComplete: () => _removeRush(rush),
+        ..._activeRushAnims.map((rush) => IgnorePointer(
+          child: _RushAttackWidget(
+            key: rush.key,
+            data: rush,
+            onHit: () => _onRushHit(rush),
+            onComplete: () => _removeRush(rush),
+          ),
         )),
         // 飄浮傷害數字層
         ..._activeDamagePopups.map((popup) => popup.useCounter
