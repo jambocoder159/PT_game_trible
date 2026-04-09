@@ -148,6 +148,15 @@ class BattleState {
   /// 角色累積傷害（combo 前）— 每次連鎖累積，回合結束時統一打出
   final Map<String, int> pendingDamage = {};
 
+  // ─── 敵人技能：棋盤狀態 ───
+  final List<ObstacleBlock> obstacleBlocks = [];
+  final List<PoisonBlock> poisonBlocks = [];
+  final List<WeakenedBlock> weakenedBlocks = [];
+
+  // ─── 敵人技能：屬性壓制 ───
+  /// 被壓制的屬性列表（場上所有 aura 敵人的壓制屬性）
+  final Set<AgentAttribute> suppressedAttributes = {};
+
   BattleState({
     required this.team,
     required this.enemies,
@@ -171,6 +180,37 @@ class BattleState {
   })  : activeDots = activeDots ?? [],
         triggeredOnce = triggeredOnce ?? {};
 
+  /// 初始化敵人技能狀態（戰鬥開始時呼叫）
+  void initEnemySkills() {
+    // 收集所有屬性壓制光環
+    for (final enemy in enemies) {
+      final auraSkill = enemy.getSkill(EnemySkillType.aura);
+      if (auraSkill != null && auraSkill.suppressedAttribute != null) {
+        suppressedAttributes.add(auraSkill.suppressedAttribute!);
+      }
+    }
+  }
+
+  /// 檢查某個位置是否有障礙格
+  bool isObstacle(int col, int row) =>
+      obstacleBlocks.any((b) => b.col == col && b.row == row && !b.isBroken);
+
+  /// 檢查某個位置是否有毒格
+  PoisonBlock? getPoisonAt(int col, int row) {
+    for (final p in poisonBlocks) {
+      if (p.col == col && p.row == row && !p.isExpired) return p;
+    }
+    return null;
+  }
+
+  /// 檢查某個位置是否有弱化標記
+  bool isWeakened(int col, int row) =>
+      weakenedBlocks.any((b) => b.col == col && b.row == row && !b.isExpired);
+
+  /// 檢查某屬性是否被壓制
+  bool isAttributeSuppressed(AgentAttribute attr) =>
+      suppressedAttributes.contains(attr);
+
   BattleParams get _params => BalanceConfig.instance.battleParams;
 
   EnemyInstance? get currentEnemy {
@@ -187,7 +227,8 @@ class BattleState {
   int get aliveEnemyCount => enemies.where((e) => !e.isDead).length;
 
   /// 計算消除方塊對當前敵人造成的傷害
-  int calculateMatchDamage(BlockColor blockColor, int matchCount) {
+  /// [weakenedCount] 其中有多少格帶弱化標記
+  int calculateMatchDamage(BlockColor blockColor, int matchCount, {int weakenedCount = 0}) {
     final agent = findAgentByBlockColor(blockColor);
     if (agent == null) {
       return matchCount * _params.noAgentMatchDamage;
@@ -200,6 +241,19 @@ class BattleState {
         .damageMultiplierAgainst(enemy.definition.attribute);
 
     var damage = (agent.atk * matchCount * multiplier * _params.matchDamageCoefficient).round();
+
+    // 屬性壓制：被壓制屬性的方塊傷害 -50%
+    if (isAttributeSuppressed(agent.definition.attribute)) {
+      damage = (damage * 0.5).round();
+    }
+
+    // 弱化格：弱化的方塊傷害 -50%（按比例折扣）
+    if (weakenedCount > 0 && matchCount > 0) {
+      final normalCount = matchCount - weakenedCount;
+      final normalRatio = normalCount / matchCount;
+      final weakenedRatio = weakenedCount / matchCount;
+      damage = (damage * (normalRatio + weakenedRatio * 0.5)).round();
+    }
 
     // 天賦：消除傷害加成
     final matchDmgUp = agent.getTalentBonus(TalentEffectType.matchDamageUp);
@@ -280,7 +334,77 @@ class BattleState {
     return null;
   }
 
-  /// 敵人攻擊隊伍
+  /// 敵人攻擊隊伍（指定敵人，預設當前敵人）
+  int enemyAttackFrom(EnemyInstance enemy) {
+    var damage = enemy.atk;
+
+    // 蓄力重擊：3 倍傷害
+    if (enemy.skillState.isCharging) {
+      damage = (damage * 3).round();
+      enemy.skillState.isCharging = false;
+    }
+
+    // 護盾減傷
+    if (shieldTurnsLeft > 0) {
+      damage = (damage * (1 - shieldReduction / 100)).round();
+      shieldTurnsLeft--;
+    }
+
+    // 天賦：減傷
+    for (final agent in team) {
+      final dmgRed = agent.getTalentBonus(TalentEffectType.dmgReduction);
+      if (dmgRed > 0) {
+        damage = (damage * (1 - dmgRed / 100)).round();
+        break;
+      }
+    }
+
+    // 被動：固定減傷
+    for (final agent in team) {
+      final passive = agent.getPassive(PassiveEffectType.dmgReduction);
+      if (passive != null) {
+        damage = (damage * (1 - passive.effectValue)).round();
+        break;
+      }
+    }
+
+    teamCurrentHp = (teamCurrentHp - damage).clamp(0, teamMaxHp);
+
+    // 被動：受傷獲得能量
+    for (final agent in team) {
+      final energyPassive = agent.getPassive(PassiveEffectType.energyOnDamaged);
+      if (energyPassive != null) {
+        agent.addEnergy(energyPassive.effectValue.round());
+      }
+    }
+
+    // 反射傷害
+    if (reflectTurnsLeft > 0 && enemy.currentHp > 0) {
+      final reflectDmg = (damage * reflectPercent).round();
+      if (reflectDmg > 0) {
+        enemy.takeDamage(reflectDmg);
+        if (enemy.isDead) advanceToNextEnemy();
+      }
+    }
+
+    // 被動：急救本能
+    if (teamCurrentHp > 0 && teamCurrentHp < teamMaxHp * _params.emergencyHealThreshold) {
+      for (final agent in team) {
+        if (agent.definition.id == 'tide') {
+          final emergencyHeal = agent.getPassive(PassiveEffectType.lowHpBoost);
+          if (emergencyHeal != null && triggeredOnce['tide_emergency_heal'] != true) {
+            final healAmount = (teamMaxHp * emergencyHeal.effectValue).round();
+            teamCurrentHp = (teamCurrentHp + healAmount).clamp(0, teamMaxHp);
+            triggeredOnce['tide_emergency_heal'] = true;
+          }
+        }
+      }
+    }
+
+    return damage;
+  }
+
+  /// 敵人攻擊隊伍（舊介面，向下相容）
   int enemyAttack() {
     final enemy = currentEnemy;
     if (enemy == null) return 0;

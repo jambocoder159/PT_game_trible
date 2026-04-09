@@ -157,6 +157,14 @@ class _BattleScreenState extends State<BattleScreen> {
     battleProvider.onBoardEffectRequested = (effect, agentColor) {
       return gameProvider.applyBoardEffect(effect, agentColor);
     };
+    gameProvider.getBlockedPositions = () {
+      final bs = battleProvider.battleState;
+      if (bs == null) return {};
+      return {
+        for (final o in bs.obstacleBlocks)
+          if (!o.isBroken) '${o.col},${o.row}',
+      };
+    };
 
     gameProvider.startGame(battleMode, initialColors: widget.initialColors);
   }
@@ -321,6 +329,7 @@ class _BattleScreenState extends State<BattleScreen> {
     final battleProvider = context.read<BattleProvider>();
     gameProvider.onMatchTurnComplete = null;
     gameProvider.onTurnEnd = null;
+    gameProvider.getBlockedPositions = null;
     battleProvider.onBoardEffectRequested = null;
     _attackAnimPlaying.dispose();
     super.dispose();
@@ -1035,13 +1044,12 @@ class _CatAgentPanelState extends State<_CatAgentPanel>
         setState(() {
           _accumDamage[idx] = (_accumDamage[idx] ?? 0) + event.value;
         });
-      } else if (event.type == BattleEventType.autoAttack &&
-          event.attackerIndex != null &&
-          event.targetIndex != null) {
+      } else if (event.type == BattleEventType.autoAttack) {
         // ── 角色攻擊：回合結束統一衝刺 — 清空累積計數器 ──
         if (_accumDamage.isNotEmpty) {
           setState(() => _accumDamage.clear());
         }
+        if (event.attackerIndex == null || event.targetIndex == null) continue;
         final fromIdx = event.attackerIndex! < _playerKeys.length
             ? event.attackerIndex!
             : _playerKeys.length - 1;
@@ -1090,6 +1098,11 @@ class _CatAgentPanelState extends State<_CatAgentPanel>
             attackerAgentId: enemyAttacker?.definition.id,
             attackerName: enemyAttacker?.definition.name,
           ));
+        }
+      } else if (event.type == BattleEventType.turnEnd) {
+        // ── 回合結束信號：無條件清除累積計數器 ──
+        if (_accumDamage.isNotEmpty) {
+          setState(() => _accumDamage.clear());
         }
       }
     }
@@ -1355,11 +1368,13 @@ class _CatAgentPanelState extends State<_CatAgentPanel>
           );
         }),
         // 衝撞動畫層
-        ..._activeRushAnims.map((rush) => _RushAttackWidget(
-          key: rush.key,
-          data: rush,
-          onHit: () => _onRushHit(rush),
-          onComplete: () => _removeRush(rush),
+        ..._activeRushAnims.map((rush) => IgnorePointer(
+          child: _RushAttackWidget(
+            key: rush.key,
+            data: rush,
+            onHit: () => _onRushHit(rush),
+            onComplete: () => _removeRush(rush),
+          ),
         )),
         // 飄浮傷害數字層
         ..._activeDamagePopups.map((popup) => popup.useCounter
@@ -2361,12 +2376,22 @@ class _EnemyCardState extends State<_EnemyCard>
         ? enemy.attackCountdown / enemy.definition.attackInterval
         : 0.0;
 
-    final outerBorderColor = isCurrent
-        ? Colors.red.withAlpha(200)
-        : color.withAlpha(100);
-    final innerBorderColor = isCurrent
-        ? Colors.red.withAlpha(100)
-        : color.withAlpha(50);
+    final isEnraged = enemy.skillState.isEnraged;
+    final isCharging = enemy.skillState.isCharging;
+    final outerBorderColor = isEnraged
+        ? Colors.red.shade400
+        : isCharging
+            ? Colors.amber.withAlpha(200)
+            : isCurrent
+                ? Colors.red.withAlpha(200)
+                : color.withAlpha(100);
+    final innerBorderColor = isEnraged
+        ? Colors.red.shade300.withAlpha(150)
+        : isCharging
+            ? Colors.amber.withAlpha(120)
+            : isCurrent
+                ? Colors.red.withAlpha(100)
+                : color.withAlpha(50);
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 5),
@@ -2513,8 +2538,32 @@ class _EnemyCardState extends State<_EnemyCard>
                           ),
                         ),
                       ),
+                      // 護盾條（護盾 > 0 時顯示在 HP 條下方）
+                      if (enemy.hasShield) ...[
+                        const SizedBox(height: 2),
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(2),
+                          child: TweenAnimationBuilder<double>(
+                            tween: Tween(
+                              end: enemy.skillState.shieldMaxHp > 0
+                                  ? enemy.skillState.shieldHp / enemy.skillState.shieldMaxHp
+                                  : 0.0,
+                            ),
+                            duration: const Duration(milliseconds: 350),
+                            curve: Curves.easeOut,
+                            builder: (_, value, __) => LinearProgressIndicator(
+                              value: value.clamp(0.0, 1.0),
+                              minHeight: 4,
+                              backgroundColor: Colors.grey.shade800,
+                              valueColor: const AlwaysStoppedAnimation<Color>(
+                                Colors.cyan,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
                       const SizedBox(height: 4),
-                      // 數值列
+                      // 數值列 + 技能狀態圖示
                       Row(
                         children: [
                           Text(
@@ -2529,11 +2578,35 @@ class _EnemyCardState extends State<_EnemyCard>
                           Text(
                             'ATK ${enemy.atk}',
                             style: TextStyle(
-                              color: Colors.red.shade200,
+                              color: enemy.skillState.isEnraged
+                                  ? Colors.red.shade100
+                                  : Colors.red.shade200,
                               fontSize: AppTheme.fontLabelSm,
                               fontWeight: FontWeight.bold,
                             ),
                           ),
+                          // 敵人技能狀態圖示
+                          if (enemy.hasShield)
+                            _StatusIcon(
+                              icon: Icons.shield,
+                              color: Colors.cyan,
+                              label: '${enemy.skillState.shieldHp}',
+                              tooltip: '護盾',
+                            ),
+                          if (enemy.skillState.isCharging)
+                            const _StatusIcon(
+                              icon: Icons.bolt,
+                              color: Colors.amber,
+                              label: '!',
+                              tooltip: '蓄力中',
+                            ),
+                          if (enemy.skillState.isEnraged)
+                            const _StatusIcon(
+                              icon: Icons.whatshot,
+                              color: Colors.red,
+                              label: '',
+                              tooltip: '狂暴',
+                            ),
                           if (isCurrent) ...[
                             if (battleState.defDebuffTurns > 0)
                               _StatusIcon(
@@ -3192,10 +3265,13 @@ class _CatAgentCardState extends State<_CatAgentCard>
                                     ),
                                   ),
                                   Text(
-                                    '蓄力中',
+                                    isReady ? '技能就緒！' : '蓄力中',
                                     style: TextStyle(
-                                      color: const Color(0xFF8B6914).withAlpha(180), // 暖棕色
+                                      color: isReady
+                                          ? Colors.amber.shade700
+                                          : const Color(0xFF8B6914).withAlpha(180),
                                       fontSize: AppTheme.fontLabelSm,
+                                      fontWeight: isReady ? FontWeight.bold : FontWeight.normal,
                                     ),
                                   ),
                                 ],
@@ -3561,6 +3637,25 @@ class _SkillEffectBar extends StatelessWidget {
         return (Icons.emoji_events, Colors.amber);
       case BattleEventType.defeat:
         return (Icons.close, Colors.red);
+      // 敵人技能事件
+      case BattleEventType.enemySkillObstacle:
+        return (Icons.square_rounded, Colors.grey);
+      case BattleEventType.enemySkillPoison:
+        return (Icons.science, Colors.purple);
+      case BattleEventType.enemySkillWeaken:
+        return (Icons.arrow_downward, Colors.blueGrey);
+      case BattleEventType.enemySkillCharge:
+        return (Icons.bolt, Colors.amber);
+      case BattleEventType.enemySkillHeal:
+        return (Icons.healing, Colors.green);
+      case BattleEventType.enemySkillSummon:
+        return (Icons.group_add, Colors.deepPurple);
+      case BattleEventType.enemySkillRage:
+        return (Icons.whatshot, Colors.red);
+      case BattleEventType.poisonExplode:
+        return (Icons.dangerous, Colors.purple);
+      case BattleEventType.turnEnd:
+        return (Icons.sync, Colors.grey);
     }
   }
 }

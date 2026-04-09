@@ -3,18 +3,31 @@ import '../../../config/image_assets.dart';
 import '../../../config/theme.dart';
 import '../../../core/models/block.dart';
 
+/// 方塊上的敵人技能狀態覆蓋
+enum BlockSkillOverlay {
+  none,
+  obstacle, // 灰色障礙格
+  obstaclesCracked, // 裂紋障礙格（已被相鄰消 1 次）
+  poison, // 毒格（帶倒數）
+  weakened, // 弱化標記
+}
+
 /// 單一方塊的視覺元件 — 含消除動畫（膨脹 pop + 淡出）
 /// 粒子飛射效果由上層 BoardAttackEffect 負責
 class BlockWidget extends StatefulWidget {
   final Block block;
   final double size;
   final int combo;
+  final BlockSkillOverlay skillOverlay;
+  final int poisonCountdown; // 毒格倒數數字
 
   const BlockWidget({
     super.key,
     required this.block,
     this.size = AppTheme.blockSize,
     this.combo = 0,
+    this.skillOverlay = BlockSkillOverlay.none,
+    this.poisonCountdown = 0,
   });
 
   @override
@@ -76,13 +89,20 @@ class _BlockWidgetState extends State<BlockWidget>
 
   @override
   Widget build(BuildContext context) {
-    final color =
-        widget.block.isBlackened ? Colors.grey.shade800 : widget.block.color.color;
+    final isObstacle = widget.skillOverlay == BlockSkillOverlay.obstacle ||
+        widget.skillOverlay == BlockSkillOverlay.obstaclesCracked;
+    final color = isObstacle || widget.block.isBlackened
+        ? Colors.grey.shade800
+        : widget.block.color.color;
     final darkerColor = Color.lerp(color, Colors.black, 0.3)!;
     final size = widget.size;
 
-    if (_wasEliminating) {
-      return AnimatedBuilder(
+    Widget blockContent;
+
+    if (isObstacle) {
+      blockContent = _buildObstacleBlock(size);
+    } else if (_wasEliminating) {
+      blockContent = AnimatedBuilder(
         animation: _elimController,
         builder: (context, child) {
           return Center(
@@ -97,9 +117,28 @@ class _BlockWidgetState extends State<BlockWidget>
         },
         child: _buildBlockContainer(color, darkerColor, size),
       );
+    } else {
+      blockContent = _buildBlockContainer(color, darkerColor, size);
     }
 
-    return _buildBlockContainer(color, darkerColor, size);
+    // 覆蓋層：毒格或弱化
+    if (widget.skillOverlay == BlockSkillOverlay.poison) {
+      return Stack(
+        children: [
+          blockContent,
+          _buildPoisonOverlay(size),
+        ],
+      );
+    } else if (widget.skillOverlay == BlockSkillOverlay.weakened) {
+      return Stack(
+        children: [
+          Opacity(opacity: 0.5, child: blockContent),
+          _buildWeakenOverlay(size),
+        ],
+      );
+    }
+
+    return blockContent;
   }
 
   Widget _buildBlockContainer(Color color, Color darkerColor, double size) {
@@ -152,6 +191,89 @@ class _BlockWidgetState extends State<BlockWidget>
           style: TextStyle(
             fontSize: size * 0.4,
             color: Colors.white.withAlpha(200),
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ─── 敵人技能視覺效果 ───
+
+  /// 障礙格：灰色石頭方塊
+  Widget _buildObstacleBlock(double size) {
+    final isCracked = widget.skillOverlay == BlockSkillOverlay.obstaclesCracked;
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(AppTheme.radiusBlock),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Colors.grey.shade600, Colors.grey.shade800],
+        ),
+        border: Border.all(color: Colors.grey.shade500, width: 1.5),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withAlpha(60),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Center(
+        child: Text(
+          isCracked ? '💥' : '🧱',
+          style: TextStyle(fontSize: size * 0.4),
+        ),
+      ),
+    );
+  }
+
+  /// 毒格覆蓋：紫色半透明 + 倒數數字
+  Widget _buildPoisonOverlay(double size) {
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(AppTheme.radiusBlock),
+        color: Colors.purple.withAlpha(120),
+        border: Border.all(color: Colors.purple.shade300, width: 2),
+      ),
+      child: Center(
+        child: Text(
+          '${widget.poisonCountdown}',
+          style: TextStyle(
+            fontSize: size * 0.45,
+            fontWeight: FontWeight.w900,
+            color: Colors.white,
+            shadows: const [
+              Shadow(color: Colors.purple, blurRadius: 8),
+              Shadow(color: Colors.purple, blurRadius: 16),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// 弱化覆蓋：暗色半透明 + 向下箭頭
+  Widget _buildWeakenOverlay(double size) {
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(AppTheme.radiusBlock),
+        color: Colors.black.withAlpha(80),
+        border: Border.all(color: Colors.grey.shade600, width: 1),
+      ),
+      child: Center(
+        child: Text(
+          '▼',
+          style: TextStyle(
+            fontSize: size * 0.3,
+            color: Colors.red.shade300,
             fontWeight: FontWeight.bold,
           ),
         ),

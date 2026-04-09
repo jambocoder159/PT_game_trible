@@ -86,6 +86,9 @@ class GameProvider extends ChangeNotifier {
   /// 回合結束的回呼（每次操作後呼叫，hadMatches 表示是否有消除）
   void Function({bool hadMatches})? onTurnEnd;
 
+  /// 取得障礙格位置的回呼（BattleProvider 提供）
+  Set<String> Function()? getBlockedPositions;
+
   // 分數彈出事件佇列
   final List<ScorePopupEvent> _scorePopups = [];
   List<ScorePopupEvent> consumeScorePopups() {
@@ -170,6 +173,9 @@ class GameProvider extends ChangeNotifier {
     final s = _state;
     if (s == null || s.status != GameStatus.playing || _isProcessing) return;
     if (s.grid[col][row] == null) return;
+    // 障礙格不可操作
+    final blocked = getBlockedPositions?.call() ?? {};
+    if (blocked.contains('$col,$row')) return;
 
     _isProcessing = true;
     final gen = _gameGeneration;
@@ -241,6 +247,8 @@ class GameProvider extends ChangeNotifier {
     final s = _state;
     if (s == null || s.status != GameStatus.playing || _isProcessing) return;
     if (s.grid[col][row] == null) return;
+    final blocked = getBlockedPositions?.call() ?? {};
+    if (blocked.contains('$col,$row')) return;
     if (row == 0) return;
 
     _isProcessing = true;
@@ -296,6 +304,8 @@ class GameProvider extends ChangeNotifier {
     if (s == null || s.status != GameStatus.playing || _isProcessing) return;
     if (s.grid[col][row] == null) return;
     if (row == s.mode.numRows - 1) return;
+    final blocked = getBlockedPositions?.call() ?? {};
+    if (blocked.contains('$col,$row')) return;
 
     _isProcessing = true;
     final gen = _gameGeneration;
@@ -356,47 +366,49 @@ class GameProvider extends ChangeNotifier {
     _isProcessing = true;
     final gen = _gameGeneration;
 
-    switch (effect.type) {
-      case BoardEffectType.convertColor:
-        _convertRandomBlocks(s, effect.value, agentColor);
-        break;
-      case BoardEffectType.eliminateRandom:
-        _eliminateRandomBlocks(s, effect.value);
-        break;
-      case BoardEffectType.eliminateRow:
-        final row = effect.value == -1 ? s.mode.numRows - 1 : effect.value;
-        _eliminateEntireRow(s, row);
-        break;
-      case BoardEffectType.eliminateColumn:
-        final col = _random.nextInt(s.mode.numCols);
-        _eliminateEntireColumn(s, col);
-        break;
-      case BoardEffectType.shuffleBoard:
-        _shuffleBoard(s);
-        break;
-    }
+    try {
+      switch (effect.type) {
+        case BoardEffectType.convertColor:
+          _convertRandomBlocks(s, effect.value, agentColor);
+          break;
+        case BoardEffectType.eliminateRandom:
+          _eliminateRandomBlocks(s, effect.value);
+          break;
+        case BoardEffectType.eliminateRow:
+          final row = effect.value == -1 ? s.mode.numRows - 1 : effect.value;
+          _eliminateEntireRow(s, row);
+          break;
+        case BoardEffectType.eliminateColumn:
+          final col = _random.nextInt(s.mode.numCols);
+          _eliminateEntireColumn(s, col);
+          break;
+        case BoardEffectType.shuffleBoard:
+          _shuffleBoard(s);
+          break;
+      }
 
-    notifyListeners();
-    await Future.delayed(const Duration(milliseconds: 400));
-    if (_gameGeneration != gen) { _isProcessing = false; return; }
-
-    // 消除類效果只做重力掉落 + 補充，不觸發三消判斷
-    if (effect.type == BoardEffectType.eliminateRandom ||
-        effect.type == BoardEffectType.eliminateRow ||
-        effect.type == BoardEffectType.eliminateColumn) {
-      _applyGravity();
       notifyListeners();
-      await Future.delayed(const Duration(milliseconds: 300));
-      if (_gameGeneration != gen) { _isProcessing = false; return; }
+      await Future.delayed(const Duration(milliseconds: 400));
+      if (_gameGeneration != gen) return;
 
-      _refillGrid();
+      // 消除類效果只做重力掉落 + 補充，不觸發三消判斷
+      if (effect.type == BoardEffectType.eliminateRandom ||
+          effect.type == BoardEffectType.eliminateRow ||
+          effect.type == BoardEffectType.eliminateColumn) {
+        _applyGravity();
+        notifyListeners();
+        await Future.delayed(const Duration(milliseconds: 300));
+        if (_gameGeneration != gen) return;
+
+        _refillGrid();
+        notifyListeners();
+        await Future.delayed(const Duration(milliseconds: 300));
+        if (_gameGeneration != gen) return;
+      }
+    } finally {
+      _isProcessing = false;
       notifyListeners();
-      await Future.delayed(const Duration(milliseconds: 300));
-      if (_gameGeneration != gen) { _isProcessing = false; return; }
     }
-
-    _isProcessing = false;
-    notifyListeners();
   }
 
   /// 將 N 個隨機非同色方塊轉為指定顏色
@@ -497,11 +509,13 @@ class GameProvider extends ChangeNotifier {
       // 世代檢查：若已開始新遊戲，立即終止
       if (_gameGeneration != gen) return false;
 
+      final blocked = getBlockedPositions?.call() ?? {};
       final matches = MatchDetector.findMatches(
         s.grid,
         numCols: s.mode.numCols,
         numRows: s.mode.numRows,
         enableHorizontalMatches: s.mode.enableHorizontalMatches,
+        blockedPositions: blocked,
       );
 
       if (matches.isEmpty) break;
@@ -648,12 +662,14 @@ class GameProvider extends ChangeNotifier {
     final s = _state!;
     bool hasMatches = true;
     int attempts = 0;
+    final blocked = getBlockedPositions?.call() ?? {};
     while (hasMatches && attempts < 200) {
       final matches = MatchDetector.findMatches(
         s.grid,
         numCols: s.mode.numCols,
         numRows: s.mode.numRows,
         enableHorizontalMatches: s.mode.enableHorizontalMatches,
+        blockedPositions: blocked,
       );
       if (matches.isEmpty) {
         hasMatches = false;

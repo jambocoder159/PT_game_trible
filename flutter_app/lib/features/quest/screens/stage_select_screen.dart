@@ -8,6 +8,7 @@ import 'package:provider/provider.dart';
 import '../../../config/cat_agent_data.dart';
 import '../../../config/image_assets.dart';
 import '../../../core/models/cat_agent.dart';
+import '../../../core/models/enemy.dart';
 import '../../../config/stage_data.dart';
 import '../../../config/theme.dart';
 import '../../../core/models/player_data.dart';
@@ -533,6 +534,8 @@ class _StageSelectScreenState extends State<StageSelectScreen>
                                   fontWeight: FontWeight.bold,
                                 ),
                               ),
+                              // 屬性壓制警告
+                              ..._buildAuraWarnings(stage),
                               const SizedBox(height: 6),
                               SizedBox(
                                 height: 130,
@@ -1086,6 +1089,46 @@ class _StageSelectScreenState extends State<StageSelectScreen>
       );
       },
     );
+  }
+
+  /// 檢查關卡是否有屬性壓制，生成警告 Widget
+  List<Widget> _buildAuraWarnings(StageDefinition stage) {
+    final suppressedAttrs = <AgentAttribute>{};
+    for (final enemy in stage.enemies) {
+      for (final skill in enemy.skills) {
+        if (skill.type == EnemySkillType.aura && skill.suppressedAttribute != null) {
+          suppressedAttrs.add(skill.suppressedAttribute!);
+        }
+      }
+    }
+    if (suppressedAttrs.isEmpty) return [];
+
+    return [
+      const SizedBox(height: 6),
+      ...suppressedAttrs.map((attr) => Container(
+        margin: const EdgeInsets.only(bottom: 4),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: Colors.red.shade900.withAlpha(120),
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(color: Colors.red.shade400.withAlpha(100)),
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.warning_amber_rounded, color: Colors.amber, size: 16),
+            const SizedBox(width: 6),
+            Text(
+              '本關壓制 ${attr.emoji} ${attr.label} 屬性（傷害 -50%）',
+              style: TextStyle(
+                color: Colors.red.shade100,
+                fontSize: AppTheme.fontLabelLg,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
+      )),
+    ];
   }
 
   void _launchBattle(

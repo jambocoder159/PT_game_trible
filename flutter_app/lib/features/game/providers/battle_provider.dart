@@ -64,6 +64,16 @@ enum BattleEventType {
   autoAttack, // 角色自動攻擊（回合結束打出）
   boardAttack, // 棋盤傷害（粒子飛向敵人）
   damageAccum, // 角色累積傷害（頭像跳數字）
+  // ─── 敵人技能事件 ───
+  enemySkillObstacle, // 敵人放置障礙格
+  enemySkillPoison, // 敵人放置毒格
+  enemySkillWeaken, // 敵人放置弱化格
+  enemySkillCharge, // 敵人開始蓄力
+  enemySkillHeal, // 敵人回血
+  enemySkillSummon, // 敵人召喚增援
+  enemySkillRage, // 敵人進入狂暴
+  poisonExplode, // 毒格爆炸
+  turnEnd, // 回合結束信號（清除累積狀態用）
 }
 
 /// 放置效果回呼（由 GameProvider 執行棋盤操作）
@@ -75,6 +85,10 @@ class BattleProvider extends ChangeNotifier {
 
   /// 放置效果回呼（戰鬥畫面設定）
   OnBoardEffectRequested? onBoardEffectRequested;
+
+  /// 棋盤尺寸（由 battle_screen 設定，供敵人技能放置用）
+  int boardCols = 5;
+  int boardRows = 7;
 
   StageDefinition? _currentStage;
   StageDefinition? get currentStage => _currentStage;
@@ -203,6 +217,9 @@ class BattleProvider extends ChangeNotifier {
       teamCurrentHp: totalHp,
     );
 
+    // 初始化敵人技能狀態（屬性壓制光環等）
+    _battleState!.initEnemySkills();
+
     notifyListeners();
   }
 
@@ -214,6 +231,12 @@ class BattleProvider extends ChangeNotifier {
     List<EliminatedBlockInfo> eliminatedBlocks = const [],
   }) {
     if (_battleState == null || _battleState!.isBattleOver) return;
+
+    // 處理消除對障礙/毒/弱化格的影響
+    final matchedPositions = eliminatedBlocks
+        .map((b) => (b.col, b.row))
+        .toList();
+    BattleEngine.processMatchBoardSkills(_battleState!, matchedPositions);
 
     final result = BattleEngine.processTick(
       _battleState!,
@@ -261,7 +284,16 @@ class BattleProvider extends ChangeNotifier {
   /// 1. 統一打出累積的角色傷害（含 combo）
   /// 2. 敵人推進 countdown 並攻擊
   void onTurnEnd({bool hadMatches = true}) {
-    if (_battleState == null || _battleState!.isBattleOver) return;
+    // 無論戰鬥是否結束，都發送 turnEnd 信號讓 UI 清除累積狀態
+    _attackAnimEvents.add(const BattleEvent(
+      type: BattleEventType.turnEnd,
+      message: '',
+    ));
+
+    if (_battleState == null || _battleState!.isBattleOver) {
+      notifyListeners();
+      return;
+    }
 
     // ── 打出累積傷害 ──
     final finalResult = BattleEngine.finalizeAttacks(_battleState!);
@@ -319,6 +351,24 @@ class BattleProvider extends ChangeNotifier {
         type: BattleEventType.defeat,
         message: '任務失敗...',
       ));
+    }
+
+    // ── 敵人技能階段 ──
+    if (!_battleState!.isBattleOver) {
+      final skillResult = BattleEngine.processEnemySkillPhase(
+        _battleState!, boardCols, boardRows,
+      );
+      for (final event in skillResult.events) {
+        _emitEnemySkillEvent(event);
+      }
+
+      // 檢查毒格爆炸是否導致失敗
+      if (_battleState!.isTeamDead) {
+        _events.add(const BattleEvent(
+          type: BattleEventType.defeat,
+          message: '任務失敗...',
+        ));
+      }
     }
 
     // 處理持續效果（DoT、HoT、被動）
@@ -411,5 +461,56 @@ class BattleProvider extends ChangeNotifier {
     _events.clear();
     _attackAnimEvents.clear();
     notifyListeners();
+  }
+
+  // ─── 敵人技能事件轉換 ───
+
+  void _emitEnemySkillEvent(EnemySkillEvent skillEvent) {
+    final BattleEventType eventType;
+    String message;
+
+    switch (skillEvent.type) {
+      case EnemySkillType.obstacle:
+        eventType = BattleEventType.enemySkillObstacle;
+        message = '放置了 ${skillEvent.positions.length} 個障礙！';
+        break;
+      case EnemySkillType.poison:
+        if (skillEvent.poisonDamage != null && skillEvent.poisonDamage! > 0) {
+          eventType = BattleEventType.poisonExplode;
+          message = '毒格爆炸！-${skillEvent.poisonDamage}';
+        } else {
+          eventType = BattleEventType.enemySkillPoison;
+          message = '放置了 ${skillEvent.positions.length} 個毒格！';
+        }
+        break;
+      case EnemySkillType.weaken:
+        eventType = BattleEventType.enemySkillWeaken;
+        message = '弱化了 ${skillEvent.positions.length} 個方塊！';
+        break;
+      case EnemySkillType.charge:
+        eventType = BattleEventType.enemySkillCharge;
+        message = '蓄力中...下回合將發動重擊！';
+        break;
+      case EnemySkillType.heal:
+        eventType = BattleEventType.enemySkillHeal;
+        message = '+${skillEvent.healAmount} HP';
+        break;
+      case EnemySkillType.summon:
+        eventType = BattleEventType.enemySkillSummon;
+        message = '召喚了 ${skillEvent.summonedEnemyName}！';
+        break;
+      case EnemySkillType.rage:
+        eventType = BattleEventType.enemySkillRage;
+        message = '進入狂暴狀態！ATK ×2！';
+        break;
+      default:
+        return;
+    }
+
+    _events.add(BattleEvent(
+      type: eventType,
+      message: message,
+      value: skillEvent.poisonDamage ?? skillEvent.healAmount ?? 0,
+    ));
   }
 }

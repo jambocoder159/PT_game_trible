@@ -7,6 +7,7 @@ import '../../config/skill_tier_data.dart';
 import '../models/battle_state.dart';
 import '../models/cat_agent.dart';
 import '../models/block.dart';
+import '../models/enemy.dart';
 import '../models/passive_skill.dart';
 import '../models/skill_enhancement.dart';
 import '../models/talent_tree.dart';
@@ -184,19 +185,34 @@ class BattleEngine {
     final totalBlocks = matchedBlockCounts.values.fold<int>(0, (a, b) => a + b);
     int boardDamage = 0;
 
-    final enemy = battle.currentEnemy;
+    var enemy = battle.currentEnemy;
     if (enemy != null && !enemy.isDead && totalBlocks > 0) {
       boardDamage = totalBlocks * _params.noAgentMatchDamage;
       enemy.takeDamage(boardDamage);
+      if (enemy.isDead) {
+        _processKillEffects(battle);
+        battle.advanceToNextEnemy();
+        enemy = battle.currentEnemy; // 更新 enemy 引用給後續角色傷害使用
+      }
     }
 
     // ── 2b. 角色傷害：累積到 pendingDamage（不扣血） ──
+    if (enemy == null || enemy.isDead) {
+      return TickResult(
+        tickNumber: battle.tickCount,
+        energyGained: energyGained,
+        accumEvents: accumEvents,
+        boardDamage: boardDamage,
+        totalBlocksEliminated: totalBlocks,
+        healAmount: totalHeal,
+      );
+    }
     for (final agent in battle.team) {
       final agentColor = agent.definition.attribute.blockColor;
       final matchCount = matchedBlockCounts[agentColor] ?? 0;
       if (matchCount <= 0) continue;
 
-      var baseDmg = battle.calculateAutoAttackDamage(agent, enemy!);
+      var baseDmg = battle.calculateAutoAttackDamage(agent, enemy);
       var damage = baseDmg;
 
       // 配對顏色倍率
@@ -308,7 +324,7 @@ class BattleEngine {
       if (enemy.isDead) continue;
       final shouldAttack = enemy.tickAttack();
       if (shouldAttack) {
-        final damage = battle.enemyAttack();
+        final damage = battle.enemyAttackFrom(enemy);
 
         autoAttacks.add(AutoAttackEvent(
           isPlayerAttack: false,
@@ -1002,4 +1018,385 @@ class BattleEngine {
       }
     }
   }
+
+  // ═══════════════════════════════════════════════
+  //  敵人技能系統
+  // ═══════════════════════════════════════════════
+
+  /// 敵人技能階段結果
+  static EnemySkillPhaseResult processEnemySkillPhase(
+    BattleState battle,
+    int boardCols,
+    int boardRows,
+  ) {
+    final events = <EnemySkillEvent>[];
+
+    // 使用快照遍歷，避免召喚新敵人時 concurrent modification
+    final enemySnapshot = List<EnemyInstance>.of(battle.enemies);
+    for (final enemy in enemySnapshot) {
+      if (enemy.isDead) continue;
+
+      // 推進冷卻計時器
+      final triggered = enemy.skillState.tickCooldowns();
+
+      for (final type in triggered) {
+        final skill = enemy.getSkill(type);
+        if (skill == null) continue;
+
+        switch (type) {
+          case EnemySkillType.obstacle:
+            final positions = _pickRandomEmptyPositions(
+              battle, boardCols, boardRows, skill.blockCount,
+            );
+            for (final pos in positions) {
+              battle.obstacleBlocks.add(
+                ObstacleBlock(col: pos.$1, row: pos.$2),
+              );
+            }
+            enemy.skillState.resetCooldown(type, skill.cooldown);
+            if (positions.isNotEmpty) {
+              events.add(EnemySkillEvent(
+                enemyId: enemy.definition.id,
+                type: type,
+                positions: positions,
+              ));
+            }
+            break;
+
+          case EnemySkillType.poison:
+            final positions = _pickRandomEmptyPositions(
+              battle, boardCols, boardRows, skill.blockCount,
+            );
+            for (final pos in positions) {
+              battle.poisonBlocks.add(
+                PoisonBlock(col: pos.$1, row: pos.$2, countdown: skill.poisonCountdown),
+              );
+            }
+            enemy.skillState.resetCooldown(type, skill.cooldown);
+            if (positions.isNotEmpty) {
+              events.add(EnemySkillEvent(
+                enemyId: enemy.definition.id,
+                type: type,
+                positions: positions,
+                countdown: skill.poisonCountdown,
+              ));
+            }
+            break;
+
+          case EnemySkillType.weaken:
+            final positions = _pickRandomEmptyPositions(
+              battle, boardCols, boardRows, skill.blockCount,
+            );
+            for (final pos in positions) {
+              battle.weakenedBlocks.add(
+                WeakenedBlock(col: pos.$1, row: pos.$2),
+              );
+            }
+            enemy.skillState.resetCooldown(type, skill.cooldown);
+            if (positions.isNotEmpty) {
+              events.add(EnemySkillEvent(
+                enemyId: enemy.definition.id,
+                type: type,
+                positions: positions,
+              ));
+            }
+            break;
+
+          case EnemySkillType.heal:
+            enemy.applyHeal(skill.healPercent);
+            enemy.skillState.resetCooldown(type, skill.healCooldown);
+            events.add(EnemySkillEvent(
+              enemyId: enemy.definition.id,
+              type: type,
+              healAmount: (enemy.maxHp * skill.healPercent).round(),
+            ));
+            break;
+
+          case EnemySkillType.summon:
+            if (skill.summonEnemy != null) {
+              // 使用同章難度倍率（從現有敵人推算）
+              final hpMult = enemy.maxHp / enemy.definition.baseHp;
+              final atkMult = enemy.atk / enemy.definition.baseAtk;
+              final summoned = EnemyInstance.fromDefinition(
+                skill.summonEnemy!,
+                hpMultiplier: hpMult,
+                atkMultiplier: atkMult,
+              );
+              battle.enemies.add(summoned);
+              enemy.skillState.resetCooldown(type, skill.summonCooldown);
+              events.add(EnemySkillEvent(
+                enemyId: enemy.definition.id,
+                type: type,
+                summonedEnemyName: skill.summonEnemy!.name,
+              ));
+            }
+            break;
+
+          default:
+            break;
+        }
+      }
+
+      // 蓄力判定（不走冷卻，跟隨攻擊節奏）
+      // 在攻擊倒數 == 1 時開始蓄力（下一回合攻擊時 3 倍傷害）
+      // 使用 == 1 而非 == 2，避免攻擊後重置 countdown 時立即重新觸發
+      if (enemy.hasSkill(EnemySkillType.charge) && !enemy.skillState.isCharging) {
+        if (enemy.attackCountdown == 1) {
+          enemy.skillState.isCharging = true;
+          events.add(EnemySkillEvent(
+            enemyId: enemy.definition.id,
+            type: EnemySkillType.charge,
+          ));
+        }
+      }
+    }
+
+    // 毒格倒數
+    final expiredPoisons = <PoisonBlock>[];
+    int totalPoisonDamage = 0;
+    for (final poison in battle.poisonBlocks) {
+      poison.countdown--;
+      if (poison.isExpired) {
+        expiredPoisons.add(poison);
+        // 用場上最強存活敵人的 ATK 計算毒爆傷害
+        final strongestAtk = battle.enemies
+            .where((e) => !e.isDead)
+            .fold<int>(0, (max, e) => e.atk > max ? e.atk : max);
+        final poisonDmg = (strongestAtk * 0.5).round();
+        totalPoisonDamage += poisonDmg;
+      }
+    }
+    if (totalPoisonDamage > 0) {
+      battle.teamCurrentHp = (battle.teamCurrentHp - totalPoisonDamage).clamp(0, battle.teamMaxHp);
+      final expiredPositions = expiredPoisons.map((p) => (p.col, p.row)).toList();
+      events.add(EnemySkillEvent(
+        enemyId: 'poison_explode',
+        type: EnemySkillType.poison,
+        poisonDamage: totalPoisonDamage,
+        positions: expiredPositions,
+      ));
+    }
+    battle.poisonBlocks.removeWhere((p) => p.isExpired);
+
+    // 弱化格回合遞減
+    for (final w in battle.weakenedBlocks) {
+      w.turnsLeft--;
+    }
+    battle.weakenedBlocks.removeWhere((w) => w.isExpired);
+
+    return EnemySkillPhaseResult(events: events);
+  }
+
+  /// 處理消除時的棋盤技能互動
+  /// 回傳被清除的障礙格和毒格位置
+  static BoardSkillInteraction processMatchBoardSkills(
+    BattleState battle,
+    List<(int, int)> matchedPositions,
+  ) {
+    final clearedObstacles = <(int, int)>[];
+    final clearedPoisons = <(int, int)>[];
+    final clearedWeakened = <(int, int)>[];
+    int weakenedInMatch = 0;
+
+    // 檢查消除的格子是否包含毒格（安全消除）
+    for (final pos in matchedPositions) {
+      final poison = battle.getPoisonAt(pos.$1, pos.$2);
+      if (poison != null) {
+        clearedPoisons.add(pos);
+        battle.poisonBlocks.remove(poison);
+      }
+
+      // 檢查弱化
+      if (battle.isWeakened(pos.$1, pos.$2)) {
+        weakenedInMatch++;
+        clearedWeakened.add(pos);
+        battle.weakenedBlocks.removeWhere(
+          (w) => w.col == pos.$1 && w.row == pos.$2,
+        );
+      }
+    }
+
+    // 相鄰消除對障礙格的影響
+    final adjacentSet = <String>{};
+    for (final pos in matchedPositions) {
+      adjacentSet.add('${pos.$1},${pos.$2}');
+    }
+
+    for (final obstacle in battle.obstacleBlocks.toList()) {
+      if (obstacle.isBroken) continue;
+
+      // 檢查是否有相鄰格被消除
+      final neighbors = [
+        (obstacle.col - 1, obstacle.row),
+        (obstacle.col + 1, obstacle.row),
+        (obstacle.col, obstacle.row - 1),
+        (obstacle.col, obstacle.row + 1),
+      ];
+      for (final n in neighbors) {
+        if (adjacentSet.contains('${n.$1},${n.$2}')) {
+          obstacle.hitCount++;
+          break; // 每次消除最多 +1
+        }
+      }
+
+      if (obstacle.isBroken) {
+        clearedObstacles.add((obstacle.col, obstacle.row));
+      }
+    }
+    battle.obstacleBlocks.removeWhere((o) => o.isBroken);
+
+    return BoardSkillInteraction(
+      clearedObstacles: clearedObstacles,
+      clearedPoisons: clearedPoisons,
+      clearedWeakened: clearedWeakened,
+      weakenedInMatch: weakenedInMatch,
+    );
+  }
+
+  /// 技能消除（角色技能的消除效果）直接清除障礙/毒/弱化格
+  static List<(int, int)> clearBoardSkillsBySkillEliminate(
+    BattleState battle,
+    List<(int, int)> eliminatedPositions,
+  ) {
+    final cleared = <(int, int)>[];
+
+    for (final pos in eliminatedPositions) {
+      // 清障礙
+      final obstacleIdx = battle.obstacleBlocks.indexWhere(
+        (o) => o.col == pos.$1 && o.row == pos.$2,
+      );
+      if (obstacleIdx >= 0) {
+        battle.obstacleBlocks.removeAt(obstacleIdx);
+        cleared.add(pos);
+      }
+
+      // 清毒格
+      final poisonIdx = battle.poisonBlocks.indexWhere(
+        (p) => p.col == pos.$1 && p.row == pos.$2,
+      );
+      if (poisonIdx >= 0) {
+        battle.poisonBlocks.removeAt(poisonIdx);
+        cleared.add(pos);
+      }
+
+      // 清弱化
+      final weakenIdx = battle.weakenedBlocks.indexWhere(
+        (w) => w.col == pos.$1 && w.row == pos.$2,
+      );
+      if (weakenIdx >= 0) {
+        battle.weakenedBlocks.removeAt(weakenIdx);
+        cleared.add(pos);
+      }
+    }
+
+    return cleared;
+  }
+
+  /// 轉色技能清除弱化和毒格（轉色覆蓋）
+  static List<(int, int)> clearBoardSkillsByConvert(
+    BattleState battle,
+    List<(int, int)> convertedPositions,
+  ) {
+    final cleared = <(int, int)>[];
+
+    for (final pos in convertedPositions) {
+      // 轉色清弱化
+      final weakenIdx = battle.weakenedBlocks.indexWhere(
+        (w) => w.col == pos.$1 && w.row == pos.$2,
+      );
+      if (weakenIdx >= 0) {
+        battle.weakenedBlocks.removeAt(weakenIdx);
+        cleared.add(pos);
+      }
+
+      // 轉色清毒格
+      final poisonIdx = battle.poisonBlocks.indexWhere(
+        (p) => p.col == pos.$1 && p.row == pos.$2,
+      );
+      if (poisonIdx >= 0) {
+        battle.poisonBlocks.removeAt(poisonIdx);
+        cleared.add(pos);
+      }
+    }
+
+    return cleared;
+  }
+
+  /// 在棋盤上隨機挑選空位（避開已有障礙/毒/弱化的位置）
+  static List<(int, int)> _pickRandomEmptyPositions(
+    BattleState battle,
+    int cols,
+    int rows,
+    int count,
+  ) {
+    final occupied = <String>{};
+    for (final o in battle.obstacleBlocks) {
+      occupied.add('${o.col},${o.row}');
+    }
+    for (final p in battle.poisonBlocks) {
+      occupied.add('${p.col},${p.row}');
+    }
+    for (final w in battle.weakenedBlocks) {
+      occupied.add('${w.col},${w.row}');
+    }
+
+    final candidates = <(int, int)>[];
+    for (int c = 0; c < cols; c++) {
+      for (int r = 0; r < rows; r++) {
+        if (!occupied.contains('$c,$r')) {
+          candidates.add((c, r));
+        }
+      }
+    }
+
+    candidates.shuffle(_random);
+    return candidates.take(count).toList();
+  }
+}
+
+// ─── 敵人技能事件（供 UI 使用）───
+
+class EnemySkillEvent {
+  final String enemyId;
+  final EnemySkillType type;
+  final List<(int, int)> positions;
+  final int? countdown;
+  final int? healAmount;
+  final int? poisonDamage;
+  final String? summonedEnemyName;
+
+  const EnemySkillEvent({
+    required this.enemyId,
+    required this.type,
+    this.positions = const [],
+    this.countdown,
+    this.healAmount,
+    this.poisonDamage,
+    this.summonedEnemyName,
+  });
+}
+
+class EnemySkillPhaseResult {
+  final List<EnemySkillEvent> events;
+  const EnemySkillPhaseResult({required this.events});
+  bool get hasEvents => events.isNotEmpty;
+}
+
+class BoardSkillInteraction {
+  final List<(int, int)> clearedObstacles;
+  final List<(int, int)> clearedPoisons;
+  final List<(int, int)> clearedWeakened;
+  final int weakenedInMatch;
+
+  const BoardSkillInteraction({
+    this.clearedObstacles = const [],
+    this.clearedPoisons = const [],
+    this.clearedWeakened = const [],
+    this.weakenedInMatch = 0,
+  });
+
+  bool get hadInteraction =>
+      clearedObstacles.isNotEmpty ||
+      clearedPoisons.isNotEmpty ||
+      clearedWeakened.isNotEmpty;
 }
