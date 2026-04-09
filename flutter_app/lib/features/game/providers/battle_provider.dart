@@ -203,6 +203,9 @@ class BattleProvider extends ChangeNotifier {
       teamCurrentHp: totalHp,
     );
 
+    // 初始化敵人技能狀態（屬性壓制光環等）
+    _battleState!.initEnemySkills();
+
     notifyListeners();
   }
 
