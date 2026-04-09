@@ -20,6 +20,7 @@ import '../../agents/providers/player_provider.dart';
 import '../providers/battle_provider.dart';
 import '../providers/game_provider.dart';
 import '../widgets/combo_counter.dart';
+import '../widgets/board_attack_effect.dart';
 import '../widgets/damage_counter.dart';
 import '../widgets/game_board.dart';
 import '../../agents/widgets/agent_unlock_animation.dart';
@@ -79,6 +80,7 @@ class _BattleScreenState extends State<BattleScreen> {
   bool _showTutorialSwipeHint = false;
   final GlobalKey _gamePanelKey = GlobalKey();
   final GlobalKey _agentPanelKey = GlobalKey();
+  final GlobalKey _boardKey = GlobalKey();
 
   @override
   void initState() {
@@ -141,6 +143,7 @@ class _BattleScreenState extends State<BattleScreen> {
       battleProvider.onMatchesProcessed(
         result.matchedBlockCounts,
         result.combo,
+        eliminatedBlocks: result.eliminatedBlocks,
       );
       if (result.totalBlocksEliminated > 0) {
         context.read<PlayerProvider>().addBlocksEliminated(
@@ -397,6 +400,7 @@ class _BattleScreenState extends State<BattleScreen> {
                                           battleState: battleState,
                                           gameState: game.state,
                                           tutorialHintBlock: widget.tutorialSwipeHint,
+                                          boardKey: _boardKey,
                                         ),
                                       ),
                                     ),
@@ -409,10 +413,14 @@ class _BattleScreenState extends State<BattleScreen> {
                                     child: Container(
                                       key: _agentPanelKey,
                                       child: RepaintBoundary(
-                                        child: _CatAgentPanel(
-                                          battleState: battleState,
-                                          battleProvider: battle,
-                                          attackAnimPlaying: _attackAnimPlaying,
+                                        child: Consumer<GameProvider>(
+                                          builder: (_, game, __) => _CatAgentPanel(
+                                            battleState: battleState,
+                                            battleProvider: battle,
+                                            attackAnimPlaying: _attackAnimPlaying,
+                                            boardKey: _boardKey,
+                                            gameState: game.state,
+                                          ),
                                         ),
                                       ),
                                     ),
@@ -426,10 +434,14 @@ class _BattleScreenState extends State<BattleScreen> {
                                     child: Container(
                                       key: _agentPanelKey,
                                       child: RepaintBoundary(
-                                        child: _CatAgentPanel(
-                                          battleState: battleState,
-                                          battleProvider: battle,
-                                          attackAnimPlaying: _attackAnimPlaying,
+                                        child: Consumer<GameProvider>(
+                                          builder: (_, game, __) => _CatAgentPanel(
+                                            battleState: battleState,
+                                            battleProvider: battle,
+                                            attackAnimPlaying: _attackAnimPlaying,
+                                            boardKey: _boardKey,
+                                            gameState: game.state,
+                                          ),
                                         ),
                                       ),
                                     ),
@@ -445,6 +457,7 @@ class _BattleScreenState extends State<BattleScreen> {
                                           battleState: battleState,
                                           gameState: game.state,
                                           tutorialHintBlock: widget.tutorialSwipeHint,
+                                          boardKey: _boardKey,
                                         ),
                                       ),
                                     ),
@@ -739,12 +752,11 @@ class _RushAnimData {
   final int? targetIndex; // 目標卡牌 index（用於閃爍）
   final UniqueKey key = UniqueKey();
 
-  // Balatro 傷害分解
-  final int baseDamage;
-  final double attributeMult;
-  final int matchCount;
+  // 傷害分解（神魔風格）
+  final int preComboDamage;  // combo 前累積傷害
   final int combo;
   final double comboMult;
+  final double attributeMult;
 
   // 卡牌攻擊動畫用
   final String? attackerAgentId;
@@ -758,18 +770,17 @@ class _RushAnimData {
     required this.damage,
     required this.isPlayerAttack,
     this.targetIndex,
-    this.baseDamage = 0,
-    this.attributeMult = 1.0,
-    this.matchCount = 0,
+    this.preComboDamage = 0,
     this.combo = 0,
     this.comboMult = 1.0,
+    this.attributeMult = 1.0,
     this.attackerAgentId,
     this.attackerName,
   });
 
-  /// 是否需要 Balatro 風格傷害演出
+  /// 是否需要計數器演出
   bool get needsCounterBuildup =>
-      combo > 1 || attributeMult > 1.0 || matchCount > 2;
+      combo > 1 || attributeMult > 1.0;
 }
 
 /// 飄浮傷害數字資料
@@ -780,23 +791,21 @@ class _DamagePopupData {
   final bool useCounter; // 是否使用 Balatro 風格計數器
   final UniqueKey key = UniqueKey();
 
-  // Balatro 傷害分解
-  final int baseDamage;
-  final double attributeMult;
-  final int matchCount;
+  // 傷害分解（神魔風格）
+  final int preComboDamage;
   final int combo;
   final double comboMult;
+  final double attributeMult;
 
   _DamagePopupData({
     required this.position,
     required this.damage,
     required this.color,
     this.useCounter = false,
-    this.baseDamage = 0,
-    this.attributeMult = 1.0,
-    this.matchCount = 0,
+    this.preComboDamage = 0,
     this.combo = 0,
     this.comboMult = 1.0,
+    this.attributeMult = 1.0,
   });
 }
 
@@ -804,11 +813,15 @@ class _CatAgentPanel extends StatefulWidget {
   final BattleState battleState;
   final BattleProvider battleProvider;
   final ValueNotifier<bool> attackAnimPlaying;
+  final GlobalKey boardKey;
+  final GameState? gameState;
 
   const _CatAgentPanel({
     required this.battleState,
     required this.battleProvider,
     required this.attackAnimPlaying,
+    required this.boardKey,
+    this.gameState,
   });
 
   @override
@@ -826,6 +839,11 @@ class _CatAgentPanelState extends State<_CatAgentPanel>
   // Active animations
   final List<_RushAnimData> _activeRushAnims = [];
   final List<_DamagePopupData> _activeDamagePopups = [];
+  final List<BoardAttackData> _activeBoardAttacks = [];
+  int _boardAttackIdCounter = 0;
+
+  // 角色累積傷害（index → damage）
+  final Map<int, int> _accumDamage = {};
 
   // 序列化攻擊佇列
   final List<_RushAnimData> _pendingAttacks = [];
@@ -842,13 +860,56 @@ class _CatAgentPanelState extends State<_CatAgentPanel>
   final Map<int, bool> _enemyHitStates = {};
   bool _playerSectionHit = false;
 
+  // ── 畫面震動（命中打擊感）──
+  late AnimationController _screenShakeController;
+  late Animation<double> _screenShakeAnim;
+
+  @override
+  void initState() {
+    super.initState();
+
+    _screenShakeController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 300),
+    );
+    _screenShakeAnim = TweenSequence<double>([
+      TweenSequenceItem(tween: Tween(begin: 0, end: 8), weight: 12),
+      TweenSequenceItem(tween: Tween(begin: 8, end: -6), weight: 18),
+      TweenSequenceItem(tween: Tween(begin: -6, end: 5), weight: 18),
+      TweenSequenceItem(tween: Tween(begin: 5, end: -3), weight: 20),
+      TweenSequenceItem(tween: Tween(begin: -3, end: 1.5), weight: 16),
+      TweenSequenceItem(tween: Tween(begin: 1.5, end: 0), weight: 16),
+    ]).animate(CurvedAnimation(
+      parent: _screenShakeController,
+      curve: Curves.easeOut,
+    ));
+
+    // 直接監聽 battleProvider 的事件，確保不漏事件
+    widget.battleProvider.addListener(_onBattleUpdate);
+  }
+
+  void _onBattleUpdate() {
+    if (mounted) {
+      _syncKeys();
+      _processEvents();
+    }
+  }
+
   @override
   void didUpdateWidget(covariant _CatAgentPanel oldWidget) {
     super.didUpdateWidget(oldWidget);
-    // 確保 keys 數量匹配
+    if (oldWidget.battleProvider != widget.battleProvider) {
+      oldWidget.battleProvider.removeListener(_onBattleUpdate);
+      widget.battleProvider.addListener(_onBattleUpdate);
+    }
     _syncKeys();
-    // 消費戰鬥事件，觸發動畫
-    _processEvents();
+  }
+
+  @override
+  void dispose() {
+    _screenShakeController.dispose();
+    widget.battleProvider.removeListener(_onBattleUpdate);
+    super.dispose();
   }
 
   void _syncKeys() {
@@ -868,6 +929,36 @@ class _CatAgentPanelState extends State<_CatAgentPanel>
       Offset(renderBox.size.width / 2, renderBox.size.height / 2),
     );
     return panelBox.globalToLocal(cardCenter);
+  }
+
+  /// 將棋盤格座標 (col, row) 轉為 panel 座標系的方塊中心點
+  Offset? _gridToPanel(int col, int row) {
+    final boardBox = widget.boardKey.currentContext?.findRenderObject() as RenderBox?;
+    final panelBox = _panelKey.currentContext?.findRenderObject() as RenderBox?;
+    if (boardBox == null || panelBox == null) return null;
+
+    // 複製 GameBoard._calcLayout 的公式
+    final screenWidth = MediaQuery.of(context).size.width;
+    final numCols = widget.gameState?.mode.numCols ?? 3;
+    final numRows = widget.gameState?.mode.numRows ?? 8;
+    const gap = AppTheme.blockGap;
+    final totalGapsW = (numCols + 1) * gap;
+    final availableWidth = screenWidth * 0.85 - totalGapsW;
+    final blockByWidth = availableWidth / numCols;
+    final availableHeight = boardBox.size.height - 16.0;
+    final blockByHeight = (availableHeight / numRows) - gap;
+    final blockSize = blockByWidth
+        .clamp(36.0, AppTheme.blockSize)
+        .clamp(36.0, blockByHeight.clamp(36.0, AppTheme.blockSize));
+    final cellSize = blockSize + gap;
+
+    // block 中心在 board-local 座標
+    final localCenter = Offset(
+      gap + col * cellSize + blockSize / 2,
+      gap + row * cellSize + blockSize / 2,
+    );
+    final global = boardBox.localToGlobal(localCenter);
+    return panelBox.globalToLocal(global);
   }
 
   Offset? _getPlayerSectionCenter() {
@@ -899,9 +990,58 @@ class _CatAgentPanelState extends State<_CatAgentPanel>
 
     // 收集所有攻擊到 pending 佇列
     for (final event in events) {
-      if (event.type == BattleEventType.autoAttack &&
+      if (event.type == BattleEventType.boardAttack &&
+          event.targetIndex != null) {
+        // ── 棋盤傷害：粒子從消除方塊位置飛向敵人 ──
+        final toIdx = event.targetIndex! < _enemyKeys.length
+            ? event.targetIndex!
+            : _enemyKeys.length - 1;
+        final to = cachedEnemyPos[toIdx];
+        if (to != null) {
+          // 從消除方塊位置建立粒子來源
+          final sources = <AttackParticleSource>[];
+          for (final block in event.eliminatedBlocks) {
+            final pos = _gridToPanel(block.col, block.row);
+            if (pos != null) {
+              sources.add(AttackParticleSource(
+                position: pos,
+                color: block.color.color,
+              ));
+            }
+          }
+          // fallback：若座標轉換失敗，用棋盤右邊緣
+          if (sources.isEmpty) {
+            final panelBox = _panelKey.currentContext?.findRenderObject() as RenderBox?;
+            final edgeX = panelBox != null ? panelBox.size.width : 300.0;
+            sources.add(AttackParticleSource(
+              position: Offset(edgeX, to.dy),
+              color: Colors.amber,
+            ));
+          }
+          setState(() {
+            _activeBoardAttacks.add(BoardAttackData(
+              id: _boardAttackIdCounter++,
+              target: to,
+              damage: event.value,
+              sources: sources,
+              combo: event.combo,
+            ));
+          });
+        }
+      } else if (event.type == BattleEventType.damageAccum &&
+          event.attackerIndex != null) {
+        // ── 角色累積傷害：更新卡牌計數器 ──
+        final idx = event.attackerIndex!;
+        setState(() {
+          _accumDamage[idx] = (_accumDamage[idx] ?? 0) + event.value;
+        });
+      } else if (event.type == BattleEventType.autoAttack &&
           event.attackerIndex != null &&
           event.targetIndex != null) {
+        // ── 角色攻擊：回合結束統一衝刺 — 清空累積計數器 ──
+        if (_accumDamage.isNotEmpty) {
+          setState(() => _accumDamage.clear());
+        }
         final fromIdx = event.attackerIndex! < _playerKeys.length
             ? event.attackerIndex!
             : _playerKeys.length - 1;
@@ -911,7 +1051,6 @@ class _CatAgentPanelState extends State<_CatAgentPanel>
         final from = cachedPlayerPos[fromIdx];
         final to = cachedEnemyPos[toIdx];
         if (from != null && to != null) {
-          // 取得攻擊者資訊
           final attacker = fromIdx < widget.battleState.team.length
               ? widget.battleState.team[fromIdx]
               : null;
@@ -923,11 +1062,10 @@ class _CatAgentPanelState extends State<_CatAgentPanel>
             damage: event.value,
             isPlayerAttack: true,
             targetIndex: event.targetIndex,
-            baseDamage: event.baseDamage,
-            attributeMult: event.attributeMult,
-            matchCount: event.matchCount,
+            preComboDamage: event.preComboDamage,
             combo: event.combo,
             comboMult: event.comboMult,
+            attributeMult: event.attributeMult,
             attackerAgentId: attacker?.definition.id,
             attackerName: attacker?.definition.name,
           ));
@@ -1009,8 +1147,8 @@ class _CatAgentPanelState extends State<_CatAgentPanel>
         _activeRushAnims.add(attack);
       });
 
-      // 動態間隔：我方快攻交錯 150ms / 敵方慢重 500ms
-      final delay = isEnemy ? 500 : 150;
+      // 動態間隔：我方 250ms / 敵方慢重 600ms
+      final delay = isEnemy ? 600 : 250;
       await Future.delayed(Duration(milliseconds: delay));
       if (!mounted) break;
     }
@@ -1024,6 +1162,11 @@ class _CatAgentPanelState extends State<_CatAgentPanel>
           _anticipationAlpha = 0.0;
           _isPlayingSequence = false;
         });
+        // 延遲期間可能有新事件加入，重啟序列
+        if (_pendingAttacks.isNotEmpty) {
+          _playAttackSequence();
+          return;
+        }
         if (_activeRushAnims.isEmpty) {
           widget.attackAnimPlaying.value = false;
         }
@@ -1036,18 +1179,19 @@ class _CatAgentPanelState extends State<_CatAgentPanel>
     setState(() {
       final useCounter = data.isPlayerAttack && data.needsCounterBuildup;
       _activeDamagePopups.add(_DamagePopupData(
-        position: data.to + const Offset(-20, -28),
+        position: data.to + const Offset(30, -20), // 從卡片右側飛出，不擋棋盤
         damage: data.damage,
         color: data.isPlayerAttack ? Colors.white : Colors.red,
         useCounter: useCounter,
-        baseDamage: data.baseDamage,
-        attributeMult: data.attributeMult,
-        matchCount: data.matchCount,
+        preComboDamage: data.preComboDamage,
         combo: data.combo,
         comboMult: data.comboMult,
+        attributeMult: data.attributeMult,
       ));
       if (data.isPlayerAttack && data.targetIndex != null) {
         _enemyHitStates[data.targetIndex!] = true;
+        // ── 命中時才扣血（延遲傷害） ──
+        widget.battleProvider.applyHitDamage(data.damage);
       } else if (!data.isPlayerAttack) {
         _playerSectionHit = true;
       }
@@ -1082,7 +1226,13 @@ class _CatAgentPanelState extends State<_CatAgentPanel>
   Widget build(BuildContext context) {
     _syncKeys();
 
-    return Stack(
+    return AnimatedBuilder(
+      animation: _screenShakeAnim,
+      builder: (_, child) => Transform.translate(
+        offset: Offset(_screenShakeAnim.value, _screenShakeAnim.value * 0.5),
+        child: child,
+      ),
+      child: Stack(
       key: _panelKey,
       children: [
         // 原有佈局
@@ -1128,6 +1278,7 @@ class _CatAgentPanelState extends State<_CatAgentPanel>
                     battleState: widget.battleState,
                     battleProvider: widget.battleProvider,
                     cardKeys: _playerKeys,
+                    accumDamage: _accumDamage,
                   ),
                 ),
               ),
@@ -1158,6 +1309,51 @@ class _CatAgentPanelState extends State<_CatAgentPanel>
             text: _phaseBanner!,
             isEnemy: _phaseBannerIsEnemy,
           ),
+        // 棋盤攻擊粒子層
+        ..._activeBoardAttacks.map((ba) {
+          return BoardAttackEffect(
+            key: ValueKey('board_attack_${ba.id}'),
+            data: ba,
+            onHit: () {
+              // 粒子到達：顯示傷害數字 + 敵人閃爍 + 畫面震動 + 強震動
+              if (!mounted) return;
+              // 連續雙震動（打擊感加倍）
+              HapticFeedback.mediumImpact();
+              Future.delayed(const Duration(milliseconds: 60), () {
+                HapticFeedback.mediumImpact();
+              });
+              // 畫面震動
+              _screenShakeController.forward(from: 0);
+              final hitColor = ba.sources.isNotEmpty
+                  ? ba.sources.first.color
+                  : Colors.amber;
+              setState(() {
+                _activeDamagePopups.add(_DamagePopupData(
+                  position: ba.target + const Offset(-20, -28),
+                  damage: ba.damage,
+                  color: hitColor,
+                  useCounter: false,
+                ));
+                // 找到對應的敵人 index 並閃爍
+                for (int i = 0; i < _enemyHitStates.length; i++) {
+                  final pos = _getCardCenter(_enemyKeys[i]);
+                  if (pos != null && (pos - ba.target).distance < 30) {
+                    _enemyHitStates[i] = true;
+                    Future.delayed(const Duration(milliseconds: 200), () {
+                      if (mounted) setState(() => _enemyHitStates[i] = false);
+                    });
+                    break;
+                  }
+                }
+              });
+            },
+            onComplete: () {
+              if (mounted) {
+                setState(() => _activeBoardAttacks.removeWhere((e) => e.id == ba.id));
+              }
+            },
+          );
+        }),
         // 衝撞動畫層
         ..._activeRushAnims.map((rush) => _RushAttackWidget(
           key: rush.key,
@@ -1171,11 +1367,10 @@ class _CatAgentPanelState extends State<_CatAgentPanel>
                 key: popup.key,
                 position: popup.position,
                 finalDamage: popup.damage,
-                baseDamage: popup.baseDamage,
-                attributeMult: popup.attributeMult,
-                matchCount: popup.matchCount,
+                preComboDamage: popup.preComboDamage,
                 combo: popup.combo,
                 comboMult: popup.comboMult,
+                attributeMult: popup.attributeMult,
                 color: popup.color,
                 onComplete: () => _removePopup(popup),
               )
@@ -1184,10 +1379,12 @@ class _CatAgentPanelState extends State<_CatAgentPanel>
                 position: popup.position,
                 damage: popup.damage,
                 color: popup.color,
+                combo: popup.combo,
                 onComplete: () => _removePopup(popup),
               ),
         ),
       ],
+    ),
     );
   }
 }
@@ -1484,7 +1681,7 @@ class _RushAttackWidgetState extends State<_RushAttackWidget>
     super.initState();
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 600),
+      duration: const Duration(milliseconds: 800),
     );
     _impactController = AnimationController(
       vsync: this,
@@ -1573,6 +1770,7 @@ class _RushAttackWidgetState extends State<_RushAttackWidget>
   }
 
   void _checkHit() {
+    // 基礎攻擊在 40% 觸發（直接衝刺），強化攻擊也在 40%（浮起後衝刺到位）
     if (!_hitFired && _controller.value >= 0.40) {
       _hitFired = true;
       widget.onHit();
@@ -1780,6 +1978,7 @@ class _DamagePopup extends StatefulWidget {
   final Offset position;
   final int damage;
   final Color color;
+  final int combo;
   final VoidCallback onComplete;
 
   const _DamagePopup({
@@ -1787,6 +1986,7 @@ class _DamagePopup extends StatefulWidget {
     required this.position,
     required this.damage,
     required this.color,
+    this.combo = 0,
     required this.onComplete,
   });
 
@@ -1808,33 +2008,49 @@ class _DamagePopupState extends State<_DamagePopup>
   late double _peakScale;
   late bool _hasShake;
 
+  late Color _displayColor;
+
+  /// Combo 色階：紅 → 橙 → 金
+  static Color _comboColor(Color base, int combo) {
+    if (combo >= 6) return const Color(0xFFFFD700); // 金
+    if (combo >= 4) return const Color(0xFFFF8C00); // 橙
+    if (combo >= 2) return const Color(0xFFFF4444); // 紅
+    return base;
+  }
+
   @override
   void initState() {
     super.initState();
     final d = widget.damage;
+    final combo = widget.combo;
+
+    // combo 加持字體大小
+    final comboBoost = (combo * 1.5).clamp(0.0, 8.0);
 
     // 傷害量分級視覺
     if (d >= 100) {
-      _fontSize = 38;
+      _fontSize = 38 + comboBoost;
       _glowRadius = 20;
       _peakScale = 2.0;
       _hasShake = true;
     } else if (d >= 50) {
-      _fontSize = 32;
+      _fontSize = 32 + comboBoost;
       _glowRadius = 16;
       _peakScale = 1.8;
       _hasShake = true;
     } else if (d >= 20) {
-      _fontSize = 26;
+      _fontSize = 26 + comboBoost;
       _glowRadius = 12;
       _peakScale = 1.6;
       _hasShake = false;
     } else {
-      _fontSize = 22;
+      _fontSize = 22 + comboBoost;
       _glowRadius = 8;
       _peakScale = 1.4;
       _hasShake = false;
     }
+
+    _displayColor = _comboColor(widget.color, combo);
 
     final duration = _hasShake ? 900 : 700;
     _controller = AnimationController(
@@ -1844,16 +2060,18 @@ class _DamagePopupState extends State<_DamagePopup>
 
     _slideAnim = Tween<Offset>(
       begin: Offset.zero,
-      end: Offset(0, _hasShake ? -2.5 : -2.0),
+      end: Offset(0.3, _hasShake ? -2.0 : -1.5), // 右上方飄出
     ).animate(CurvedAnimation(
       parent: _controller,
       curve: Curves.easeOutCubic,
     ));
 
     _scaleAnim = TweenSequence<double>([
-      TweenSequenceItem(tween: Tween(begin: 0.0, end: _peakScale), weight: 15),
-      TweenSequenceItem(tween: Tween(begin: _peakScale, end: 1.0), weight: 15),
-      TweenSequenceItem(tween: Tween(begin: 1.0, end: 1.0), weight: 70),
+      TweenSequenceItem(tween: Tween(begin: 0.0, end: _peakScale), weight: 10),
+      TweenSequenceItem(tween: Tween(begin: _peakScale, end: 0.85), weight: 12),
+      TweenSequenceItem(tween: Tween(begin: 0.85, end: 1.1), weight: 10),
+      TweenSequenceItem(tween: Tween(begin: 1.1, end: 1.0), weight: 8),
+      TweenSequenceItem(tween: Tween(begin: 1.0, end: 1.0), weight: 60),
     ]).animate(CurvedAnimation(
       parent: _controller,
       curve: Curves.easeOut,
@@ -1915,10 +2133,10 @@ class _DamagePopupState extends State<_DamagePopup>
           style: TextStyle(
             fontSize: _fontSize,
             fontWeight: FontWeight.w900,
-            color: widget.color,
+            color: _displayColor,
             shadows: [
               Shadow(
-                color: widget.color.withAlpha(200),
+                color: _displayColor.withAlpha(200),
                 blurRadius: _glowRadius,
               ),
               const Shadow(
@@ -1966,8 +2184,8 @@ class _EnemyCardsSection extends StatelessWidget {
   }
 }
 
-/// 單一敵人卡牌（橫式遊戲王風格 + 命中閃爍 + 狀態效果 + 攻擊意圖）
-class _EnemyCard extends StatelessWidget {
+/// 單一敵人卡牌（橫式遊戲王風格 + shake/flash 受擊 + 血條流動）
+class _EnemyCard extends StatefulWidget {
   final EnemyInstance enemy;
   final bool isCurrent;
   final bool isHit;
@@ -1982,8 +2200,128 @@ class _EnemyCard extends StatelessWidget {
   });
 
   @override
+  State<_EnemyCard> createState() => _EnemyCardState();
+}
+
+class _EnemyCardState extends State<_EnemyCard>
+    with TickerProviderStateMixin {
+  late AnimationController _shakeController;
+  late Animation<double> _shakeAnim;
+  late AnimationController _flashController;
+  late Animation<double> _flashAnim;
+  late AnimationController _hitScaleController; // 著彈微縮
+  late Animation<double> _hitScaleAnim;
+  late AnimationController _defeatController;
+  late Animation<double> _defeatScaleAnim;
+  late Animation<double> _defeatOpacityAnim;
+
+  double _displayedHpPercent = 1.0;
+  bool _prevHit = false;
+  bool _wasAlive = true;
+  bool _defeatAnimDone = false; // 擊敗動畫播完才顯示死亡卡片
+
+  @override
+  void initState() {
+    super.initState();
+    _displayedHpPercent = widget.enemy.hpPercent;
+
+    _shakeController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 300),
+    );
+    _shakeAnim = TweenSequence<double>([
+      TweenSequenceItem(tween: Tween(begin: 0, end: 6), weight: 15),
+      TweenSequenceItem(tween: Tween(begin: 6, end: -5), weight: 20),
+      TweenSequenceItem(tween: Tween(begin: -5, end: 4), weight: 20),
+      TweenSequenceItem(tween: Tween(begin: 4, end: -2), weight: 20),
+      TweenSequenceItem(tween: Tween(begin: -2, end: 0), weight: 25),
+    ]).animate(_shakeController);
+
+    _flashController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 200),
+    );
+    _flashAnim = TweenSequence<double>([
+      TweenSequenceItem(tween: Tween(begin: 0, end: 0.6), weight: 40),
+      TweenSequenceItem(tween: Tween(begin: 0.6, end: 0), weight: 60),
+    ]).animate(_flashController);
+
+    // 著彈彈跳（scale punch：壓縮 → 回彈過頭 → 歸位）
+    _hitScaleController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 250),
+    );
+    _hitScaleAnim = TweenSequence<double>([
+      TweenSequenceItem(tween: Tween(begin: 1.0, end: 0.85), weight: 20),
+      TweenSequenceItem(tween: Tween(begin: 0.85, end: 1.08), weight: 35),
+      TweenSequenceItem(tween: Tween(begin: 1.08, end: 0.97), weight: 20),
+      TweenSequenceItem(tween: Tween(begin: 0.97, end: 1.0), weight: 25),
+    ]).animate(CurvedAnimation(
+      parent: _hitScaleController,
+      curve: Curves.easeOut,
+    ));
+
+    // 擊敗動畫：膨脹 → 縮小 → 淡出
+    _defeatController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 500),
+    );
+    _defeatScaleAnim = TweenSequence<double>([
+      TweenSequenceItem(tween: Tween(begin: 1.0, end: 1.3), weight: 30),
+      TweenSequenceItem(tween: Tween(begin: 1.3, end: 0.0), weight: 70),
+    ]).animate(_defeatController); // 不用 easeInBack（會產生 <0 值）
+    _defeatOpacityAnim = Tween<double>(begin: 1.0, end: 0.0).animate(
+      CurvedAnimation(
+        parent: _defeatController,
+        curve: const Interval(0.4, 1.0, curve: Curves.easeOut),
+      ),
+    );
+  }
+
+  @override
+  void didUpdateWidget(_EnemyCard old) {
+    super.didUpdateWidget(old);
+    // 觸發 shake + flash + 微縮
+    if (widget.isHit && !_prevHit) {
+      _shakeController.forward(from: 0);
+      _flashController.forward(from: 0);
+      _hitScaleController.forward(from: 0);
+    }
+    _prevHit = widget.isHit;
+
+    // 觸發擊敗動畫
+    if (widget.enemy.isDead && _wasAlive) {
+      _defeatAnimDone = false;
+      _defeatController.forward(from: 0).then((_) {
+        if (mounted) setState(() => _defeatAnimDone = true);
+      });
+    }
+    _wasAlive = !widget.enemy.isDead;
+
+    // 血條流動（目標值改變時平滑過渡）
+    if (widget.enemy.hpPercent != _displayedHpPercent) {
+      _displayedHpPercent = widget.enemy.hpPercent;
+    }
+  }
+
+  @override
+  void dispose() {
+    _shakeController.dispose();
+    _flashController.dispose();
+    _hitScaleController.dispose();
+    _defeatController.dispose();
+    super.dispose();
+  }
+
+  EnemyInstance get enemy => widget.enemy;
+  bool get isCurrent => widget.isCurrent;
+  bool get isHit => widget.isHit;
+  BattleState get battleState => widget.battleState;
+
+  @override
   Widget build(BuildContext context) {
-    if (enemy.isDead) {
+    if (enemy.isDead && _defeatAnimDone) {
+      // 動畫播完 → 顯示小卡片
       return Padding(
         padding: const EdgeInsets.only(bottom: 4),
         child: Opacity(
@@ -2023,7 +2361,6 @@ class _EnemyCard extends StatelessWidget {
         ? enemy.attackCountdown / enemy.definition.attackInterval
         : 0.0;
 
-    // 外框顏色 — 遊戲王風格雙邊框
     final outerBorderColor = isCurrent
         ? Colors.red.withAlpha(200)
         : color.withAlpha(100);
@@ -2033,15 +2370,33 @@ class _EnemyCard extends StatelessWidget {
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 5),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 100),
-        curve: Curves.easeInOut,
+      child: AnimatedBuilder(
+        animation: Listenable.merge([_shakeAnim, _flashAnim, _hitScaleController, _defeatController]),
+        builder: (_, child) {
+          // 擊敗動畫中：膨脹→縮小→淡出
+          final defeatScale = _defeatController.isAnimating
+              ? _defeatScaleAnim.value.clamp(0.0, 2.0) : 1.0;
+          final defeatOpacity = _defeatController.isAnimating
+              ? _defeatOpacityAnim.value.clamp(0.0, 1.0) : 1.0;
+          // 著彈微縮
+          final hitScale = _hitScaleController.isAnimating
+              ? _hitScaleAnim.value : 1.0;
+          return Opacity(
+            opacity: defeatOpacity,
+            child: Transform.scale(
+              scale: defeatScale * hitScale,
+              child: Transform.translate(
+                offset: Offset(_shakeAnim.value, 0),
+                child: child,
+              ),
+            ),
+          );
+        },
+        child: Container(
         height: 80,
         clipBehavior: Clip.antiAlias,
         decoration: BoxDecoration(
-          color: isHit
-              ? Colors.white.withAlpha(120)
-              : AppTheme.bgCard,
+          color: AppTheme.bgCard,
           borderRadius: BorderRadius.circular(8),
           border: Border.all(color: outerBorderColor, width: 2),
           boxShadow: [
@@ -2056,44 +2411,44 @@ class _EnemyCard extends StatelessWidget {
             border: Border.all(color: innerBorderColor, width: 1),
             borderRadius: BorderRadius.circular(6),
           ),
-          child: Row(
+          child: Stack(
             children: [
-              // ─── 左側：大圖區域（遊戲王風格）───
-              SizedBox(
-                width: 72,
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    // 背景漸層
-                    Container(
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                          colors: [
-                            color.withAlpha(40),
-                            color.withAlpha(15),
-                          ],
+              Row(
+                children: [
+                  // ─── 左側：大圖區域 ───
+                  SizedBox(
+                    width: 72,
+                    child: Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        Container(
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                              colors: [
+                                color.withAlpha(40),
+                                color.withAlpha(15),
+                              ],
+                            ),
+                            border: Border(
+                              right: BorderSide(color: color.withAlpha(80), width: 1.5),
+                            ),
+                          ),
                         ),
-                        border: Border(
-                          right: BorderSide(color: color.withAlpha(80), width: 1.5),
+                        Padding(
+                          padding: const EdgeInsets.all(4),
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(4),
+                            child: GameImage(
+                              assetPath: ImageAssets.enemyImage(enemy.definition.id),
+                              fallbackEmoji: enemy.definition.emoji,
+                              width: 64,
+                              height: 72,
+                            ),
+                          ),
                         ),
-                      ),
-                    ),
-                    // 角色大圖
-                    Padding(
-                      padding: const EdgeInsets.all(4),
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(4),
-                        child: GameImage(
-                          assetPath: ImageAssets.enemyImage(enemy.definition.id),
-                          fallbackEmoji: enemy.definition.emoji,
-                          width: 64,
-                          height: 72,
-                        ),
-                      ),
-                    ),
-                    // 倒數弧形指示器
+                        // 倒數弧形指示器
                     Positioned(
                       top: 2,
                       right: 4,
@@ -2137,19 +2492,24 @@ class _EnemyCard extends StatelessWidget {
                         ],
                       ),
                       const SizedBox(height: 4),
-                      // HP 條
+                      // HP 條（流動動畫）
                       ClipRRect(
                         borderRadius: BorderRadius.circular(3),
-                        child: LinearProgressIndicator(
-                          value: enemy.hpPercent,
-                          minHeight: 8,
-                          backgroundColor: AppTheme.bgCard,
-                          valueColor: AlwaysStoppedAnimation<Color>(
-                            enemy.hpPercent > 0.5
-                                ? Colors.green
-                                : enemy.hpPercent > 0.25
-                                    ? Colors.orange
-                                    : Colors.red,
+                        child: TweenAnimationBuilder<double>(
+                          tween: Tween(end: enemy.hpPercent),
+                          duration: const Duration(milliseconds: 350),
+                          curve: Curves.easeOut,
+                          builder: (_, value, __) => LinearProgressIndicator(
+                            value: value.clamp(0.0, 1.0),
+                            minHeight: 8,
+                            backgroundColor: AppTheme.bgCard,
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                              value > 0.5
+                                  ? Colors.green
+                                  : value > 0.25
+                                      ? Colors.orange
+                                      : Colors.red,
+                            ),
                           ),
                         ),
                       ),
@@ -2197,9 +2557,26 @@ class _EnemyCard extends StatelessWidget {
                   ),
                 ),
               ),
+              ],
+            ),
+            // ── 白色閃爍 overlay ──
+            if (_flashAnim.value > 0)
+              Positioned.fill(
+                child: IgnorePointer(
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: Colors.white.withAlpha(
+                        (_flashAnim.value * 255).round().clamp(0, 255),
+                      ),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                  ),
+                ),
+              ),
             ],
           ),
         ),
+      ),
       ),
     );
   }
@@ -2274,11 +2651,13 @@ class _PlayerCardsSection extends StatelessWidget {
   final BattleState battleState;
   final BattleProvider battleProvider;
   final List<GlobalKey> cardKeys;
+  final Map<int, int> accumDamage; // index → 累積傷害
 
   const _PlayerCardsSection({
     required this.battleState,
     required this.battleProvider,
     required this.cardKeys,
+    this.accumDamage = const {},
   });
 
   @override
@@ -2296,6 +2675,7 @@ class _PlayerCardsSection extends StatelessWidget {
         return _CatAgentCard(
           key: index < cardKeys.length ? cardKeys[index] : null,
           agent: agent,
+          accumDamage: accumDamage[index] ?? 0,
           onTap: () {
             if (agent.isSkillReady) {
               _showSkillConfirm(context, agent, index);
@@ -2473,11 +2853,86 @@ class _PlayerCardsSection extends StatelessWidget {
 }
 
 /// 單一我方角色卡片（橫式遊戲王風格 + 能量條）
-class _CatAgentCard extends StatelessWidget {
+class _CatAgentCard extends StatefulWidget {
   final BattleAgent agent;
   final VoidCallback onTap;
+  final int accumDamage; // 累積傷害值（0 = 未累積）
 
-  const _CatAgentCard({super.key, required this.agent, required this.onTap});
+  const _CatAgentCard({
+    super.key,
+    required this.agent,
+    required this.onTap,
+    this.accumDamage = 0,
+  });
+
+  @override
+  State<_CatAgentCard> createState() => _CatAgentCardState();
+}
+
+class _CatAgentCardState extends State<_CatAgentCard>
+    with TickerProviderStateMixin {
+  late AnimationController _bounceController;
+  late Animation<double> _bounceAnim;
+  late AnimationController _countController;
+  int _prevAccumDamage = 0;
+  int _countFrom = 0;
+  int _countTo = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _bounceController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 300),
+    );
+    _bounceAnim = TweenSequence<double>([
+      TweenSequenceItem(tween: Tween(begin: 1.0, end: 1.08), weight: 30),
+      TweenSequenceItem(tween: Tween(begin: 1.08, end: 0.95), weight: 30),
+      TweenSequenceItem(tween: Tween(begin: 0.95, end: 1.0), weight: 40),
+    ]).animate(CurvedAnimation(
+      parent: _bounceController,
+      curve: Curves.easeOut,
+    ));
+    _countController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 400),
+    );
+  }
+
+  @override
+  void didUpdateWidget(_CatAgentCard old) {
+    super.didUpdateWidget(old);
+    if (widget.accumDamage > _prevAccumDamage && widget.accumDamage > 0) {
+      _bounceController.forward(from: 0);
+      // 跑數動畫：從舊值跑到新值
+      _countFrom = _prevAccumDamage;
+      _countTo = widget.accumDamage;
+      _countController.forward(from: 0);
+    }
+    if (widget.accumDamage == 0 && _prevAccumDamage > 0) {
+      // 清空時重設
+      _countFrom = 0;
+      _countTo = 0;
+    }
+    _prevAccumDamage = widget.accumDamage;
+  }
+
+  int get _displayCount {
+    if (!_countController.isAnimating && _countController.isCompleted) {
+      return _countTo;
+    }
+    final t = Curves.easeOutCubic.transform(_countController.value);
+    return (_countFrom + (_countTo - _countFrom) * t).round();
+  }
+
+  @override
+  void dispose() {
+    _bounceController.dispose();
+    _countController.dispose();
+    super.dispose();
+  }
+
+  BattleAgent get agent => widget.agent;
 
   void _showAgentInfo(BuildContext context) {
     final def = agent.definition;
@@ -2622,8 +3077,9 @@ class _CatAgentCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final color = agent.definition.attribute.blockColor.color;
     final isReady = agent.isSkillReady;
+    final hasAccum = widget.accumDamage > 0;
 
-    // 外框顏色 — 遊戲王風格雙邊框
+    // 外框顏色
     final outerBorderColor = isReady
         ? Colors.amber.withAlpha(200)
         : color.withAlpha(100);
@@ -2632,182 +3088,219 @@ class _CatAgentCard extends StatelessWidget {
         : color.withAlpha(50);
 
     return GestureDetector(
-      onTap: isReady ? onTap : null,
+      onTap: isReady ? widget.onTap : null,
       onLongPress: () => _showAgentInfo(context),
       child: Padding(
         padding: const EdgeInsets.only(bottom: 5),
-        child: Container(
-          height: 80,
-          clipBehavior: Clip.antiAlias,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: outerBorderColor, width: 2),
-            color: AppTheme.bgCard,
-            boxShadow: [
-              if (isReady)
-                BoxShadow(
-                  color: Colors.amber.withAlpha(60),
-                  blurRadius: 10,
-                  spreadRadius: 1,
-                ),
-            ],
+        child: AnimatedBuilder(
+          animation: _bounceAnim,
+          builder: (_, child) => Transform.scale(
+            scale: _bounceAnim.value,
+            child: child,
           ),
           child: Container(
+            height: 80,
+            clipBehavior: Clip.antiAlias,
             decoration: BoxDecoration(
-              border: Border.all(color: innerBorderColor, width: 1),
-              borderRadius: BorderRadius.circular(6),
-            ),
-            child: Row(
-              children: [
-                // ─── 左側：角色大圖（遊戲王風格）───
-                SizedBox(
-                  width: 72,
-                  child: Stack(
-                    fit: StackFit.expand,
-                    children: [
-                      // 背景漸層
-                      Container(
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                            colors: [
-                              color.withAlpha(40),
-                              color.withAlpha(15),
-                            ],
-                          ),
-                          border: Border(
-                            right: BorderSide(color: color.withAlpha(80), width: 1.5),
-                          ),
-                        ),
-                      ),
-                      // 角色大圖
-                      Padding(
-                        padding: const EdgeInsets.all(4),
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(4),
-                          child: _buildAgentAvatar(
-                            agent.definition.id, color, 64,
-                          ),
-                        ),
-                      ),
-                      // 技能就緒閃光
-                      if (isReady)
-                        Positioned.fill(
-                          child: Container(
-                            decoration: BoxDecoration(
-                              border: Border.all(
-                                color: Colors.amber.withAlpha(80),
-                                width: 1,
-                              ),
-                              borderRadius: BorderRadius.circular(3),
-                            ),
-                          ),
-                        ),
-                    ],
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: outerBorderColor, width: 2),
+              color: AppTheme.bgCard,
+              boxShadow: [
+                if (isReady)
+                  BoxShadow(
+                    color: Colors.amber.withAlpha(60),
+                    blurRadius: 10,
+                    spreadRadius: 1,
                   ),
-                ),
-                // ─── 右側：名稱 + ATK/DEF + 能量條 ───
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 5),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisAlignment: MainAxisAlignment.center,
+              ],
+            ),
+            child: Container(
+              decoration: BoxDecoration(
+                border: Border.all(color: innerBorderColor, width: 1),
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Row(
+                children: [
+                  // ─── 左側：角色大圖 ───
+                  SizedBox(
+                    width: 72,
+                    child: Stack(
+                      fit: StackFit.expand,
                       children: [
-                        // 名稱 + Lv
-                        Row(
-                          children: [
-                            Expanded(
-                              child: Text(
-                                agent.definition.name,
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: AppTheme.fontBodyMd,
-                                  fontWeight: FontWeight.bold,
-                                  shadows: [
-                                    Shadow(color: Colors.black87, blurRadius: 3)
-                                  ],
-                                ),
-                                overflow: TextOverflow.ellipsis,
-                              ),
+                        Container(
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                              colors: [
+                                color.withAlpha(40),
+                                color.withAlpha(15),
+                              ],
                             ),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                            border: Border(
+                              right: BorderSide(color: color.withAlpha(80), width: 1.5),
+                            ),
+                          ),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.all(4),
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(4),
+                            child: _buildAgentAvatar(
+                              agent.definition.id, color, 64,
+                            ),
+                          ),
+                        ),
+                        if (isReady)
+                          Positioned.fill(
+                            child: Container(
                               decoration: BoxDecoration(
-                                color: color.withAlpha(40),
+                                border: Border.all(
+                                  color: Colors.amber.withAlpha(80),
+                                  width: 1,
+                                ),
                                 borderRadius: BorderRadius.circular(3),
                               ),
-                              child: Text(
-                                'Lv.${agent.level}',
-                                style: TextStyle(
-                                  color: color,
-                                  fontSize: AppTheme.fontLabelSm,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 3),
-                        // ATK + DEF
-                        Row(
-                          children: [
-                            Text(
-                              'ATK ${agent.atk}',
-                              style: TextStyle(
-                                color: Colors.orange.shade200,
-                                fontSize: AppTheme.fontLabelLg,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Text(
-                              'DEF ${agent.def}',
-                              style: TextStyle(
-                                color: Colors.blue.shade200,
-                                fontSize: AppTheme.fontLabelLg,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 4),
-                        // 能量條
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(3),
-                          child: LinearProgressIndicator(
-                            value: agent.energyPercent,
-                            minHeight: 7,
-                            backgroundColor: AppTheme.bgCard,
-                            valueColor: AlwaysStoppedAnimation(
-                              isReady ? Colors.amber : color.withAlpha(150),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        if (isReady)
-                          const Text(
-                            '▶ 點擊施放技能',
-                            style: TextStyle(
-                              color: Colors.amber,
-                              fontSize: AppTheme.fontLabelSm,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          )
-                        else
-                          Text(
-                            '能量 ${agent.currentEnergy}/${agent.maxEnergy}',
-                            style: const TextStyle(
-                              color: Colors.white54,
-                              fontSize: AppTheme.fontLabelSm,
                             ),
                           ),
                       ],
                     ),
                   ),
-                ),
-              ],
+                  // ─── 右側：正常資訊 or 累積計數器 ───
+                  Expanded(
+                    child: hasAccum
+                      // ── 累積模式：灰底 + 傷害計數器 ──
+                      ? AnimatedBuilder(
+                          animation: _countController,
+                          builder: (_, __) => Container(
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF5E6C8).withAlpha(200), // 半透明米色
+                            ),
+                            child: Center(
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    '$_displayCount',
+                                    style: TextStyle(
+                                      color: Color.lerp(const Color(0xFF5D3A1A), color, 0.3)!, // 深棕帶屬性色
+                                      fontSize: 28,
+                                      fontWeight: FontWeight.w900,
+                                      shadows: [
+                                        Shadow(color: color.withAlpha(100), blurRadius: 8),
+                                      ],
+                                    ),
+                                  ),
+                                  Text(
+                                    '蓄力中',
+                                    style: TextStyle(
+                                      color: const Color(0xFF8B6914).withAlpha(180), // 暖棕色
+                                      fontSize: AppTheme.fontLabelSm,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        )
+                      // ── 正常模式 ──
+                      : Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 5),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      agent.definition.name,
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: AppTheme.fontBodyMd,
+                                        fontWeight: FontWeight.bold,
+                                        shadows: [
+                                          Shadow(color: Colors.black87, blurRadius: 3)
+                                        ],
+                                      ),
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                                    decoration: BoxDecoration(
+                                      color: color.withAlpha(40),
+                                      borderRadius: BorderRadius.circular(3),
+                                    ),
+                                    child: Text(
+                                      'Lv.${agent.level}',
+                                      style: TextStyle(
+                                        color: color,
+                                        fontSize: AppTheme.fontLabelSm,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 3),
+                              Row(
+                                children: [
+                                  Text(
+                                    'ATK ${agent.atk}',
+                                    style: TextStyle(
+                                      color: Colors.orange.shade200,
+                                      fontSize: AppTheme.fontLabelLg,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    'DEF ${agent.def}',
+                                    style: TextStyle(
+                                      color: Colors.blue.shade200,
+                                      fontSize: AppTheme.fontLabelLg,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 4),
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(3),
+                                child: LinearProgressIndicator(
+                                  value: agent.energyPercent,
+                                  minHeight: 7,
+                                  backgroundColor: AppTheme.bgCard,
+                                  valueColor: AlwaysStoppedAnimation(
+                                    isReady ? Colors.amber : color.withAlpha(150),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              if (isReady)
+                                const Text(
+                                  '▶ 點擊施放技能',
+                                  style: TextStyle(
+                                    color: Colors.amber,
+                                    fontSize: AppTheme.fontLabelSm,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                )
+                              else
+                                Text(
+                                  '能量 ${agent.currentEnergy}/${agent.maxEnergy}',
+                                  style: const TextStyle(
+                                    color: Colors.white54,
+                                    fontSize: AppTheme.fontLabelSm,
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -2868,8 +3361,9 @@ class _GamePanel extends StatelessWidget {
   final BattleState? battleState;
   final GameState? gameState;
   final ({int col, int row})? tutorialHintBlock;
+  final GlobalKey? boardKey;
 
-  const _GamePanel({required this.battleState, required this.gameState, this.tutorialHintBlock});
+  const _GamePanel({required this.battleState, required this.gameState, this.tutorialHintBlock, this.boardKey});
 
   @override
   Widget build(BuildContext context) {
@@ -2890,7 +3384,7 @@ class _GamePanel extends StatelessWidget {
           Expanded(
             child: Padding(
               padding: const EdgeInsets.all(4),
-              child: Center(child: GameBoard(tutorialHintBlock: tutorialHintBlock)),
+              child: Center(child: GameBoard(tutorialHintBlock: tutorialHintBlock, boardKey: boardKey)),
             ),
           ),
 
@@ -3049,6 +3543,10 @@ class _SkillEffectBar extends StatelessWidget {
         return (Icons.flash_on, Colors.orange);
       case BattleEventType.autoAttack:
         return (Icons.gps_fixed, Colors.cyan);
+      case BattleEventType.boardAttack:
+        return (Icons.grid_view, Colors.amber);
+      case BattleEventType.damageAccum:
+        return (Icons.add_circle, Colors.cyan);
       case BattleEventType.enemyAttack:
         return (Icons.warning, Colors.red);
       case BattleEventType.skillActivated:
@@ -3091,7 +3589,7 @@ class BattleRewardResult {
   });
 }
 
-class _BattleEndOverlay extends StatelessWidget {
+class _BattleEndOverlay extends StatefulWidget {
   final bool isVictory;
   final StageDefinition stage;
   final int score;
@@ -3110,7 +3608,76 @@ class _BattleEndOverlay extends StatelessWidget {
     this.onNextStage,
   });
 
-  int get _stars => reward?.stars ?? (isVictory ? 1 : 0);
+  @override
+  State<_BattleEndOverlay> createState() => _BattleEndOverlayState();
+}
+
+class _BattleEndOverlayState extends State<_BattleEndOverlay>
+    with TickerProviderStateMixin {
+  late AnimationController _starController;
+  late AnimationController _rewardController;
+
+  // 星星彈出時間
+  final List<Animation<double>> _starAnims = [];
+
+  int get _stars => widget.reward?.stars ?? (widget.isVictory ? 1 : 0);
+
+  bool get isVictory => widget.isVictory;
+  StageDefinition get stage => widget.stage;
+  int get score => widget.score;
+  BattleRewardResult? get reward => widget.reward;
+  VoidCallback get onExit => widget.onExit;
+  VoidCallback get onRetry => widget.onRetry;
+  VoidCallback? get onNextStage => widget.onNextStage;
+
+  @override
+  void initState() {
+    super.initState();
+
+    // 星星錯開彈出（每顆 200ms 延遲）
+    _starController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 900),
+    );
+    for (int i = 0; i < 3; i++) {
+      final start = i * 0.22;
+      final end = (start + 0.4).clamp(0.0, 1.0);
+      _starAnims.add(TweenSequence<double>([
+        TweenSequenceItem(tween: Tween(begin: 0.0, end: 1.4), weight: 40),
+        TweenSequenceItem(tween: Tween(begin: 1.4, end: 0.9), weight: 25),
+        TweenSequenceItem(tween: Tween(begin: 0.9, end: 1.0), weight: 35),
+      ]).animate(CurvedAnimation(
+        parent: _starController,
+        curve: Interval(start, end, curve: Curves.easeOut),
+      )));
+    }
+
+    // 獎勵數字滾動
+    _rewardController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 800),
+    );
+
+    // 延遲啟動
+    if (isVictory) {
+      Future.delayed(const Duration(milliseconds: 300), () {
+        if (mounted) {
+          _starController.forward();
+          HapticFeedback.mediumImpact();
+        }
+      });
+      Future.delayed(const Duration(milliseconds: 800), () {
+        if (mounted) _rewardController.forward();
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _starController.dispose();
+    _rewardController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -3158,19 +3725,30 @@ class _BattleEndOverlay extends StatelessWidget {
                     ),
                     if (isVictory) ...[
                       const SizedBox(height: 10),
-                      Row(
+                      AnimatedBuilder(
+                        animation: _starController,
+                        builder: (_, __) => Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: List.generate(3, (i) {
                           final filled = i < _stars;
+                          final scale = i < _starAnims.length
+                              ? _starAnims[i].value : (filled ? 1.0 : 0.0);
                           return Padding(
                             padding: const EdgeInsets.symmetric(horizontal: 3),
-                            child: Icon(
-                              filled ? Icons.star_rounded : Icons.star_outline_rounded,
-                              color: filled ? Colors.amber : Colors.grey.shade600,
-                              size: 40,
+                            child: Transform.scale(
+                              scale: filled ? scale.clamp(0.0, 2.0) : 1.0,
+                              child: Transform.rotate(
+                                angle: filled && scale > 1.0 ? (scale - 1.0) * 0.5 : 0,
+                                child: Icon(
+                                  filled ? Icons.star_rounded : Icons.star_outline_rounded,
+                                  color: filled ? Colors.amber : Colors.grey.shade600,
+                                  size: 40,
+                                ),
+                              ),
                             ),
                           );
                         }),
+                      ),
                       ),
                     ],
                   ],
@@ -3184,27 +3762,37 @@ class _BattleEndOverlay extends StatelessWidget {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     if (isVictory && reward != null) ...[
-                      // 金幣 + 經驗
-                      Row(
-                        children: [
-                          Expanded(
-                            child: _RewardCard(
-                              emoji: '🪙',
-                              label: '金幣',
-                              value: '+${reward!.gold}',
-                              color: const Color(0xFFD4A017),
-                            ),
-                          ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: _RewardCard(
-                              emoji: '✨',
-                              label: '經驗值',
-                              value: '+${reward!.exp}',
-                              color: const Color(0xFF7EC8E3),
-                            ),
-                          ),
-                        ],
+                      // 金幣 + 經驗（滾動數字）
+                      AnimatedBuilder(
+                        animation: _rewardController,
+                        builder: (_, __) {
+                          final t = Curves.easeOutCubic.transform(
+                            _rewardController.value,
+                          );
+                          final goldDisplay = (reward!.gold * t).round();
+                          final expDisplay = (reward!.exp * t).round();
+                          return Row(
+                            children: [
+                              Expanded(
+                                child: _RewardCard(
+                                  emoji: '🪙',
+                                  label: '金幣',
+                                  value: '+$goldDisplay',
+                                  color: const Color(0xFFD4A017),
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: _RewardCard(
+                                  emoji: '✨',
+                                  label: '經驗值',
+                                  value: '+$expDisplay',
+                                  color: const Color(0xFF7EC8E3),
+                                ),
+                              ),
+                            ],
+                          );
+                        },
                       ),
 
                       // 重複通關提示

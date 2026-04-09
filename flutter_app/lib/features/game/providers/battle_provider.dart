@@ -13,6 +13,7 @@ import '../../../core/models/block.dart';
 import '../../../core/models/cat_agent.dart';
 import '../../../core/models/enemy.dart';
 import '../../../core/models/player_data.dart';
+import 'game_provider.dart' show EliminatedBlockInfo;
 
 /// 戰鬥事件（給 UI 播放動畫用）
 class BattleEvent {
@@ -25,12 +26,14 @@ class BattleEvent {
   final bool isPlayerAttack; // true=我方攻擊, false=敵方攻擊
   final String? emoji; // 攻擊者 emoji（衝撞動畫用）
 
-  // ── Balatro 風格傷害分解（供演算演出用） ──
-  final int baseDamage;       // 基礎攻擊力
-  final double attributeMult; // 屬性克制倍率 (1.0 or 1.5)
-  final int matchCount;       // 消除方塊數
-  final int combo;            // 當前 combo
-  final double comboMult;     // combo 倍率
+  // ── 傷害分解 ──
+  final int preComboDamage;   // combo 前累積傷害
+  final int combo;
+  final double comboMult;
+  final double attributeMult;
+
+  // ── 消除方塊位置（boardAttack 用）──
+  final List<EliminatedBlockInfo> eliminatedBlocks;
 
   const BattleEvent({
     required this.type,
@@ -41,11 +44,11 @@ class BattleEvent {
     this.targetIndex,
     this.isPlayerAttack = false,
     this.emoji,
-    this.baseDamage = 0,
-    this.attributeMult = 1.0,
-    this.matchCount = 0,
+    this.preComboDamage = 0,
     this.combo = 0,
     this.comboMult = 1.0,
+    this.attributeMult = 1.0,
+    this.eliminatedBlocks = const [],
   });
 }
 
@@ -58,7 +61,9 @@ enum BattleEventType {
   shield, // 護盾
   victory, // 勝利
   defeat, // 失敗
-  autoAttack, // 自動普攻
+  autoAttack, // 角色自動攻擊（回合結束打出）
+  boardAttack, // 棋盤傷害（粒子飛向敵人）
+  damageAccum, // 角色累積傷害（頭像跳數字）
 }
 
 /// 放置效果回呼（由 GameProvider 執行棋盤操作）
@@ -95,6 +100,29 @@ class BattleProvider extends ChangeNotifier {
     final events = List<BattleEvent>.from(_attackAnimEvents);
     _attackAnimEvents.clear();
     return events;
+  }
+
+  /// UI 命中時呼叫：扣血 + 檢查擊殺/勝利
+  bool applyHitDamage(int damage) {
+    if (_battleState == null) return false;
+
+    final killed = BattleEngine.applyHitDamage(_battleState!, damage);
+
+    if (killed) {
+      _events.add(const BattleEvent(
+        type: BattleEventType.enemyKilled,
+        message: '敵人被擊敗！',
+      ));
+      if (_battleState!.allEnemiesDead) {
+        _events.add(const BattleEvent(
+          type: BattleEventType.victory,
+          message: '任務完成！',
+        ));
+      }
+    }
+
+    notifyListeners();
+    return killed;
   }
 
   /// 開始戰鬥
@@ -159,7 +187,7 @@ class BattleProvider extends ChangeNotifier {
     // 建立敵人實例
     final enemies = stage.enemies.map((def) {
       // 根據章節調整難度
-      final hpMult = 1.0 + (stage.chapter - 1) * 0.15;
+      final hpMult = 1.0 + (stage.chapter - 1) * 0.25;
       final atkMult = 1.0 + (stage.chapter - 1) * 0.1;
       return EnemyInstance.fromDefinition(def,
           hpMultiplier: hpMult, atkMultiplier: atkMult);
@@ -180,7 +208,11 @@ class BattleProvider extends ChangeNotifier {
 
   /// 處理三消結果 — 由 GameProvider 呼叫
   /// 每次連鎖消除 = 1 tick，消方塊驅動時間軸
-  void onMatchesProcessed(Map<BlockColor, int> matchedBlocks, int combo) {
+  void onMatchesProcessed(
+    Map<BlockColor, int> matchedBlocks,
+    int combo, {
+    List<EliminatedBlockInfo> eliminatedBlocks = const [],
+  }) {
     if (_battleState == null || _battleState!.isBattleOver) return;
 
     final result = BattleEngine.processTick(
@@ -189,9 +221,51 @@ class BattleProvider extends ChangeNotifier {
       combo,
     );
 
-    // 發送我方自動攻擊事件（敵方攻擊已移至 onTurnEnd）
-    for (final attack in result.autoAttacks) {
-      if (!attack.isPlayerAttack) continue;
+    // 發送棋盤傷害事件（粒子從消除位置飛向敵人）
+    if (result.boardDamage > 0) {
+      final boardEvent = BattleEvent(
+        type: BattleEventType.boardAttack,
+        message: '-${result.boardDamage}',
+        value: result.boardDamage,
+        targetIndex: _battleState!.currentEnemyIndex,
+        eliminatedBlocks: eliminatedBlocks,
+      );
+      _events.add(boardEvent);
+      _attackAnimEvents.add(boardEvent);
+    }
+
+    // 發送角色累積傷害事件（頭像跳數字）
+    for (final accum in result.accumEvents) {
+      final attackerIdx = _battleState!.team.indexWhere(
+          (a) => a.definition.id == accum.agentId);
+      _events.add(BattleEvent(
+        type: BattleEventType.damageAccum,
+        message: '+${accum.damage}',
+        value: accum.damage,
+        attackerIndex: attackerIdx,
+        isPlayerAttack: true,
+      ));
+      _attackAnimEvents.add(BattleEvent(
+        type: BattleEventType.damageAccum,
+        message: '+${accum.damage}',
+        value: accum.damage,
+        attackerIndex: attackerIdx,
+        isPlayerAttack: true,
+      ));
+    }
+
+    notifyListeners();
+  }
+
+  /// 處理回合結束（每次玩家操作後都會呼叫）
+  /// 1. 統一打出累積的角色傷害（含 combo）
+  /// 2. 敵人推進 countdown 並攻擊
+  void onTurnEnd({bool hadMatches = true}) {
+    if (_battleState == null || _battleState!.isBattleOver) return;
+
+    // ── 打出累積傷害 ──
+    final finalResult = BattleEngine.finalizeAttacks(_battleState!);
+    for (final attack in finalResult.attacks) {
       final attackerIdx = _battleState!.team.indexWhere(
           (a) => a.definition.id == attack.attackerId);
       final targetIdx = _battleState!.currentEnemyIndex;
@@ -206,36 +280,17 @@ class BattleProvider extends ChangeNotifier {
         targetIndex: targetIdx,
         isPlayerAttack: true,
         emoji: emoji,
-        baseDamage: attack.baseDamage,
-        attributeMult: attack.attributeMult,
-        matchCount: attack.matchCount,
+        preComboDamage: attack.preComboDamage,
         combo: attack.combo,
         comboMult: attack.comboMult,
+        attributeMult: attack.attributeMult,
       );
       _events.add(event);
       _attackAnimEvents.add(event);
-      if (attack.killed) {
-        _events.add(const BattleEvent(
-          type: BattleEventType.enemyKilled,
-          message: '敵人被擊敗！',
-        ));
-      }
     }
 
-    if (_battleState!.allEnemiesDead) {
-      _events.add(const BattleEvent(
-        type: BattleEventType.victory,
-        message: '任務完成！',
-      ));
-    }
-
-    notifyListeners();
-  }
-
-  /// 處理回合結束（每次玩家操作後都會呼叫）
-  /// 整輪消除完成後，敵人才統一推進 countdown 並攻擊
-  void onTurnEnd({bool hadMatches = true}) {
-    if (_battleState == null || _battleState!.isBattleOver) return;
+    // 傷害延遲到 UI 命中時才扣，這裡不檢查 killed/victory
+    // UI 會在 _onRushHit 中呼叫 applyHitDamage，再檢查勝敗
 
     _battleState!.turnCount++;
 

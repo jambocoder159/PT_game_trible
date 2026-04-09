@@ -197,7 +197,7 @@ class _Phase3BattleScreenState extends State<Phase3BattleScreen> {
         onBattleEnd: _onBattleComplete,
         initialColors: _tutorialGrid,
         tutorialBattleIndex: 0,
-        tutorialSwipeHint: (col: tutorialHintCol, row: tutorialHintRow),
+        // tutorialSwipeHint removed — 讓玩家自由操作
       ),
     );
   }

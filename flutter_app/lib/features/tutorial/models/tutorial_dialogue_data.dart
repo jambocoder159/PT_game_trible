@@ -156,11 +156,11 @@ class TutorialDialogues {
   );
   static const t022 = TutorialDialogue(
     id: 'T022', speaker: Speakers.grandpa,
-    content: '在地下室裡，消除食材就能對搗蛋鬼造成傷害！來，試試看！',
+    content: '在地下室裡，消除食材就能對搗蛋鬼造成傷害！所有夥伴都會一起出手喔！',
   );
   static const t023 = TutorialDialogue(
     id: 'T023', speaker: Speakers.grandpa,
-    content: '看！食材能量可以淨化牠們！三連消的傷害特別高喔！',
+    content: '看！消除☀️陽光麥穗時，小麥的攻擊特別猛！配對夥伴的顏色，傷害會大幅提升！',
     autoAdvanceDelay: 2.0,
   );
   static const t024 = TutorialDialogue(

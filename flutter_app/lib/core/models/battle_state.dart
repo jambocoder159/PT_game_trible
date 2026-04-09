@@ -145,6 +145,9 @@ class BattleState {
 
   int tickCount; // 消方塊驅動的時間軸計數
 
+  /// 角色累積傷害（combo 前）— 每次連鎖累積，回合結束時統一打出
+  final Map<String, int> pendingDamage = {};
+
   BattleState({
     required this.team,
     required this.enemies,

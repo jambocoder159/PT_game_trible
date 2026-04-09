@@ -13,7 +13,10 @@ class GameBoard extends StatefulWidget {
   /// 教學提示：高亮指定方塊 (col, row)，null 表示不顯示
   final ({int col, int row})? tutorialHintBlock;
 
-  const GameBoard({super.key, this.tutorialHintBlock});
+  /// 供外部取得棋盤 RenderBox 的 key
+  final GlobalKey? boardKey;
+
+  const GameBoard({super.key, this.tutorialHintBlock, this.boardKey});
 
   @override
   State<GameBoard> createState() => _GameBoardState();
@@ -328,6 +331,7 @@ class _GameBoardState extends State<GameBoard>
                 if (_isDragging) _cancelDrag();
               },
               child: Container(
+                key: widget.boardKey,
                 width: layout.boardWidth,
                 height: layout.boardHeight,
                 decoration: BoxDecoration(

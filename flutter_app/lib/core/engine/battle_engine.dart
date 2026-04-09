@@ -56,19 +56,26 @@ class TurnResult {
 }
 
 /// 自動攻擊事件（含 Balatro 風格傷害分解數據）
+/// 角色累積傷害事件（連鎖中每次配對時觸發，用於頭像顯示）
+class DamageAccumEvent {
+  final String agentId;
+  final int damage; // 本次累積的 base 傷害（未乘 combo）
+
+  const DamageAccumEvent({required this.agentId, required this.damage});
+}
+
+/// 角色攻擊事件（回合結束統一打出）
 class AutoAttackEvent {
   final bool isPlayerAttack;
   final String attackerId;
   final String? targetId;
-  final int damage;
+  final int damage;         // 最終傷害（含 combo + 屬性）
   final bool killed;
 
-  // ── Balatro 風格傷害分解 ──
-  final int baseDamage;       // 基礎攻擊力（未乘消除/combo）
-  final double attributeMult; // 屬性克制倍率 (1.0 or 1.5)
-  final int matchCount;       // 消除方塊數
-  final int combo;            // 當前 combo
-  final double comboMult;     // combo 倍率
+  final int preComboDamage; // combo 前累積傷害
+  final int combo;
+  final double comboMult;
+  final double attributeMult;
 
   const AutoAttackEvent({
     required this.isPlayerAttack,
@@ -76,31 +83,41 @@ class AutoAttackEvent {
     this.targetId,
     required this.damage,
     this.killed = false,
-    this.baseDamage = 0,
-    this.attributeMult = 1.0,
-    this.matchCount = 0,
+    this.preComboDamage = 0,
     this.combo = 0,
     this.comboMult = 1.0,
+    this.attributeMult = 1.0,
   });
 }
 
-/// Tick 結算結果
+/// Tick 結算結果（每次連鎖呼叫一次）
 class TickResult {
   final int tickNumber;
   final Map<String, int> energyGained;
-  final List<AutoAttackEvent> autoAttacks;
-  final int totalPlayerDamage;
-  final int totalEnemyDamage;
+  final List<DamageAccumEvent> accumEvents; // 角色累積傷害（頭像跳數字用）
+  final int boardDamage;
+  final int totalBlocksEliminated;
   final int healAmount;
-  final bool anyEnemyKilled;
 
   const TickResult({
     required this.tickNumber,
     required this.energyGained,
-    required this.autoAttacks,
-    this.totalPlayerDamage = 0,
-    this.totalEnemyDamage = 0,
+    required this.accumEvents,
+    this.boardDamage = 0,
+    this.totalBlocksEliminated = 0,
     this.healAmount = 0,
+  });
+}
+
+/// 回合結束結算結果（所有連鎖完成後）
+class FinalizeResult {
+  final List<AutoAttackEvent> attacks;
+  final int totalDamage;
+  final bool anyEnemyKilled;
+
+  const FinalizeResult({
+    required this.attacks,
+    this.totalDamage = 0,
     this.anyEnemyKilled = false,
   });
 }
@@ -111,7 +128,8 @@ class BattleEngine {
   static final _random = Random();
   static BattleParams get _params => BalanceConfig.instance.battleParams;
 
-  /// 處理一個 tick（消方塊驅動時間軸）
+  /// 處理一個 tick（連鎖消除）— 累積傷害，不打出
+  /// 棋盤傷害即時生效，角色傷害累積到 pendingDamage
   static TickResult processTick(
     BattleState battle,
     Map<BlockColor, int> matchedBlockCounts,
@@ -121,11 +139,8 @@ class BattleEngine {
     battle.lastCombo = combo;
 
     final energyGained = <String, int>{};
-    final autoAttacks = <AutoAttackEvent>[];
-    int totalPlayerDamage = 0;
-    int totalEnemyDamage = 0;
+    final accumEvents = <DamageAccumEvent>[];
     int totalHeal = 0;
-    bool anyEnemyKilled = false;
 
     // ── 1. 充能：消同色方塊 → 對應角色累積能量 ──
     for (final entry in matchedBlockCounts.entries) {
@@ -136,13 +151,11 @@ class BattleEngine {
         if (agent.definition.attribute.blockColor == color) {
           var energy = count;
 
-          // 天賦：能量獲取加成
           final energyUp = agent.getTalentBonus(TalentEffectType.energyGainUp);
           if (energyUp > 0) {
             energy = (energy * (1 + energyUp / 100)).round();
           }
 
-          // 被動：特定顏色能量加成
           final energyBonus = agent.getPassive(PassiveEffectType.energyBonus);
           if (energyBonus != null) {
             energy = (energy * (1 + energyBonus.effectValue)).round();
@@ -167,78 +180,123 @@ class BattleEngine {
       }
     }
 
-    // ── 2. 我方攻擊：消除對應顏色方塊 → 該角色攻擊 ──
+    // ── 2a. 棋盤傷害：即時生效 ──
+    final totalBlocks = matchedBlockCounts.values.fold<int>(0, (a, b) => a + b);
+    int boardDamage = 0;
+
+    final enemy = battle.currentEnemy;
+    if (enemy != null && !enemy.isDead && totalBlocks > 0) {
+      boardDamage = totalBlocks * _params.noAgentMatchDamage;
+      enemy.takeDamage(boardDamage);
+    }
+
+    // ── 2b. 角色傷害：累積到 pendingDamage（不扣血） ──
     for (final agent in battle.team) {
       final agentColor = agent.definition.attribute.blockColor;
       final matchCount = matchedBlockCounts[agentColor] ?? 0;
-      if (matchCount <= 0) continue; // 沒消除對應顏色 → 不攻擊
+      if (matchCount <= 0) continue;
 
-      final enemy = battle.currentEnemy;
-      if (enemy == null || enemy.isDead) continue;
+      var baseDmg = battle.calculateAutoAttackDamage(agent, enemy!);
+      var damage = baseDmg;
 
-      // 擷取屬性克制倍率（供 Balatro 演出用）
-      final attrMult = agent.definition.attribute
-          .damageMultiplierAgainst(enemy.definition.attribute);
-
-      var baseDamage = battle.calculateAutoAttackDamage(agent, enemy);
-      var damage = baseDamage;
+      // 配對顏色倍率
+      damage = (damage * _params.colorMatchBonus).round();
 
       // 消除數量加成
       if (matchCount > 1) {
         damage = (damage * (1 + (matchCount - 1) * _params.matchDamageBonusPerBlock)).round();
       }
 
-      // Combo 加成
-      double actualComboMult = 1.0;
-      if (combo > 1) {
-        actualComboMult = 1 + (combo - 1) * _params.comboBonusPerCombo;
-        for (final a in battle.team) {
-          final comboBonus = a.getTalentBonus(TalentEffectType.comboBonus);
-          if (comboBonus > 0) {
-            actualComboMult += comboBonus / 100;
-            break;
-          }
-        }
-        damage = (damage * actualComboMult).round();
-      }
+      // 累積（不套 combo，combo 在 finalize 時統一計算）
+      final id = agent.definition.id;
+      battle.pendingDamage[id] = (battle.pendingDamage[id] ?? 0) + damage;
 
-      enemy.takeDamage(damage);
-      totalPlayerDamage += damage;
-
-      if (!battle.firstAttackDone) battle.firstAttackDone = true;
-
-      final killed = enemy.isDead;
-      autoAttacks.add(AutoAttackEvent(
-        isPlayerAttack: true,
-        attackerId: agent.definition.id,
-        targetId: enemy.definition.id,
-        damage: damage,
-        killed: killed,
-        baseDamage: baseDamage,
-        attributeMult: attrMult,
-        matchCount: matchCount,
-        combo: combo,
-        comboMult: actualComboMult,
-      ));
-
-      if (killed) {
-        anyEnemyKilled = true;
-        _processKillEffects(battle);
-        battle.advanceToNextEnemy();
-      }
+      accumEvents.add(DamageAccumEvent(agentId: id, damage: damage));
     }
-
-    // ── 3. 敵方攻擊已移至 processEnemyPhase，整輪結束後才呼叫 ──
 
     return TickResult(
       tickNumber: battle.tickCount,
       energyGained: energyGained,
-      autoAttacks: autoAttacks,
-      totalPlayerDamage: totalPlayerDamage,
-      totalEnemyDamage: totalEnemyDamage,
+      accumEvents: accumEvents,
+      boardDamage: boardDamage,
+      totalBlocksEliminated: totalBlocks,
       healAmount: totalHeal,
-      anyEnemyKilled: anyEnemyKilled,
     );
+  }
+
+  /// 回合結束：統一套 combo，計算最終傷害（不扣血，由 UI 在命中時扣）
+  static FinalizeResult finalizeAttacks(BattleState battle) {
+    final attacks = <AutoAttackEvent>[];
+
+    if (battle.pendingDamage.isEmpty) {
+      return const FinalizeResult(attacks: []);
+    }
+
+    // 計算 combo 倍率
+    final combo = battle.lastCombo;
+    double comboMult = 1.0;
+    if (combo > 1) {
+      comboMult = 1 + (combo - 1) * _params.comboBonusPerCombo;
+      for (final a in battle.team) {
+        final comboBonus = a.getTalentBonus(TalentEffectType.comboBonus);
+        if (comboBonus > 0) {
+          comboMult += comboBonus / 100;
+          break;
+        }
+      }
+    }
+
+    for (final agent in battle.team) {
+      final id = agent.definition.id;
+      final preComboDmg = battle.pendingDamage[id];
+      if (preComboDmg == null || preComboDmg <= 0) continue;
+
+      final enemy = battle.currentEnemy;
+      if (enemy == null || enemy.isDead) continue;
+
+      final attrMult = agent.definition.attribute
+          .damageMultiplierAgainst(enemy.definition.attribute);
+
+      var finalDamage = (preComboDmg * comboMult).round();
+
+      if (!battle.firstAttackDone) battle.firstAttackDone = true;
+
+      attacks.add(AutoAttackEvent(
+        isPlayerAttack: true,
+        attackerId: id,
+        targetId: enemy.definition.id,
+        damage: finalDamage,
+        killed: false, // UI 命中時判斷
+        preComboDamage: preComboDmg,
+        combo: combo,
+        comboMult: comboMult,
+        attributeMult: attrMult,
+      ));
+    }
+
+    // 清空累積
+    battle.pendingDamage.clear();
+
+    return FinalizeResult(
+      attacks: attacks,
+      totalDamage: 0,
+      anyEnemyKilled: false,
+    );
+  }
+
+  /// UI 命中時呼叫：扣血 + 處理擊殺
+  static bool applyHitDamage(BattleState battle, int damage) {
+    final enemy = battle.currentEnemy;
+    if (enemy == null || enemy.isDead) return false;
+
+    enemy.takeDamage(damage);
+
+    if (enemy.isDead) {
+      _processKillEffects(battle);
+      battle.advanceToNextEnemy();
+      return true;
+    }
+    return false;
   }
 
   /// 處理敵方攻擊階段（整輪消除完成後呼叫一次）

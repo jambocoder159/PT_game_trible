@@ -37,18 +37,28 @@ class ChainRippleEvent {
   });
 }
 
+/// 被消除方塊的位置資訊（供飛射粒子動畫使用）
+class EliminatedBlockInfo {
+  final int col;
+  final int row;
+  final BlockColor color;
+  const EliminatedBlockInfo({required this.col, required this.row, required this.color});
+}
+
 /// 消除回合結果（給 BattleProvider 用）
 class MatchTurnResult {
   final Map<BlockColor, int> matchedBlockCounts;
   final int totalBlocksEliminated;
   final int combo;
   final bool hadMatches;
+  final List<EliminatedBlockInfo> eliminatedBlocks;
 
   const MatchTurnResult({
     required this.matchedBlockCounts,
     required this.totalBlocksEliminated,
     required this.combo,
     required this.hadMatches,
+    this.eliminatedBlocks = const [],
   });
 }
 
@@ -165,50 +175,65 @@ class GameProvider extends ChangeNotifier {
     final gen = _gameGeneration;
     s.actionCount++;
 
-    // 標記消除動畫
-    s.grid[col][row] = s.grid[col][row]!.copyWith(isEliminating: true);
-    notifyListeners();
-    await Future.delayed(const Duration(milliseconds: 350));
-    if (_gameGeneration != gen) return;
+    try {
+      // 記錄被點擊方塊的顏色（用於棋盤傷害）
+      final tappedColor = s.grid[col][row]!.color;
 
-    // 移除方塊
-    s.grid[col][row] = null;
-    notifyListeners();
-    await Future.delayed(const Duration(milliseconds: 100));
-    if (_gameGeneration != gen) return;
+      // 標記消除動畫
+      s.grid[col][row] = s.grid[col][row]!.copyWith(isEliminating: true);
+      notifyListeners();
+      await Future.delayed(const Duration(milliseconds: 350));
+      if (_gameGeneration != gen) return;
 
-    // 重力掉落（不補充，先讓玩家看到掉落效果）
-    _applyGravity();
-    notifyListeners();
-    await Future.delayed(const Duration(milliseconds: 400));
-    if (_gameGeneration != gen) return;
+      // 移除方塊
+      s.grid[col][row] = null;
+      notifyListeners();
 
-    // 補充新方塊
-    _refillGrid();
-    notifyListeners();
-    await Future.delayed(const Duration(milliseconds: 300));
-    if (_gameGeneration != gen) return;
+      // 單方塊消除也觸發棋盤傷害
+      if (onMatchTurnComplete != null) {
+        onMatchTurnComplete!(MatchTurnResult(
+          matchedBlockCounts: {tappedColor: 1},
+          totalBlocksEliminated: 1,
+          combo: 0,
+          hadMatches: false,
+        ));
+      }
 
-    // 連鎖消除處理
-    final hadMatches = await _processMatchLoop();
-    if (_gameGeneration != gen) return;
+      await Future.delayed(const Duration(milliseconds: 100));
+      if (_gameGeneration != gen) return;
 
-    if (!hadMatches) {
-      // 沒有產生連鎖 → 扣行動點
-      s.combo = 0;
-      if (s.mode.actionPointsStart > 0) {
-        s.actionPoints--;
-        notifyListeners();
-        if (s.actionPoints <= 0) {
-          _isProcessing = false;
-          endGame();
-          return;
+      // 重力掉落（不補充，先讓玩家看到掉落效果）
+      _applyGravity();
+      notifyListeners();
+      await Future.delayed(const Duration(milliseconds: 400));
+      if (_gameGeneration != gen) return;
+
+      // 補充新方塊
+      _refillGrid();
+      notifyListeners();
+      await Future.delayed(const Duration(milliseconds: 300));
+      if (_gameGeneration != gen) return;
+
+      // 連鎖消除處理
+      final hadMatches = await _processMatchLoop();
+      if (_gameGeneration != gen) return;
+
+      if (!hadMatches) {
+        // 沒有產生連鎖 → 扣行動點
+        s.combo = 0;
+        if (s.mode.actionPointsStart > 0) {
+          s.actionPoints--;
+          notifyListeners();
+          if (s.actionPoints <= 0) {
+            endGame();
+            return;
+          }
         }
       }
+    } finally {
+      _isProcessing = false;
+      notifyListeners();
     }
-
-    _isProcessing = false;
-    notifyListeners();
   }
 
   /// 上滑方塊 → 移到同列最頂部
@@ -222,46 +247,47 @@ class GameProvider extends ChangeNotifier {
     final gen = _gameGeneration;
     s.actionCount++;
 
-    // 取出方塊
-    final block = s.grid[col][row]!;
-    s.grid[col][row] = null;
+    try {
+      // 取出方塊
+      final block = s.grid[col][row]!;
+      s.grid[col][row] = null;
 
-    // 把該列方塊往下移一格（從 row-1 到 0）
-    for (int r = row; r > 0; r--) {
-      s.grid[col][r] = s.grid[col][r - 1];
-      if (s.grid[col][r] != null) {
-        s.grid[col][r]!.row = r;
-      }
-    }
-
-    // 放到最頂部
-    s.grid[col][0] = block;
-    block.row = 0;
-    block.col = col;
-
-    notifyListeners();
-    await Future.delayed(const Duration(milliseconds: 350));
-    if (_gameGeneration != gen) return;
-
-    // 連鎖消除處理
-    final hadMatches = await _processMatchLoop();
-    if (_gameGeneration != gen) return;
-
-    if (!hadMatches) {
-      s.combo = 0;
-      if (s.mode.actionPointsStart > 0) {
-        s.actionPoints--;
-        notifyListeners();
-        if (s.actionPoints <= 0) {
-          _isProcessing = false;
-          endGame();
-          return;
+      // 把該列方塊往下移一格（從 row-1 到 0）
+      for (int r = row; r > 0; r--) {
+        s.grid[col][r] = s.grid[col][r - 1];
+        if (s.grid[col][r] != null) {
+          s.grid[col][r]!.row = r;
         }
       }
-    }
 
-    _isProcessing = false;
-    notifyListeners();
+      // 放到最頂部
+      s.grid[col][0] = block;
+      block.row = 0;
+      block.col = col;
+
+      notifyListeners();
+      await Future.delayed(const Duration(milliseconds: 350));
+      if (_gameGeneration != gen) return;
+
+      // 連鎖消除處理
+      final hadMatches = await _processMatchLoop();
+      if (_gameGeneration != gen) return;
+
+      if (!hadMatches) {
+        s.combo = 0;
+        if (s.mode.actionPointsStart > 0) {
+          s.actionPoints--;
+          notifyListeners();
+          if (s.actionPoints <= 0) {
+            endGame();
+            return;
+          }
+        }
+      }
+    } finally {
+      _isProcessing = false;
+      notifyListeners();
+    }
   }
 
   /// 下滑方塊 → 移到同列最底部
@@ -275,47 +301,48 @@ class GameProvider extends ChangeNotifier {
     final gen = _gameGeneration;
     s.actionCount++;
 
-    // 取出方塊
-    final block = s.grid[col][row]!;
-    s.grid[col][row] = null;
+    try {
+      // 取出方塊
+      final block = s.grid[col][row]!;
+      s.grid[col][row] = null;
 
-    // 把該列方塊往上移一格（從 row+1 到 numRows-1）
-    for (int r = row; r < s.mode.numRows - 1; r++) {
-      s.grid[col][r] = s.grid[col][r + 1];
-      if (s.grid[col][r] != null) {
-        s.grid[col][r]!.row = r;
-      }
-    }
-
-    // 放到最底部
-    final lastRow = s.mode.numRows - 1;
-    s.grid[col][lastRow] = block;
-    block.row = lastRow;
-    block.col = col;
-
-    notifyListeners();
-    await Future.delayed(const Duration(milliseconds: 350));
-    if (_gameGeneration != gen) return;
-
-    // 連鎖消除處理
-    final hadMatches = await _processMatchLoop();
-    if (_gameGeneration != gen) return;
-
-    if (!hadMatches) {
-      s.combo = 0;
-      if (s.mode.actionPointsStart > 0) {
-        s.actionPoints--;
-        notifyListeners();
-        if (s.actionPoints <= 0) {
-          _isProcessing = false;
-          endGame();
-          return;
+      // 把該列方塊往上移一格（從 row+1 到 numRows-1）
+      for (int r = row; r < s.mode.numRows - 1; r++) {
+        s.grid[col][r] = s.grid[col][r + 1];
+        if (s.grid[col][r] != null) {
+          s.grid[col][r]!.row = r;
         }
       }
-    }
 
-    _isProcessing = false;
-    notifyListeners();
+      // 放到最底部
+      final lastRow = s.mode.numRows - 1;
+      s.grid[col][lastRow] = block;
+      block.row = lastRow;
+      block.col = col;
+
+      notifyListeners();
+      await Future.delayed(const Duration(milliseconds: 350));
+      if (_gameGeneration != gen) return;
+
+      // 連鎖消除處理
+      final hadMatches = await _processMatchLoop();
+      if (_gameGeneration != gen) return;
+
+      if (!hadMatches) {
+        s.combo = 0;
+        if (s.mode.actionPointsStart > 0) {
+          s.actionPoints--;
+          notifyListeners();
+          if (s.actionPoints <= 0) {
+            endGame();
+            return;
+          }
+        }
+      }
+    } finally {
+      _isProcessing = false;
+      notifyListeners();
+    }
   }
 
   // ─── 技能放置效果 ───
@@ -536,12 +563,18 @@ class GameProvider extends ChangeNotifier {
 
       // 每次連鎖消除後，通知戰鬥系統（即時造成傷害）
       if (onMatchTurnComplete != null) {
-        // 傳送這次連鎖的方塊統計
+        // 傳送這次連鎖的方塊統計 + 位置資訊
         final chainBlocks = <BlockColor, int>{};
+        final eliminatedBlocks = <EliminatedBlockInfo>[];
         for (final match in matches) {
           for (final block in match.blocks) {
             chainBlocks[block.color] =
                 (chainBlocks[block.color] ?? 0) + 1;
+            eliminatedBlocks.add(EliminatedBlockInfo(
+              col: block.col,
+              row: block.row,
+              color: block.color,
+            ));
           }
         }
         onMatchTurnComplete!(MatchTurnResult(
@@ -549,6 +582,7 @@ class GameProvider extends ChangeNotifier {
           totalBlocksEliminated: turnTotalBlocks,
           combo: s.combo,
           hadMatches: true,
+          eliminatedBlocks: eliminatedBlocks,
         ));
       }
 

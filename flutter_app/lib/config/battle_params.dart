@@ -14,6 +14,11 @@ class BattleParams {
   final double executeThresholdBase;           // 斬殺基礎門檻（敵人血量百分比）
   final double executeBonusMultiplier;         // 斬殺額外傷害倍率
 
+  // ── 混合攻擊系統 ──
+  final double baseAttackCoefficient;          // 非配對角色的傷害係數
+  final double colorMatchBonus;                // 配對角色的傷害倍率
+  final double baseAttackComboCap;             // 基礎攻擊的 combo 倍率上限
+
   // ── 屬性剋制 ──
   final double attributeAdvantageMultiplier;   // 剋制時的傷害倍率
   final double attributeDisadvantageMultiplier; // 被剋時的傷害倍率
@@ -45,6 +50,9 @@ class BattleParams {
     this.comboBonusPerCombo = 0.1,
     this.matchDamageCoefficient = 0.5,
     this.noAgentMatchDamage = 5,
+    this.baseAttackCoefficient = 0.5,
+    this.colorMatchBonus = 1.8,
+    this.baseAttackComboCap = 1.3,
     this.counterDamageMultiplier = 0.5,
     this.executeThresholdBase = 0.3,
     this.executeBonusMultiplier = 1.5,
@@ -75,6 +83,9 @@ class BattleParams {
       comboBonusPerCombo: (json['comboBonusPerCombo'] as num?)?.toDouble() ?? 0.1,
       matchDamageCoefficient: (json['matchDamageCoefficient'] as num?)?.toDouble() ?? 0.5,
       noAgentMatchDamage: (json['noAgentMatchDamage'] as num?)?.toInt() ?? 5,
+      baseAttackCoefficient: (json['baseAttackCoefficient'] as num?)?.toDouble() ?? 0.5,
+      colorMatchBonus: (json['colorMatchBonus'] as num?)?.toDouble() ?? 1.8,
+      baseAttackComboCap: (json['baseAttackComboCap'] as num?)?.toDouble() ?? 1.3,
       counterDamageMultiplier: (json['counterDamageMultiplier'] as num?)?.toDouble() ?? 0.5,
       executeThresholdBase: (json['executeThresholdBase'] as num?)?.toDouble() ?? 0.3,
       executeBonusMultiplier: (json['executeBonusMultiplier'] as num?)?.toDouble() ?? 1.5,
@@ -117,6 +128,9 @@ class BattleParams {
     'comboBonusPerCombo': comboBonusPerCombo,
     'matchDamageCoefficient': matchDamageCoefficient,
     'noAgentMatchDamage': noAgentMatchDamage,
+    'baseAttackCoefficient': baseAttackCoefficient,
+    'colorMatchBonus': colorMatchBonus,
+    'baseAttackComboCap': baseAttackComboCap,
     'counterDamageMultiplier': counterDamageMultiplier,
     'executeThresholdBase': executeThresholdBase,
     'executeBonusMultiplier': executeBonusMultiplier,
