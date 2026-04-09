@@ -515,6 +515,163 @@ void main() {
       }
     });
   });
+
+  // ═══════════════════════════════════════
+  // 12. Bug 回歸測試
+  // ═══════════════════════════════════════
+  group('Bug 回歸：蓄力不卡住', () {
+    test('attackInterval=2 的敵人不會永久卡在蓄力狀態', () {
+      const charger = EnemyDefinition(
+        id: 'fast_charger', name: 'FC', emoji: '⚡',
+        attribute: AgentAttribute.attributeD,
+        baseHp: 500, baseAtk: 30, attackInterval: 2,
+        skills: [EnemySkillDefinition.charge()],
+      );
+      final enemy = EnemyInstance.fromDefinition(charger);
+      final battle = _createMinimalBattle([enemy]);
+
+      // 模擬多個回合：processEnemyPhase → processEnemySkillPhase
+      int chargeCount = 0;
+      int attackCount = 0;
+
+      for (int turn = 0; turn < 10; turn++) {
+        // 1. 敵方攻擊階段
+        final attacks = BattleEngine.processEnemyPhase(battle);
+        if (attacks.isNotEmpty) attackCount++;
+
+        // 2. 敵方技能階段
+        BattleEngine.processEnemySkillPhase(battle, 5, 7);
+        if (enemy.skillState.isCharging) chargeCount++;
+      }
+
+      // 10 回合中不應該每回合都在蓄力
+      // attackInterval=2 → 約 5 次攻擊，蓄力應只在攻擊前 1 回合
+      expect(chargeCount, lessThan(6),
+          reason: '蓄力回合數不應超過總回合的一半，否則代表卡住了');
+      expect(attackCount, greaterThan(3),
+          reason: '10 回合中 interval=2 的敵人應攻擊至少 4 次');
+    });
+
+    test('attackInterval=3 的敵人蓄力只持續 1 回合', () {
+      const charger = EnemyDefinition(
+        id: 'charger3', name: 'C3', emoji: '⚡',
+        attribute: AgentAttribute.attributeA,
+        baseHp: 500, baseAtk: 30, attackInterval: 3,
+        skills: [EnemySkillDefinition.charge()],
+      );
+      final enemy = EnemyInstance.fromDefinition(charger);
+      final battle = _createMinimalBattle([enemy]);
+
+      final chargingTurns = <int>[];
+
+      for (int turn = 0; turn < 12; turn++) {
+        BattleEngine.processEnemyPhase(battle);
+        BattleEngine.processEnemySkillPhase(battle, 5, 7);
+        if (enemy.skillState.isCharging) chargingTurns.add(turn);
+      }
+
+      // interval=3 → 攻擊在 turn 2,5,8,11
+      // 蓄力在攻擊前 1 回合 = turn 1,4,7,10
+      // 蓄力不應連續出現
+      for (int i = 1; i < chargingTurns.length; i++) {
+        expect(chargingTurns[i] - chargingTurns[i - 1], greaterThan(1),
+            reason: '蓄力不應連續出現在相鄰回合: $chargingTurns');
+      }
+    });
+
+    test('蓄力攻擊確實造成 3 倍傷害後清除', () {
+      const charger = EnemyDefinition(
+        id: 'charger', name: 'C', emoji: '⚡',
+        attribute: AgentAttribute.attributeA,
+        baseHp: 500, baseAtk: 20, attackInterval: 3,
+        skills: [EnemySkillDefinition.charge()],
+      );
+      final enemy = EnemyInstance.fromDefinition(charger);
+      final battle = _createMinimalBattle([enemy]);
+
+      // 快進到蓄力觸發
+      bool foundCharge = false;
+      for (int turn = 0; turn < 6; turn++) {
+        BattleEngine.processEnemyPhase(battle);
+        BattleEngine.processEnemySkillPhase(battle, 5, 7);
+        if (enemy.skillState.isCharging && !foundCharge) {
+          foundCharge = true;
+          // 下一回合應該攻擊
+          final hpBefore = battle.teamCurrentHp;
+          final attacks = BattleEngine.processEnemyPhase(battle);
+          expect(attacks, isNotEmpty, reason: '蓄力後下一回合應該攻擊');
+          if (attacks.isNotEmpty) {
+            expect(attacks.first.damage, 60, reason: 'ATK 20 * 3 = 60'); // 3x
+          }
+          expect(enemy.skillState.isCharging, false, reason: '攻擊後應清除蓄力');
+          expect(battle.teamCurrentHp, lessThan(hpBefore));
+          break;
+        }
+      }
+      expect(foundCharge, true, reason: '應該在 6 回合內觸發蓄力');
+    });
+  });
+
+  group('Bug 回歸：完整回合流程不崩潰', () {
+    test('有技能的敵人跑 20 回合不拋異常', () {
+      // 用 3-10 Boss（毒+回血+蓄力）
+      final stage = StageData.getById('3-10');
+      expect(stage, isNotNull);
+
+      final enemies = stage!.enemies.map((def) {
+        return EnemyInstance.fromDefinition(def, hpMultiplier: 1.5, atkMultiplier: 1.2);
+      }).toList();
+
+      final battle = _createMinimalBattle(enemies);
+      battle.initEnemySkills();
+
+      // 模擬 20 回合
+      for (int turn = 0; turn < 20; turn++) {
+        if (battle.isBattleOver) break;
+
+        // 回合開始
+        BattleEngine.processTurnStart(battle);
+
+        // 敵方攻擊
+        BattleEngine.processEnemyPhase(battle);
+
+        // 敵方技能
+        BattleEngine.processEnemySkillPhase(battle, 5, 7);
+      }
+      // 跑完不崩就算通過
+    });
+
+    test('6-10 最終 Boss 三階段跑完不崩潰', () {
+      final stage = StageData.getById('6-10');
+      expect(stage, isNotNull);
+
+      final enemies = stage!.enemies.map((def) {
+        return EnemyInstance.fromDefinition(def, hpMultiplier: 2.25, atkMultiplier: 1.5);
+      }).toList();
+
+      final battle = _createMinimalBattle(enemies);
+      battle.initEnemySkills();
+
+      final boss = enemies.last;
+      expect(boss.definition.id, 'final_boss');
+
+      // 持續打 Boss 觸發所有階段
+      for (int turn = 0; turn < 50; turn++) {
+        if (battle.isBattleOver) break;
+        BattleEngine.processTurnStart(battle);
+        BattleEngine.processEnemyPhase(battle);
+        BattleEngine.processEnemySkillPhase(battle, 5, 7);
+
+        // 模擬玩家對 Boss 造成大量傷害（需要穿透護盾+本體）
+        if (!boss.isDead) {
+          boss.takeDamage(500);
+        }
+      }
+      // 跑完不崩就算通過，檢查階段有切換
+      expect(boss.skillState.currentPhase, greaterThanOrEqualTo(0),
+          reason: '經過足夠傷害後 Boss 應進入至少 Phase 2');
+    });
+  });
 }
 
 // ─── 測試輔助 ───

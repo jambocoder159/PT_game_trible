@@ -1016,7 +1016,9 @@ class BattleEngine {
   ) {
     final events = <EnemySkillEvent>[];
 
-    for (final enemy in battle.enemies) {
+    // 使用快照遍歷，避免召喚新敵人時 concurrent modification
+    final enemySnapshot = List<EnemyInstance>.of(battle.enemies);
+    for (final enemy in enemySnapshot) {
       if (enemy.isDead) continue;
 
       // 推進冷卻計時器
@@ -1121,9 +1123,10 @@ class BattleEngine {
       }
 
       // 蓄力判定（不走冷卻，跟隨攻擊節奏）
+      // 在攻擊倒數 == 1 時開始蓄力（下一回合攻擊時 3 倍傷害）
+      // 使用 == 1 而非 == 2，避免攻擊後重置 countdown 時立即重新觸發
       if (enemy.hasSkill(EnemySkillType.charge) && !enemy.skillState.isCharging) {
-        // 在攻擊倒數 == 2 時開始蓄力（下一回合攻擊）
-        if (enemy.attackCountdown == 2) {
+        if (enemy.attackCountdown == 1) {
           enemy.skillState.isCharging = true;
           events.add(EnemySkillEvent(
             enemyId: enemy.definition.id,
