@@ -300,15 +300,34 @@ class StageData {
   static const _finalBoss = EnemyDefinition(
     id: 'final_boss', name: '黑暗料理王', emoji: '😈',
     attribute: AgentAttribute.attributeE, baseHp: 2400, baseAtk: 45, attackInterval: 3,
+    // Phase 1 技能（100%~60% HP）
     skills: [
       EnemySkillDefinition.shield(percent: 0.40),
       EnemySkillDefinition.obstacle(count: 4, cooldown: 3),
-      EnemySkillDefinition.poison(count: 3, countdown: 2, cooldown: 3),
-      EnemySkillDefinition.weaken(count: 4, cooldown: 4),
-      EnemySkillDefinition.heal(percent: 0.10, cooldown: 3),
-      EnemySkillDefinition.rage(),
-      EnemySkillDefinition.charge(),
-      EnemySkillDefinition.summon(cooldown: 5, enemy: _shadowAgent),
+      EnemySkillDefinition.aura(suppressed: AgentAttribute.attributeB),
+    ],
+    // 三階段 Boss
+    phases: [
+      // Phase 2: 料理風暴（60%~30% HP）
+      BossPhaseDefinition(
+        hpThreshold: 0.6,
+        phaseName: '料理風暴',
+        skills: [
+          EnemySkillDefinition.poison(count: 3, countdown: 2, cooldown: 2),
+          EnemySkillDefinition.weaken(count: 4, cooldown: 4),
+          EnemySkillDefinition.heal(percent: 0.10, cooldown: 3),
+          EnemySkillDefinition.summon(cooldown: 5, enemy: _shadowAgent),
+        ],
+      ),
+      // Phase 3: 最終狂暴（30%~0% HP）
+      BossPhaseDefinition(
+        hpThreshold: 0.3,
+        phaseName: '最終狂暴',
+        skills: [
+          EnemySkillDefinition.rage(),
+          EnemySkillDefinition.charge(),
+        ],
+      ),
     ],
   );
 

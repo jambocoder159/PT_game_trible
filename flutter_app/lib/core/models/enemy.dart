@@ -124,6 +124,24 @@ class EnemySkillDefinition {
   }) : this(type: EnemySkillType.summon, summonCooldown: cooldown, summonEnemy: enemy);
 }
 
+/// Boss 階段定義（HP 閾值觸發不同技能組合）
+class BossPhaseDefinition {
+  /// HP 百分比閾值（低於此值進入該階段）
+  final double hpThreshold;
+
+  /// 該階段啟用的技能
+  final List<EnemySkillDefinition> skills;
+
+  /// 階段名稱（UI 顯示用）
+  final String? phaseName;
+
+  const BossPhaseDefinition({
+    required this.hpThreshold,
+    required this.skills,
+    this.phaseName,
+  });
+}
+
 /// 敵人定義（靜態數據）
 class EnemyDefinition {
   final String id;
@@ -134,6 +152,7 @@ class EnemyDefinition {
   final int baseAtk;
   final int attackInterval; // 每幾回合攻擊一次
   final List<EnemySkillDefinition> skills; // 敵人技能列表
+  final List<BossPhaseDefinition> phases; // Boss 多階段（空 = 非 Boss）
 
   const EnemyDefinition({
     required this.id,
@@ -144,7 +163,10 @@ class EnemyDefinition {
     required this.baseAtk,
     this.attackInterval = 3,
     this.skills = const [],
+    this.phases = const [],
   });
+
+  bool get hasPhases => phases.isNotEmpty;
 }
 
 // ─── 敵人技能運行時狀態 ───
@@ -194,6 +216,10 @@ class EnemySkillState {
   // ── 狂暴 ──
   bool isEnraged = false;
   int originalAttackInterval = 0;
+
+  // ── Boss 階段 ──
+  int currentPhase = -1; // -1 = 使用基礎 skills，0+ = phases[index]
+  String? currentPhaseName;
 
   /// 初始化冷卻計時器
   void initCooldowns(List<EnemySkillDefinition> skills) {
@@ -282,13 +308,13 @@ class EnemyInstance {
   double get hpPercent => maxHp > 0 ? currentHp / maxHp : 0;
   bool get hasShield => skillState.shieldHp > 0;
 
-  /// 是否擁有特定技能
+  /// 是否擁有特定技能（考慮階段）
   bool hasSkill(EnemySkillType type) =>
-      definition.skills.any((s) => s.type == type);
+      activeSkills.any((s) => s.type == type);
 
-  /// 取得特定技能定義
+  /// 取得特定技能定義（考慮階段）
   EnemySkillDefinition? getSkill(EnemySkillType type) {
-    for (final s in definition.skills) {
+    for (final s in activeSkills) {
       if (s.type == type) return s;
     }
     return null;
@@ -325,6 +351,53 @@ class EnemyInstance {
       final newInterval = (definition.attackInterval - 1).clamp(1, 99);
       attackCountdown = attackCountdown.clamp(1, newInterval);
     }
+    // 檢查 Boss 階段切換
+    _checkPhaseTransition();
+  }
+
+  /// 檢查 Boss 階段轉換
+  void _checkPhaseTransition() {
+    if (!definition.hasPhases || isDead) return;
+
+    // 找到當前 HP 對應的階段（從後往前找，先檢查最嚴格的閾值）
+    for (int i = definition.phases.length - 1; i >= 0; i--) {
+      final phase = definition.phases[i];
+      if (hpPercent < phase.hpThreshold && skillState.currentPhase < i) {
+        // 進入新階段
+        skillState.currentPhase = i;
+        skillState.currentPhaseName = phase.phaseName;
+
+        // 重新初始化技能和冷卻
+        skillState.cooldownTimers.clear();
+        skillState.initCooldowns(phase.skills);
+
+        // 階段護盾（如果新階段有護盾技能）
+        final shieldSkills = phase.skills.where((s) => s.type == EnemySkillType.shield);
+        if (shieldSkills.isNotEmpty) {
+          final shieldDef = shieldSkills.first;
+          skillState.shieldHp = (maxHp * shieldDef.shieldPercent).round();
+          skillState.shieldMaxHp = skillState.shieldHp;
+        }
+
+        // 階段狂暴（如果新階段有狂暴且尚未觸發）
+        if (!skillState.isEnraged && phase.skills.any((s) => s.type == EnemySkillType.rage)) {
+          if (hpPercent < 0.3) {
+            skillState.isEnraged = true;
+            atk = (atk * 2).round();
+          }
+        }
+
+        break;
+      }
+    }
+  }
+
+  /// 取得當前階段的有效技能列表
+  List<EnemySkillDefinition> get activeSkills {
+    if (definition.hasPhases && skillState.currentPhase >= 0) {
+      return definition.phases[skillState.currentPhase].skills;
+    }
+    return definition.skills;
   }
 
   /// 取得實際攻擊間隔（考慮狂暴）

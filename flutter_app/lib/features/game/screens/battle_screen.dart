@@ -2361,12 +2361,22 @@ class _EnemyCardState extends State<_EnemyCard>
         ? enemy.attackCountdown / enemy.definition.attackInterval
         : 0.0;
 
-    final outerBorderColor = isCurrent
-        ? Colors.red.withAlpha(200)
-        : color.withAlpha(100);
-    final innerBorderColor = isCurrent
-        ? Colors.red.withAlpha(100)
-        : color.withAlpha(50);
+    final isEnraged = enemy.skillState.isEnraged;
+    final isCharging = enemy.skillState.isCharging;
+    final outerBorderColor = isEnraged
+        ? Colors.red.shade400
+        : isCharging
+            ? Colors.amber.withAlpha(200)
+            : isCurrent
+                ? Colors.red.withAlpha(200)
+                : color.withAlpha(100);
+    final innerBorderColor = isEnraged
+        ? Colors.red.shade300.withAlpha(150)
+        : isCharging
+            ? Colors.amber.withAlpha(120)
+            : isCurrent
+                ? Colors.red.withAlpha(100)
+                : color.withAlpha(50);
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 5),
@@ -2513,8 +2523,32 @@ class _EnemyCardState extends State<_EnemyCard>
                           ),
                         ),
                       ),
+                      // 護盾條（護盾 > 0 時顯示在 HP 條下方）
+                      if (enemy.hasShield) ...[
+                        const SizedBox(height: 2),
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(2),
+                          child: TweenAnimationBuilder<double>(
+                            tween: Tween(
+                              end: enemy.skillState.shieldMaxHp > 0
+                                  ? enemy.skillState.shieldHp / enemy.skillState.shieldMaxHp
+                                  : 0.0,
+                            ),
+                            duration: const Duration(milliseconds: 350),
+                            curve: Curves.easeOut,
+                            builder: (_, value, __) => LinearProgressIndicator(
+                              value: value.clamp(0.0, 1.0),
+                              minHeight: 4,
+                              backgroundColor: Colors.grey.shade800,
+                              valueColor: const AlwaysStoppedAnimation<Color>(
+                                Colors.cyan,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
                       const SizedBox(height: 4),
-                      // 數值列
+                      // 數值列 + 技能狀態圖示
                       Row(
                         children: [
                           Text(
@@ -2529,11 +2563,35 @@ class _EnemyCardState extends State<_EnemyCard>
                           Text(
                             'ATK ${enemy.atk}',
                             style: TextStyle(
-                              color: Colors.red.shade200,
+                              color: enemy.skillState.isEnraged
+                                  ? Colors.red.shade100
+                                  : Colors.red.shade200,
                               fontSize: AppTheme.fontLabelSm,
                               fontWeight: FontWeight.bold,
                             ),
                           ),
+                          // 敵人技能狀態圖示
+                          if (enemy.hasShield)
+                            _StatusIcon(
+                              icon: Icons.shield,
+                              color: Colors.cyan,
+                              label: '${enemy.skillState.shieldHp}',
+                              tooltip: '護盾',
+                            ),
+                          if (enemy.skillState.isCharging)
+                            const _StatusIcon(
+                              icon: Icons.bolt,
+                              color: Colors.amber,
+                              label: '!',
+                              tooltip: '蓄力中',
+                            ),
+                          if (enemy.skillState.isEnraged)
+                            const _StatusIcon(
+                              icon: Icons.whatshot,
+                              color: Colors.red,
+                              label: '',
+                              tooltip: '狂暴',
+                            ),
                           if (isCurrent) ...[
                             if (battleState.defDebuffTurns > 0)
                               _StatusIcon(
@@ -3561,6 +3619,23 @@ class _SkillEffectBar extends StatelessWidget {
         return (Icons.emoji_events, Colors.amber);
       case BattleEventType.defeat:
         return (Icons.close, Colors.red);
+      // 敵人技能事件
+      case BattleEventType.enemySkillObstacle:
+        return (Icons.square_rounded, Colors.grey);
+      case BattleEventType.enemySkillPoison:
+        return (Icons.science, Colors.purple);
+      case BattleEventType.enemySkillWeaken:
+        return (Icons.arrow_downward, Colors.blueGrey);
+      case BattleEventType.enemySkillCharge:
+        return (Icons.bolt, Colors.amber);
+      case BattleEventType.enemySkillHeal:
+        return (Icons.healing, Colors.green);
+      case BattleEventType.enemySkillSummon:
+        return (Icons.group_add, Colors.deepPurple);
+      case BattleEventType.enemySkillRage:
+        return (Icons.whatshot, Colors.red);
+      case BattleEventType.poisonExplode:
+        return (Icons.dangerous, Colors.purple);
     }
   }
 }
