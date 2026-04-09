@@ -356,47 +356,49 @@ class GameProvider extends ChangeNotifier {
     _isProcessing = true;
     final gen = _gameGeneration;
 
-    switch (effect.type) {
-      case BoardEffectType.convertColor:
-        _convertRandomBlocks(s, effect.value, agentColor);
-        break;
-      case BoardEffectType.eliminateRandom:
-        _eliminateRandomBlocks(s, effect.value);
-        break;
-      case BoardEffectType.eliminateRow:
-        final row = effect.value == -1 ? s.mode.numRows - 1 : effect.value;
-        _eliminateEntireRow(s, row);
-        break;
-      case BoardEffectType.eliminateColumn:
-        final col = _random.nextInt(s.mode.numCols);
-        _eliminateEntireColumn(s, col);
-        break;
-      case BoardEffectType.shuffleBoard:
-        _shuffleBoard(s);
-        break;
-    }
+    try {
+      switch (effect.type) {
+        case BoardEffectType.convertColor:
+          _convertRandomBlocks(s, effect.value, agentColor);
+          break;
+        case BoardEffectType.eliminateRandom:
+          _eliminateRandomBlocks(s, effect.value);
+          break;
+        case BoardEffectType.eliminateRow:
+          final row = effect.value == -1 ? s.mode.numRows - 1 : effect.value;
+          _eliminateEntireRow(s, row);
+          break;
+        case BoardEffectType.eliminateColumn:
+          final col = _random.nextInt(s.mode.numCols);
+          _eliminateEntireColumn(s, col);
+          break;
+        case BoardEffectType.shuffleBoard:
+          _shuffleBoard(s);
+          break;
+      }
 
-    notifyListeners();
-    await Future.delayed(const Duration(milliseconds: 400));
-    if (_gameGeneration != gen) { _isProcessing = false; return; }
-
-    // 消除類效果只做重力掉落 + 補充，不觸發三消判斷
-    if (effect.type == BoardEffectType.eliminateRandom ||
-        effect.type == BoardEffectType.eliminateRow ||
-        effect.type == BoardEffectType.eliminateColumn) {
-      _applyGravity();
       notifyListeners();
-      await Future.delayed(const Duration(milliseconds: 300));
-      if (_gameGeneration != gen) { _isProcessing = false; return; }
+      await Future.delayed(const Duration(milliseconds: 400));
+      if (_gameGeneration != gen) return;
 
-      _refillGrid();
+      // 消除類效果只做重力掉落 + 補充，不觸發三消判斷
+      if (effect.type == BoardEffectType.eliminateRandom ||
+          effect.type == BoardEffectType.eliminateRow ||
+          effect.type == BoardEffectType.eliminateColumn) {
+        _applyGravity();
+        notifyListeners();
+        await Future.delayed(const Duration(milliseconds: 300));
+        if (_gameGeneration != gen) return;
+
+        _refillGrid();
+        notifyListeners();
+        await Future.delayed(const Duration(milliseconds: 300));
+        if (_gameGeneration != gen) return;
+      }
+    } finally {
+      _isProcessing = false;
       notifyListeners();
-      await Future.delayed(const Duration(milliseconds: 300));
-      if (_gameGeneration != gen) { _isProcessing = false; return; }
     }
-
-    _isProcessing = false;
-    notifyListeners();
   }
 
   /// 將 N 個隨機非同色方塊轉為指定顏色
