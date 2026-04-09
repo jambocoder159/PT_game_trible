@@ -1090,22 +1090,11 @@ class _CatAgentPanelState extends State<_CatAgentPanel>
             attackerName: enemyAttacker?.definition.name,
           ));
         }
-      } else if (_accumDamage.isNotEmpty && (
-          event.type == BattleEventType.enemyAttack ||
-          event.type == BattleEventType.enemyKilled ||
-          event.type == BattleEventType.victory ||
-          event.type == BattleEventType.defeat ||
-          event.type == BattleEventType.enemySkillObstacle ||
-          event.type == BattleEventType.enemySkillPoison ||
-          event.type == BattleEventType.enemySkillWeaken ||
-          event.type == BattleEventType.enemySkillCharge ||
-          event.type == BattleEventType.enemySkillHeal ||
-          event.type == BattleEventType.enemySkillSummon ||
-          event.type == BattleEventType.enemySkillRage ||
-          event.type == BattleEventType.poisonExplode
-      )) {
-        // ── 回合結束但沒有 autoAttack（敵人已在連鎖中被殺）→ 也清累積 ──
-        setState(() => _accumDamage.clear());
+      } else if (event.type == BattleEventType.turnEnd) {
+        // ── 回合結束信號：無條件清除累積計數器 ──
+        if (_accumDamage.isNotEmpty) {
+          setState(() => _accumDamage.clear());
+        }
       }
     }
 
@@ -3265,10 +3254,13 @@ class _CatAgentCardState extends State<_CatAgentCard>
                                     ),
                                   ),
                                   Text(
-                                    '蓄力中',
+                                    isReady ? '技能就緒！' : '蓄力中',
                                     style: TextStyle(
-                                      color: const Color(0xFF8B6914).withAlpha(180), // 暖棕色
+                                      color: isReady
+                                          ? Colors.amber.shade700
+                                          : const Color(0xFF8B6914).withAlpha(180),
                                       fontSize: AppTheme.fontLabelSm,
+                                      fontWeight: isReady ? FontWeight.bold : FontWeight.normal,
                                     ),
                                   ),
                                 ],
@@ -3651,6 +3643,8 @@ class _SkillEffectBar extends StatelessWidget {
         return (Icons.whatshot, Colors.red);
       case BattleEventType.poisonExplode:
         return (Icons.dangerous, Colors.purple);
+      case BattleEventType.turnEnd:
+        return (Icons.sync, Colors.grey);
     }
   }
 }

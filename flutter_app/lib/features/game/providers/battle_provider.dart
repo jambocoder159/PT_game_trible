@@ -73,6 +73,7 @@ enum BattleEventType {
   enemySkillSummon, // 敵人召喚增援
   enemySkillRage, // 敵人進入狂暴
   poisonExplode, // 毒格爆炸
+  turnEnd, // 回合結束信號（清除累積狀態用）
 }
 
 /// 放置效果回呼（由 GameProvider 執行棋盤操作）
@@ -277,7 +278,16 @@ class BattleProvider extends ChangeNotifier {
   /// 1. 統一打出累積的角色傷害（含 combo）
   /// 2. 敵人推進 countdown 並攻擊
   void onTurnEnd({bool hadMatches = true}) {
-    if (_battleState == null || _battleState!.isBattleOver) return;
+    // 無論戰鬥是否結束，都發送 turnEnd 信號讓 UI 清除累積狀態
+    _attackAnimEvents.add(const BattleEvent(
+      type: BattleEventType.turnEnd,
+      message: '',
+    ));
+
+    if (_battleState == null || _battleState!.isBattleOver) {
+      notifyListeners();
+      return;
+    }
 
     // ── 打出累積傷害 ──
     final finalResult = BattleEngine.finalizeAttacks(_battleState!);
