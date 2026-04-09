@@ -1035,13 +1035,12 @@ class _CatAgentPanelState extends State<_CatAgentPanel>
         setState(() {
           _accumDamage[idx] = (_accumDamage[idx] ?? 0) + event.value;
         });
-      } else if (event.type == BattleEventType.autoAttack &&
-          event.attackerIndex != null &&
-          event.targetIndex != null) {
+      } else if (event.type == BattleEventType.autoAttack) {
         // ── 角色攻擊：回合結束統一衝刺 — 清空累積計數器 ──
         if (_accumDamage.isNotEmpty) {
           setState(() => _accumDamage.clear());
         }
+        if (event.attackerIndex == null || event.targetIndex == null) continue;
         final fromIdx = event.attackerIndex! < _playerKeys.length
             ? event.attackerIndex!
             : _playerKeys.length - 1;
@@ -1091,6 +1090,22 @@ class _CatAgentPanelState extends State<_CatAgentPanel>
             attackerName: enemyAttacker?.definition.name,
           ));
         }
+      } else if (_accumDamage.isNotEmpty && (
+          event.type == BattleEventType.enemyAttack ||
+          event.type == BattleEventType.enemyKilled ||
+          event.type == BattleEventType.victory ||
+          event.type == BattleEventType.defeat ||
+          event.type == BattleEventType.enemySkillObstacle ||
+          event.type == BattleEventType.enemySkillPoison ||
+          event.type == BattleEventType.enemySkillWeaken ||
+          event.type == BattleEventType.enemySkillCharge ||
+          event.type == BattleEventType.enemySkillHeal ||
+          event.type == BattleEventType.enemySkillSummon ||
+          event.type == BattleEventType.enemySkillRage ||
+          event.type == BattleEventType.poisonExplode
+      )) {
+        // ── 回合結束但沒有 autoAttack（敵人已在連鎖中被殺）→ 也清累積 ──
+        setState(() => _accumDamage.clear());
       }
     }
 
