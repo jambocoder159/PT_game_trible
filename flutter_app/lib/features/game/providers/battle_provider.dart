@@ -232,6 +232,12 @@ class BattleProvider extends ChangeNotifier {
   }) {
     if (_battleState == null || _battleState!.isBattleOver) return;
 
+    // 處理消除對障礙/毒/弱化格的影響
+    final matchedPositions = eliminatedBlocks
+        .map((b) => (b.col, b.row))
+        .toList();
+    BattleEngine.processMatchBoardSkills(_battleState!, matchedPositions);
+
     final result = BattleEngine.processTick(
       _battleState!,
       matchedBlocks,

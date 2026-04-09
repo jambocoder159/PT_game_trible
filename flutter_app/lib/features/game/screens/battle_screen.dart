@@ -157,6 +157,14 @@ class _BattleScreenState extends State<BattleScreen> {
     battleProvider.onBoardEffectRequested = (effect, agentColor) {
       return gameProvider.applyBoardEffect(effect, agentColor);
     };
+    gameProvider.getBlockedPositions = () {
+      final bs = battleProvider.battleState;
+      if (bs == null) return {};
+      return {
+        for (final o in bs.obstacleBlocks)
+          if (!o.isBroken) '${o.col},${o.row}',
+      };
+    };
 
     gameProvider.startGame(battleMode, initialColors: widget.initialColors);
   }
@@ -321,6 +329,7 @@ class _BattleScreenState extends State<BattleScreen> {
     final battleProvider = context.read<BattleProvider>();
     gameProvider.onMatchTurnComplete = null;
     gameProvider.onTurnEnd = null;
+    gameProvider.getBlockedPositions = null;
     battleProvider.onBoardEffectRequested = null;
     _attackAnimPlaying.dispose();
     super.dispose();

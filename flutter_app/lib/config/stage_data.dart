@@ -136,8 +136,8 @@ class StageData {
   );
   static const _trapDevice = EnemyDefinition(
     id: 'trap_device', name: '結冰糖漿', emoji: '🧊',
-    attribute: AgentAttribute.attributeD, baseHp: 240, baseAtk: 25, attackInterval: 4,
-    skills: [EnemySkillDefinition.obstacle(count: 2, cooldown: 4)],
+    attribute: AgentAttribute.attributeD, baseHp: 360, baseAtk: 25, attackInterval: 4,
+    skills: [EnemySkillDefinition.obstacle(count: 2, cooldown: 2)],
   );
   static const _trapDeviceV2 = EnemyDefinition(
     id: 'trap_device_v2', name: '結冰糖漿', emoji: '🧊',

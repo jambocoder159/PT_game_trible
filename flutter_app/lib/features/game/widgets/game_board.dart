@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../../config/theme.dart';
 import '../../../core/models/block.dart';
+import '../providers/battle_provider.dart';
 import '../providers/game_provider.dart';
 import 'block_widget.dart';
 import 'chain_ripple.dart';
@@ -217,6 +218,9 @@ class _GameBoardState extends State<GameBoard>
               ));
             }
 
+            // ── 讀取戰鬥狀態的技能效果格 ──
+            final battleState = context.watch<BattleProvider>().battleState;
+
             // ── 收集方塊 Widget ──
             final List<Widget> blockWidgets = [];
             for (int col = 0; col < numCols; col++) {
@@ -227,6 +231,23 @@ class _GameBoardState extends State<GameBoard>
                 final pos = _cellTopLeft(layout, col, row);
                 final isBeingDragged =
                     _isDragging && col == _dragCol && row == _dragRow;
+
+                // 判斷該格的技能覆蓋效果
+                var overlay = BlockSkillOverlay.none;
+                if (battleState != null) {
+                  if (battleState.isObstacle(col, row)) {
+                    final ob = battleState.obstacleBlocks
+                        .where((b) => b.col == col && b.row == row && !b.isBroken)
+                        .firstOrNull;
+                    overlay = (ob != null && ob.hitCount > 0)
+                        ? BlockSkillOverlay.obstaclesCracked
+                        : BlockSkillOverlay.obstacle;
+                  } else if (battleState.getPoisonAt(col, row) != null) {
+                    overlay = BlockSkillOverlay.poison;
+                  } else if (battleState.isWeakened(col, row)) {
+                    overlay = BlockSkillOverlay.weakened;
+                  }
+                }
 
                 blockWidgets.add(
                   AnimatedPositioned(
@@ -244,7 +265,9 @@ class _GameBoardState extends State<GameBoard>
                         opacity: isBeingDragged ? 0.25 : 1.0,
                         duration: const Duration(milliseconds: 150),
                         child: BlockWidget(
-                            block: block, size: layout.blockSize),
+                            block: block,
+                            size: layout.blockSize,
+                            skillOverlay: overlay),
                       ),
                     ),
                   ),

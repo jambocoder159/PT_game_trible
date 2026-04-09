@@ -86,6 +86,9 @@ class GameProvider extends ChangeNotifier {
   /// 回合結束的回呼（每次操作後呼叫，hadMatches 表示是否有消除）
   void Function({bool hadMatches})? onTurnEnd;
 
+  /// 取得障礙格位置的回呼（BattleProvider 提供）
+  Set<String> Function()? getBlockedPositions;
+
   // 分數彈出事件佇列
   final List<ScorePopupEvent> _scorePopups = [];
   List<ScorePopupEvent> consumeScorePopups() {
@@ -170,6 +173,9 @@ class GameProvider extends ChangeNotifier {
     final s = _state;
     if (s == null || s.status != GameStatus.playing || _isProcessing) return;
     if (s.grid[col][row] == null) return;
+    // 障礙格不可操作
+    final blocked = getBlockedPositions?.call() ?? {};
+    if (blocked.contains('$col,$row')) return;
 
     _isProcessing = true;
     final gen = _gameGeneration;
@@ -241,6 +247,8 @@ class GameProvider extends ChangeNotifier {
     final s = _state;
     if (s == null || s.status != GameStatus.playing || _isProcessing) return;
     if (s.grid[col][row] == null) return;
+    final blocked = getBlockedPositions?.call() ?? {};
+    if (blocked.contains('$col,$row')) return;
     if (row == 0) return;
 
     _isProcessing = true;
@@ -296,6 +304,8 @@ class GameProvider extends ChangeNotifier {
     if (s == null || s.status != GameStatus.playing || _isProcessing) return;
     if (s.grid[col][row] == null) return;
     if (row == s.mode.numRows - 1) return;
+    final blocked = getBlockedPositions?.call() ?? {};
+    if (blocked.contains('$col,$row')) return;
 
     _isProcessing = true;
     final gen = _gameGeneration;
@@ -499,11 +509,13 @@ class GameProvider extends ChangeNotifier {
       // 世代檢查：若已開始新遊戲，立即終止
       if (_gameGeneration != gen) return false;
 
+      final blocked = getBlockedPositions?.call() ?? {};
       final matches = MatchDetector.findMatches(
         s.grid,
         numCols: s.mode.numCols,
         numRows: s.mode.numRows,
         enableHorizontalMatches: s.mode.enableHorizontalMatches,
+        blockedPositions: blocked,
       );
 
       if (matches.isEmpty) break;
@@ -650,12 +662,14 @@ class GameProvider extends ChangeNotifier {
     final s = _state!;
     bool hasMatches = true;
     int attempts = 0;
+    final blocked = getBlockedPositions?.call() ?? {};
     while (hasMatches && attempts < 200) {
       final matches = MatchDetector.findMatches(
         s.grid,
         numCols: s.mode.numCols,
         numRows: s.mode.numRows,
         enableHorizontalMatches: s.mode.enableHorizontalMatches,
+        blockedPositions: blocked,
       );
       if (matches.isEmpty) {
         hasMatches = false;
