@@ -461,21 +461,19 @@ class _HomeScreenState extends State<HomeScreen> {
                 padding: const EdgeInsets.fromLTRB(8, 6, 8, 4),
                 child: KeyedSubtree(
                   key: widget.tutorialStaminaKey ?? GlobalKey(),
-                  child: const PlayerInfoBar(),
+                  child: PlayerInfoBar(
+                    onSettings: _showSettingsModal,
+                    onStats: _showCareerStatsModal,
+                    onDailyQuest: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(builder: (_) => const DailyQuestScreen()),
+                      );
+                    },
+                  ),
                 ),
               ),
 
-              // ─── 新手任務引導條 ───
-              if (!widget.tutorialMode)
-                _NextQuestBanner(
-                  onTap: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(builder: (_) => const DailyQuestScreen()),
-                    );
-                  },
-                ),
-
-              // ─── 主體：左面板 + 棋盤 + 右工具列 ───
+              // ─── 主體：左面板 + 棋盤 ───
               Expanded(
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 4),
@@ -499,17 +497,6 @@ class _HomeScreenState extends State<HomeScreen> {
                       // ════ 中間棋盤 ════
                       Expanded(
                         child: IdleMiniGame(key: _gameAreaKey),
-                      ),
-                      const SizedBox(width: 4),
-                      // ════ 右側工具列 ════
-                      _RightToolbar(
-                        onSettings: _showSettingsModal,
-                        onStats: _showCareerStatsModal,
-                        onDailyQuest: () {
-                          Navigator.of(context).push(
-                            MaterialPageRoute(builder: (_) => const DailyQuestScreen()),
-                          );
-                        },
                       ),
                     ],
                   ),
@@ -1462,67 +1449,6 @@ class _CandyParticle {
 }
 
 // ═══════════════════════════════════════════
-// 右側工具列 — 設置 / 數據 / 任務（垂直排列）
-// ═══════════════════════════════════════════
-
-class _RightToolbar extends StatelessWidget {
-  final VoidCallback onSettings;
-  final VoidCallback onStats;
-  final VoidCallback onDailyQuest;
-
-  const _RightToolbar({
-    required this.onSettings,
-    required this.onStats,
-    required this.onDailyQuest,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        _ToolbarIconVertical(icon: Icons.settings_rounded, label: '設置', onTap: onSettings),
-        const SizedBox(height: 8),
-        _ToolbarIconVertical(icon: Icons.bar_chart_rounded, label: '數據', onTap: onStats),
-        const SizedBox(height: 8),
-        _ToolbarIconVertical(icon: Icons.task_alt_rounded, label: '任務', onTap: onDailyQuest),
-      ],
-    );
-  }
-}
-
-class _ToolbarIconVertical extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final VoidCallback onTap;
-
-  const _ToolbarIconVertical({required this.icon, required this.label, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
-        decoration: BoxDecoration(
-          color: AppTheme.bgCard,
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: AppTheme.accentSecondary.withAlpha(40)),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, color: AppTheme.textSecondary, size: 18),
-            const SizedBox(height: 2),
-            Text(label, style: TextStyle(color: AppTheme.textSecondary.withAlpha(150), fontSize: AppTheme.fontLabelSm)),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// ═══════════════════════════════════════════
 // Combo 浮動動畫覆蓋層（不占版面高度）
 // ═══════════════════════════════════════════
 
@@ -1664,111 +1590,3 @@ Color _attrColorFor(AgentAttribute attr) {
   }
 }
 
-// ═══════════════════════════════════════════════════
-// 新手任務引導條
-// ═══════════════════════════════════════════════════
-
-const _nextQuestDefs = [
-  (id: 'tutorial', label: '完成教學', icon: '📖'),
-  (id: 'unlock_agent', label: '招募第 2 個夥伴', icon: '🐱'),
-  (id: 'clear_1_3', label: '通關關卡 1-3', icon: '⚔️'),
-  (id: 'full_team', label: '組滿 3 人隊伍', icon: '👥'),
-  (id: 'reach_lv5', label: '達到 Lv.5', icon: '⬆️'),
-  (id: 'eliminate_500', label: '累計消除 500 方塊', icon: '✨'),
-  (id: 'daily_all', label: '完成每日全任務', icon: '📋'),
-];
-
-class _NextQuestBanner extends StatelessWidget {
-  final VoidCallback onTap;
-
-  const _NextQuestBanner({required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return Consumer<PlayerProvider>(
-      builder: (context, player, _) {
-        if (!player.isInitialized || !player.data.tutorialCompleted) {
-          return const SizedBox.shrink();
-        }
-
-        player.refreshNewbieQuests();
-        final nq = player.data.newbieQuests;
-
-        // 找第一個未領取的任務（優先顯示已完成可領取 > 未完成）
-        ({String id, String label, String icon})? claimable;
-        ({String id, String label, String icon})? nextTodo;
-
-        for (final q in _nextQuestDefs) {
-          if (nq.isClaimed(q.id)) continue;
-          if (nq.isCompleted(q.id) && claimable == null) {
-            claimable = q;
-          } else if (!nq.isCompleted(q.id) && nextTodo == null) {
-            nextTodo = q;
-          }
-          if (claimable != null && nextTodo != null) break;
-        }
-
-        // 有可領取的獎勵 → 顯示領取提示
-        if (claimable != null) {
-          return _buildBanner(
-            icon: '🎁',
-            text: '「${claimable.label}」完成！點擊領取獎勵',
-            color: Colors.amber,
-            onTap: onTap,
-          );
-        }
-
-        // 有下一個目標 → 顯示引導
-        if (nextTodo != null) {
-          return _buildBanner(
-            icon: nextTodo.icon,
-            text: '下一步：${nextTodo.label}',
-            color: AppTheme.accentPrimary,
-            onTap: onTap,
-          );
-        }
-
-        // 全部完成 → 不顯示
-        return const SizedBox.shrink();
-      },
-    );
-  }
-
-  Widget _buildBanner({
-    required String icon,
-    required String text,
-    required Color color,
-    required VoidCallback onTap,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-        decoration: BoxDecoration(
-          color: color.withAlpha(20),
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: color.withAlpha(80)),
-        ),
-        child: Row(
-          children: [
-            Text(icon, style: const TextStyle(fontSize: AppTheme.fontBodyLg)),
-            const SizedBox(width: 6),
-            Expanded(
-              child: Text(
-                text,
-                style: TextStyle(
-                  color: color,
-                  fontSize: AppTheme.fontBodyMd,
-                  fontWeight: FontWeight.w600,
-                ),
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-            Icon(Icons.chevron_right, color: color.withAlpha(150), size: 16),
-          ],
-        ),
-      ),
-    );
-  }
-}
