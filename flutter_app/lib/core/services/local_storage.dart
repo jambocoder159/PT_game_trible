@@ -65,6 +65,21 @@ class LocalStorageService {
     await _prefs?.setString(key, jsonEncode(value));
   }
 
+  // ─── 已見過的敵人技能（首次彈窗用）───
+
+  static const _seenSkillsKey = 'seen_enemy_skills';
+
+  Set<String> getSeenSkills() {
+    final list = _prefs?.getStringList(_seenSkillsKey);
+    return list?.toSet() ?? {};
+  }
+
+  Future<void> markSkillSeen(String skillType) async {
+    final seen = getSeenSkills();
+    seen.add(skillType);
+    await _prefs?.setStringList(_seenSkillsKey, seen.toList());
+  }
+
   /// 清除所有存檔（用於重置）
   Future<void> clearAll() async {
     await _prefs?.remove(_playerDataKey);

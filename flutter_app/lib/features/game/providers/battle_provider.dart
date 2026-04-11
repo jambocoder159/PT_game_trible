@@ -13,6 +13,7 @@ import '../../../core/models/block.dart';
 import '../../../core/models/cat_agent.dart';
 import '../../../core/models/enemy.dart';
 import '../../../core/models/player_data.dart';
+import '../../../core/services/local_storage.dart';
 import 'game_provider.dart' show EliminatedBlockInfo;
 
 /// 戰鬥事件（給 UI 播放動畫用）
@@ -102,6 +103,20 @@ class BattleProvider extends ChangeNotifier {
   // 攻擊動畫事件佇列（供左側面板衝撞動畫使用）
   final List<BattleEvent> _attackAnimEvents = [];
 
+  // ─── 首次遭遇技能追蹤 ───
+  final List<EnemySkillType> _newlyDiscoveredSkills = [];
+  late Set<String> _seenSkills;
+
+  void initSeenSkills() {
+    _seenSkills = LocalStorageService.instance.getSeenSkills();
+  }
+
+  List<EnemySkillType> consumeNewlyDiscoveredSkills() {
+    final skills = List<EnemySkillType>.from(_newlyDiscoveredSkills);
+    _newlyDiscoveredSkills.clear();
+    return skills;
+  }
+
   /// 消費一般事件（技能、回復、勝敗等，供 _SkillEffectBar 使用）
   List<BattleEvent> consumeEvents() {
     final events = List<BattleEvent>.from(_events);
@@ -146,6 +161,7 @@ class BattleProvider extends ChangeNotifier {
     required PlayerData playerData,
   }) {
     _currentStage = stage;
+    initSeenSkills();
 
     // 建立隊伍
     final team = <BattleAgent>[];
@@ -219,6 +235,18 @@ class BattleProvider extends ChangeNotifier {
 
     // 初始化敵人技能狀態（屬性壓制光環等）
     _battleState!.initEnemySkills();
+
+    // 檢查初始技能是否為首次遭遇（aura、shield 等開場就生效）
+    for (final enemy in enemies) {
+      for (final skill in enemy.activeSkills) {
+        final typeName = skill.type.name;
+        if (!_seenSkills.contains(typeName)) {
+          _seenSkills.add(typeName);
+          _newlyDiscoveredSkills.add(skill.type);
+          LocalStorageService.instance.markSkillSeen(typeName);
+        }
+      }
+    }
 
     notifyListeners();
   }
@@ -466,6 +494,14 @@ class BattleProvider extends ChangeNotifier {
   // ─── 敵人技能事件轉換 ───
 
   void _emitEnemySkillEvent(EnemySkillEvent skillEvent) {
+    // 首次遭遇技能追蹤
+    final typeName = skillEvent.type.name;
+    if (!_seenSkills.contains(typeName)) {
+      _seenSkills.add(typeName);
+      _newlyDiscoveredSkills.add(skillEvent.type);
+      LocalStorageService.instance.markSkillSeen(typeName);
+    }
+
     final BattleEventType eventType;
     String message;
 

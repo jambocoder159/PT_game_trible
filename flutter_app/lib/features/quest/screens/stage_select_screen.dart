@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../../config/cat_agent_data.dart';
+import '../../../config/enemy_skill_info.dart';
 import '../../../config/image_assets.dart';
 import '../../../core/models/cat_agent.dart';
 import '../../../core/models/enemy.dart';
@@ -538,7 +539,7 @@ class _StageSelectScreenState extends State<StageSelectScreen>
                               ..._buildAuraWarnings(stage),
                               const SizedBox(height: 6),
                               SizedBox(
-                                height: 130,
+                                height: 150,
                                 child: ListView.builder(
                                   scrollDirection: Axis.horizontal,
                                   itemCount: stage.enemies.length,
@@ -571,7 +572,8 @@ class _StageSelectScreenState extends State<StageSelectScreen>
                                         children: [
                                           // 大圖區域
                                           Expanded(
-                                            child: Container(
+                                            child: ClipRect(
+                                              child: Container(
                                               width: double.infinity,
                                               decoration: BoxDecoration(
                                                 gradient: LinearGradient(
@@ -586,13 +588,19 @@ class _StageSelectScreenState extends State<StageSelectScreen>
                                               child: Stack(
                                                 children: [
                                                   Center(
-                                                    child: GameImage(
-                                                      assetPath:
-                                                          ImageAssets.enemyImage(
-                                                              e.id),
-                                                      fallbackEmoji: e.emoji,
-                                                      width: 64,
-                                                      height: 64,
+                                                    child: ConstrainedBox(
+                                                      constraints: const BoxConstraints(
+                                                        maxWidth: 64,
+                                                        maxHeight: 64,
+                                                      ),
+                                                      child: GameImage(
+                                                        assetPath:
+                                                            ImageAssets.enemyImage(
+                                                                e.id),
+                                                        fallbackEmoji: e.emoji,
+                                                        width: 64,
+                                                        height: 64,
+                                                      ),
                                                     ),
                                                   ),
                                                   // 屬性色帶
@@ -607,6 +615,7 @@ class _StageSelectScreenState extends State<StageSelectScreen>
                                                   ),
                                                 ],
                                               ),
+                                            ),
                                             ),
                                           ),
                                           // 底部資訊區
@@ -688,6 +697,35 @@ class _StageSelectScreenState extends State<StageSelectScreen>
                                                     ),
                                                   ],
                                                 ),
+                                                // 技能圖示列
+                                                if (e.skills.isNotEmpty) ...[
+                                                  const SizedBox(height: 4),
+                                                  Row(
+                                                    mainAxisAlignment: MainAxisAlignment.center,
+                                                    children: e.skills.map((skill) {
+                                                      final info = enemySkillInfoMap[skill.type];
+                                                      if (info == null) return const SizedBox.shrink();
+                                                      return Padding(
+                                                        padding: const EdgeInsets.symmetric(horizontal: 2),
+                                                        child: Tooltip(
+                                                          message: info.name,
+                                                          child: Container(
+                                                            width: 18,
+                                                            height: 18,
+                                                            decoration: BoxDecoration(
+                                                              color: info.color.withAlpha(25),
+                                                              borderRadius: BorderRadius.circular(4),
+                                                              border: Border.all(color: info.color.withAlpha(60)),
+                                                            ),
+                                                            child: Center(
+                                                              child: Icon(info.icon, size: 11, color: info.color),
+                                                            ),
+                                                          ),
+                                                        ),
+                                                      );
+                                                    }).toList(),
+                                                  ),
+                                                ],
                                               ],
                                             ),
                                           ),
