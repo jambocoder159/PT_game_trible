@@ -2,6 +2,7 @@
 /// 顯示 5 階技能升級路線
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../../../config/cat_agent_data.dart';
 import '../../../config/skill_tier_data.dart';
 import '../../../config/theme.dart';
 import '../../../core/models/material.dart';
@@ -21,6 +22,8 @@ class SkillEnhanceWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tiers = SkillTierData.getTiersForAgent(agentId);
+    final agentDef = CatAgentData.getById(agentId);
+    final boardEffectDesc = agentDef?.skill.boardEffect?.description;
 
     return ListView.builder(
       padding: const EdgeInsets.all(16),
@@ -37,6 +40,7 @@ class SkillEnhanceWidget extends StatelessWidget {
           isUnlocked: isUnlocked,
           isNext: isNext,
           agentId: agentId,
+          boardEffectDesc: boardEffectDesc,
         );
       },
     );
@@ -49,6 +53,7 @@ class _SkillTierCard extends StatelessWidget {
   final bool isUnlocked;
   final bool isNext;
   final String agentId;
+  final String? boardEffectDesc;
 
   const _SkillTierCard({
     required this.tier,
@@ -56,6 +61,7 @@ class _SkillTierCard extends StatelessWidget {
     required this.isUnlocked,
     required this.isNext,
     required this.agentId,
+    this.boardEffectDesc,
   });
 
   @override
@@ -141,6 +147,18 @@ class _SkillTierCard extends StatelessWidget {
                 fontSize: AppTheme.fontBodyLg,
               ),
             ),
+            if (boardEffectDesc != null) ...[
+              const SizedBox(height: 4),
+              Text(
+                '🎯 $boardEffectDesc',
+                style: TextStyle(
+                  color: isUnlocked
+                      ? AppTheme.textSecondary.withValues(alpha: 0.8)
+                      : AppTheme.textSecondary.withValues(alpha: 0.5),
+                  fontSize: AppTheme.fontBodyMd,
+                ),
+              ),
+            ],
             if (tier.newMechanic != null) ...[
               const SizedBox(height: 4),
               Row(

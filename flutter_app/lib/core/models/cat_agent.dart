@@ -172,6 +172,8 @@ enum BoardEffectType {
   eliminateRow,    // 整排消除：消除指定排（0=頂排, -1=底排）
   eliminateColumn, // 整列消除：消除隨機一列
   shuffleBoard,    // 洗牌：重新排列所有方塊
+  clearDebuff,     // 清除異常：移除棋盤上所有障礙、毒格、弱化
+  convertColorAll, // 全色轉換：將隨機一種非自身色的所有方塊轉為自身屬性色
 }
 
 /// 技能的放置（棋盤）效果

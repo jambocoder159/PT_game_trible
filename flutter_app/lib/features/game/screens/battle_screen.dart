@@ -2784,126 +2784,60 @@ class _PlayerCardsSection extends StatelessWidget {
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 6),
-              // 技能描述
-              if (effect != null)
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                  decoration: BoxDecoration(
-                    color: color.withAlpha(20),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(
-                    '🎯 ${effect.description}',
-                    style: TextStyle(color: color, fontSize: AppTheme.fontBodyMd),
-                    textAlign: TextAlign.center,
-                  ),
+              // 完整技能說明（戰鬥效果 + 棋盤效果）
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                decoration: BoxDecoration(
+                  color: color.withAlpha(20),
+                  borderRadius: BorderRadius.circular(8),
                 ),
+                child: Text(
+                  agent.definition.skill.description.replaceAll(
+                    '{multiplier}',
+                    agent.definition.skill.multiplierAtLevel(agent.level)
+                        .toStringAsFixed(1),
+                  ),
+                  style: TextStyle(color: color, fontSize: AppTheme.fontBodyMd),
+                  textAlign: TextAlign.center,
+                ),
+              ),
               const SizedBox(height: 16),
-              // 雙選擇：進攻 or 換方塊
-              if (effect != null)
-                Column(
-                  children: [
-                    // 進攻模式
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton.icon(
-                        onPressed: () {
-                          Navigator.pop(ctx);
-                          HapticFeedback.mediumImpact();
-                          battleProvider.activateSkill(index,
-                              useAttackOnly: true);
-                        },
-                        icon: const Text('⚔️', style: TextStyle(fontSize: AppTheme.fontTitleMd)),
-                        label: const Text('進攻'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.red.shade700,
-                          foregroundColor: Colors.white,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          padding: const EdgeInsets.symmetric(vertical: 10),
+              // 統一施放按鈕（戰鬥效果 + 棋盤效果同時觸發）
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.pop(ctx),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppTheme.textSecondary,
+                        side: BorderSide(color: Colors.white.withAlpha(30)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
                         ),
                       ),
+                      child: const Text('取消'),
                     ),
-                    const SizedBox(height: 8),
-                    // 方塊效果模式
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton.icon(
-                        onPressed: () {
-                          Navigator.pop(ctx);
-                          HapticFeedback.mediumImpact();
-                          battleProvider.activateSkill(index,
-                              useBoardOnly: true);
-                        },
-                        icon: const Text('🧩', style: TextStyle(fontSize: AppTheme.fontTitleMd)),
-                        label: Text(effect.description,
-                            style: const TextStyle(fontSize: AppTheme.fontBodyMd)),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: color,
-                          foregroundColor: Colors.white,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          padding: const EdgeInsets.symmetric(vertical: 10),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: () {
+                        Navigator.pop(ctx);
+                        HapticFeedback.mediumImpact();
+                        battleProvider.activateSkill(index);
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: color,
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
                         ),
                       ),
+                      child: const Text('施放！'),
                     ),
-                    const SizedBox(height: 8),
-                    // 取消
-                    SizedBox(
-                      width: double.infinity,
-                      child: OutlinedButton(
-                        onPressed: () => Navigator.pop(ctx),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: AppTheme.textSecondary,
-                          side: BorderSide(color: Colors.white.withAlpha(30)),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                        ),
-                        child: const Text('取消'),
-                      ),
-                    ),
-                  ],
-                )
-              else
-                // 沒有方塊效果的技能 → 直接施放
-                Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton(
-                        onPressed: () => Navigator.pop(ctx),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: AppTheme.textSecondary,
-                          side: BorderSide(color: Colors.white.withAlpha(30)),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                        ),
-                        child: const Text('取消'),
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: ElevatedButton(
-                        onPressed: () {
-                          Navigator.pop(ctx);
-                          HapticFeedback.mediumImpact();
-                          battleProvider.activateSkill(index);
-                        },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: color,
-                          foregroundColor: Colors.white,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                        ),
-                        child: const Text('施放！'),
-                      ),
-                    ),
-                  ],
-                ),
+                  ),
+                ],
+              ),
             ],
           ),
         ),

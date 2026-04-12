@@ -22,7 +22,7 @@ class CatAgentData {
     baseSpeed: 2, // striker: 快攻
     skill: AgentSkill(
       name: '熱騰騰出爐！',
-      description: '新鮮出爐的麵包重擊，造成 ATK×{multiplier} 傷害',
+      description: '麵包重擊造成 ATK×{multiplier} 傷害，並轉化 3 格為☀️',
       energyCost: 5, effectType: SkillEffectType.damage,
       baseMultiplier: 2.0, levelScaling: 0.08,
       boardEffect: SkillBoardEffect(
@@ -47,13 +47,13 @@ class CatAgentData {
     atkGrowth: 3.8, defGrowth: 1.2, hpGrowth: 11.0,
     skill: AgentSkill(
       name: '窯烤大爆發！',
-      description: '窯火全開，對全體搗蛋鬼造成 ATK×{multiplier} 傷害',
+      description: '窯火全開，全體 ATK×{multiplier} 傷害，並轉化 6 格為☀️',
       energyCost: 7, effectType: SkillEffectType.aoe,
       baseMultiplier: 1.6, levelScaling: 0.07,
       boardEffect: SkillBoardEffect(
-        type: BoardEffectType.eliminateRandom,
-        value: 4,
-        description: '窯火四散：隨機消除 4 個方塊',
+        type: BoardEffectType.convertColor,
+        value: 6,
+        description: '窯火轉化：轉化 6 格為☀️',
       ),
     ),
     passiveDescription: '大量收集食材時，窯火溫度上升，全體額外 5% ATK 傷害',
@@ -73,13 +73,13 @@ class CatAgentData {
     baseSpeed: 2, // infiltrator: 快攻
     skill: AgentSkill(
       name: '極速外送！',
-      description: '極速送達的焦糖風暴，造成 ATK×{multiplier} 傷害。搗蛋鬼 HP<30% 時 +50%',
+      description: 'ATK×{multiplier} 傷害（HP<30% 時 +50%），並清除所有棋盤異常',
       energyCost: 6, effectType: SkillEffectType.execute,
       baseMultiplier: 3.2, levelScaling: 0.12,
       boardEffect: SkillBoardEffect(
-        type: BoardEffectType.eliminateColumn,
+        type: BoardEffectType.clearDebuff,
         value: 0,
-        description: '焦糖瀑布：消除隨機一列方塊',
+        description: '極速清場：清除所有障礙、毒格、弱化',
       ),
     ),
     passiveDescription: '淨化搗蛋鬼後，下次料理技能威力 +20%',
@@ -105,13 +105,13 @@ class CatAgentData {
     baseSpeed: 4, // defender: 慢但硬
     skill: AgentSkill(
       name: '抹茶結界！',
-      description: '濃郁抹茶形成結界，減少受到的傷害 {multiplier}%，持續 2 回合',
+      description: '減傷 {multiplier}% 持續 2 回合，並轉化 5 格為🍃',
       energyCost: 5, effectType: SkillEffectType.shield,
       baseMultiplier: 50.0, levelScaling: 0.8,
       boardEffect: SkillBoardEffect(
         type: BoardEffectType.convertColor,
-        value: 4,
-        description: '茶香瀰漫：轉化 4 個方塊為🍃',
+        value: 5,
+        description: '茶香瀰漫：轉化 5 格為🍃',
       ),
     ),
     passiveDescription: '被搗蛋鬼攻擊後，下次收集香草葉的能量 +20%',
@@ -130,13 +130,13 @@ class CatAgentData {
     atkGrowth: 1.8, defGrowth: 2.8, hpGrowth: 16.0,
     skill: AgentSkill(
       name: '薄荷清風～',
-      description: '清涼薄荷風回復夥伴 {multiplier}% HP',
+      description: '回復夥伴 {multiplier}% HP，並轉化 2 格為🍃',
       energyCost: 5, effectType: SkillEffectType.heal,
       baseMultiplier: 18.0, levelScaling: 0.5,
       boardEffect: SkillBoardEffect(
         type: BoardEffectType.convertColor,
-        value: 3,
-        description: '清新香氣：轉化 3 個方塊為🍃',
+        value: 2,
+        description: '清新薄荷：轉化 2 格為🍃',
       ),
     ),
     passiveDescription: '每 3 回合，薄荷香氣自動恢復夥伴 2% HP',
@@ -156,13 +156,13 @@ class CatAgentData {
     baseSpeed: 2, // striker: 快攻
     skill: AgentSkill(
       name: '肉桂重擊！',
-      description: '肉桂棒全力揮擊，造成 ATK×{multiplier} 傷害',
+      description: 'ATK×{multiplier} 傷害，並消除隨機一整列方塊',
       energyCost: 6, effectType: SkillEffectType.damage,
       baseMultiplier: 2.5, levelScaling: 0.1,
       boardEffect: SkillBoardEffect(
-        type: BoardEffectType.eliminateRow,
-        value: -1,
-        description: '香料炸裂：消除底部一整排方塊',
+        type: BoardEffectType.eliminateColumn,
+        value: 0,
+        description: '香料貫穿：消除隨機一整列',
       ),
     ),
     passiveDescription: '在抹茶結界保護下，攻擊力 +15%',
@@ -187,13 +187,13 @@ class CatAgentData {
     atkGrowth: 2.0, defGrowth: 2.5, hpGrowth: 15.0,
     skill: AgentSkill(
       name: '果汁補給站～',
-      description: '新鮮果汁補給，回復夥伴 {multiplier}% HP，並延遲搗蛋鬼攻擊 1 回合',
+      description: '回復 {multiplier}% HP＋延遲敵人 1 回合，並轉化 2 格為💧',
       energyCost: 6, effectType: SkillEffectType.heal,
       baseMultiplier: 20.0, levelScaling: 0.5,
       boardEffect: SkillBoardEffect(
         type: BoardEffectType.convertColor,
-        value: 3,
-        description: '清涼水霧：轉化 3 個方塊為💧',
+        value: 2,
+        description: '清涼水滴：轉化 2 格為💧',
       ),
     ),
     passiveDescription: '夥伴們疲憊時，露露加快調配飲料，能量累積 +25%',
@@ -213,13 +213,13 @@ class CatAgentData {
     baseSpeed: 4, // defender: 慢但硬
     skill: AgentSkill(
       name: '冰淇淋護盾！',
-      description: '冰涼奶昔凝結護盾，減少受到的傷害 {multiplier}%，持續 2 回合',
+      description: '減傷 {multiplier}% 持續 2 回合，並轉化 5 格為💧',
       energyCost: 5, effectType: SkillEffectType.shield,
       baseMultiplier: 45.0, levelScaling: 0.7,
       boardEffect: SkillBoardEffect(
         type: BoardEffectType.convertColor,
-        value: 4,
-        description: '急凍防線：轉化 4 個方塊為💧',
+        value: 5,
+        description: '急凍防線：轉化 5 格為💧',
       ),
     ),
     passiveDescription: '冰淇淋護盾凍住搗蛋鬼，攻擊速度降低 10%',
@@ -238,13 +238,13 @@ class CatAgentData {
     atkGrowth: 4.2, defGrowth: 1.5, hpGrowth: 10.0,
     skill: AgentSkill(
       name: '氣泡大爆發！',
-      description: '氣泡爆發，對全體搗蛋鬼造成 ATK×{multiplier} 傷害',
+      description: '全體 ATK×{multiplier} 傷害，並轉化 8 格為💧',
       energyCost: 7, effectType: SkillEffectType.aoe,
       baseMultiplier: 1.8, levelScaling: 0.08,
       boardEffect: SkillBoardEffect(
-        type: BoardEffectType.eliminateRow,
-        value: 0,
-        description: '蘇打噴泉：消除頂部一整排方塊',
+        type: BoardEffectType.convertColor,
+        value: 8,
+        description: '氣泡洪流：轉化 8 格為💧',
       ),
     ),
     passiveDescription: '氣泡衝擊波讓搗蛋鬼暈眩，延遲攻擊 1 回合',
@@ -269,13 +269,13 @@ class CatAgentData {
     atkGrowth: 3.5, defGrowth: 1.0, hpGrowth: 10.0,
     skill: AgentSkill(
       name: '糖霜風暴！',
-      description: '糖霜四濺，對全體搗蛋鬼造成 ATK×{multiplier} 傷害',
+      description: '全體 ATK×{multiplier} 傷害，並隨機消除 6 格方塊',
       energyCost: 7, effectType: SkillEffectType.aoe,
       baseMultiplier: 1.5, levelScaling: 0.06,
       boardEffect: SkillBoardEffect(
         type: BoardEffectType.eliminateRandom,
-        value: 3,
-        description: '糖粉飛揚：隨機消除 3 個方塊',
+        value: 6,
+        description: '糖粉風暴：隨機消除 6 格',
       ),
     ),
     passiveDescription: '連續收集 5+ 食材後，糖霜技能華麗度 +15%',
@@ -294,13 +294,13 @@ class CatAgentData {
     atkGrowth: 2.2, defGrowth: 2.0, hpGrowth: 14.0,
     skill: AgentSkill(
       name: '棉花糖擁抱～',
-      description: '柔軟棉花糖的溫暖擁抱，回復夥伴 {multiplier}% HP',
+      description: '回復夥伴 {multiplier}% HP，並轉化 2 格為⭐',
       energyCost: 5, effectType: SkillEffectType.heal,
       baseMultiplier: 16.0, levelScaling: 0.4,
       boardEffect: SkillBoardEffect(
         type: BoardEffectType.convertColor,
-        value: 3,
-        description: '柔軟呵護：轉化 3 個方塊為⭐',
+        value: 2,
+        description: '柔軟星光：轉化 2 格為⭐',
       ),
     ),
     passiveDescription: '夥伴受傷時，棉花糖有 15% 機率送上暖心點心（恢復 3%HP）',
@@ -320,13 +320,13 @@ class CatAgentData {
     baseSpeed: 2, // striker: 快攻
     skill: AgentSkill(
       name: '可頌重錘！',
-      description: '千層可頌的層層重擊，造成 ATK×{multiplier} 傷害',
+      description: 'ATK×{multiplier} 傷害，並將隨機一色全轉為⭐',
       energyCost: 6, effectType: SkillEffectType.damage,
       baseMultiplier: 2.8, levelScaling: 0.12,
       boardEffect: SkillBoardEffect(
-        type: BoardEffectType.eliminateColumn,
+        type: BoardEffectType.convertColorAll,
         value: 0,
-        description: '千層碎裂：消除隨機一列方塊',
+        description: '千層全轉：將隨機一色全轉為⭐',
       ),
     ),
     passiveDescription: '可頌的千層力量——暴擊傷害額外 +20%',
@@ -352,13 +352,13 @@ class CatAgentData {
     baseSpeed: 2, // infiltrator: 快攻
     skill: AgentSkill(
       name: '深夜特製巧克力！',
-      description: '深夜特製的濃郁巧克力，造成 ATK×{multiplier} 傷害。搗蛋鬼 HP 低於 30% 時額外 +50%',
+      description: 'ATK×{multiplier} 傷害（HP<30% 時 +50%），並轉化 8 格為🌙',
       energyCost: 6, effectType: SkillEffectType.execute,
       baseMultiplier: 3.0, levelScaling: 0.1,
       boardEffect: SkillBoardEffect(
         type: BoardEffectType.convertColor,
-        value: 4,
-        description: '可可風暴：轉化 4 個方塊為🌙',
+        value: 8,
+        description: '黑巧漩渦：轉化 8 格為🌙',
       ),
     ),
     passiveDescription: '深夜的第一份巧克力特別濃郁——首次攻擊必定暴擊（×1.5）',
@@ -380,7 +380,7 @@ class CatAgentData {
     baseSpeed: 4, // defender: 慢但硬
     skill: AgentSkill(
       name: '布丁彈力盾！',
-      description: '彈彈布丁形成護盾，減少受到的傷害 {multiplier}%，持續 2 回合',
+      description: '減傷 {multiplier}% 持續 2 回合，並重新排列棋盤',
       energyCost: 5, effectType: SkillEffectType.shield,
       baseMultiplier: 40.0, levelScaling: 0.6,
       boardEffect: SkillBoardEffect(
@@ -405,7 +405,7 @@ class CatAgentData {
     atkGrowth: 3.8, defGrowth: 1.2, hpGrowth: 11.0,
     skill: AgentSkill(
       name: '莓果大轟炸！',
-      description: '莓果傾盆而出，對全體搗蛋鬼造成 ATK×{multiplier} 傷害',
+      description: '全體 ATK×{multiplier} 傷害，並隨機消除 5 格方塊',
       energyCost: 7, effectType: SkillEffectType.aoe,
       baseMultiplier: 1.6, levelScaling: 0.07,
       boardEffect: SkillBoardEffect(

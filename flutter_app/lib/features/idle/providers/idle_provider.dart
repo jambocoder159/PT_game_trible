@@ -544,6 +544,12 @@ class IdleProvider extends ChangeNotifier {
       case BoardEffectType.shuffleBoard:
         _shuffleBoard();
         break;
+      case BoardEffectType.clearDebuff:
+        // 掛機模式無棋盤異常，忽略
+        break;
+      case BoardEffectType.convertColorAll:
+        _convertColorAll(agentColor);
+        break;
     }
 
     notifyListeners();
@@ -572,7 +578,8 @@ class IdleProvider extends ChangeNotifier {
       await _processMatchLoop();
     }
 
-    if (effect.type == BoardEffectType.convertColor) {
+    if (effect.type == BoardEffectType.convertColor ||
+        effect.type == BoardEffectType.convertColorAll) {
       await _processMatchLoop();
     }
 
@@ -593,6 +600,26 @@ class IdleProvider extends ChangeNotifier {
     }
     candidates.shuffle(_random);
     for (final p in candidates.take(count)) {
+      final old = s.grid[p.x][p.y]!;
+      s.grid[p.x][p.y] = old.copyWith(color: targetColor);
+    }
+  }
+
+  void _convertColorAll(BlockColor targetColor) {
+    final s = _state!;
+    final colorMap = <BlockColor, List<Point<int>>>{};
+    for (int col = 0; col < s.mode.numCols; col++) {
+      for (int row = 0; row < s.mode.numRows; row++) {
+        final block = s.grid[col][row];
+        if (block != null && block.color != targetColor) {
+          colorMap.putIfAbsent(block.color, () => []).add(Point(col, row));
+        }
+      }
+    }
+    if (colorMap.isEmpty) return;
+    final colors = colorMap.keys.toList();
+    final chosen = colors[_random.nextInt(colors.length)];
+    for (final p in colorMap[chosen]!) {
       final old = s.grid[p.x][p.y]!;
       s.grid[p.x][p.y] = old.copyWith(color: targetColor);
     }

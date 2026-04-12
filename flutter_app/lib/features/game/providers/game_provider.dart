@@ -385,6 +385,13 @@ class GameProvider extends ChangeNotifier {
         case BoardEffectType.shuffleBoard:
           _shuffleBoard(s);
           break;
+        case BoardEffectType.clearDebuff:
+          // 棋盤異常由 BattleState 管理，此處不操作 grid
+          // 實際清除在 BattleProvider 中處理
+          break;
+        case BoardEffectType.convertColorAll:
+          _convertColorAll(s, agentColor);
+          break;
       }
 
       notifyListeners();
@@ -425,6 +432,28 @@ class GameProvider extends ChangeNotifier {
     candidates.shuffle(_random);
     final toConvert = candidates.take(count);
     for (final p in toConvert) {
+      final old = s.grid[p.x][p.y]!;
+      s.grid[p.x][p.y] = old.copyWith(color: targetColor);
+    }
+  }
+
+  /// 全色轉換：將隨機一種非自身色的所有方塊轉為自身屬性色
+  void _convertColorAll(GameState s, BlockColor targetColor) {
+    // 收集棋盤上所有非目標色的顏色
+    final colorMap = <BlockColor, List<Point<int>>>{};
+    for (int col = 0; col < s.mode.numCols; col++) {
+      for (int row = 0; row < s.mode.numRows; row++) {
+        final block = s.grid[col][row];
+        if (block != null && block.color != targetColor && !block.isBlackened) {
+          colorMap.putIfAbsent(block.color, () => []).add(Point(col, row));
+        }
+      }
+    }
+    if (colorMap.isEmpty) return;
+    // 隨機選一種非自身色
+    final colors = colorMap.keys.toList();
+    final chosen = colors[_random.nextInt(colors.length)];
+    for (final p in colorMap[chosen]!) {
       final old = s.grid[p.x][p.y]!;
       s.grid[p.x][p.y] = old.copyWith(color: targetColor);
     }
