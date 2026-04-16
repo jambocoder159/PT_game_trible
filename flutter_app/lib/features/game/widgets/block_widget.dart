@@ -35,10 +35,15 @@ class BlockWidget extends StatefulWidget {
 }
 
 class _BlockWidgetState extends State<BlockWidget>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   late AnimationController _elimController;
   late Animation<double> _scaleAnim;
   late Animation<double> _opacityAnim;
+
+  // ── 入場動畫（新方塊降落彈跳） ──
+  late AnimationController _enterController;
+  late Animation<double> _enterScale;
+  late Animation<double> _enterOpacity;
 
   bool _wasEliminating = false;
 
@@ -66,9 +71,32 @@ class _BlockWidgetState extends State<BlockWidget>
       ),
     );
 
+    // ── 入場：壓扁→彈起的著陸感 ──
+    _enterController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 350),
+    );
+    _enterScale = TweenSequence<double>([
+      TweenSequenceItem(tween: Tween(begin: 0.4, end: 1.15), weight: 50),
+      TweenSequenceItem(tween: Tween(begin: 1.15, end: 0.92), weight: 25),
+      TweenSequenceItem(tween: Tween(begin: 0.92, end: 1.0), weight: 25),
+    ]).animate(CurvedAnimation(
+      parent: _enterController,
+      curve: Curves.easeOutCubic,
+    ));
+    _enterOpacity = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _enterController,
+        curve: const Interval(0.0, 0.4, curve: Curves.easeOut),
+      ),
+    );
+
     if (widget.block.isEliminating) {
       _wasEliminating = true;
       _elimController.forward();
+    } else {
+      // 新方塊播放入場動畫
+      _enterController.forward();
     }
   }
 
@@ -84,6 +112,7 @@ class _BlockWidgetState extends State<BlockWidget>
   @override
   void dispose() {
     _elimController.dispose();
+    _enterController.dispose();
     super.dispose();
   }
 
@@ -118,7 +147,23 @@ class _BlockWidgetState extends State<BlockWidget>
         child: _buildBlockContainer(color, darkerColor, size),
       );
     } else {
-      blockContent = _buildBlockContainer(color, darkerColor, size);
+      // 入場動畫包裹
+      blockContent = AnimatedBuilder(
+        animation: _enterController,
+        builder: (context, child) {
+          if (_enterController.isCompleted) return child!;
+          return Center(
+            child: Opacity(
+              opacity: _enterOpacity.value,
+              child: Transform.scale(
+                scale: _enterScale.value,
+                child: child!,
+              ),
+            ),
+          );
+        },
+        child: _buildBlockContainer(color, darkerColor, size),
+      );
     }
 
     // 覆蓋層：毒格或弱化

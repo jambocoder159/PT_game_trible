@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import '../../../config/theme.dart';
+import '../../../core/widgets/pressable_scale.dart';
 
 /// 三個 CTA 按鈕：消方塊 | 轉換食材 | 製作甜點
 class CtaButtonBar extends StatelessWidget {
@@ -68,11 +68,8 @@ class _CtaButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: () {
-        HapticFeedback.lightImpact();
-        onTap();
-      },
+    return PressableScale(
+      onTap: onTap,
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 10),
         decoration: BoxDecoration(

@@ -8,6 +8,7 @@ import '../../../config/image_assets.dart';
 import '../../../config/theme.dart';
 import '../../../core/models/cat_agent.dart';
 import '../../../core/widgets/attribute_badge.dart';
+import '../../../core/widgets/staggered_appear.dart';
 import '../../tutorial/widgets/tutorial_floating_hint.dart';
 import '../providers/player_provider.dart';
 import '../widgets/agent_unlock_animation.dart';
@@ -155,15 +156,20 @@ class _AgentListScreenState extends State<AgentListScreen> {
                                   .contains(agent.definition.id),
                               index: index,
                             );
+                            final staggered = StaggeredAppear(
+                              key: ValueKey('appear_${agent.definition.id}'),
+                              index: index,
+                              child: card,
+                            );
                             // 教學模式：用 KeyedSubtree 包住目標 agent
                             if (widget.tutorialHighlightAgentId != null &&
                                 agent.definition.id == widget.tutorialHighlightAgentId) {
                               return KeyedSubtree(
                                 key: AgentListScreen.tutorialHighlightKey,
-                                child: card,
+                                child: staggered,
                               );
                             }
-                            return card;
+                            return staggered;
                           },
                           childCount: agents.length,
                         ),

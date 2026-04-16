@@ -24,7 +24,7 @@ class GameBoard extends StatefulWidget {
 }
 
 class _GameBoardState extends State<GameBoard>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   // 分數彈出
   final List<_ScorePopupData> _activePopups = [];
   int _popupIdCounter = 0;
@@ -44,6 +44,13 @@ class _GameBoardState extends State<GameBoard>
   // 箭頭彈跳動畫
   late AnimationController _arrowBounce;
   late Animation<double> _arrowOffset;
+
+  // 大型消除棋盤閃光 — combo >= 3 觸發
+  late AnimationController _bigHitFlash;
+  // 閃光強度 0..1（依 combo 大小調整）
+  double _bigHitIntensity = 0;
+  // 閃光顏色（依 combo 大小變化：金 → 橘紅）
+  Color _bigHitColor = Colors.white;
 
   // 長按計時
   bool _longPressActivated = false;
@@ -67,11 +74,34 @@ class _GameBoardState extends State<GameBoard>
       parent: _arrowBounce,
       curve: Curves.easeInOut,
     ));
+
+    _bigHitFlash = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 380),
+    );
+  }
+
+  /// 觸發大型消除棋盤閃光（combo 越高 → 越亮、越偏暖色）
+  void _triggerBigHitFlash(int combo) {
+    if (combo < 3) return;
+    final intensity = ((combo - 2) * 0.18).clamp(0.18, 0.65);
+    final color = combo >= 6
+        ? Colors.deepOrange.shade300
+        : combo >= 4
+            ? Colors.amber.shade200
+            : Colors.white;
+    // 多次大消除取較強的那次（不疊加）
+    if (intensity > _bigHitIntensity || !_bigHitFlash.isAnimating) {
+      _bigHitIntensity = intensity;
+      _bigHitColor = color;
+      _bigHitFlash.forward(from: 0);
+    }
   }
 
   @override
   void dispose() {
     _arrowBounce.dispose();
+    _bigHitFlash.dispose();
     super.dispose();
   }
 
@@ -199,6 +229,8 @@ class _GameBoardState extends State<GameBoard>
                   pos.dy,
                 ),
               ));
+              // combo >= 3 觸發棋盤大消除閃光
+              _triggerBigHitFlash(popup.combo);
             }
 
             // ── 消費連鎖波紋事件 ──
@@ -249,10 +281,13 @@ class _GameBoardState extends State<GameBoard>
                   }
                 }
 
+                // 依目標 row 計算微微的逐行錯落延遲，下方先落，上方稍後 —
+                // 視覺上像「重力依序落下」而非整列同時定位
+                final dropDelayMs = ((numRows - row - 1) * 18).clamp(0, 90);
                 blockWidgets.add(
                   AnimatedPositioned(
                     key: ValueKey(block.id),
-                    duration: const Duration(milliseconds: 500),
+                    duration: Duration(milliseconds: 420 + dropDelayMs),
                     curve: Curves.bounceOut,
                     left: pos.dx,
                     top: pos.dy,
@@ -456,6 +491,45 @@ class _GameBoardState extends State<GameBoard>
                               });
                             },
                           )),
+                      // 大型消除棋盤閃光（最上層、不擋觸控）
+                      Positioned.fill(
+                        child: IgnorePointer(
+                          child: AnimatedBuilder(
+                            animation: _bigHitFlash,
+                            builder: (_, __) {
+                              if (!_bigHitFlash.isAnimating &&
+                                  _bigHitFlash.value == 0) {
+                                return const SizedBox.shrink();
+                              }
+                              // 0→1 快速進、慢慢出
+                              final t = _bigHitFlash.value;
+                              final fade = t < 0.25
+                                  ? t / 0.25
+                                  : 1 - (t - 0.25) / 0.75;
+                              final alpha =
+                                  (fade * _bigHitIntensity * 255)
+                                      .round()
+                                      .clamp(0, 255);
+                              return DecoratedBox(
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(
+                                      AppTheme.radiusLarge),
+                                  gradient: RadialGradient(
+                                    radius: 0.9,
+                                    colors: [
+                                      _bigHitColor.withAlpha(alpha),
+                                      _bigHitColor.withAlpha(
+                                          (alpha * 0.4).round().clamp(0, 255)),
+                                      _bigHitColor.withAlpha(0),
+                                    ],
+                                    stops: const [0.0, 0.5, 1.0],
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                      ),
                     ],
                   ),
                 ),

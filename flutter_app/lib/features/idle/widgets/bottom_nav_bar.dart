@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../config/theme.dart';
+import '../../../core/widgets/pressable_scale.dart';
 
 /// 底部遊戲導航列
 class GameBottomNavBar extends StatelessWidget {
@@ -55,9 +56,10 @@ class GameBottomNavBar extends StatelessWidget {
           final isSelected = index == currentIndex;
 
           Widget tab = Expanded(
-            child: GestureDetector(
+            child: PressableScale(
               onTap: onTap != null ? () => onTap!(index) : null,
-              behavior: HitTestBehavior.opaque,
+              pressedScale: 0.92,
+              hapticFeedback: false, // 自身原本沒有 haptic，保持輕量
               child: _NavBarItem(
                 icon: item.icon,
                 label: item.label,

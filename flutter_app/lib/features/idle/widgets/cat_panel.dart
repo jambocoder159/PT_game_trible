@@ -7,6 +7,7 @@ import '../../../config/theme.dart';
 import '../../../config/cat_agent_data.dart';
 import '../../../core/models/cat_data.dart';
 import '../../../core/models/cat_agent.dart';
+import '../../../core/widgets/breathing.dart';
 import '../../agents/providers/player_provider.dart';
 import '../providers/cat_provider.dart';
 import '../providers/idle_provider.dart';
@@ -413,28 +414,32 @@ class CatPanel extends StatelessWidget {
 
   static Widget _buildAgentImage(String agentId, CatAgentDefinition agentDef, double size) {
     final iconPath = ImageAssets.iconImage(agentId);
+    final Widget content;
     if (iconPath == null) {
-      return Center(
+      content = Center(
         child: GameIcon(
           assetPath: ImageAssets.attributeIcon(agentDef.attribute),
           fallbackEmoji: agentDef.attribute.emoji,
           size: size * 0.5,
         ),
       );
-    }
-    return Image.asset(
-      iconPath,
-      width: size,
-      height: size,
-      fit: BoxFit.cover,
-      errorBuilder: (_, __, ___) => Center(
-        child: GameIcon(
-          assetPath: ImageAssets.attributeIcon(agentDef.attribute),
-          fallbackEmoji: agentDef.attribute.emoji,
-          size: size * 0.5,
+    } else {
+      content = Image.asset(
+        iconPath,
+        width: size,
+        height: size,
+        fit: BoxFit.cover,
+        errorBuilder: (_, __, ___) => Center(
+          child: GameIcon(
+            assetPath: ImageAssets.attributeIcon(agentDef.attribute),
+            fallbackEmoji: agentDef.attribute.emoji,
+            size: size * 0.5,
+          ),
         ),
-      ),
-    );
+      );
+    }
+    // 待機呼吸 — 每隻貓有獨立隨機相位，不會同步
+    return Breathing(child: content);
   }
 
   static CatAgentDefinition? _findAgent(String agentId) {

@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../config/theme.dart';
+import '../../../core/widgets/pressable_scale.dart';
 import '../../agents/providers/player_provider.dart';
 
 /// 頂部玩家資訊列（單行版）
@@ -233,9 +234,10 @@ class _HeaderIconButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    return PressableScale(
       onTap: onTap,
-      behavior: HitTestBehavior.opaque,
+      pressedScale: 0.85,
+      hapticFeedback: false,
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
         child: Stack(
@@ -281,9 +283,11 @@ class _AnimatedCurrencyChipState extends State<_AnimatedCurrencyChip>
     with SingleTickerProviderStateMixin {
   late AnimationController _ctrl;
   late Animation<double> _countAnim;
-  late Animation<double> _scaleAnim;
+  late Animation<double> _gainScale;
+  late Animation<double> _lossScale;
   int _prevValue = 0;
   bool _isAnimating = false;
+  bool _isLoss = false;
 
   @override
   void initState() {
@@ -297,12 +301,21 @@ class _AnimatedCurrencyChipState extends State<_AnimatedCurrencyChip>
       begin: widget.value.toDouble(),
       end: widget.value.toDouble(),
     ).animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeOut));
-    _scaleAnim = TweenSequence<double>([
+    // 增加：誇張的彈跳放大
+    _gainScale = TweenSequence<double>([
       TweenSequenceItem(tween: Tween(begin: 1.0, end: 1.3), weight: 15),
       TweenSequenceItem(
           tween: Tween(begin: 1.3, end: 1.0)
               .chain(CurveTween(curve: Curves.elasticOut)),
           weight: 85),
+    ]).animate(_ctrl);
+    // 減少：短促的壓縮回彈（少花錢的不適感）
+    _lossScale = TweenSequence<double>([
+      TweenSequenceItem(tween: Tween(begin: 1.0, end: 0.88), weight: 25),
+      TweenSequenceItem(
+          tween: Tween(begin: 0.88, end: 1.0)
+              .chain(CurveTween(curve: Curves.easeOut)),
+          weight: 75),
     ]).animate(_ctrl);
   }
 
@@ -311,19 +324,16 @@ class _AnimatedCurrencyChipState extends State<_AnimatedCurrencyChip>
     super.didUpdateWidget(oldWidget);
     if (oldWidget.value != widget.value) {
       final diff = widget.value - oldWidget.value;
-      if (diff > 0) {
-        _prevValue = oldWidget.value;
-        _countAnim = Tween<double>(
-          begin: _prevValue.toDouble(),
-          end: widget.value.toDouble(),
-        ).animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeOut));
-        _ctrl.reset();
-        _ctrl.forward();
-        _isAnimating = true;
-        _ctrl.addStatusListener(_onAnimEnd);
-      } else {
-        _prevValue = widget.value;
-      }
+      _prevValue = oldWidget.value;
+      _countAnim = Tween<double>(
+        begin: _prevValue.toDouble(),
+        end: widget.value.toDouble(),
+      ).animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeOut));
+      _isLoss = diff < 0;
+      _ctrl.reset();
+      _ctrl.forward();
+      _isAnimating = true;
+      _ctrl.addStatusListener(_onAnimEnd);
     }
   }
 
@@ -347,10 +357,14 @@ class _AnimatedCurrencyChipState extends State<_AnimatedCurrencyChip>
       builder: (context, _) {
         final displayValue =
             _isAnimating ? _countAnim.value.toInt() : widget.value;
-        final scale = _isAnimating ? _scaleAnim.value : 1.0;
+        final scale = _isAnimating
+            ? (_isLoss ? _lossScale.value : _gainScale.value)
+            : 1.0;
+        // 增加 → 金黃，減少 → 偏紅，動畫尾段都漸回主色
+        final highlightColor =
+            _isLoss ? const Color(0xFFE74C3C) : const Color(0xFFFFD43B);
         final color = _isAnimating
-            ? Color.lerp(
-                const Color(0xFFFFD43B), AppTheme.textPrimary, _ctrl.value)!
+            ? Color.lerp(highlightColor, AppTheme.textPrimary, _ctrl.value)!
             : AppTheme.textPrimary;
 
         return Transform.scale(

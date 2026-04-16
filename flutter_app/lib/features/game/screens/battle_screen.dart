@@ -21,7 +21,6 @@ import '../../../core/services/local_storage.dart';
 import '../../agents/providers/player_provider.dart';
 import '../providers/battle_provider.dart';
 import '../providers/game_provider.dart';
-import '../widgets/combo_counter.dart';
 import '../widgets/board_attack_effect.dart';
 import '../widgets/damage_counter.dart';
 import '../widgets/game_board.dart';
@@ -804,6 +803,9 @@ class _CatAgentPanel extends StatefulWidget {
   State<_CatAgentPanel> createState() => _CatAgentPanelState();
 }
 
+/// 畫面震動強度（順序代表強弱：light < medium < heavy）
+enum _ScreenShakeStrength { light, medium, heavy }
+
 class _CatAgentPanelState extends State<_CatAgentPanel>
     with TickerProviderStateMixin {
   // GlobalKeys for card position tracking
@@ -848,20 +850,49 @@ class _CatAgentPanelState extends State<_CatAgentPanel>
       vsync: this,
       duration: const Duration(milliseconds: 300),
     );
+    _setShakeAnim(_ScreenShakeStrength.light);
+
+    // 直接監聽 battleProvider 的事件，確保不漏事件
+    widget.battleProvider.addListener(_onBattleUpdate);
+  }
+
+  /// 依強度建立 shake tween — 一般命中 light、擊殺 medium、Boss 擊殺 heavy
+  void _setShakeAnim(_ScreenShakeStrength s) {
+    final max = switch (s) {
+      _ScreenShakeStrength.light => 4.0,
+      _ScreenShakeStrength.medium => 9.0,
+      _ScreenShakeStrength.heavy => 16.0,
+    };
+    _screenShakeController.duration = switch (s) {
+      _ScreenShakeStrength.light => const Duration(milliseconds: 220),
+      _ScreenShakeStrength.medium => const Duration(milliseconds: 360),
+      _ScreenShakeStrength.heavy => const Duration(milliseconds: 540),
+    };
     _screenShakeAnim = TweenSequence<double>([
-      TweenSequenceItem(tween: Tween(begin: 0, end: 8), weight: 12),
-      TweenSequenceItem(tween: Tween(begin: 8, end: -6), weight: 18),
-      TweenSequenceItem(tween: Tween(begin: -6, end: 5), weight: 18),
-      TweenSequenceItem(tween: Tween(begin: 5, end: -3), weight: 20),
-      TweenSequenceItem(tween: Tween(begin: -3, end: 1.5), weight: 16),
-      TweenSequenceItem(tween: Tween(begin: 1.5, end: 0), weight: 16),
+      TweenSequenceItem(tween: Tween(begin: 0, end: max), weight: 12),
+      TweenSequenceItem(tween: Tween(begin: max, end: -max * 0.75), weight: 18),
+      TweenSequenceItem(tween: Tween(begin: -max * 0.75, end: max * 0.6), weight: 18),
+      TweenSequenceItem(tween: Tween(begin: max * 0.6, end: -max * 0.4), weight: 20),
+      TweenSequenceItem(tween: Tween(begin: -max * 0.4, end: max * 0.18), weight: 16),
+      TweenSequenceItem(tween: Tween(begin: max * 0.18, end: 0), weight: 16),
     ]).animate(CurvedAnimation(
       parent: _screenShakeController,
       curve: Curves.easeOut,
     ));
+  }
 
-    // 直接監聽 battleProvider 的事件，確保不漏事件
-    widget.battleProvider.addListener(_onBattleUpdate);
+  /// 觸發畫面震動（同強度若已在進行中則不打斷；新強度更高則覆蓋）
+  void _triggerScreenShake(_ScreenShakeStrength s) {
+    final shouldOverride = !_screenShakeController.isAnimating || _shakeIsStronger(s);
+    if (!shouldOverride) return;
+    _currentShake = s;
+    _setShakeAnim(s);
+    _screenShakeController.forward(from: 0);
+  }
+
+  _ScreenShakeStrength _currentShake = _ScreenShakeStrength.light;
+  bool _shakeIsStronger(_ScreenShakeStrength s) {
+    return s.index > _currentShake.index;
   }
 
   void _onBattleUpdate() {
@@ -1275,13 +1306,6 @@ class _CatAgentPanelState extends State<_CatAgentPanel>
               ),
             ),
           ),
-        // Combo 計數器（右上角）
-        if (widget.battleState.lastCombo > 0)
-          Positioned(
-            top: 8,
-            right: 8,
-            child: ComboCounter(combo: widget.battleState.lastCombo),
-          ),
         // 階段標示層（動畫化）
         if (_phaseBanner != null)
           _PhaseBannerWidget(
@@ -1297,16 +1321,60 @@ class _CatAgentPanelState extends State<_CatAgentPanel>
             onHit: () {
               // 粒子到達：顯示傷害數字 + 敵人閃爍 + 畫面震動 + 強震動
               if (!mounted) return;
-              // 連續雙震動（打擊感加倍）
-              HapticFeedback.mediumImpact();
-              Future.delayed(const Duration(milliseconds: 60), () {
-                HapticFeedback.mediumImpact();
-              });
-              // 畫面震動
-              _screenShakeController.forward(from: 0);
               final hitColor = ba.sources.isNotEmpty
                   ? ba.sources.first.color
                   : Colors.amber;
+
+              // 找到對應的敵人並判斷震動強度
+              _ScreenShakeStrength shakeStrength =
+                  _ScreenShakeStrength.light;
+              int? hitIdx;
+              for (int i = 0; i < _enemyHitStates.length; i++) {
+                final pos = _getCardCenter(_enemyKeys[i]);
+                if (pos != null && (pos - ba.target).distance < 30) {
+                  hitIdx = i;
+                  break;
+                }
+              }
+              if (hitIdx != null &&
+                  hitIdx < widget.battleState.enemies.length) {
+                final enemy = widget.battleState.enemies[hitIdx];
+                final isFinishingBlow = enemy.currentHp <= ba.damage;
+                final isBoss = enemy.definition.hasPhases;
+                if (isBoss && isFinishingBlow) {
+                  shakeStrength = _ScreenShakeStrength.heavy;
+                } else if (isBoss || isFinishingBlow) {
+                  shakeStrength = _ScreenShakeStrength.medium;
+                }
+              }
+
+              // 觸覺：強度越高，震動越重
+              switch (shakeStrength) {
+                case _ScreenShakeStrength.light:
+                  HapticFeedback.mediumImpact();
+                  Future.delayed(const Duration(milliseconds: 60), () {
+                    HapticFeedback.mediumImpact();
+                  });
+                  break;
+                case _ScreenShakeStrength.medium:
+                  HapticFeedback.heavyImpact();
+                  Future.delayed(const Duration(milliseconds: 80), () {
+                    HapticFeedback.mediumImpact();
+                  });
+                  break;
+                case _ScreenShakeStrength.heavy:
+                  HapticFeedback.heavyImpact();
+                  Future.delayed(const Duration(milliseconds: 60), () {
+                    HapticFeedback.heavyImpact();
+                  });
+                  Future.delayed(const Duration(milliseconds: 160), () {
+                    HapticFeedback.heavyImpact();
+                  });
+                  break;
+              }
+
+              _triggerScreenShake(shakeStrength);
+
               setState(() {
                 _activeDamagePopups.add(_DamagePopupData(
                   position: ba.target + const Offset(-20, -28),
@@ -1314,16 +1382,12 @@ class _CatAgentPanelState extends State<_CatAgentPanel>
                   color: hitColor,
                   useCounter: false,
                 ));
-                // 找到對應的敵人 index 並閃爍
-                for (int i = 0; i < _enemyHitStates.length; i++) {
-                  final pos = _getCardCenter(_enemyKeys[i]);
-                  if (pos != null && (pos - ba.target).distance < 30) {
-                    _enemyHitStates[i] = true;
-                    Future.delayed(const Duration(milliseconds: 200), () {
-                      if (mounted) setState(() => _enemyHitStates[i] = false);
-                    });
-                    break;
-                  }
+                if (hitIdx != null) {
+                  _enemyHitStates[hitIdx] = true;
+                  final idx = hitIdx;
+                  Future.delayed(const Duration(milliseconds: 200), () {
+                    if (mounted) setState(() => _enemyHitStates[idx] = false);
+                  });
                 }
               });
             },
@@ -2196,6 +2260,9 @@ class _EnemyCardState extends State<_EnemyCard>
   late AnimationController _defeatController;
   late Animation<double> _defeatScaleAnim;
   late Animation<double> _defeatOpacityAnim;
+  // 蓄力 / 狂暴狀態的呼吸脈衝
+  late AnimationController _statePulseController;
+  late Animation<double> _statePulse;
 
   double _displayedHpPercent = 1.0;
   bool _prevHit = false;
@@ -2258,6 +2325,34 @@ class _EnemyCardState extends State<_EnemyCard>
         curve: const Interval(0.4, 1.0, curve: Curves.easeOut),
       ),
     );
+
+    _statePulseController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 900),
+    );
+    _statePulse = CurvedAnimation(
+      parent: _statePulseController,
+      curve: Curves.easeInOut,
+    );
+    _maybeStartStatePulse();
+  }
+
+  /// 依目前敵人狀態決定是否要 pulse
+  void _maybeStartStatePulse() {
+    final shouldPulse =
+        widget.enemy.skillState.isCharging || widget.enemy.skillState.isEnraged;
+    if (shouldPulse) {
+      // 狂暴更急促
+      _statePulseController.duration = widget.enemy.skillState.isEnraged
+          ? const Duration(milliseconds: 600)
+          : const Duration(milliseconds: 900);
+      if (!_statePulseController.isAnimating) {
+        _statePulseController.repeat(reverse: true);
+      }
+    } else {
+      _statePulseController.stop();
+      _statePulseController.value = 0;
+    }
   }
 
   @override
@@ -2284,6 +2379,14 @@ class _EnemyCardState extends State<_EnemyCard>
     if (widget.enemy.hpPercent != _displayedHpPercent) {
       _displayedHpPercent = widget.enemy.hpPercent;
     }
+
+    // 狀態變化 → 重新評估脈衝
+    final prevCharging = old.enemy.skillState.isCharging;
+    final prevEnraged = old.enemy.skillState.isEnraged;
+    if (prevCharging != widget.enemy.skillState.isCharging ||
+        prevEnraged != widget.enemy.skillState.isEnraged) {
+      _maybeStartStatePulse();
+    }
   }
 
   @override
@@ -2292,6 +2395,7 @@ class _EnemyCardState extends State<_EnemyCard>
     _flashController.dispose();
     _hitScaleController.dispose();
     _defeatController.dispose();
+    _statePulseController.dispose();
     super.dispose();
   }
 
@@ -2378,7 +2482,13 @@ class _EnemyCardState extends State<_EnemyCard>
       child: GestureDetector(
         onLongPress: () => _showSkillDetail(context),
         child: AnimatedBuilder(
-        animation: Listenable.merge([_shakeAnim, _flashAnim, _hitScaleController, _defeatController]),
+        animation: Listenable.merge([
+          _shakeAnim,
+          _flashAnim,
+          _hitScaleController,
+          _defeatController,
+          _statePulseController,
+        ]),
         builder: (_, child) {
           // 擊敗動畫中：膨脹→縮小→淡出
           final defeatScale = _defeatController.isAnimating
@@ -2388,10 +2498,14 @@ class _EnemyCardState extends State<_EnemyCard>
           // 著彈微縮
           final hitScale = _hitScaleController.isAnimating
               ? _hitScaleAnim.value : 1.0;
+          // 狂暴狀態下，配合脈衝做微微放大
+          final pulseT = _statePulse.value;
+          final stateScale =
+              isEnraged ? 1.0 + pulseT * 0.04 : 1.0;
           return Opacity(
             opacity: defeatOpacity,
             child: Transform.scale(
-              scale: defeatScale * hitScale,
+              scale: defeatScale * hitScale * stateScale,
               child: Transform.translate(
                 offset: Offset(_shakeAnim.value, 0),
                 child: child,
@@ -2399,20 +2513,47 @@ class _EnemyCardState extends State<_EnemyCard>
             ),
           );
         },
-        child: Container(
-        height: 80,
-        clipBehavior: Clip.antiAlias,
-        decoration: BoxDecoration(
-          color: AppTheme.bgCard,
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: outerBorderColor, width: 2),
-          boxShadow: [
-            if (isCurrent)
-              BoxShadow(color: color.withAlpha(60), blurRadius: 10, spreadRadius: 1),
-            if (isHit)
-              BoxShadow(color: Colors.white.withAlpha(80), blurRadius: 12),
-          ],
-        ),
+        child: AnimatedBuilder(
+          animation: _statePulseController,
+          builder: (_, __) {
+            final pulseT = _statePulse.value;
+            // 蓄力 / 狂暴：邊框透明度 + 外發光呼吸
+            final pulseColor = isEnraged
+                ? Colors.red.shade400
+                : isCharging
+                    ? Colors.amber
+                    : null;
+            final extraShadows = <BoxShadow>[
+              if (pulseColor != null)
+                BoxShadow(
+                  color: pulseColor.withAlpha((100 + pulseT * 130).toInt()),
+                  blurRadius: 10 + pulseT * 12,
+                  spreadRadius: pulseT * 2,
+                ),
+            ];
+            // 邊框顏色在 pulse 高峰時更亮
+            final pulsedOuter = pulseColor != null
+                ? Color.lerp(outerBorderColor, Colors.white, pulseT * 0.35)!
+                : outerBorderColor;
+            return Container(
+              height: 80,
+              clipBehavior: Clip.antiAlias,
+              decoration: BoxDecoration(
+                color: AppTheme.bgCard,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: pulsedOuter, width: 2),
+                boxShadow: [
+                  if (isCurrent)
+                    BoxShadow(
+                        color: color.withAlpha(60),
+                        blurRadius: 10,
+                        spreadRadius: 1),
+                  if (isHit)
+                    BoxShadow(
+                        color: Colors.white.withAlpha(80), blurRadius: 12),
+                  ...extraShadows,
+                ],
+              ),
         child: Container(
           decoration: BoxDecoration(
             border: Border.all(color: innerBorderColor, width: 1),
@@ -2499,26 +2640,11 @@ class _EnemyCardState extends State<_EnemyCard>
                         ],
                       ),
                       const SizedBox(height: 4),
-                      // HP 條（流動動畫）
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(3),
-                        child: TweenAnimationBuilder<double>(
-                          tween: Tween(end: enemy.hpPercent),
-                          duration: const Duration(milliseconds: 350),
-                          curve: Curves.easeOut,
-                          builder: (_, value, __) => LinearProgressIndicator(
-                            value: value.clamp(0.0, 1.0),
-                            minHeight: 8,
-                            backgroundColor: AppTheme.bgCard,
-                            valueColor: AlwaysStoppedAnimation<Color>(
-                              value > 0.5
-                                  ? Colors.green
-                                  : value > 0.25
-                                      ? Colors.orange
-                                      : Colors.red,
-                            ),
-                          ),
-                        ),
+                      // HP 條（雙層追趕：current 立刻反應、trail 延遲跟上）
+                      _DamageTrailBar(
+                        percent: enemy.hpPercent,
+                        minHeight: 8,
+                        borderRadius: 3,
                       ),
                       // 護盾條（護盾 > 0 時顯示在 HP 條下方）
                       if (enemy.hasShield) ...[
@@ -2624,7 +2750,9 @@ class _EnemyCardState extends State<_EnemyCard>
             ],
           ),
         ),
-      ),
+      );
+          },
+        ),
       ),
       ),
     );
@@ -2643,20 +2771,80 @@ class _EnemyCardState extends State<_EnemyCard>
 }
 
 /// 迷你倒數弧形指示器（敵人卡片右上角）
-class _MiniCountdownArc extends StatelessWidget {
+/// 敵人攻擊倒數弧 — progress 接近 0（即將攻擊）時轉紅並 pulse 警示
+class _MiniCountdownArc extends StatefulWidget {
   final double progress;
   final Color color;
 
   const _MiniCountdownArc({required this.progress, required this.color});
 
   @override
+  State<_MiniCountdownArc> createState() => _MiniCountdownArcState();
+}
+
+class _MiniCountdownArcState extends State<_MiniCountdownArc>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _pulseCtrl;
+
+  // progress < 此門檻 → 進入危險警示
+  static const _dangerThreshold = 0.3;
+
+  bool get _isDanger =>
+      widget.progress > 0 && widget.progress < _dangerThreshold;
+
+  @override
+  void initState() {
+    super.initState();
+    _pulseCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 550),
+    );
+    if (_isDanger) _pulseCtrl.repeat(reverse: true);
+  }
+
+  @override
+  void didUpdateWidget(covariant _MiniCountdownArc old) {
+    super.didUpdateWidget(old);
+    final dangerNow = _isDanger;
+    final dangerOld = old.progress > 0 && old.progress < _dangerThreshold;
+    if (dangerNow && !dangerOld) {
+      _pulseCtrl.repeat(reverse: true);
+    } else if (!dangerNow && dangerOld) {
+      _pulseCtrl.stop();
+      _pulseCtrl.value = 0;
+    }
+  }
+
+  @override
+  void dispose() {
+    _pulseCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      width: 18,
-      height: 18,
-      child: CustomPaint(
-        painter: _MiniArcPainter(progress: progress, color: color),
-      ),
+    return AnimatedBuilder(
+      animation: _pulseCtrl,
+      builder: (_, __) {
+        final pulseT =
+            _isDanger ? Curves.easeInOut.transform(_pulseCtrl.value) : 0.0;
+        // 危險時：插值到亮紅色、線條變粗、外光暈
+        final arcColor = _isDanger
+            ? Color.lerp(Colors.red.shade500, Colors.red.shade100, pulseT)!
+            : widget.color;
+        return SizedBox(
+          width: 18,
+          height: 18,
+          child: CustomPaint(
+            painter: _MiniArcPainter(
+              progress: widget.progress,
+              color: arcColor,
+              danger: _isDanger,
+              pulse: pulseT,
+            ),
+          ),
+        );
+      },
     );
   }
 }
@@ -2664,8 +2852,15 @@ class _MiniCountdownArc extends StatelessWidget {
 class _MiniArcPainter extends CustomPainter {
   final double progress;
   final Color color;
+  final bool danger;
+  final double pulse;
 
-  _MiniArcPainter({required this.progress, required this.color});
+  _MiniArcPainter({
+    required this.progress,
+    required this.color,
+    this.danger = false,
+    this.pulse = 0.0,
+  });
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -2681,12 +2876,23 @@ class _MiniArcPainter extends CustomPainter {
         ..style = PaintingStyle.fill,
     );
 
+    // 危險時的外發光（先畫底層）
+    if (danger && pulse > 0) {
+      canvas.drawCircle(
+        center,
+        radius + 1,
+        Paint()
+          ..color = Colors.red.withAlpha((pulse * 150).toInt())
+          ..maskFilter = MaskFilter.blur(BlurStyle.normal, 3 + pulse * 3),
+      );
+    }
+
     // 倒數弧
     if (progress > 0) {
       final arcPaint = Paint()
         ..color = color
         ..style = PaintingStyle.stroke
-        ..strokeWidth = 2.5
+        ..strokeWidth = danger ? 3.0 + pulse * 0.8 : 2.5
         ..strokeCap = StrokeCap.round;
 
       canvas.drawArc(
@@ -2703,7 +2909,10 @@ class _MiniArcPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_MiniArcPainter old) =>
-      old.progress != progress || old.color != color;
+      old.progress != progress ||
+      old.color != color ||
+      old.danger != danger ||
+      old.pulse != pulse;
 }
 
 /// 我方角色卡牌區域
@@ -2868,6 +3077,12 @@ class _CatAgentCardState extends State<_CatAgentCard>
   late AnimationController _bounceController;
   late Animation<double> _bounceAnim;
   late AnimationController _countController;
+  // 技能就緒呼吸（amber 光暈）
+  late AnimationController _readyPulseController;
+  late Animation<double> _readyPulse;
+  bool _wasReady = false;
+  // 剛變為就緒時的「噹！」一閃
+  late AnimationController _readyJustController;
   int _prevAccumDamage = 0;
   int _countFrom = 0;
   int _countTo = 0;
@@ -2891,6 +3106,22 @@ class _CatAgentCardState extends State<_CatAgentCard>
       vsync: this,
       duration: const Duration(milliseconds: 400),
     );
+    _readyPulseController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1100),
+    );
+    _readyPulse = CurvedAnimation(
+      parent: _readyPulseController,
+      curve: Curves.easeInOut,
+    );
+    _readyJustController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 600),
+    );
+    _wasReady = widget.agent.isSkillReady;
+    if (_wasReady) {
+      _readyPulseController.repeat(reverse: true);
+    }
   }
 
   @override
@@ -2909,6 +3140,17 @@ class _CatAgentCardState extends State<_CatAgentCard>
       _countTo = 0;
     }
     _prevAccumDamage = widget.accumDamage;
+
+    // 技能就緒切換
+    final isReadyNow = widget.agent.isSkillReady;
+    if (isReadyNow && !_wasReady) {
+      _readyPulseController.repeat(reverse: true);
+      _readyJustController.forward(from: 0);
+    } else if (!isReadyNow && _wasReady) {
+      _readyPulseController.stop();
+      _readyPulseController.value = 0;
+    }
+    _wasReady = isReadyNow;
   }
 
   int get _displayCount {
@@ -2923,6 +3165,8 @@ class _CatAgentCardState extends State<_CatAgentCard>
   void dispose() {
     _bounceController.dispose();
     _countController.dispose();
+    _readyPulseController.dispose();
+    _readyJustController.dispose();
     super.dispose();
   }
 
@@ -3087,27 +3331,53 @@ class _CatAgentCardState extends State<_CatAgentCard>
       child: Padding(
         padding: const EdgeInsets.only(bottom: 5),
         child: AnimatedBuilder(
-          animation: _bounceAnim,
-          builder: (_, child) => Transform.scale(
-            scale: _bounceAnim.value,
-            child: child,
-          ),
-          child: Container(
-            height: 80,
-            clipBehavior: Clip.antiAlias,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: outerBorderColor, width: 2),
-              color: AppTheme.bgCard,
-              boxShadow: [
-                if (isReady)
-                  BoxShadow(
-                    color: Colors.amber.withAlpha(60),
-                    blurRadius: 10,
-                    spreadRadius: 1,
-                  ),
-              ],
-            ),
+          animation: Listenable.merge([
+            _bounceAnim,
+            _readyPulseController,
+            _readyJustController,
+          ]),
+          builder: (_, child) {
+            // 剛變就緒時 0→1.18→1.0 的彈跳閃現
+            final justT = _readyJustController.value;
+            double justScale = 1.0;
+            if (_readyJustController.isAnimating) {
+              justScale = justT < 0.5
+                  ? 1.0 + (1.18 - 1.0) * (justT / 0.5)
+                  : 1.18 - (1.18 - 1.0) * ((justT - 0.5) / 0.5);
+            }
+            return Transform.scale(
+              scale: _bounceAnim.value * justScale,
+              child: child,
+            );
+          },
+          child: AnimatedBuilder(
+            animation: _readyPulseController,
+            builder: (_, inner) {
+              final pulseT = isReady ? _readyPulse.value : 0.0;
+              final pulsedBorder = isReady
+                  ? Color.lerp(
+                      outerBorderColor, Colors.amber.shade200, pulseT)!
+                  : outerBorderColor;
+              return Container(
+                height: 80,
+                clipBehavior: Clip.antiAlias,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: pulsedBorder, width: 2),
+                  color: AppTheme.bgCard,
+                  boxShadow: [
+                    if (isReady)
+                      BoxShadow(
+                        color: Colors.amber
+                            .withAlpha((60 + pulseT * 140).toInt()),
+                        blurRadius: 10 + pulseT * 14,
+                        spreadRadius: 1 + pulseT * 2,
+                      ),
+                  ],
+                ),
+                child: inner,
+              );
+            },
             child: Container(
               decoration: BoxDecoration(
                 border: Border.all(color: innerBorderColor, width: 1),
@@ -3263,16 +3533,62 @@ class _CatAgentCardState extends State<_CatAgentCard>
                                 ],
                               ),
                               const SizedBox(height: 4),
-                              ClipRRect(
-                                borderRadius: BorderRadius.circular(3),
-                                child: LinearProgressIndicator(
-                                  value: agent.energyPercent,
-                                  minHeight: 7,
-                                  backgroundColor: AppTheme.bgCard,
-                                  valueColor: AlwaysStoppedAnimation(
-                                    isReady ? Colors.amber : color.withAlpha(150),
-                                  ),
-                                ),
+                              AnimatedBuilder(
+                                animation: _readyPulseController,
+                                builder: (_, __) {
+                                  final pulseT =
+                                      isReady ? _readyPulse.value : 0.0;
+                                  return ClipRRect(
+                                    borderRadius: BorderRadius.circular(3),
+                                    child: Stack(
+                                      children: [
+                                        LinearProgressIndicator(
+                                          value: agent.energyPercent,
+                                          minHeight: 7,
+                                          backgroundColor: AppTheme.bgCard,
+                                          valueColor:
+                                              AlwaysStoppedAnimation(
+                                            isReady
+                                                ? Color.lerp(
+                                                    Colors.amber,
+                                                    Colors.yellow.shade300,
+                                                    pulseT,
+                                                  )!
+                                                : color.withAlpha(150),
+                                          ),
+                                        ),
+                                        // 就緒時掃光：白色從左到右流動
+                                        if (isReady)
+                                          Positioned.fill(
+                                            child: IgnorePointer(
+                                              child: FractionallySizedBox(
+                                                widthFactor: 0.35,
+                                                alignment: Alignment(
+                                                  -1 + pulseT * 2.7,
+                                                  0,
+                                                ),
+                                                child: Container(
+                                                  decoration: BoxDecoration(
+                                                    gradient:
+                                                        LinearGradient(
+                                                      colors: [
+                                                        Colors.white
+                                                            .withAlpha(0),
+                                                        Colors.white
+                                                            .withAlpha(140),
+                                                        Colors.white
+                                                            .withAlpha(0),
+                                                      ],
+                                                    ),
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                      ],
+                                    ),
+                                  );
+                                },
                               ),
                               const SizedBox(height: 2),
                               if (isReady)
@@ -4832,65 +5148,127 @@ class _EnemySkillDetailPanel extends StatelessWidget {
   }
 }
 
-/// 敵人攻擊意圖預告
-class _AttackIntent extends StatelessWidget {
+/// 敵人攻擊意圖預告 — 危險時 pulse 警示
+class _AttackIntent extends StatefulWidget {
   final int countdown;
   final int atk;
 
   const _AttackIntent({required this.countdown, required this.atk});
 
   @override
-  Widget build(BuildContext context) {
-    // countdown == 1 → 下一 tick 就會攻擊（危險）
-    // countdown == 2 → 即將攻擊（警告）
-    final isDanger = countdown <= 1;
-    final isWarning = countdown == 2;
+  State<_AttackIntent> createState() => _AttackIntentState();
+}
 
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 1),
-      decoration: BoxDecoration(
-        color: isDanger
-            ? Colors.red.withAlpha(60)
-            : isWarning
-                ? Colors.orange.withAlpha(30)
-                : Colors.transparent,
-        borderRadius: BorderRadius.circular(3),
-        border: isDanger
-            ? Border.all(color: Colors.red.withAlpha(120), width: 0.5)
-            : null,
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (isDanger) ...[
-            // 危險：顯示攻擊預告傷害
-            const Icon(Icons.warning_amber_rounded, size: 8, color: Colors.red),
-            const SizedBox(width: 1),
-            Text(
-              '$atk',
-              style: const TextStyle(
-                color: Colors.red,
-                fontSize: AppTheme.fontLabelSm,
-                fontWeight: FontWeight.bold,
-              ),
+class _AttackIntentState extends State<_AttackIntent>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _pulseCtrl;
+
+  bool get _isDanger => widget.countdown <= 1;
+  bool get _isWarning => widget.countdown == 2;
+
+  @override
+  void initState() {
+    super.initState();
+    _pulseCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 500),
+    );
+    if (_isDanger) _pulseCtrl.repeat(reverse: true);
+  }
+
+  @override
+  void didUpdateWidget(covariant _AttackIntent old) {
+    super.didUpdateWidget(old);
+    final dangerNow = _isDanger;
+    final dangerOld = old.countdown <= 1;
+    if (dangerNow && !dangerOld) {
+      _pulseCtrl.repeat(reverse: true);
+    } else if (!dangerNow && dangerOld) {
+      _pulseCtrl.stop();
+      _pulseCtrl.value = 0;
+    }
+  }
+
+  @override
+  void dispose() {
+    _pulseCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _pulseCtrl,
+      builder: (_, __) {
+        final pulseT =
+            _isDanger ? Curves.easeInOut.transform(_pulseCtrl.value) : 0.0;
+        final scale = _isDanger ? 1.0 + pulseT * 0.12 : 1.0;
+        return Transform.scale(
+          scale: scale,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 1),
+            decoration: BoxDecoration(
+              color: _isDanger
+                  ? Colors.red.withAlpha((60 + pulseT * 80).toInt())
+                  : _isWarning
+                      ? Colors.orange.withAlpha(30)
+                      : Colors.transparent,
+              borderRadius: BorderRadius.circular(3),
+              border: _isDanger
+                  ? Border.all(
+                      color: Colors.red
+                          .withAlpha((120 + pulseT * 100).toInt()),
+                      width: 0.5,
+                    )
+                  : null,
+              boxShadow: _isDanger
+                  ? [
+                      BoxShadow(
+                        color: Colors.red
+                            .withAlpha((pulseT * 130).toInt()),
+                        blurRadius: 4 + pulseT * 4,
+                        spreadRadius: pulseT * 1.2,
+                      ),
+                    ]
+                  : null,
             ),
-          ] else ...[
-            Icon(
-              Icons.bolt,
-              size: 8,
-              color: isWarning ? Colors.orange : Colors.white54,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (_isDanger) ...[
+                  // 危險：顯示攻擊預告傷害
+                  const Icon(Icons.warning_amber_rounded,
+                      size: 8, color: Colors.red),
+                  const SizedBox(width: 1),
+                  Text(
+                    '${widget.atk}',
+                    style: const TextStyle(
+                      color: Colors.red,
+                      fontSize: AppTheme.fontLabelSm,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ] else ...[
+                  Icon(
+                    Icons.bolt,
+                    size: 8,
+                    color: _isWarning ? Colors.orange : Colors.white54,
+                  ),
+                  Text(
+                    '${widget.countdown}',
+                    style: TextStyle(
+                      color:
+                          _isWarning ? Colors.orange : Colors.white54,
+                      fontSize: AppTheme.fontLabelSm,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ],
             ),
-            Text(
-              '$countdown',
-              style: TextStyle(
-                color: isWarning ? Colors.orange : Colors.white54,
-                fontSize: AppTheme.fontLabelSm,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ],
-        ],
-      ),
+          ),
+        );
+      },
     );
   }
 }
@@ -4927,20 +5305,10 @@ class _TeamStatusBar extends StatelessWidget {
               const Icon(Icons.favorite, size: 9, color: Colors.red),
               const SizedBox(width: 3),
               Expanded(
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(2),
-                  child: LinearProgressIndicator(
-                    value: hpPercent,
-                    minHeight: 5,
-                    backgroundColor: AppTheme.bgCard,
-                    valueColor: AlwaysStoppedAnimation<Color>(
-                      hpPercent > 0.5
-                          ? Colors.green
-                          : hpPercent > 0.25
-                              ? Colors.orange
-                              : Colors.red,
-                    ),
-                  ),
+                child: _DamageTrailBar(
+                  percent: hpPercent,
+                  minHeight: 5,
+                  borderRadius: 2,
                 ),
               ),
               const SizedBox(width: 3),
@@ -4986,8 +5354,8 @@ class _TeamStatusBar extends StatelessWidget {
   }
 }
 
-/// Buff 標籤
-class _BuffChip extends StatelessWidget {
+/// Buff 標籤 — 帶呼吸光暈，提示 buff 仍在生效
+class _BuffChip extends StatefulWidget {
   final IconData icon;
   final String label;
   final Color color;
@@ -4999,32 +5367,102 @@ class _BuffChip extends StatelessWidget {
   });
 
   @override
+  State<_BuffChip> createState() => _BuffChipState();
+}
+
+class _BuffChipState extends State<_BuffChip>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _pulseCtrl;
+  late Animation<double> _pulse;
+  late AnimationController _appearCtrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _pulseCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1400),
+    )..repeat(reverse: true);
+    _pulse = CurvedAnimation(parent: _pulseCtrl, curve: Curves.easeInOut);
+
+    _appearCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 280),
+    )..forward();
+  }
+
+  @override
+  void didUpdateWidget(covariant _BuffChip oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // label 變化（例如回合數扣減）→ 觸發短暫彈跳
+    if (oldWidget.label != widget.label) {
+      _appearCtrl.forward(from: 0);
+    }
+  }
+
+  @override
+  void dispose() {
+    _pulseCtrl.dispose();
+    _appearCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(right: 4),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 1),
-        decoration: BoxDecoration(
-          color: color.withAlpha(40),
-          borderRadius: BorderRadius.circular(3),
-          border: Border.all(color: color.withAlpha(80), width: 0.5),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 8, color: color),
-            const SizedBox(width: 2),
-            Text(
-              label,
-              style: TextStyle(
-                color: color,
-                fontSize: 7,
-                fontWeight: FontWeight.bold,
+    final color = widget.color;
+    return AnimatedBuilder(
+      animation: Listenable.merge([_pulseCtrl, _appearCtrl]),
+      builder: (context, _) {
+        final pulseT = _pulse.value; // 0..1
+        // 呼吸：背景透明度 + 外發光
+        final bgAlpha = (40 + pulseT * 50).toInt();
+        final glowAlpha = (pulseT * 90).toInt();
+        // 出現/更新：scale punch 0.6→1.15→1.0
+        final appearT = _appearCtrl.value;
+        final scale = appearT < 0.5
+            ? 0.6 + (1.15 - 0.6) * (appearT / 0.5)
+            : 1.15 - (1.15 - 1.0) * ((appearT - 0.5) / 0.5);
+        return Padding(
+          padding: const EdgeInsets.only(right: 4),
+          child: Transform.scale(
+            scale: scale,
+            child: Container(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 3, vertical: 1),
+              decoration: BoxDecoration(
+                color: color.withAlpha(bgAlpha),
+                borderRadius: BorderRadius.circular(3),
+                border: Border.all(
+                  color: color.withAlpha(80 + (pulseT * 100).toInt()),
+                  width: 0.5,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: color.withAlpha(glowAlpha),
+                    blurRadius: 6 + pulseT * 4,
+                    spreadRadius: pulseT * 1.2,
+                  ),
+                ],
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(widget.icon, size: 8, color: color),
+                  const SizedBox(width: 2),
+                  Text(
+                    widget.label,
+                    style: TextStyle(
+                      color: color,
+                      fontSize: 7,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
               ),
             ),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 }
@@ -6662,6 +7100,168 @@ class _TutorialSwipeHintState extends State<_TutorialSwipeHint> {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// 帶「被打 trail」的血條 — 紅色底層延遲追趕、扣血瞬間白色閃光
+// ═══════════════════════════════════════════════════════════════
+
+/// 血條雙層追趕效果
+/// - 即時層（彩色）：扣血立刻反應
+/// - 追趕層（暗紅）：延遲 ~250ms 後再快速追上，視覺上形成「剛被打」拖影
+/// - 白色閃光：扣血瞬間覆蓋一次快速 fade，強化打擊感
+class _DamageTrailBar extends StatefulWidget {
+  final double percent;
+  final double minHeight;
+  final double borderRadius;
+
+  const _DamageTrailBar({
+    required this.percent,
+    this.minHeight = 5,
+    this.borderRadius = 2,
+  });
+
+  @override
+  State<_DamageTrailBar> createState() => _DamageTrailBarState();
+}
+
+class _DamageTrailBarState extends State<_DamageTrailBar>
+    with TickerProviderStateMixin {
+  late AnimationController _trailCtrl;
+  late AnimationController _flashCtrl;
+
+  // 即時層目標值
+  double _current = 1.0;
+  // trail 起始值（每次扣血固定）
+  double _trailFrom = 1.0;
+  // trail 動畫進度 → 從 _trailFrom → _current
+  double _trailValue = 1.0;
+
+  Timer? _trailDelay;
+
+  @override
+  void initState() {
+    super.initState();
+    _current = widget.percent;
+    _trailFrom = widget.percent;
+    _trailValue = widget.percent;
+
+    _trailCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 600),
+    )..addListener(() {
+        if (!mounted) return;
+        setState(() {
+          _trailValue = _trailFrom +
+              (_current - _trailFrom) *
+                  Curves.easeOutCubic.transform(_trailCtrl.value);
+        });
+      });
+
+    _flashCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 220),
+    );
+  }
+
+  @override
+  void didUpdateWidget(covariant _DamageTrailBar old) {
+    super.didUpdateWidget(old);
+    if (widget.percent == _current) return;
+
+    final isLoss = widget.percent < _current;
+    if (isLoss) {
+      // 被扣血：current 立刻到位，trail 延遲後再追
+      setState(() => _current = widget.percent);
+      _flashCtrl.forward(from: 0);
+      _trailDelay?.cancel();
+      _trailDelay = Timer(const Duration(milliseconds: 220), () {
+        if (!mounted) return;
+        _trailCtrl.forward(from: 0);
+      });
+    } else {
+      // 回血或重置：trail 與 current 一起前進
+      setState(() {
+        _current = widget.percent;
+        _trailFrom = _trailValue;
+      });
+      _trailCtrl.forward(from: 0);
+    }
+  }
+
+  @override
+  void dispose() {
+    _trailDelay?.cancel();
+    _trailCtrl.dispose();
+    _flashCtrl.dispose();
+    super.dispose();
+  }
+
+  Color _hpColor(double p) {
+    if (p > 0.5) return Colors.green;
+    if (p > 0.25) return Colors.orange;
+    return Colors.red;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final color = _hpColor(_current);
+    final trailDisplay = _trailValue.clamp(0.0, 1.0);
+    final currentDisplay = _current.clamp(0.0, 1.0);
+    return SizedBox(
+      height: widget.minHeight,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(widget.borderRadius),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final w = constraints.maxWidth;
+            return AnimatedBuilder(
+              animation: _flashCtrl,
+              builder: (_, __) {
+                return Stack(
+                  children: [
+                    // 背景
+                    const Positioned.fill(
+                      child: ColoredBox(color: AppTheme.bgCard),
+                    ),
+                    // trail 層（暗紅，延遲追趕）
+                    Positioned(
+                      left: 0,
+                      top: 0,
+                      bottom: 0,
+                      width: w * trailDisplay,
+                      child: const ColoredBox(color: Color(0xFFD32F2F)),
+                    ),
+                    // current 層（即時）
+                    Positioned(
+                      left: 0,
+                      top: 0,
+                      bottom: 0,
+                      width: w * currentDisplay,
+                      child: ColoredBox(color: color),
+                    ),
+                    // 扣血瞬間的白色閃光
+                    if (_flashCtrl.value > 0)
+                      Positioned.fill(
+                        child: IgnorePointer(
+                          child: ColoredBox(
+                            color: Colors.white.withAlpha(
+                              ((1 - _flashCtrl.value) * 200)
+                                  .round()
+                                  .clamp(0, 255),
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
+                );
+              },
+            );
+          },
         ),
       ),
     );
