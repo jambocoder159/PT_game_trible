@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../../config/theme.dart';
 import '../../../core/services/audio_service.dart';
 import '../../../core/services/settings_service.dart';
+import '../../../core/widgets/paper_dialog.dart';
 import 'controls_help.dart';
 
 /// 暫停選單 Overlay
@@ -125,29 +126,14 @@ class _PauseMenuState extends State<PauseMenu> {
   }
 
   void _confirmExit(BuildContext context) {
-    showDialog(
+    PaperConfirmDialog.show(
       context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: AppTheme.bgSecondary,
-        title: const Text('確認放棄'),
-        content: const Text('放棄任務後已消耗的體力不會返還，確定要離開嗎？'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('取消'),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.of(ctx).pop();
-              widget.onExitToMenu();
-            },
-            child: Text(
-              '確定離開',
-              style: TextStyle(color: AppTheme.accentSecondary),
-            ),
-          ),
-        ],
-      ),
+      title: '確認放棄',
+      content: '放棄任務後已消耗的體力不會返還，確定要離開嗎？',
+      cancelText: '取消',
+      confirmText: '確定離開',
+      isDestructive: true,
+      onConfirm: widget.onExitToMenu,
     );
   }
 }

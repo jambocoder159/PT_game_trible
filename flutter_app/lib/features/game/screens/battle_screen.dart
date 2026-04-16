@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../../core/models/block.dart';
+import '../../../core/widgets/paper_dialog.dart';
 import '../../../config/boss_dialogue_data.dart';
 import '../../../config/cat_agent_data.dart';
 import '../../../config/enemy_skill_info.dart';
@@ -310,30 +311,17 @@ class _BattleScreenState extends State<BattleScreen> {
   }
 
   void _confirmExitBattle(BuildContext context, BattleProvider battle) {
-    showDialog(
+    PaperConfirmDialog.show(
       context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: AppTheme.bgSecondary,
-        title: const Text('確認放棄'),
-        content: const Text('放棄任務後已消耗的體力不會返還，確定要離開嗎？'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('繼續戰鬥'),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.of(ctx).pop();
-              battle.endBattle();
-              Navigator.of(context).pop();
-            },
-            child: Text(
-              '確定離開',
-              style: TextStyle(color: AppTheme.accentSecondary),
-            ),
-          ),
-        ],
-      ),
+      title: '確認放棄',
+      content: '放棄任務後已消耗的體力不會返還，確定要離開嗎？',
+      cancelText: '繼續戰鬥',
+      confirmText: '確定離開',
+      isDestructive: true,
+      onConfirm: () {
+        battle.endBattle();
+        Navigator.of(context).pop();
+      },
     );
   }
 
@@ -4148,6 +4136,12 @@ class _BattleEndOverlayState extends State<_BattleEndOverlay>
     with TickerProviderStateMixin {
   late AnimationController _starController;
   late AnimationController _rewardController;
+  // 卡片整體進場
+  late AnimationController _cardController;
+  // 金粒子背景
+  late AnimationController _particleController;
+  // 星星閃光
+  late AnimationController _starFlashController;
 
   // 星星彈出時間
   final List<Animation<double>> _starAnims = [];
@@ -4190,14 +4184,43 @@ class _BattleEndOverlayState extends State<_BattleEndOverlay>
       duration: const Duration(milliseconds: 800),
     );
 
+    // 卡片進場（fade + scale）
+    _cardController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 500),
+    );
+
+    // 金粒子（無限循環）
+    _particleController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 4),
+    );
+
+    // 星星達標時的閃光
+    _starFlashController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 600),
+    );
+
     // 延遲啟動
+    _cardController.forward();
     if (isVictory) {
+      _particleController.repeat();
       Future.delayed(const Duration(milliseconds: 300), () {
         if (mounted) {
           _starController.forward();
           HapticFeedback.mediumImpact();
         }
       });
+      // 每顆達標的星星彈出時觸發小閃光
+      for (int i = 0; i < _stars; i++) {
+        Future.delayed(Duration(milliseconds: 300 + i * 200), () {
+          if (mounted) {
+            HapticFeedback.lightImpact();
+            _starFlashController.forward(from: 0);
+          }
+        });
+      }
       Future.delayed(const Duration(milliseconds: 800), () {
         if (mounted) _rewardController.forward();
       });
@@ -4208,84 +4231,250 @@ class _BattleEndOverlayState extends State<_BattleEndOverlay>
   void dispose() {
     _starController.dispose();
     _rewardController.dispose();
+    _cardController.dispose();
+    _particleController.dispose();
+    _starFlashController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final borderColor =
-        isVictory ? Colors.amber.withAlpha(150) : Colors.red.withAlpha(150);
-    final titleColor = isVictory ? Colors.amber : Colors.red;
-
-    return Container(
-      color: AppTheme.bgSecondary,
-      child: Center(
-        child: Container(
-          margin: const EdgeInsets.symmetric(horizontal: 28, vertical: 32),
-          constraints: const BoxConstraints(maxWidth: 360),
-          decoration: BoxDecoration(
-            color: AppTheme.bgSecondary,
-            borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
-            border: Border.all(color: borderColor, width: 1.5),
+    return Stack(
+      children: [
+        // ── 1. 背景：徑向暖色漸層 ──
+        Positioned.fill(
+          child: Container(
+            decoration: BoxDecoration(
+              gradient: RadialGradient(
+                radius: 1.1,
+                colors: isVictory
+                    ? [
+                        const Color(0xFFFFE9B0),
+                        const Color(0xFFE8A547),
+                        const Color(0xFF8B4F1A),
+                      ]
+                    : [
+                        const Color(0xFF4A2A1F),
+                        const Color(0xFF2A1410),
+                        const Color(0xFF120806),
+                      ],
+                stops: const [0.0, 0.55, 1.0],
+              ),
+            ),
           ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // ── 標題區 ──
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: isVictory
-                        ? [Colors.amber.withAlpha(30), Colors.amber.withAlpha(10)]
-                        : [Colors.red.withAlpha(30), Colors.red.withAlpha(10)],
+        ),
+        // ── 2. 金色粒子飄落（victory 才有） ──
+        if (isVictory)
+          Positioned.fill(
+            child: IgnorePointer(
+              child: AnimatedBuilder(
+                animation: _particleController,
+                builder: (_, __) => CustomPaint(
+                  painter: _CelebrationParticlesPainter(
+                    progress: _particleController.value,
                   ),
-                  borderRadius: BorderRadius.vertical(
-                    top: Radius.circular(AppTheme.radiusLarge),
-                  ),
-                ),
-                child: Column(
-                  children: [
-                    Text(
-                      isVictory ? '任務完成！' : '任務失敗',
-                      style: TextStyle(
-                        fontSize: AppTheme.fontDisplayLg,
-                        fontWeight: FontWeight.bold,
-                        color: titleColor,
-                      ),
-                    ),
-                    if (isVictory) ...[
-                      const SizedBox(height: 10),
-                      AnimatedBuilder(
-                        animation: _starController,
-                        builder: (_, __) => Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: List.generate(3, (i) {
-                          final filled = i < _stars;
-                          final scale = i < _starAnims.length
-                              ? _starAnims[i].value : (filled ? 1.0 : 0.0);
-                          return Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 3),
-                            child: Transform.scale(
-                              scale: filled ? scale.clamp(0.0, 2.0) : 1.0,
-                              child: Transform.rotate(
-                                angle: filled && scale > 1.0 ? (scale - 1.0) * 0.5 : 0,
-                                child: Icon(
-                                  filled ? Icons.star_rounded : Icons.star_outline_rounded,
-                                  color: filled ? Colors.amber : Colors.grey.shade600,
-                                  size: 40,
-                                ),
-                              ),
-                            ),
-                          );
-                        }),
-                      ),
-                      ),
-                    ],
-                  ],
                 ),
               ),
+            ),
+          ),
+        // ── 3. 結算卡片 ──
+        Center(
+          child: AnimatedBuilder(
+            animation: _cardController,
+            builder: (_, child) {
+              final t = Curves.easeOutBack.transform(
+                  _cardController.value.clamp(0.0, 1.0));
+              return Opacity(
+                opacity: _cardController.value.clamp(0.0, 1.0),
+                child: Transform.scale(
+                  scale: 0.85 + 0.15 * t,
+                  child: child,
+                ),
+              );
+            },
+            child: _buildCard(),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildCard() {
+    final titleColor = isVictory
+        ? const Color(0xFFB8860B)
+        : Colors.red.shade700;
+
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 28),
+      constraints: const BoxConstraints(maxWidth: 360),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFAF3D8),
+        borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
+        border: Border.all(
+          color: isVictory
+              ? const Color(0xFFD9B96A)
+              : Colors.red.withAlpha(120),
+          width: 1.5,
+        ),
+        boxShadow: [
+          // 環境暖光
+          BoxShadow(
+            color: (isVictory
+                    ? const Color(0xFFE8723A)
+                    : Colors.red.shade900)
+                .withAlpha(60),
+            blurRadius: 40,
+            spreadRadius: 4,
+          ),
+          // 落地陰影
+          BoxShadow(
+            color: Colors.black.withAlpha(120),
+            blurRadius: 24,
+            offset: const Offset(0, 12),
+          ),
+        ],
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // ── 標題區 ──
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(vertical: 18),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: isVictory
+                    ? [
+                        const Color(0xFFFFE3A0),
+                        const Color(0xFFFAF3D8),
+                      ]
+                    : [
+                        Colors.red.withAlpha(40),
+                        const Color(0xFFFAF3D8),
+                      ],
+              ),
+              borderRadius: BorderRadius.vertical(
+                top: Radius.circular(AppTheme.radiusLarge),
+              ),
+            ),
+            child: Column(
+              children: [
+                // 上方裝飾線
+                if (isVictory)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 6),
+                    child: Text(
+                      '・━━━━━━━━━━━━━・',
+                      style: TextStyle(
+                        color: const Color(0xFFB8860B).withAlpha(120),
+                        fontSize: 12,
+                      ),
+                    ),
+                  ),
+                // 漸層金字標題
+                ShaderMask(
+                  shaderCallback: (bounds) => LinearGradient(
+                    colors: isVictory
+                        ? const [
+                            Color(0xFFFFD43B),
+                            Color(0xFFD4A017),
+                            Color(0xFF8B6230),
+                          ]
+                        : [Colors.red.shade400, Colors.red.shade800],
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                  ).createShader(bounds),
+                  child: Text(
+                    isVictory ? '任務完成！' : '任務失敗',
+                    style: const TextStyle(
+                      fontSize: 36,
+                      fontWeight: FontWeight.w900,
+                      color: Colors.white, // ShaderMask 會覆蓋
+                      letterSpacing: 2,
+                      shadows: [
+                        Shadow(
+                          color: Colors.black26,
+                          blurRadius: 4,
+                          offset: Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                if (isVictory) ...[
+                  const SizedBox(height: 12),
+                  AnimatedBuilder(
+                    animation: Listenable.merge(
+                        [_starController, _starFlashController]),
+                    builder: (_, __) => Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: List.generate(3, (i) {
+                        final filled = i < _stars;
+                        final scale = i < _starAnims.length
+                            ? _starAnims[i].value
+                            : (filled ? 1.0 : 0.0);
+                        return Padding(
+                          padding:
+                              const EdgeInsets.symmetric(horizontal: 4),
+                          child: Stack(
+                            alignment: Alignment.center,
+                            children: [
+                              // 星星 glow（達標才有）
+                              if (filled && scale > 0.5)
+                                Container(
+                                  width: 56,
+                                  height: 56,
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.amber
+                                            .withAlpha(120),
+                                        blurRadius: 18,
+                                        spreadRadius: 2,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              Transform.scale(
+                                scale: filled
+                                    ? scale.clamp(0.0, 2.0)
+                                    : 0.7,
+                                child: Transform.rotate(
+                                  angle: filled && scale > 1.0
+                                      ? (scale - 1.0) * 0.5
+                                      : 0,
+                                  child: Icon(
+                                    Icons.star_rounded,
+                                    color: filled
+                                        ? const Color(0xFFFFD43B)
+                                        : const Color(0xFFD9B96A)
+                                            .withAlpha(80),
+                                    size: 44,
+                                    shadows: filled
+                                        ? const [
+                                            Shadow(
+                                              color: Color(0xFF8B6230),
+                                              blurRadius: 4,
+                                              offset: Offset(0, 2),
+                                            ),
+                                          ]
+                                        : null,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      }),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
 
               // ── 獎勵區 ──
               Padding(
@@ -4535,8 +4724,6 @@ class _BattleEndOverlayState extends State<_BattleEndOverlay>
               ),
             ],
           ),
-        ),
-      ),
     );
   }
 }
@@ -4806,6 +4993,7 @@ class _RewardSection extends StatelessWidget {
 }
 
 /// 獎勵卡片（金幣/經驗）
+/// 結算獎勵卡 — 木牌風格 + 浮雕字
 class _RewardCard extends StatelessWidget {
   final String emoji;
   final String label;
@@ -4822,22 +5010,69 @@ class _RewardCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
+      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
       decoration: BoxDecoration(
-        color: color.withAlpha(20),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: color.withAlpha(60)),
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            color.withAlpha(50),
+            color.withAlpha(20),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withAlpha(120), width: 1.5),
+        boxShadow: [
+          BoxShadow(
+            color: color.withAlpha(80),
+            blurRadius: 12,
+            spreadRadius: -2,
+          ),
+          BoxShadow(
+            color: Colors.black.withAlpha(40),
+            blurRadius: 6,
+            offset: const Offset(0, 3),
+          ),
+        ],
       ),
       child: Column(
         children: [
-          Text(emoji, style: const TextStyle(fontSize: AppTheme.fontDisplayMd)),
-          const SizedBox(height: 4),
+          // emoji 帶外光暈
+          Container(
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color: color.withAlpha(160),
+                  blurRadius: 14,
+                  spreadRadius: 1,
+                ),
+              ],
+            ),
+            child: Text(
+              emoji,
+              style: const TextStyle(fontSize: AppTheme.fontDisplayMd),
+            ),
+          ),
+          const SizedBox(height: 6),
+          // 浮雕數值
           Text(
             value,
             style: TextStyle(
               color: color,
-              fontSize: AppTheme.fontTitleMd,
-              fontWeight: FontWeight.bold,
+              fontSize: AppTheme.fontTitleLg,
+              fontWeight: FontWeight.w900,
+              shadows: [
+                Shadow(
+                  color: Colors.white.withAlpha(180),
+                  offset: const Offset(0, -1),
+                ),
+                Shadow(
+                  color: Colors.black.withAlpha(80),
+                  offset: const Offset(0, 1),
+                  blurRadius: 1,
+                ),
+              ],
             ),
           ),
           Text(
@@ -4845,6 +5080,7 @@ class _RewardCard extends StatelessWidget {
             style: const TextStyle(
               color: AppTheme.textSecondary,
               fontSize: AppTheme.fontLabelLg,
+              fontWeight: FontWeight.w600,
             ),
           ),
         ],
@@ -7265,5 +7501,95 @@ class _DamageTrailBarState extends State<_DamageTrailBar>
         ),
       ),
     );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// 結算頁慶祝粒子（金色光點 + 麵包屑從上方緩緩飄落）
+// ═══════════════════════════════════════════════════════════════
+
+class _CelebrationParticlesPainter extends CustomPainter {
+  final double progress;
+  static final List<_FallingParticle> _particles =
+      List.generate(40, (i) => _FallingParticle(seed: i * 31 + 7));
+
+  _CelebrationParticlesPainter({required this.progress});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    for (final p in _particles) {
+      // 每顆粒子有自己的循環 phase
+      final localT = ((progress + p.phase) % 1.0);
+      final x = (p.startX + sin(localT * pi * 2 + p.swayPhase) * p.swayAmt) *
+          size.width;
+      final y = (localT * 1.2 - 0.1) * size.height;
+      // 上下淡入淡出
+      double opacity = 1.0;
+      if (localT < 0.1) {
+        opacity = localT / 0.1;
+      } else if (localT > 0.85) {
+        opacity = (1.0 - localT) / 0.15;
+      }
+
+      final paint = Paint()
+        ..color = p.color.withAlpha((opacity * p.alpha).clamp(0, 255).toInt())
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 1.5);
+
+      // 旋轉的小光斑
+      canvas.save();
+      canvas.translate(x, y);
+      canvas.rotate(localT * pi * 2 * p.rotateSpeed);
+      canvas.drawCircle(Offset.zero, p.size, paint);
+      // 中心更亮
+      canvas.drawCircle(
+        Offset.zero,
+        p.size * 0.4,
+        Paint()
+          ..color = Colors.white
+              .withAlpha((opacity * 200).clamp(0, 255).toInt()),
+      );
+      canvas.restore();
+    }
+  }
+
+  @override
+  bool shouldRepaint(_CelebrationParticlesPainter old) =>
+      old.progress != progress;
+}
+
+class _FallingParticle {
+  final double startX;
+  final double phase;
+  final double swayPhase;
+  final double swayAmt;
+  final double size;
+  final double rotateSpeed;
+  final Color color;
+  final int alpha;
+
+  _FallingParticle({required int seed}) :
+        startX = _rand(seed),
+        phase = _rand(seed + 1),
+        swayPhase = _rand(seed + 2) * 6.28,
+        swayAmt = 0.04 + _rand(seed + 3) * 0.06,
+        size = 1.5 + _rand(seed + 4) * 3.5,
+        rotateSpeed = 0.3 + _rand(seed + 5) * 0.7,
+        color = _pickColor(seed),
+        alpha = 100 + (_rand(seed + 6) * 130).toInt();
+
+  static double _rand(int seed) {
+    // 簡單 deterministic random
+    final x = sin(seed * 12.9898) * 43758.5453;
+    return x - x.floorToDouble();
+  }
+
+  static Color _pickColor(int seed) {
+    final palette = [
+      const Color(0xFFFFD43B), // 金黃
+      const Color(0xFFFFB347), // 橘金
+      const Color(0xFFFFE4B5), // 奶油
+      const Color(0xFFFFFACD), // 檸檬
+    ];
+    return palette[seed.abs() % palette.length];
   }
 }

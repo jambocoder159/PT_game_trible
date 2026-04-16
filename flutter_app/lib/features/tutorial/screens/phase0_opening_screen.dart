@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../config/theme.dart';
+import '../../../core/widgets/paper_dialog.dart';
 import '../models/tutorial_dialogue_data.dart';
 import '../providers/tutorial_provider.dart';
 import '../../agents/providers/player_provider.dart';
@@ -84,39 +85,20 @@ class _Phase0OpeningScreenState extends State<Phase0OpeningScreen>
   }
 
   void _skip() {
-    showDialog(
+    PaperConfirmDialog.show(
       context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: AppTheme.bgSecondary,
-        title: const Text('跳過開場？',
-            style: TextStyle(color: AppTheme.textPrimary)),
-        content: const Text('您可以稍後在設定中重新觀看。',
-            style: TextStyle(color: AppTheme.textSecondary)),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('繼續觀看'),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(ctx);
-              _complete();
-            },
-            child: const Text('跳過',
-                style: TextStyle(color: AppTheme.accentPrimary)),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(ctx);
-              context
-                  .read<TutorialProvider>()
-                  .skipEntireTutorial(context.read<PlayerProvider>());
-            },
-            child:
-                const Text('跳過全部教學', style: TextStyle(color: Colors.red)),
-          ),
-        ],
-      ),
+      title: '跳過開場？',
+      content: '您可以稍後在設定中重新觀看。',
+      cancelText: '繼續觀看',
+      confirmText: '跳過全部教學',
+      isDestructive: true,
+      onConfirm: () {
+        context
+            .read<TutorialProvider>()
+            .skipEntireTutorial(context.read<PlayerProvider>());
+      },
+      secondaryConfirmText: '只跳過開場',
+      onSecondaryConfirm: _complete,
     );
   }
 

@@ -7,6 +7,7 @@ import '../../../config/app_version.dart';
 import '../../../config/theme.dart';
 import '../../../core/services/local_storage.dart';
 import '../../../core/services/settings_service.dart';
+import '../../../core/widgets/paper_dialog.dart';
 import '../../agents/providers/player_provider.dart';
 import '../../gm/screens/gm_screen.dart';
 import '../../tutorial/providers/tutorial_provider.dart';
@@ -209,45 +210,25 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   void _showResetConfirmation(BuildContext context) {
-    showDialog(
+    PaperConfirmDialog.show(
       context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: AppTheme.bgSecondary,
-        title: const Text(
-          '確認重置',
-          style: TextStyle(color: AppTheme.textPrimary),
-        ),
-        content: const Text(
-          '這將清除你所有的遊戲進度、角色、素材等資料。此操作無法恢復！',
-          style: TextStyle(color: AppTheme.textSecondary),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('取消'),
-          ),
-          TextButton(
-            onPressed: () async {
-              Navigator.pop(ctx);
+      title: '確認重置',
+      content: '這將清除你所有的遊戲進度、角色、素材等資料。此操作無法恢復！',
+      cancelText: '取消',
+      confirmText: '確認重置',
+      isDestructive: true,
+      onConfirm: () async {
+        final player = context.read<PlayerProvider>();
+        final tutorial = context.read<TutorialProvider>();
 
-              final player = context.read<PlayerProvider>();
-              final tutorial = context.read<TutorialProvider>();
+        await player.gmResetAll();
+        await tutorial.resetTutorial();
 
-              await player.gmResetAll();
-              await tutorial.resetTutorial();
-
-              if (context.mounted) {
-                // 回到最上層，觸發 main.dart 的 Consumer 重新判斷 → 進入教學
-                Navigator.of(context).popUntil((route) => route.isFirst);
-              }
-            },
-            child: Text(
-              '確認重置',
-              style: TextStyle(color: Colors.red.shade400),
-            ),
-          ),
-        ],
-      ),
+        if (context.mounted) {
+          // 回到最上層，觸發 main.dart 的 Consumer 重新判斷 → 進入教學
+          Navigator.of(context).popUntil((route) => route.isFirst);
+        }
+      },
     );
   }
 }

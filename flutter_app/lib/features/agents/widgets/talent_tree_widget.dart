@@ -6,6 +6,7 @@ import '../../../config/talent_tree_data.dart';
 import '../../../config/theme.dart';
 import '../../../core/models/material.dart';
 import '../../../core/models/talent_tree.dart';
+import '../../../core/widgets/paper_dialog.dart';
 import '../providers/player_provider.dart';
 
 class TalentTreeWidget extends StatelessWidget {
@@ -169,62 +170,89 @@ class _TalentNode extends StatelessWidget {
   }
 
   void _showNodeDetail(BuildContext context) {
-    showDialog(
+    PaperInfoDialog.show(
       context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: AppTheme.bgSecondary,
-        title: Text(node.name,
-            style: const TextStyle(color: AppTheme.textPrimary)),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(node.description,
-                style: const TextStyle(color: AppTheme.textSecondary)),
-            const SizedBox(height: 12),
-            Text('效果：${node.effectType.label} +${node.effectValue}%',
-                style: const TextStyle(color: AppTheme.textPrimary, fontSize: AppTheme.fontBodyLg)),
-            const SizedBox(height: 8),
-            if (!isUnlocked) ...[
-              Text('費用：',
-                  style: const TextStyle(
-                      color: AppTheme.textSecondary, fontSize: AppTheme.fontBodyLg)),
-              Text('  金幣 ${node.goldCost}',
-                  style: TextStyle(color: Colors.amber.shade300, fontSize: AppTheme.fontBodyMd)),
-              ...node.materialCost.entries.map((e) => Text(
-                    '  ${e.key.emoji} ${e.key.label} x${e.value}',
-                    style: const TextStyle(
-                        color: AppTheme.textSecondary, fontSize: AppTheme.fontBodyMd),
-                  )),
-            ],
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('關閉'),
-          ),
-          if (canUnlock)
-            ElevatedButton(
-              onPressed: () async {
-                final provider = ctx.read<PlayerProvider>();
-                final success =
-                    await provider.unlockTalentNode(agentId, node.id);
-                if (ctx.mounted) {
-                  Navigator.pop(ctx);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content:
-                          Text(success ? '天賦「${node.name}」解鎖成功！' : '資源不足'),
-                      backgroundColor: success ? Colors.green : Colors.red,
-                    ),
-                  );
-                }
-              },
-              style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.green.shade700),
-              child: const Text('解鎖'),
+      title: node.name,
+      closeText: '關閉',
+      actionText: canUnlock ? '解鎖' : null,
+      onAction: canUnlock
+          ? () async {
+              final provider = context.read<PlayerProvider>();
+              final success =
+                  await provider.unlockTalentNode(agentId, node.id);
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content:
+                        Text(success ? '天賦「${node.name}」解鎖成功！' : '資源不足'),
+                    backgroundColor: success ? Colors.green : Colors.red,
+                  ),
+                );
+              }
+            }
+          : null,
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            node.description,
+            style: const TextStyle(
+              color: Color(0xFF6B4226),
+              fontSize: AppTheme.fontBodyLg,
             ),
+          ),
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+            decoration: BoxDecoration(
+              color: const Color(0xFFFFD43B).withAlpha(40),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: const Color(0xFFB18A4A).withAlpha(120),
+                width: 1,
+              ),
+            ),
+            child: Text(
+              '✨ 效果：${node.effectType.label} +${node.effectValue}%',
+              style: const TextStyle(
+                color: Color(0xFF3D2817),
+                fontSize: AppTheme.fontBodyLg,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+          if (!isUnlocked) ...[
+            const SizedBox(height: 12),
+            const Text(
+              '解鎖費用',
+              style: TextStyle(
+                color: Color(0xFF8B4F1A),
+                fontSize: AppTheme.fontBodyLg,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 1,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              '🪙 金幣 ${node.goldCost}',
+              style: const TextStyle(
+                color: Color(0xFFB8860B),
+                fontSize: AppTheme.fontBodyLg,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            ...node.materialCost.entries.map((e) => Padding(
+                  padding: const EdgeInsets.only(top: 2),
+                  child: Text(
+                    '${e.key.emoji} ${e.key.label} x${e.value}',
+                    style: const TextStyle(
+                      color: Color(0xFF6B4226),
+                      fontSize: AppTheme.fontBodyMd,
+                    ),
+                  ),
+                )),
+          ],
         ],
       ),
     );

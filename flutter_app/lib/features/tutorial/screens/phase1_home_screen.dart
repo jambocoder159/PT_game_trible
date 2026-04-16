@@ -5,6 +5,7 @@ import '../../../config/game_modes.dart';
 import '../../../config/theme.dart';
 import '../../../core/models/block.dart';
 import '../../../core/models/bottle_data.dart';
+import '../../../core/widgets/paper_dialog.dart';
 import '../../agents/providers/player_provider.dart';
 import '../../game/providers/game_provider.dart';
 import '../../game/widgets/game_board.dart';
@@ -296,31 +297,18 @@ class _Phase1HomeScreenState extends State<Phase1HomeScreen> {
   }
 
   void _skipTutorial() {
-    showDialog(
+    PaperConfirmDialog.show(
       context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: AppTheme.bgSecondary,
-        title: const Text('跳過教學？',
-            style: TextStyle(color: AppTheme.textPrimary)),
-        content: const Text('您可以稍後在設定中重新體驗教學。',
-            style: TextStyle(color: AppTheme.textSecondary)),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('繼續學習'),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(ctx);
-              context
-                  .read<TutorialProvider>()
-                  .skipEntireTutorial(context.read<PlayerProvider>());
-            },
-            child: const Text('跳過全部教學',
-                style: TextStyle(color: Colors.red)),
-          ),
-        ],
-      ),
+      title: '跳過教學？',
+      content: '您可以稍後在設定中重新體驗教學。',
+      cancelText: '繼續學習',
+      confirmText: '跳過全部教學',
+      isDestructive: true,
+      onConfirm: () {
+        context
+            .read<TutorialProvider>()
+            .skipEntireTutorial(context.read<PlayerProvider>());
+      },
     );
   }
 
@@ -536,52 +524,10 @@ class _Phase1HomeScreenState extends State<Phase1HomeScreen> {
               ),
             ),
           ),
-          // 暗幕讓門更突出
-          Positioned.fill(
-            child: Container(color: Colors.black.withAlpha(80)),
-          ),
-          Center(
-            child: GestureDetector(
-              onTap: _onDoorTap,
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 500),
-                width: _doorOpened ? 300 : 180,
-                height: _doorOpened ? 400 : 280,
-                decoration: BoxDecoration(
-                  color: _doorOpened
-                      ? AppTheme.bgPrimary
-                      : const Color(0xFF5D4037),
-                  borderRadius: BorderRadius.circular(_doorOpened ? 0 : 16),
-                  border: _doorOpened
-                      ? null
-                      : Border.all(color: const Color(0xFFD7CCC8), width: 3),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withAlpha(80),
-                      blurRadius: 20,
-                      offset: const Offset(0, 8),
-                    ),
-                  ],
-                ),
-                child: Center(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(_doorOpened ? '🌟' : '🚪',
-                          style: const TextStyle(fontSize: 64)),
-                      if (!_doorOpened) ...[
-                        const SizedBox(height: 16),
-                        const Text('點擊開門',
-                            style: TextStyle(
-                                color: AppTheme.bgSecondary,
-                                fontSize: AppTheme.fontTitleMd,
-                                fontWeight: FontWeight.bold)),
-                      ],
-                    ],
-                  ),
-                ),
-              ),
-            ),
+          // Spotlight 暗角 + 發光大門 + 浮動手指
+          _DoorSpotlightScene(
+            isOpened: _doorOpened,
+            onTap: _onDoorTap,
           ),
           TutorialDialogueBox(
             dialogue: TutorialDialogues.t006,
@@ -670,4 +616,228 @@ class _HomeActionListenerState extends State<_HomeActionListener> {
       },
     );
   }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// 推門場景 — spotlight 暗角 + 發光大門 + 浮動手指提示
+// ═══════════════════════════════════════════════════════════════
+
+class _DoorSpotlightScene extends StatefulWidget {
+  final bool isOpened;
+  final VoidCallback onTap;
+
+  const _DoorSpotlightScene({
+    required this.isOpened,
+    required this.onTap,
+  });
+
+  @override
+  State<_DoorSpotlightScene> createState() => _DoorSpotlightSceneState();
+}
+
+class _DoorSpotlightSceneState extends State<_DoorSpotlightScene>
+    with TickerProviderStateMixin {
+  late AnimationController _pulseCtrl;
+  late AnimationController _fingerCtrl;
+  late AnimationController _openCtrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _pulseCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1500),
+    )..repeat(reverse: true);
+
+    _fingerCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 900),
+    )..repeat(reverse: true);
+
+    _openCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 700),
+    );
+    if (widget.isOpened) _openCtrl.value = 1.0;
+  }
+
+  @override
+  void didUpdateWidget(covariant _DoorSpotlightScene old) {
+    super.didUpdateWidget(old);
+    if (widget.isOpened && !old.isOpened) {
+      _openCtrl.forward(from: 0);
+      _pulseCtrl.stop();
+      _fingerCtrl.stop();
+    }
+  }
+
+  @override
+  void dispose() {
+    _pulseCtrl.dispose();
+    _fingerCtrl.dispose();
+    _openCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: Listenable.merge([_pulseCtrl, _fingerCtrl, _openCtrl]),
+      builder: (context, _) {
+        final pulseT = Curves.easeInOut.transform(_pulseCtrl.value);
+        final openT = Curves.easeOutCubic.transform(_openCtrl.value);
+        // 開門過程：spotlight 半徑放大、整層 fade out
+        final spotlightRadius = 130.0 + openT * 600;
+        final dimAlpha = (180 * (1 - openT * 0.9)).toInt();
+
+        return Stack(
+          fit: StackFit.expand,
+          children: [
+            // ── 1. Spotlight 暗角 ──
+            IgnorePointer(
+              child: CustomPaint(
+                painter: _SpotlightPainter(
+                  centerOffset: const Offset(0, -40),
+                  radius: spotlightRadius,
+                  dimColor: Colors.black.withAlpha(dimAlpha),
+                ),
+              ),
+            ),
+            // ── 2. 中央：發光大門 + 點擊區 ──
+            if (openT < 0.95)
+              Center(
+                child: Transform.translate(
+                  offset: const Offset(0, -40),
+                  child: GestureDetector(
+                    onTap: widget.isOpened ? null : widget.onTap,
+                    behavior: HitTestBehavior.opaque,
+                    child: SizedBox(
+                      width: 200,
+                      height: 240,
+                      child: Stack(
+                        alignment: Alignment.center,
+                        children: [
+                          // 外光暈（pulse 中）
+                          Container(
+                            width: 180,
+                            height: 180,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              boxShadow: [
+                                BoxShadow(
+                                  color: const Color(0xFFFFD43B)
+                                      .withAlpha((100 + pulseT * 120).toInt()),
+                                  blurRadius: 40 + pulseT * 30,
+                                  spreadRadius: 8 + pulseT * 8,
+                                ),
+                              ],
+                            ),
+                          ),
+                          // 大門 emoji（呼吸縮放）
+                          Transform.scale(
+                            scale: 1.0 + pulseT * 0.06 + openT * 0.4,
+                            child: Opacity(
+                              opacity: 1 - openT * 0.6,
+                              child: Text(
+                                widget.isOpened ? '🌟' : '🚪',
+                                style: const TextStyle(fontSize: 96),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            // ── 3. 浮動手指 + 「點擊開門」提示 ──
+            if (!widget.isOpened)
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: MediaQuery.of(context).size.height * 0.4 - 60,
+                child: IgnorePointer(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Transform.translate(
+                        offset: Offset(0, -10 * pulseT),
+                        child: const Text('👆', style: TextStyle(fontSize: 36)),
+                      ),
+                      const SizedBox(height: 4),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 14, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withAlpha(140),
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(
+                            color: const Color(0xFFFFD43B)
+                                .withAlpha((150 + pulseT * 100).toInt()),
+                            width: 1.2,
+                          ),
+                        ),
+                        child: const Text(
+                          '點擊開門',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: AppTheme.fontTitleMd,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 1.5,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+/// Spotlight 暗角 painter — 整個畫面變暗，挖出中央徑向亮區
+class _SpotlightPainter extends CustomPainter {
+  final Offset centerOffset; // 相對於畫面中心的偏移
+  final double radius;
+  final Color dimColor;
+
+  _SpotlightPainter({
+    required this.centerOffset,
+    required this.radius,
+    required this.dimColor,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2) + centerOffset;
+    final rect = Rect.fromLTWH(0, 0, size.width, size.height);
+
+    // 用 SaveLayer + dst-out 挖洞
+    canvas.saveLayer(rect, Paint());
+    // 整個畫面填暗色
+    canvas.drawRect(rect, Paint()..color = dimColor);
+    // 中央挖出徑向漸層（亮區）
+    canvas.drawCircle(
+      center,
+      radius,
+      Paint()
+        ..blendMode = BlendMode.dstOut
+        ..shader = RadialGradient(
+          colors: [
+            Colors.black,
+            Colors.black.withAlpha(180),
+            Colors.black.withAlpha(0),
+          ],
+          stops: const [0.0, 0.55, 1.0],
+        ).createShader(Rect.fromCircle(center: center, radius: radius)),
+    );
+    canvas.restore();
+  }
+
+  @override
+  bool shouldRepaint(_SpotlightPainter old) =>
+      old.radius != radius || old.dimColor != dimColor;
 }
