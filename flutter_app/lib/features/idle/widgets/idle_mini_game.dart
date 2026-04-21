@@ -55,7 +55,7 @@ class _IdleMiniGameState extends State<IdleMiniGame>
     final availableHeight = constraints.maxHeight - (numRows + 1) * gap;
     final blockByWidth = availableWidth / numCols;
     final blockByHeight = availableHeight / numRows;
-    final blockSize = blockByWidth.clamp(36.0, blockByHeight.clamp(36.0, 56.0));
+    final blockSize = blockByWidth.clamp(34.0, blockByHeight.clamp(34.0, 56.0));
     final cellSize = blockSize + gap;
     return _BoardLayout(
       blockSize: blockSize,

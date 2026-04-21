@@ -143,13 +143,13 @@ class GameModes {
     ),
   );
 
-  /// 首頁放置模式 — 3 列 8 行，無行動點限制，無計時，無 game over
+  /// 首頁放置模式 — 4 列 7 行，無行動點限制，無計時，無 game over
   static GameModeConfig idle = const GameModeConfig(
     id: 'idle',
     title: '放置消除',
     description: '輕鬆消除，餵養貓咪',
-    numCols: 3,
-    numRows: 10,
+    numCols: 4,
+    numRows: 7,
     actionPointsStart: 0, // 無行動點限制
     hasSkills: false,
     hasTimer: false,
