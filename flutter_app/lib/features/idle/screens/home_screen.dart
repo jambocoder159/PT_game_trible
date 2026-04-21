@@ -503,27 +503,18 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
 
-              // ─── 演出區（高度隨狀態變化） ───
-              _StageArea(
+              // ─── 演出區（固定高度）+ 瓶子（making 時被演出覆蓋） ───
+              _StageAndBottles(
                 stageMode: _stageMode,
                 stageColor: _stageColor,
                 onHarvest: _onHarvest,
                 externalHarvestButtonKey: widget.externalConvertButtonKey,
                 tutorialAutoSwitchKey: widget.tutorialAutoSwitchKey,
                 tutorialMode: widget.tutorialMode,
-              ),
-
-              // ─── 5 色瓶子橫排 ───
-              Padding(
-                padding: const EdgeInsets.fromLTRB(10, 4, 10, 4),
-                child: KeyedSubtree(
-                  key: widget.externalBottleAreaKey ?? _guideBottleAreaKey,
-                  child: _HorizontalBottleStrip(
-                    bottleKeys: _bottleKeys,
-                    onBottleTap: widget.tutorialMode ? null : () => WorkshopDetailPanel.show(context),
-                    onBottleFull: _triggerMake,
-                  ),
-                ),
+                bottleKeys: _bottleKeys,
+                bottleAreaKey: widget.externalBottleAreaKey ?? _guideBottleAreaKey,
+                onBottleTap: widget.tutorialMode ? null : () => WorkshopDetailPanel.show(context),
+                onBottleFull: _triggerMake,
               ),
 
               // ─── 棋盤 ───
@@ -871,7 +862,88 @@ class _HorizontalBottleStrip extends StatelessWidget {
 }
 
 // ═══════════════════════════════════════════
-// 角色演出區 — idle / making / serving 三態 + 高度動畫
+// 演出區 + 瓶子合體：making 時演出往下蓋住瓶子
+// ═══════════════════════════════════════════
+
+class _StageAndBottles extends StatelessWidget {
+  final String stageMode;
+  final BlockColor? stageColor;
+  final VoidCallback onHarvest;
+  final GlobalKey? externalHarvestButtonKey;
+  final GlobalKey? tutorialAutoSwitchKey;
+  final bool tutorialMode;
+  final Map<BlockColor, GlobalKey> bottleKeys;
+  final GlobalKey bottleAreaKey;
+  final VoidCallback? onBottleTap;
+  final void Function(BlockColor)? onBottleFull;
+
+  const _StageAndBottles({
+    required this.stageMode,
+    this.stageColor,
+    required this.onHarvest,
+    this.externalHarvestButtonKey,
+    this.tutorialAutoSwitchKey,
+    this.tutorialMode = false,
+    required this.bottleKeys,
+    required this.bottleAreaKey,
+    this.onBottleTap,
+    this.onBottleFull,
+  });
+
+  bool get _isExpanded => stageMode != 'idle';
+  // 演出區固定高度 + 瓶子高度
+  static const _stageHeight = 120.0;
+  static const _bottleHeight = 60.0;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: _stageHeight + _bottleHeight,
+      child: Stack(
+        children: [
+          // 底層：瓶子（固定在底部）
+          Positioned(
+            left: 10, right: 10, bottom: 0,
+            height: _bottleHeight,
+            child: AnimatedOpacity(
+              duration: const Duration(milliseconds: 300),
+              opacity: _isExpanded ? 0.0 : 1.0,
+              child: KeyedSubtree(
+                key: bottleAreaKey,
+                child: _HorizontalBottleStrip(
+                  bottleKeys: bottleKeys,
+                  onBottleTap: onBottleTap,
+                  onBottleFull: onBottleFull,
+                ),
+              ),
+            ),
+          ),
+
+          // 上層：演出區（making 時擴展覆蓋瓶子）
+          Positioned(
+            left: 0, right: 0, top: 0,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 380),
+              curve: Curves.easeInOutCubic,
+              height: _isExpanded ? _stageHeight + _bottleHeight : _stageHeight,
+              child: _StageArea(
+                stageMode: stageMode,
+                stageColor: stageColor,
+                onHarvest: onHarvest,
+                externalHarvestButtonKey: externalHarvestButtonKey,
+                tutorialAutoSwitchKey: tutorialAutoSwitchKey,
+                tutorialMode: tutorialMode,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ═══════════════════════════════════════════
+// 角色演出區 — idle / making / serving 三態
 // ═══════════════════════════════════════════
 
 class _StageArea extends StatelessWidget {
@@ -900,10 +972,7 @@ class _StageArea extends StatelessWidget {
         if (!pp.isInitialized) return const SizedBox.shrink();
         final team = pp.data.team;
 
-        return AnimatedContainer(
-          duration: const Duration(milliseconds: 380),
-          curve: Curves.easeInOutCubic,
-          height: _isExpanded ? 230 : 110,
+        return Container(
           margin: const EdgeInsets.symmetric(horizontal: 8),
           clipBehavior: Clip.antiAlias,
           decoration: BoxDecoration(
