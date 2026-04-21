@@ -341,7 +341,14 @@ class _BattleScreenState extends State<BattleScreen> {
   Widget build(BuildContext context) {
     final bgPath = ImageAssets.battleBackground(widget.stage.chapter);
 
-    return Scaffold(
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) {
+          _confirmExitBattle(context, context.read<BattleProvider>());
+        }
+      },
+      child: Scaffold(
       backgroundColor: AppTheme.bgPrimary,
       body: SafeArea(
         child: Stack(
@@ -592,6 +599,7 @@ class _BattleScreenState extends State<BattleScreen> {
           ],
         ),
       ),
+    ),
     );
   }
 }
@@ -6711,6 +6719,7 @@ class _IntroStep {
   final String? speakerName;
   final String? emoji;
   final String? agentId;
+  final String? enemyId;
   final bool isPlayerSide;
   final String text;
   final String? guideTitle;
@@ -6723,6 +6732,7 @@ class _IntroStep {
     this.speakerName,
     this.emoji,
     this.agentId,
+    this.enemyId,
     required this.isPlayerSide,
     required this.text,
     this.guideTitle,
@@ -6732,11 +6742,11 @@ class _IntroStep {
 
   static _IntroStep dialogue(
     String name, String? emoji, bool isPlayer, String text,
-    {String? agentId}
+    {String? agentId, String? enemyId}
   ) {
     return _IntroStep._(
       isDialogue: true, speakerName: name, emoji: emoji,
-      agentId: agentId, isPlayerSide: isPlayer, text: text,
+      agentId: agentId, enemyId: enemyId, isPlayerSide: isPlayer, text: text,
     );
   }
 
@@ -6805,6 +6815,7 @@ class _TutorialBattleIntroState extends State<_TutorialBattleIntro>
           _IntroStep.dialogue(
             '發霉小餐包', '🍞', false,
             '哼！誰准你進來的？這裡是我們的地盤！',
+            enemyId: 'moldy_bun',
           ),
           _IntroStep.dialogue(
             '小麥', null, true,
@@ -6828,6 +6839,7 @@ class _TutorialBattleIntroState extends State<_TutorialBattleIntro>
           _IntroStep.dialogue(
             '發霉小餐包', '🍞', false,
             '又來了？這次有兩個，你打不過我們的！',
+            enemyId: 'moldy_bun',
           ),
           _IntroStep.dialogue(
             '小麥', null, true,
@@ -7009,6 +7021,17 @@ class _TutorialBattleIntroState extends State<_TutorialBattleIntro>
                   errorBuilder: (_, __, ___) => Center(
                     child: Text(
                       '🐱',
+                      style: TextStyle(fontSize: screenSize.width * 0.15),
+                    ),
+                  ),
+                )
+              : step.enemyId != null
+              ? Image.asset(
+                  ImageAssets.enemyImage(step.enemyId!),
+                  fit: BoxFit.contain,
+                  errorBuilder: (_, __, ___) => Center(
+                    child: Text(
+                      step.emoji ?? '❓',
                       style: TextStyle(fontSize: screenSize.width * 0.15),
                     ),
                   ),

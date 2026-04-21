@@ -423,6 +423,8 @@ class _HomeScreenState extends State<HomeScreen> {
     final playerProvider = context.read<PlayerProvider>();
     final result = bottleProvider.harvest(playerProvider.data);
     if (result.isEmpty) return;
+    // 立即持久化金幣變更，避免 crash 丟失
+    playerProvider.notifyAndSave();
     HapticFeedback.mediumImpact();
     // 延遲通知：等粒子飛到錢幣區域後再觸發計數器動畫
     _showHarvestAnimation(result, onParticlesArrived: () {

@@ -1538,9 +1538,10 @@ class _StagePathMap extends StatelessWidget {
                   (stageProgress[stages[index - 1].id]?.cleared == true);
               final isCurrent = isUnlocked && !isCleared;
               final isBoss = stage.stageNumber == stages.length;
+              final labelOnLeft = index % 4 == 2; // rightX 位置時標籤放左
 
               return Positioned(
-                left: pos.dx,
+                left: labelOnLeft ? pos.dx - 100 : pos.dx,
                 top: pos.dy,
                 child: _StageNode(
                   stage: stage,
@@ -1551,6 +1552,7 @@ class _StagePathMap extends StatelessWidget {
                   stars: stars,
                   stamina: stamina,
                   nodeSize: nodeSize,
+                  labelOnLeft: labelOnLeft,
                   pulseAnimation: isCurrent ? pulseAnimation : null,
                   onTap: isUnlocked
                       ? () => onStageTap(stage)
@@ -1653,9 +1655,7 @@ class _PathPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant _PathPainter oldDelegate) {
-    return oldDelegate.stageProgress != stageProgress;
-  }
+  bool shouldRepaint(covariant _PathPainter oldDelegate) => true;
 }
 
 // ═══════════════════════════════════════
@@ -1671,6 +1671,7 @@ class _StageNode extends StatelessWidget {
   final int stars;
   final int stamina;
   final double nodeSize;
+  final bool labelOnLeft;
   final Animation<double>? pulseAnimation;
   final VoidCallback? onTap;
 
@@ -1683,6 +1684,7 @@ class _StageNode extends StatelessWidget {
     required this.stars,
     required this.stamina,
     required this.nodeSize,
+    this.labelOnLeft = false,
     this.pulseAnimation,
     this.onTap,
   });
@@ -1704,7 +1706,7 @@ class _StageNode extends StatelessWidget {
           children: [
             // 節點圓圈
             Positioned(
-              left: 0,
+              left: labelOnLeft ? 100 : 0,
               top: 0,
               child: pulseAnimation != null
                   ? AnimatedBuilder(
@@ -1718,12 +1720,13 @@ class _StageNode extends StatelessWidget {
                   : _buildNodeCircle(),
             ),
 
-            // 關卡名稱（節點右側）
+            // 關卡名稱
             Positioned(
-              left: nodeSize + 8,
+              left: labelOnLeft ? 0 : nodeSize + 8,
+              right: labelOnLeft ? nodeSize + 8 : null,
               top: 4,
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+                crossAxisAlignment: labelOnLeft ? CrossAxisAlignment.end : CrossAxisAlignment.start,
                 children: [
                   Text(
                     stage.name,
@@ -1775,7 +1778,7 @@ class _StageNode extends StatelessWidget {
             // 星星（已通關）
             if (isCleared)
               Positioned(
-                left: (nodeSize - 42) / 2,
+                left: (labelOnLeft ? 100 : 0) + (nodeSize - 42) / 2,
                 top: nodeSize - 2,
                 child: Row(
                   mainAxisSize: MainAxisSize.min,

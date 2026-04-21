@@ -34,9 +34,9 @@ class PlayerProvider extends ChangeNotifier {
   }
 
   /// 通知 UI 並儲存（外部直接修改 data 後呼叫）
-  void notifyAndSave() {
+  Future<void> notifyAndSave() async {
     notifyListeners();
-    _save();
+    await _save();
   }
 
   // ─── 角色操作 ───
@@ -248,10 +248,8 @@ class PlayerProvider extends ChangeNotifier {
     }
     _data.dailyQuests.stagesCompleted++;
 
-    // 先通知 UI 更新（解鎖下一關），再非同步存檔
-    // 避免手機上 SharedPreferences 較慢導致 UI 未刷新
     notifyListeners();
-    _save();
+    await _save();
 
     return BattleReward(
       gold: actualGold,
@@ -798,7 +796,7 @@ class PlayerProvider extends ChangeNotifier {
     }
 
     notifyListeners();
-    _save();
+    await _save();
   }
 
   /// 標記教學關卡通過（不改 tutorialCompleted 旗標）
@@ -809,7 +807,7 @@ class PlayerProvider extends ChangeNotifier {
         stars: 3,
       );
       notifyListeners();
-      _save();
+      await _save();
     }
   }
 

@@ -377,9 +377,9 @@ class _Phase1HomeScreenState extends State<Phase1HomeScreen> {
             },
           ),
 
-        // 跳過按鈕
+        // 跳過按鈕（避開頂部 PlayerInfoBar）
         Positioned(
-          top: MediaQuery.of(context).padding.top + 8,
+          top: MediaQuery.of(context).padding.top + 52,
           right: 12,
           child: TextButton(
             onPressed: _skipTutorial,
