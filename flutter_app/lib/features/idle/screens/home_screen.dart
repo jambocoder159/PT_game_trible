@@ -84,8 +84,9 @@ class _HomeScreenState extends State<HomeScreen> {
   AgentAttribute? _skillVfxAttribute;
   String? _skillVfxAgentName;
 
-  // 演出區烹飪動畫
-  bool _isCooking = false;
+  // 演出區狀態：idle → making (3.5s) → serving (1.3s) → idle
+  String _stageMode = 'idle'; // 'idle' | 'making' | 'serving'
+  BlockColor? _stageColor; // 哪個瓶子觸發了 making
 
   // 瓶子 GlobalKey（用於定位能量球目標位置）
   final Map<BlockColor, GlobalKey> _bottleKeys = {};
@@ -421,24 +422,42 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  /// 一鍵收成（含動畫）
+  /// 瓶子滿時觸發生產流程
+  void _triggerMake(BlockColor color) {
+    if (_stageMode != 'idle') return;
+    setState(() {
+      _stageMode = 'making';
+      _stageColor = color;
+    });
+    // 3.5s 後切換到 serving
+    Future.delayed(const Duration(milliseconds: 3500), () {
+      if (!mounted || _stageMode != 'making') return;
+      // 收穫該瓶的能量
+      final bp = context.read<BottleProvider>();
+      final pp = context.read<PlayerProvider>();
+      bp.harvest(pp.data);
+      pp.notifyAndSave();
+      setState(() => _stageMode = 'serving');
+      // 1.3s 後回到 idle
+      Future.delayed(const Duration(milliseconds: 1300), () {
+        if (mounted) setState(() { _stageMode = 'idle'; _stageColor = null; });
+      });
+    });
+  }
+
+  /// 手動收成（收成按鈕 / 演出區內按鈕）
   void _onHarvest() {
-    final bottleProvider = context.read<BottleProvider>();
-    final playerProvider = context.read<PlayerProvider>();
-    final result = bottleProvider.harvest(playerProvider.data);
-    if (result.isEmpty) return;
-    // 立即持久化金幣變更，避免 crash 丟失
-    playerProvider.notifyAndSave();
-    HapticFeedback.mediumImpact();
-    // 觸發演出區烹飪動畫
-    setState(() => _isCooking = true);
-    Future.delayed(const Duration(milliseconds: 1200), () {
-      if (mounted) setState(() => _isCooking = false);
-    });
-    // 延遲通知：等粒子飛到錢幣區域後再觸發計數器動畫
-    _showHarvestAnimation(result, onParticlesArrived: () {
-      playerProvider.notifyAndSave();
-    });
+    if (_stageMode != 'idle') return;
+    final bp = context.read<BottleProvider>();
+    if (bp.getHarvestableCount() <= 0) return;
+    // 找到第一個有能量的瓶子觸發 making
+    for (final def in BottleDefinitions.all) {
+      final bottle = bp.getBottle(def.color);
+      if (bottle.currentEnergy > 0) {
+        _triggerMake(def.color);
+        return;
+      }
+    }
   }
 
   /// 收成動畫：甜點圖示飛出 → 金幣數字放大
@@ -484,40 +503,33 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
 
-              // ─── 角色演出區 ───
-              Expanded(
-                flex: 3,
-                child: _StageArea(isCooking: _isCooking),
-              ),
-
-              // ─── 角色區 + 收成 + 設定 ───
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                child: _StageCharacterRow(
-                  onHarvest: _onHarvest,
-                  externalHarvestButtonKey: widget.externalConvertButtonKey,
-                  tutorialAutoSwitchKey: widget.tutorialAutoSwitchKey,
-                  tutorialMode: widget.tutorialMode,
-                ),
+              // ─── 演出區（高度隨狀態變化） ───
+              _StageArea(
+                stageMode: _stageMode,
+                stageColor: _stageColor,
+                onHarvest: _onHarvest,
+                externalHarvestButtonKey: widget.externalConvertButtonKey,
+                tutorialAutoSwitchKey: widget.tutorialAutoSwitchKey,
+                tutorialMode: widget.tutorialMode,
               ),
 
               // ─── 5 色瓶子橫排 ───
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                padding: const EdgeInsets.fromLTRB(10, 4, 10, 4),
                 child: KeyedSubtree(
                   key: widget.externalBottleAreaKey ?? _guideBottleAreaKey,
                   child: _HorizontalBottleStrip(
                     bottleKeys: _bottleKeys,
                     onBottleTap: widget.tutorialMode ? null : () => WorkshopDetailPanel.show(context),
+                    onBottleFull: _triggerMake,
                   ),
                 ),
               ),
 
               // ─── 棋盤 ───
               Expanded(
-                flex: 4,
                 child: Padding(
-                  padding: const EdgeInsets.fromLTRB(8, 0, 8, 0),
+                  padding: const EdgeInsets.fromLTRB(8, 0, 8, 4),
                   child: IdleMiniGame(key: _gameAreaKey),
                 ),
               ),
@@ -718,205 +730,18 @@ class _SkillVfxOverlayState extends State<_SkillVfxOverlay>
 }
 
 // ═══════════════════════════════════════════
-// 角色區 + 收成按鈕 + 自動設定齒輪
-// ═══════════════════════════════════════════
-
-class _StageCharacterRow extends StatelessWidget {
-  final VoidCallback onHarvest;
-  final GlobalKey? externalHarvestButtonKey;
-  final GlobalKey? tutorialAutoSwitchKey;
-  final bool tutorialMode;
-
-  const _StageCharacterRow({
-    required this.onHarvest,
-    this.externalHarvestButtonKey,
-    this.tutorialAutoSwitchKey,
-    this.tutorialMode = false,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Consumer3<PlayerProvider, IdleProvider, BottleProvider>(
-      builder: (context, pp, idle, bp, _) {
-        if (!pp.isInitialized) return const SizedBox.shrink();
-
-        return Row(
-          children: [
-            // ── 角色頭像 + 能量條 ──
-            _buildCharacter(pp, idle),
-            const SizedBox(width: 8),
-
-            // ── 收成按鈕 ──
-            Expanded(
-              child: _wrapWithKey(externalHarvestButtonKey, _HarvestButton(
-                bottleProvider: bp,
-                onTap: onHarvest,
-              )),
-            ),
-            const SizedBox(width: 8),
-
-            // ── 齒輪（自動設定） ──
-            _buildGearButton(context, idle, bp),
-          ],
-        );
-      },
-    );
-  }
-
-  Widget _wrapWithKey(GlobalKey? key, Widget child) {
-    if (key == null) return child;
-    return KeyedSubtree(key: key, child: child);
-  }
-
-  Widget _buildCharacter(PlayerProvider pp, IdleProvider idle) {
-    final team = pp.data.team;
-    if (team.isEmpty) {
-      return Container(
-        width: 48, height: 48,
-        decoration: BoxDecoration(
-          color: AppTheme.bgCard,
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: AppTheme.textSecondary.withAlpha(40)),
-        ),
-        child: const Center(child: Text('?', style: TextStyle(fontSize: AppTheme.fontTitleLg, color: AppTheme.textSecondary))),
-      );
-    }
-    final agentId = team.first;
-    final agentDef = _findAgentDef(agentId);
-    if (agentDef == null) return const SizedBox(width: 48, height: 48);
-
-    final isReady = idle.isSkillReady(agentId);
-    final energy = idle.getEnergy(agentId);
-    final cost = agentDef.skill.energyCost;
-    final attrColor = _attrColorFor(agentDef.attribute);
-
-    return GestureDetector(
-      onTap: isReady
-          ? () { HapticFeedback.mediumImpact(); idle.activateSkill(agentId); }
-          : null,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 48, height: 48,
-            decoration: BoxDecoration(
-              color: attrColor.withAlpha(25),
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(
-                color: isReady ? attrColor.withAlpha(200) : attrColor.withAlpha(60),
-                width: isReady ? 2 : 1,
-              ),
-              boxShadow: isReady ? [BoxShadow(color: attrColor.withAlpha(80), blurRadius: 8)] : null,
-            ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(9),
-              child: _buildAgentImg(agentId, agentDef, 48),
-            ),
-          ),
-          const SizedBox(height: 3),
-          // 能量條
-          SizedBox(
-            width: 48,
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(3),
-              child: LinearProgressIndicator(
-                value: (energy / cost).clamp(0.0, 1.0), minHeight: 5,
-                backgroundColor: AppTheme.bgSecondary,
-                valueColor: AlwaysStoppedAnimation(isReady ? attrColor : attrColor.withAlpha(120)),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildGearButton(BuildContext context, IdleProvider idle, BottleProvider bp) {
-    final config = idle.autoConfig;
-    final progress = context.read<PlayerProvider>().data.stageProgress;
-    final isHarvestUnlocked = progress[AutoEliminateConfig.autoHarvestUnlockStage]?.cleared ?? false;
-    final isEliminateUnlocked = progress[AutoEliminateConfig.autoEliminateUnlockStage]?.cleared ?? false;
-    final hasAutoActive = (isHarvestUnlocked && bp.autoHarvestEnabled) || (isEliminateUnlocked && config.isAutoActive);
-
-    return KeyedSubtree(
-      key: tutorialAutoSwitchKey ?? GlobalKey(),
-      child: GestureDetector(
-        onTap: () {
-          showModalBottomSheet(
-            context: context,
-            isScrollControlled: true,
-            backgroundColor: AppTheme.bgSecondary,
-            shape: const RoundedRectangleBorder(
-              borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-            ),
-            builder: (_) => const AutoEliminateSettings(),
-          );
-        },
-        child: Stack(
-          clipBehavior: Clip.none,
-          children: [
-            Container(
-              width: 36, height: 36,
-              decoration: BoxDecoration(
-                color: AppTheme.bgCard,
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: AppTheme.accentSecondary.withAlpha(40)),
-              ),
-              child: Icon(Icons.tune_rounded, size: 18, color: AppTheme.textSecondary.withAlpha(160)),
-            ),
-            if (hasAutoActive)
-              Positioned(
-                top: -2, right: -2,
-                child: Container(
-                  width: 8, height: 8,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF4CAF50),
-                    shape: BoxShape.circle,
-                    border: Border.all(color: AppTheme.bgCard, width: 1),
-                  ),
-                ),
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  static Widget _buildAgentImg(String agentId, CatAgentDefinition agentDef, double size) {
-    final iconPath = ImageAssets.iconImage(agentId);
-    if (iconPath == null) {
-      return Center(
-        child: GameIcon(
-          assetPath: ImageAssets.attributeIcon(agentDef.attribute),
-          fallbackEmoji: agentDef.attribute.emoji,
-          size: size * 0.5,
-        ),
-      );
-    }
-    return Image.asset(
-      iconPath, width: size, height: size, fit: BoxFit.cover,
-      errorBuilder: (_, __, ___) => Center(
-        child: GameIcon(
-          assetPath: ImageAssets.attributeIcon(agentDef.attribute),
-          fallbackEmoji: agentDef.attribute.emoji,
-          size: size * 0.5,
-        ),
-      ),
-    );
-  }
-}
-
-// ═══════════════════════════════════════════
 // 5 色瓶子橫排
 // ═══════════════════════════════════════════
 
 class _HorizontalBottleStrip extends StatelessWidget {
   final Map<BlockColor, GlobalKey> bottleKeys;
   final VoidCallback? onBottleTap;
+  final void Function(BlockColor color)? onBottleFull;
 
   const _HorizontalBottleStrip({
     required this.bottleKeys,
     this.onBottleTap,
+    this.onBottleFull,
   });
 
   @override
@@ -927,6 +752,18 @@ class _HorizontalBottleStrip extends StatelessWidget {
 
         for (final def in BottleDefinitions.all) {
           bottleKeys.putIfAbsent(def.color, () => GlobalKey());
+        }
+
+        // 檢查是否有瓶子剛滿，觸發 making
+        if (onBottleFull != null) {
+          for (final def in BottleDefinitions.all) {
+            if (bp.getBottle(def.color).isFull) {
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                onBottleFull!(def.color);
+              });
+              break;
+            }
+          }
         }
 
         return Row(
@@ -1034,101 +871,403 @@ class _HorizontalBottleStrip extends StatelessWidget {
 }
 
 // ═══════════════════════════════════════════
-// 角色演出區 — 場景 + 走動 + 收穫動畫
+// 角色演出區 — idle / making / serving 三態 + 高度動畫
 // ═══════════════════════════════════════════
 
-class _StageArea extends StatefulWidget {
-  final bool isCooking;
-  const _StageArea({required this.isCooking});
+class _StageArea extends StatelessWidget {
+  final String stageMode; // 'idle' | 'making' | 'serving'
+  final BlockColor? stageColor;
+  final VoidCallback onHarvest;
+  final GlobalKey? externalHarvestButtonKey;
+  final GlobalKey? tutorialAutoSwitchKey;
+  final bool tutorialMode;
 
-  @override
-  State<_StageArea> createState() => _StageAreaState();
-}
+  const _StageArea({
+    required this.stageMode,
+    this.stageColor,
+    required this.onHarvest,
+    this.externalHarvestButtonKey,
+    this.tutorialAutoSwitchKey,
+    this.tutorialMode = false,
+  });
 
-class _StageAreaState extends State<_StageArea> {
+  bool get _isExpanded => stageMode != 'idle';
+
   @override
   Widget build(BuildContext context) {
-    return Consumer<PlayerProvider>(
-      builder: (context, pp, _) {
+    return Consumer3<PlayerProvider, IdleProvider, BottleProvider>(
+      builder: (context, pp, idle, bp, _) {
+        if (!pp.isInitialized) return const SizedBox.shrink();
         final team = pp.data.team;
-        if (team.isEmpty) return const SizedBox.shrink();
 
-        return LayoutBuilder(
-          builder: (context, constraints) {
-            final w = constraints.maxWidth;
-            final h = constraints.maxHeight;
-
-            return Container(
-              margin: const EdgeInsets.symmetric(horizontal: 8),
-              clipBehavior: Clip.antiAlias,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-                border: Border.all(color: AppTheme.accentSecondary.withAlpha(30)),
+        return AnimatedContainer(
+          duration: const Duration(milliseconds: 380),
+          curve: Curves.easeInOutCubic,
+          height: _isExpanded ? 230 : 110,
+          margin: const EdgeInsets.symmetric(horizontal: 8),
+          clipBehavior: Clip.antiAlias,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: _isExpanded
+                  ? [const Color(0xFFFFE9C2), const Color(0xFFFFD79A)]
+                  : [const Color(0xFFFFF1D6), AppTheme.bgSecondary],
+            ),
+            border: Border.all(color: AppTheme.accentSecondary.withAlpha(30)),
+          ),
+          child: Stack(
+            children: [
+              // 背景圖
+              Positioned.fill(
+                child: Opacity(
+                  opacity: 0.4,
+                  child: Image.asset(
+                    ImageAssets.homeBackground,
+                    fit: BoxFit.cover,
+                    alignment: Alignment.bottomCenter,
+                    errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                  ),
+                ),
               ),
-              child: Stack(
-                children: [
-                  // 背景
-                  Positioned.fill(
-                    child: Image.asset(
-                      ImageAssets.homeBackground,
-                      fit: BoxFit.cover,
-                      alignment: Alignment.bottomCenter,
-                      errorBuilder: (_, __, ___) => Container(
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            begin: Alignment.topCenter,
-                            end: Alignment.bottomCenter,
-                            colors: [
-                              const Color(0xFF87CEEB).withAlpha(80),
-                              const Color(0xFF90EE90).withAlpha(60),
-                              AppTheme.bgSecondary,
-                            ],
-                          ),
-                        ),
-                      ),
+
+              // 地面漸層
+              Positioned(
+                left: 0, right: 0, bottom: 0, height: 30,
+                child: Container(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [Colors.transparent, AppTheme.bgSecondary.withAlpha(200)],
                     ),
                   ),
+                ),
+              ),
 
-                  // 地面線
-                  Positioned(
-                    left: 0, right: 0, bottom: 0,
-                    height: h * 0.2,
+              // ── idle：角色走動 ──
+              if (stageMode == 'idle' && team.isNotEmpty)
+                Positioned.fill(
+                  child: LayoutBuilder(
+                    builder: (_, c) => Stack(
+                      children: List.generate(team.length.clamp(0, 3), (i) {
+                        final agentId = team[i];
+                        final agentDef = _findAgentDef(agentId);
+                        if (agentDef == null) return const SizedBox.shrink();
+                        final instance = pp.data.agents[agentId];
+                        return _StageCharacter(
+                          agentId: agentId,
+                          agentDef: agentDef,
+                          evolutionStage: instance?.evolutionStage ?? 0,
+                          index: i,
+                          totalCharacters: team.length.clamp(1, 3),
+                          stageWidth: c.maxWidth,
+                          stageHeight: c.maxHeight,
+                          isCooking: false,
+                        );
+                      }),
+                    ),
+                  ),
+                ),
+
+              // ── making：烹飪動畫 ──
+              if (stageMode == 'making')
+                _MakingScene(team: team, stageColor: stageColor),
+
+              // ── serving：上菜動畫 ──
+              if (stageMode == 'serving')
+                _ServingScene(stageColor: stageColor),
+
+              // ── 左上：廚房按鈕 ──
+              if (stageMode == 'idle')
+                Positioned(
+                  left: 8, top: 8,
+                  child: _wrapWithKey(externalHarvestButtonKey, GestureDetector(
+                    onTap: onHarvest,
                     child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                       decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                          colors: [
-                            Colors.transparent,
-                            AppTheme.bgSecondary.withAlpha(180),
-                          ],
-                        ),
+                        color: Colors.white.withAlpha(220),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: AppTheme.accentSecondary.withAlpha(40)),
+                      ),
+                      child: Consumer<BottleProvider>(
+                        builder: (_, bp, __) {
+                          final ready = bp.getHarvestableCount() > 0;
+                          return Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(ready ? '🍳' : '🏠', style: const TextStyle(fontSize: 14)),
+                              const SizedBox(width: 4),
+                              Text(
+                                ready ? '收成！' : '廚房',
+                                style: TextStyle(
+                                  fontSize: AppTheme.fontLabelLg,
+                                  fontWeight: FontWeight.w900,
+                                  color: ready ? AppTheme.accentPrimary : AppTheme.textSecondary,
+                                ),
+                              ),
+                            ],
+                          );
+                        },
                       ),
                     ),
-                  ),
+                  )),
+                ),
 
-                  // 角色們
-                  ...List.generate(team.length.clamp(0, 3), (i) {
-                    final agentId = team[i];
-                    final agentDef = _findAgentDef(agentId);
-                    if (agentDef == null) return const SizedBox.shrink();
-                    final instance = pp.data.agents[agentId];
+              // ── 右上：齒輪（自動設定） ──
+              if (stageMode == 'idle')
+                Positioned(
+                  right: 8, top: 8,
+                  child: _buildGearButton(context, idle, bp, tutorialAutoSwitchKey),
+                ),
+            ],
+          ),
+        );
+      },
+    );
+  }
 
-                    return _StageCharacter(
-                      agentId: agentId,
-                      agentDef: agentDef,
-                      evolutionStage: instance?.evolutionStage ?? 0,
-                      index: i,
-                      totalCharacters: team.length.clamp(1, 3),
-                      stageWidth: w,
-                      stageHeight: h,
-                      isCooking: widget.isCooking,
-                    );
-                  }),
-                ],
+  Widget _wrapWithKey(GlobalKey? key, Widget child) {
+    if (key == null) return child;
+    return KeyedSubtree(key: key, child: child);
+  }
+
+  static Widget _buildGearButton(BuildContext context, IdleProvider idle, BottleProvider bp, GlobalKey? tutorialKey) {
+    final config = idle.autoConfig;
+    final progress = context.read<PlayerProvider>().data.stageProgress;
+    final isHarvestUnlocked = progress[AutoEliminateConfig.autoHarvestUnlockStage]?.cleared ?? false;
+    final isEliminateUnlocked = progress[AutoEliminateConfig.autoEliminateUnlockStage]?.cleared ?? false;
+    final hasAutoActive = (isHarvestUnlocked && bp.autoHarvestEnabled) || (isEliminateUnlocked && config.isAutoActive);
+
+    return KeyedSubtree(
+      key: tutorialKey ?? GlobalKey(),
+      child: GestureDetector(
+        onTap: () {
+          showModalBottomSheet(
+            context: context,
+            isScrollControlled: true,
+            backgroundColor: AppTheme.bgSecondary,
+            shape: const RoundedRectangleBorder(
+              borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+            ),
+            builder: (_) => const AutoEliminateSettings(),
+          );
+        },
+        child: Container(
+          width: 32, height: 32,
+          decoration: BoxDecoration(
+            color: Colors.white.withAlpha(220),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: AppTheme.accentSecondary.withAlpha(40)),
+          ),
+          child: Stack(
+            children: [
+              Center(child: Icon(Icons.tune_rounded, size: 16, color: AppTheme.textSecondary.withAlpha(160))),
+              if (hasAutoActive)
+                Positioned(
+                  top: 2, right: 2,
+                  child: Container(width: 6, height: 6, decoration: const BoxDecoration(color: Color(0xFF4CAF50), shape: BoxShape.circle)),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ── 烹飪場景 ──
+class _MakingScene extends StatelessWidget {
+  final List<String> team;
+  final BlockColor? stageColor;
+  const _MakingScene({required this.team, this.stageColor});
+
+  @override
+  Widget build(BuildContext context) {
+    final colorDef = stageColor != null
+        ? BottleDefinitions.all.firstWhere((d) => d.color == stageColor, orElse: () => BottleDefinitions.all.first)
+        : BottleDefinitions.all.first;
+
+    return Stack(
+      children: [
+        // 主角色（中間偏左）
+        if (team.isNotEmpty)
+          Positioned(
+            left: 60, bottom: 30,
+            child: _AnimatedCookingCat(agentId: team.first),
+          ),
+        // 能量瓶（左側）
+        Positioned(
+          left: 20, top: 20,
+          child: Text(colorDef.emoji, style: const TextStyle(fontSize: 32)),
+        ),
+        // 鍋子（右側）
+        Positioned(
+          right: 30, bottom: 25,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // 蒸汽
+              Text('♨️', style: TextStyle(fontSize: 18, color: Colors.white.withAlpha(180))),
+              const Text('🍲', style: TextStyle(fontSize: 36)),
+            ],
+          ),
+        ),
+        // 助手角色
+        ...List.generate((team.length - 1).clamp(0, 2), (i) {
+          return Positioned(
+            right: 20.0 + i * 40,
+            bottom: 60,
+            child: _buildSmallAgent(team[i + 1]),
+          );
+        }),
+        // 狀態文字
+        Positioned(
+          left: 0, right: 0, bottom: 6,
+          child: Center(
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+              decoration: BoxDecoration(
+                color: Colors.white.withAlpha(200),
+                borderRadius: BorderRadius.circular(8),
               ),
-            );
-          },
+              child: Text(
+                '製作中… ${colorDef.emoji}',
+                style: const TextStyle(fontSize: AppTheme.fontLabelLg, fontWeight: FontWeight.bold, color: AppTheme.textSecondary),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSmallAgent(String agentId) {
+    return SizedBox(
+      width: 36, height: 36,
+      child: Image.asset(
+        ImageAssets.characterImage(agentId) ?? '',
+        fit: BoxFit.contain,
+        errorBuilder: (_, __, ___) => const Text('🐱', style: TextStyle(fontSize: 20)),
+      ),
+    );
+  }
+}
+
+// ── 上菜場景 ──
+class _ServingScene extends StatefulWidget {
+  final BlockColor? stageColor;
+  const _ServingScene({this.stageColor});
+
+  @override
+  State<_ServingScene> createState() => _ServingSceneState();
+}
+
+class _ServingSceneState extends State<_ServingScene>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _ctrl;
+  late Animation<double> _riseAnim;
+  late Animation<double> _fadeAnim;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 1200));
+    _riseAnim = Tween(begin: 0.0, end: -40.0).animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeOut));
+    _fadeAnim = Tween(begin: 1.0, end: 0.0).animate(CurvedAnimation(parent: _ctrl, curve: const Interval(0.5, 1.0)));
+    _ctrl.forward();
+  }
+
+  @override
+  void dispose() { _ctrl.dispose(); super.dispose(); }
+
+  @override
+  Widget build(BuildContext context) {
+    final colorDef = widget.stageColor != null
+        ? BottleDefinitions.all.firstWhere((d) => d.color == widget.stageColor, orElse: () => BottleDefinitions.all.first)
+        : BottleDefinitions.all.first;
+
+    return AnimatedBuilder(
+      animation: _ctrl,
+      builder: (_, __) => Stack(
+        children: [
+          // 甜點上升
+          Positioned(
+            left: 0, right: 0,
+            top: 60 + _riseAnim.value,
+            child: Opacity(
+              opacity: _fadeAnim.value,
+              child: Center(child: Text(colorDef.emoji, style: const TextStyle(fontSize: 40))),
+            ),
+          ),
+          // 金幣飛出
+          Positioned(
+            left: 0, right: 0,
+            top: 80 + _riseAnim.value * 1.3,
+            child: Opacity(
+              opacity: _fadeAnim.value,
+              child: const Center(child: Text('🪙 +金幣', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFFD4A017)))),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── 烹飪角色動畫（左右走動 + 跳動） ──
+class _AnimatedCookingCat extends StatefulWidget {
+  final String agentId;
+  const _AnimatedCookingCat({required this.agentId});
+
+  @override
+  State<_AnimatedCookingCat> createState() => _AnimatedCookingCatState();
+}
+
+class _AnimatedCookingCatState extends State<_AnimatedCookingCat>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _ctrl;
+  late Animation<double> _walkAnim;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 3200));
+    _walkAnim = TweenSequence<double>([
+      TweenSequenceItem(tween: Tween(begin: 0, end: -40), weight: 25), // walk left
+      TweenSequenceItem(tween: Tween(begin: -40, end: -40), weight: 10), // pause
+      TweenSequenceItem(tween: Tween(begin: -40, end: 60), weight: 40), // walk right (to pot)
+      TweenSequenceItem(tween: Tween(begin: 60, end: 60), weight: 10), // pause at pot
+      TweenSequenceItem(tween: Tween(begin: 60, end: 0), weight: 15), // return
+    ]).animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut));
+    _ctrl.repeat();
+  }
+
+  @override
+  void dispose() { _ctrl.dispose(); super.dispose(); }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _walkAnim,
+      builder: (_, __) {
+        final goingRight = _walkAnim.value > (_ctrl.value < 0.35 ? -100 : 0);
+        return Transform.translate(
+          offset: Offset(_walkAnim.value, 0),
+          child: Transform(
+            alignment: Alignment.center,
+            transform: Matrix4.identity()..scale(goingRight ? 1.0 : -1.0, 1.0),
+            child: SizedBox(
+              width: 56, height: 56,
+              child: Image.asset(
+                ImageAssets.characterImage(widget.agentId) ?? '',
+                fit: BoxFit.contain,
+                errorBuilder: (_, __, ___) => const Text('🐱', style: TextStyle(fontSize: 30)),
+              ),
+            ),
+          ),
         );
       },
     );
