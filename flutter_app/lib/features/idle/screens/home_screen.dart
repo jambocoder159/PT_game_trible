@@ -524,6 +524,17 @@ class _HomeScreenState extends State<HomeScreen> {
             ],
           ),
 
+          // ─── 左側快捷吊墜 ───
+          if (!widget.tutorialMode)
+            _SideCharm(
+              onQuest: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const DailyQuestScreen()),
+              ),
+              onStats: _showCareerStatsModal,
+              onSettings: _showSettingsModal,
+              onShop: () => _onNavTap(4),
+            ),
+
           // ─── 能量球飛行動畫覆蓋層 ───
           EnergyOrbOverlay(controller: _orbController),
 
@@ -1293,6 +1304,183 @@ class _StageCharacterState extends State<_StageCharacter>
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+// ═══════════════════════════════════════════
+// 左側快捷吊墜 — 可展開的浮動按鈕群
+// ═══════════════════════════════════════════
+
+class _SideCharm extends StatefulWidget {
+  final VoidCallback onQuest;
+  final VoidCallback onStats;
+  final VoidCallback onSettings;
+  final VoidCallback onShop;
+
+  const _SideCharm({
+    required this.onQuest,
+    required this.onStats,
+    required this.onSettings,
+    required this.onShop,
+  });
+
+  @override
+  State<_SideCharm> createState() => _SideCharmState();
+}
+
+class _SideCharmState extends State<_SideCharm>
+    with SingleTickerProviderStateMixin {
+  bool _expanded = false;
+  late AnimationController _ctrl;
+  late Animation<double> _expandAnim;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 250),
+    );
+    _expandAnim = CurvedAnimation(parent: _ctrl, curve: Curves.easeOutCubic);
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  void _toggle() {
+    HapticFeedback.lightImpact();
+    setState(() => _expanded = !_expanded);
+    if (_expanded) {
+      _ctrl.forward();
+    } else {
+      _ctrl.reverse();
+    }
+  }
+
+  void _tapItem(VoidCallback action) {
+    _toggle();
+    action();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final topPad = MediaQuery.of(context).padding.top + 56;
+
+    return Positioned(
+      left: 0,
+      top: topPad,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // 展開的按鈕列
+          AnimatedBuilder(
+            animation: _expandAnim,
+            builder: (_, __) {
+              return ClipRect(
+                child: Align(
+                  alignment: Alignment.topLeft,
+                  heightFactor: _expandAnim.value,
+                  child: Opacity(
+                    opacity: _expandAnim.value,
+                    child: Container(
+                      margin: const EdgeInsets.only(left: 4, bottom: 4),
+                      padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 6),
+                      decoration: BoxDecoration(
+                        color: AppTheme.bgCard.withAlpha(240),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: AppTheme.accentSecondary.withAlpha(40)),
+                        boxShadow: [BoxShadow(color: Colors.black.withAlpha(20), blurRadius: 8, offset: const Offset(2, 2))],
+                      ),
+                      child: Consumer<PlayerProvider>(
+                        builder: (context, pp, _) {
+                          final dq = pp.data.dailyQuests;
+                          final nq = pp.data.newbieQuests;
+                          final hasQuestReward = nq.completedIds.any((id) => !nq.claimedIds.contains(id))
+                              || (!dq.needsReset && dq.allCompleted && !dq.rewardsClaimed);
+                          return Column(
+                            children: [
+                              _charmItem(Icons.task_alt_rounded, '任務', widget.onQuest, badge: hasQuestReward),
+                              const SizedBox(height: 6),
+                              _charmItem(Icons.bar_chart_rounded, '統計', widget.onStats),
+                              const SizedBox(height: 6),
+                              _charmItem(Icons.shopping_bag_rounded, '商店', widget.onShop),
+                              const SizedBox(height: 6),
+                              _charmItem(Icons.settings_rounded, '設定', widget.onSettings),
+                            ],
+                          );
+                        },
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+
+          // 吊墜觸發按鈕
+          GestureDetector(
+            onTap: _toggle,
+            child: Container(
+              margin: const EdgeInsets.only(left: 4),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+              decoration: BoxDecoration(
+                color: _expanded
+                    ? AppTheme.accentSecondary.withAlpha(200)
+                    : AppTheme.bgCard.withAlpha(220),
+                borderRadius: const BorderRadius.horizontal(right: Radius.circular(16)),
+                border: Border.all(color: AppTheme.accentSecondary.withAlpha(60)),
+                boxShadow: [BoxShadow(color: Colors.black.withAlpha(15), blurRadius: 6, offset: const Offset(2, 1))],
+              ),
+              child: Icon(
+                _expanded ? Icons.chevron_left_rounded : Icons.menu_rounded,
+                size: 18,
+                color: _expanded ? Colors.white : AppTheme.textSecondary,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _charmItem(IconData icon, String label, VoidCallback onTap, {bool badge = false}) {
+    return GestureDetector(
+      onTap: () => _tapItem(onTap),
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Column(
+            children: [
+              Container(
+                width: 36, height: 36,
+                decoration: BoxDecoration(
+                  color: AppTheme.bgSecondary,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(icon, size: 18, color: AppTheme.accentSecondary),
+              ),
+              const SizedBox(height: 2),
+              Text(label, style: const TextStyle(fontSize: AppTheme.fontLabelSm, color: AppTheme.textSecondary)),
+            ],
+          ),
+          if (badge)
+            Positioned(
+              top: -2, right: -2,
+              child: Container(
+                width: 8, height: 8,
+                decoration: BoxDecoration(
+                  color: AppTheme.accentPrimary,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: AppTheme.bgCard, width: 1),
+                ),
+              ),
+            ),
+        ],
       ),
     );
   }
