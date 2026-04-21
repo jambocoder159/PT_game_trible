@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -82,6 +83,9 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _showSkillVfx = false;
   AgentAttribute? _skillVfxAttribute;
   String? _skillVfxAgentName;
+
+  // 演出區烹飪動畫
+  bool _isCooking = false;
 
   // 瓶子 GlobalKey（用於定位能量球目標位置）
   final Map<BlockColor, GlobalKey> _bottleKeys = {};
@@ -426,6 +430,11 @@ class _HomeScreenState extends State<HomeScreen> {
     // 立即持久化金幣變更，避免 crash 丟失
     playerProvider.notifyAndSave();
     HapticFeedback.mediumImpact();
+    // 觸發演出區烹飪動畫
+    setState(() => _isCooking = true);
+    Future.delayed(const Duration(milliseconds: 1200), () {
+      if (mounted) setState(() => _isCooking = false);
+    });
     // 延遲通知：等粒子飛到錢幣區域後再觸發計數器動畫
     _showHarvestAnimation(result, onParticlesArrived: () {
       playerProvider.notifyAndSave();
@@ -475,6 +484,12 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
 
+              // ─── 角色演出區 ───
+              Flexible(
+                flex: 2,
+                child: _StageArea(isCooking: _isCooking),
+              ),
+
               // ─── 角色區 + 收成 + 設定 ───
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
@@ -500,6 +515,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
               // ─── 棋盤（填滿剩餘空間） ───
               Expanded(
+                flex: 5,
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(4, 0, 4, 0),
                   child: IdleMiniGame(key: _gameAreaKey),
@@ -1002,6 +1018,282 @@ class _HorizontalBottleStrip extends StatelessWidget {
           }).toList(),
         );
       },
+    );
+  }
+}
+
+// ═══════════════════════════════════════════
+// 角色演出區 — 場景 + 走動 + 收穫動畫
+// ═══════════════════════════════════════════
+
+class _StageArea extends StatefulWidget {
+  final bool isCooking;
+  const _StageArea({required this.isCooking});
+
+  @override
+  State<_StageArea> createState() => _StageAreaState();
+}
+
+class _StageAreaState extends State<_StageArea> {
+  @override
+  Widget build(BuildContext context) {
+    return Consumer<PlayerProvider>(
+      builder: (context, pp, _) {
+        final team = pp.data.team;
+        if (team.isEmpty) return const SizedBox.shrink();
+
+        return LayoutBuilder(
+          builder: (context, constraints) {
+            final w = constraints.maxWidth;
+            final h = constraints.maxHeight;
+
+            return Container(
+              margin: const EdgeInsets.symmetric(horizontal: 8),
+              clipBehavior: Clip.antiAlias,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+                border: Border.all(color: AppTheme.accentSecondary.withAlpha(30)),
+              ),
+              child: Stack(
+                children: [
+                  // 背景
+                  Positioned.fill(
+                    child: Image.asset(
+                      ImageAssets.homeBackground,
+                      fit: BoxFit.cover,
+                      alignment: Alignment.bottomCenter,
+                      errorBuilder: (_, __, ___) => Container(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: [
+                              const Color(0xFF87CEEB).withAlpha(80),
+                              const Color(0xFF90EE90).withAlpha(60),
+                              AppTheme.bgSecondary,
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+
+                  // 地面線
+                  Positioned(
+                    left: 0, right: 0, bottom: 0,
+                    height: h * 0.2,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [
+                            Colors.transparent,
+                            AppTheme.bgSecondary.withAlpha(180),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+
+                  // 角色們
+                  ...List.generate(team.length.clamp(0, 3), (i) {
+                    final agentId = team[i];
+                    final agentDef = _findAgentDef(agentId);
+                    if (agentDef == null) return const SizedBox.shrink();
+                    final instance = pp.data.agents[agentId];
+
+                    return _StageCharacter(
+                      agentId: agentId,
+                      agentDef: agentDef,
+                      evolutionStage: instance?.evolutionStage ?? 0,
+                      index: i,
+                      totalCharacters: team.length.clamp(1, 3),
+                      stageWidth: w,
+                      stageHeight: h,
+                      isCooking: widget.isCooking,
+                    );
+                  }),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+}
+
+// ═══════════════════════════════════════════
+// 單個演出角色 — 狀態機：idle / walking / cooking
+// ═══════════════════════════════════════════
+
+class _StageCharacter extends StatefulWidget {
+  final String agentId;
+  final CatAgentDefinition agentDef;
+  final int evolutionStage;
+  final int index;
+  final int totalCharacters;
+  final double stageWidth;
+  final double stageHeight;
+  final bool isCooking;
+
+  const _StageCharacter({
+    required this.agentId,
+    required this.agentDef,
+    required this.evolutionStage,
+    required this.index,
+    required this.totalCharacters,
+    required this.stageWidth,
+    required this.stageHeight,
+    required this.isCooking,
+  });
+
+  @override
+  State<_StageCharacter> createState() => _StageCharacterState();
+}
+
+class _StageCharacterState extends State<_StageCharacter>
+    with TickerProviderStateMixin {
+  static const _charSize = 56.0;
+
+  late double _posX;
+  bool _facingRight = true;
+  bool _isWalking = false;
+
+  // 呼吸動畫
+  late AnimationController _breathCtrl;
+  late Animation<double> _breathAnim;
+
+  // 跳動動畫（cooking）
+  late AnimationController _bounceCtrl;
+  late Animation<double> _bounceAnim;
+
+  // 走動 Timer
+  Timer? _walkTimer;
+  final _rng = math.Random();
+
+  @override
+  void initState() {
+    super.initState();
+    // 初始位置：依 index 均勻分布
+    final segment = widget.stageWidth / (widget.totalCharacters + 1);
+    _posX = segment * (widget.index + 1) - _charSize / 2;
+
+    // 呼吸
+    _breathCtrl = AnimationController(
+      vsync: this,
+      duration: Duration(milliseconds: 2400 + _rng.nextInt(400)),
+    );
+    _breathAnim = Tween<double>(begin: 1.0, end: 1.04).animate(
+      CurvedAnimation(parent: _breathCtrl, curve: Curves.easeInOut),
+    );
+    _breathCtrl.repeat(reverse: true);
+
+    // 跳動
+    _bounceCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 300),
+    );
+    _bounceAnim = TweenSequence<double>([
+      TweenSequenceItem(tween: Tween(begin: 0, end: -12), weight: 40),
+      TweenSequenceItem(tween: Tween(begin: -12, end: 0), weight: 30),
+      TweenSequenceItem(tween: Tween(begin: 0, end: -6), weight: 20),
+      TweenSequenceItem(tween: Tween(begin: -6, end: 0), weight: 10),
+    ]).animate(CurvedAnimation(parent: _bounceCtrl, curve: Curves.easeOut));
+
+    // 啟動隨機走動
+    _scheduleNextWalk();
+  }
+
+  @override
+  void didUpdateWidget(_StageCharacter old) {
+    super.didUpdateWidget(old);
+    if (widget.isCooking && !old.isCooking) {
+      _startCooking();
+    }
+  }
+
+  @override
+  void dispose() {
+    _walkTimer?.cancel();
+    _breathCtrl.dispose();
+    _bounceCtrl.dispose();
+    super.dispose();
+  }
+
+  void _scheduleNextWalk() {
+    _walkTimer?.cancel();
+    final delay = Duration(seconds: 3 + _rng.nextInt(5));
+    _walkTimer = Timer(delay, _walkToRandomPosition);
+  }
+
+  void _walkToRandomPosition() {
+    if (!mounted || widget.isCooking) {
+      _scheduleNextWalk();
+      return;
+    }
+    final margin = _charSize;
+    final maxX = widget.stageWidth - margin;
+    final targetX = margin / 2 + _rng.nextDouble() * (maxX - margin);
+
+    setState(() {
+      _facingRight = targetX > _posX;
+      _posX = targetX;
+      _isWalking = true;
+    });
+
+    Future.delayed(const Duration(milliseconds: 2500), () {
+      if (mounted) setState(() => _isWalking = false);
+      _scheduleNextWalk();
+    });
+  }
+
+  void _startCooking() {
+    _bounceCtrl.forward(from: 0);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final groundY = widget.stageHeight - _charSize - widget.stageHeight * 0.12;
+
+    return AnimatedPositioned(
+      duration: _isWalking
+          ? const Duration(milliseconds: 2500)
+          : const Duration(milliseconds: 100),
+      curve: Curves.easeInOut,
+      left: _posX,
+      top: groundY,
+      child: AnimatedBuilder(
+        animation: Listenable.merge([_breathAnim, _bounceAnim]),
+        builder: (_, child) {
+          return Transform.translate(
+            offset: Offset(0, _bounceAnim.value),
+            child: Transform.scale(
+              scale: _breathAnim.value,
+              child: child,
+            ),
+          );
+        },
+        child: Transform(
+          alignment: Alignment.center,
+          transform: Matrix4.identity()..scale(_facingRight ? 1.0 : -1.0, 1.0),
+          child: SizedBox(
+            width: _charSize,
+            height: _charSize,
+            child: Image.asset(
+              ImageAssets.characterImage(widget.agentId, evolutionStage: widget.evolutionStage) ?? '',
+              fit: BoxFit.contain,
+              errorBuilder: (_, __, ___) => Center(
+                child: Text(
+                  widget.agentDef.attribute.emoji,
+                  style: const TextStyle(fontSize: 28),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
