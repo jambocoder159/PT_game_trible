@@ -485,8 +485,8 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
 
               // ─── 角色演出區 ───
-              Flexible(
-                flex: 2,
+              Expanded(
+                flex: 3,
                 child: _StageArea(isCooking: _isCooking),
               ),
 
@@ -503,7 +503,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
               // ─── 5 色瓶子橫排 ───
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 child: KeyedSubtree(
                   key: widget.externalBottleAreaKey ?? _guideBottleAreaKey,
                   child: _HorizontalBottleStrip(
@@ -513,11 +513,11 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
 
-              // ─── 棋盤（填滿剩餘空間） ───
+              // ─── 棋盤 ───
               Expanded(
-                flex: 5,
+                flex: 4,
                 child: Padding(
-                  padding: const EdgeInsets.fromLTRB(4, 0, 4, 0),
+                  padding: const EdgeInsets.fromLTRB(8, 0, 8, 0),
                   child: IdleMiniGame(key: _gameAreaKey),
                 ),
               ),

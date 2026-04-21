@@ -75,8 +75,8 @@
     "idle": {
       "title": "放置消除",
       "description": "輕鬆消除，餵養貓咪",
-      "numCols": 3,
-      "numRows": 10,
+      "numCols": 4,
+      "numRows": 7,
       "actionPointsStart": 0,
       "hasSkills": false,
       "hasTimer": false,
