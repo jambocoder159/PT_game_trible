@@ -4,6 +4,7 @@ import '../../../config/theme.dart';
 import '../../../core/models/block.dart';
 import '../../../core/models/auto_eliminate_config.dart';
 import '../../agents/providers/player_provider.dart';
+import '../providers/bottle_provider.dart';
 import '../providers/idle_provider.dart';
 
 /// 自動消除設定面板（BottomSheet）
@@ -27,7 +28,7 @@ class AutoEliminateSettings extends StatelessWidget {
                 // 標題
                 const Center(
                   child: Text(
-                    '自動消除設定',
+                    '自動化設定',
                     style: TextStyle(
                       color: AppTheme.textPrimary,
                       fontSize: AppTheme.fontTitleLg,
@@ -35,6 +36,10 @@ class AutoEliminateSettings extends StatelessWidget {
                     ),
                   ),
                 ),
+                const SizedBox(height: 16),
+
+                // ── 自動收成 ──
+                _buildAutoHarvestSection(context, player),
                 const SizedBox(height: 16),
 
                 // 能量效率說明
@@ -318,6 +323,57 @@ class AutoEliminateSettings extends StatelessWidget {
           ],
         ),
       ],
+    );
+  }
+
+  Widget _buildAutoHarvestSection(BuildContext context, PlayerProvider player) {
+    final bp = context.watch<BottleProvider>();
+    final progress = player.data.stageProgress;
+    final isUnlocked = progress[AutoEliminateConfig.autoHarvestUnlockStage]?.cleared ?? false;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: AppTheme.bgCard,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: AppTheme.accentSecondary.withAlpha(40)),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.autorenew, size: 16,
+            color: isUnlocked && bp.autoHarvestEnabled
+                ? const Color(0xFFFFD43B) : AppTheme.textSecondary.withAlpha(80)),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '自動收成',
+                  style: TextStyle(
+                    color: isUnlocked ? AppTheme.textPrimary : AppTheme.textSecondary.withAlpha(100),
+                    fontSize: AppTheme.fontBodyLg,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                if (!isUnlocked)
+                  Text(
+                    '通關 1-5 解鎖',
+                    style: TextStyle(
+                      color: AppTheme.textSecondary.withAlpha(100),
+                      fontSize: AppTheme.fontLabelLg,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          Switch(
+            value: isUnlocked && bp.autoHarvestEnabled,
+            onChanged: isUnlocked ? (v) => bp.setAutoHarvest(v) : null,
+            activeColor: const Color(0xFFFFD43B),
+          ),
+        ],
+      ),
     );
   }
 }

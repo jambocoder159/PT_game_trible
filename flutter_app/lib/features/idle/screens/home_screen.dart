@@ -475,33 +475,34 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
 
-              // ─── 主體：左面板 + 棋盤 ───
+              // ─── 角色區 + 收成 + 設定 ───
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                child: _StageCharacterRow(
+                  onHarvest: _onHarvest,
+                  externalHarvestButtonKey: widget.externalConvertButtonKey,
+                  tutorialAutoSwitchKey: widget.tutorialAutoSwitchKey,
+                  tutorialMode: widget.tutorialMode,
+                ),
+              ),
+
+              // ─── 5 色瓶子橫排 ───
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                child: KeyedSubtree(
+                  key: widget.externalBottleAreaKey ?? _guideBottleAreaKey,
+                  child: _HorizontalBottleStrip(
+                    bottleKeys: _bottleKeys,
+                    onBottleTap: widget.tutorialMode ? null : () => WorkshopDetailPanel.show(context),
+                  ),
+                ),
+              ),
+
+              // ─── 棋盤（填滿剩餘空間） ───
               Expanded(
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 4),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      // ════ 左側面板 ════
-                      SizedBox(
-                        width: 120,
-                        child: _LeftPanel(
-                          bottleKeys: _bottleKeys,
-                          bottleAreaKey: widget.externalBottleAreaKey ?? _guideBottleAreaKey,
-                          onHarvest: _onHarvest,
-                          onWorkshopDetail: () => WorkshopDetailPanel.show(context),
-                          externalHarvestButtonKey: widget.externalConvertButtonKey,
-                          tutorialAutoSwitchKey: widget.tutorialAutoSwitchKey,
-                          tutorialMode: widget.tutorialMode,
-                        ),
-                      ),
-                      const SizedBox(width: 4),
-                      // ════ 中間棋盤 ════
-                      Expanded(
-                        child: IdleMiniGame(key: _gameAreaKey),
-                      ),
-                    ],
-                  ),
+                  padding: const EdgeInsets.fromLTRB(4, 0, 4, 0),
+                  child: IdleMiniGame(key: _gameAreaKey),
                 ),
               ),
             ],
@@ -690,23 +691,17 @@ class _SkillVfxOverlayState extends State<_SkillVfxOverlay>
 }
 
 // ═══════════════════════════════════════════
-// 左側面板
+// 角色區 + 收成按鈕 + 自動設定齒輪
 // ═══════════════════════════════════════════
 
-class _LeftPanel extends StatelessWidget {
-  final Map<BlockColor, GlobalKey> bottleKeys;
-  final GlobalKey? bottleAreaKey;
+class _StageCharacterRow extends StatelessWidget {
   final VoidCallback onHarvest;
-  final VoidCallback onWorkshopDetail;
   final GlobalKey? externalHarvestButtonKey;
   final GlobalKey? tutorialAutoSwitchKey;
   final bool tutorialMode;
 
-  const _LeftPanel({
-    required this.bottleKeys,
-    this.bottleAreaKey,
+  const _StageCharacterRow({
     required this.onHarvest,
-    required this.onWorkshopDetail,
     this.externalHarvestButtonKey,
     this.tutorialAutoSwitchKey,
     this.tutorialMode = false,
@@ -715,31 +710,26 @@ class _LeftPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Consumer3<PlayerProvider, IdleProvider, BottleProvider>(
-      builder: (context, playerProvider, idleProvider, bottleProvider, _) {
-        if (!playerProvider.isInitialized) return const SizedBox.shrink();
+      builder: (context, pp, idle, bp, _) {
+        if (!pp.isInitialized) return const SizedBox.shrink();
 
-        return Column(
+        return Row(
           children: [
-            // ── A. 角色區（精簡橫排） ──
-            _buildCharacterSection(playerProvider, idleProvider),
-            const SizedBox(height: 8),
+            // ── 角色頭像 + 能量條 ──
+            _buildCharacter(pp, idle),
+            const SizedBox(width: 8),
 
-            // ── B. 瓶子區（垂直堆疊，填滿剩餘空間） ──
+            // ── 收成按鈕 ──
             Expanded(
-              child: _wrapWithKey(bottleAreaKey, _buildBottleColumn(bottleProvider, playerProvider)),
+              child: _wrapWithKey(externalHarvestButtonKey, _HarvestButton(
+                bottleProvider: bp,
+                onTap: onHarvest,
+              )),
             ),
-            const SizedBox(height: 6),
+            const SizedBox(width: 8),
 
-            // ── C. 收成按鈕 ──
-            _wrapWithKey(externalHarvestButtonKey, _HarvestButton(
-              bottleProvider: bottleProvider,
-              onTap: onHarvest,
-            )),
-            const SizedBox(height: 6),
-
-            // ── D. 自動化區 ──
-            _buildAutoSection(context, idleProvider, bottleProvider),
-            const SizedBox(height: 4),
+            // ── 齒輪（自動設定） ──
+            _buildGearButton(context, idle, bp),
           ],
         );
       },
@@ -751,15 +741,22 @@ class _LeftPanel extends StatelessWidget {
     return KeyedSubtree(key: key, child: child);
   }
 
-  // ─── A. 角色區：36px 頭像 + 能量條 + 施放 ───
-  Widget _buildCharacterSection(PlayerProvider pp, IdleProvider idle) {
+  Widget _buildCharacter(PlayerProvider pp, IdleProvider idle) {
     final team = pp.data.team;
     if (team.isEmpty) {
-      return const SizedBox(height: 36, child: Center(child: Text('?', style: TextStyle(fontSize: AppTheme.fontTitleLg, color: AppTheme.textSecondary))));
+      return Container(
+        width: 48, height: 48,
+        decoration: BoxDecoration(
+          color: AppTheme.bgCard,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: AppTheme.textSecondary.withAlpha(40)),
+        ),
+        child: const Center(child: Text('?', style: TextStyle(fontSize: AppTheme.fontTitleLg, color: AppTheme.textSecondary))),
+      );
     }
     final agentId = team.first;
     final agentDef = _findAgentDef(agentId);
-    if (agentDef == null) return const SizedBox.shrink();
+    if (agentDef == null) return const SizedBox(width: 48, height: 48);
 
     final isReady = idle.isSkillReady(agentId);
     final energy = idle.getEnergy(agentId);
@@ -770,13 +767,14 @@ class _LeftPanel extends StatelessWidget {
       onTap: isReady
           ? () { HapticFeedback.mediumImpact(); idle.activateSkill(agentId); }
           : null,
-      child: Row(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
           Container(
-            width: 36, height: 36,
+            width: 48, height: 48,
             decoration: BoxDecoration(
               color: attrColor.withAlpha(25),
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(10),
               border: Border.all(
                 color: isReady ? attrColor.withAlpha(200) : attrColor.withAlpha(60),
                 width: isReady ? 2 : 1,
@@ -784,276 +782,75 @@ class _LeftPanel extends StatelessWidget {
               boxShadow: isReady ? [BoxShadow(color: attrColor.withAlpha(80), blurRadius: 8)] : null,
             ),
             child: ClipRRect(
-              borderRadius: BorderRadius.circular(7),
-              child: _buildAgentImg(agentId, agentDef, 36),
+              borderRadius: BorderRadius.circular(9),
+              child: _buildAgentImg(agentId, agentDef, 48),
             ),
           ),
-          const SizedBox(width: 4),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(3),
-                  child: LinearProgressIndicator(
-                    value: (energy / cost).clamp(0.0, 1.0), minHeight: 7,
-                    backgroundColor: AppTheme.bgSecondary,
-                    valueColor: AlwaysStoppedAnimation(isReady ? attrColor : attrColor.withAlpha(120)),
-                  ),
-                ),
-                const SizedBox(height: 3),
-                if (isReady)
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                    decoration: BoxDecoration(color: attrColor, borderRadius: BorderRadius.circular(6)),
-                    child: const Text('施放！', style: TextStyle(color: Colors.white, fontSize: AppTheme.fontLabelLg, fontWeight: FontWeight.bold)),
-                  )
-                else
-                  Text('$energy/$cost', style: TextStyle(color: AppTheme.textSecondary.withAlpha(130), fontSize: AppTheme.fontLabelSm)),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ─── B. 瓶子區：5 張橫式卡片（進度條底色填充） ───
-  Widget _buildBottleColumn(BottleProvider bp, PlayerProvider pp) {
-    if (!bp.isInitialized) return const SizedBox.shrink();
-
-    for (final def in BottleDefinitions.all) {
-      bottleKeys.putIfAbsent(def.color, () => GlobalKey());
-    }
-
-    return Column(
-      children: BottleDefinitions.all.map((def) {
-        final bottle = bp.getBottle(def.color);
-        final isFull = bottle.isFull;
-        final canUpgrade = bp.canUpgrade(def.color, pp.data);
-        final dessert = bp.getCurrentDessert(def.color);
-        final clr = def.color.color;
-
-        return Expanded(
-          child: Padding(
-            padding: const EdgeInsets.only(bottom: 3),
-            child: GestureDetector(
-              onTap: tutorialMode ? null : onWorkshopDetail,
-              child: Container(
-                clipBehavior: Clip.antiAlias,
-                decoration: BoxDecoration(
-                  color: AppTheme.bgCard,
-                  borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
-                  border: Border.all(
-                    color: isFull ? clr.withAlpha(180) : clr.withAlpha(30),
-                    width: isFull ? 1.5 : 0.5,
-                  ),
-                  boxShadow: isFull
-                      ? [BoxShadow(color: clr.withAlpha(40), blurRadius: 8)]
-                      : [BoxShadow(color: Colors.black.withAlpha(6), blurRadius: 2)],
-                ),
-                child: Stack(
-                  children: [
-                    // 進度條底色（左→右填充）
-                    Positioned.fill(
-                      child: Align(
-                        alignment: Alignment.centerLeft,
-                        child: FractionallySizedBox(
-                          widthFactor: bottle.fillProgress,
-                          heightFactor: 1.0,
-                          child: Container(
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                colors: [
-                                  clr.withAlpha(isFull ? 80 : 35),
-                                  clr.withAlpha(isFull ? 140 : 65),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                    // 橫式內容：emoji | 能量文字 | 甜點資訊
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 6),
-                      child: Row(
-                        children: [
-                          // 左：瓶子 emoji
-                          KeyedSubtree(
-                            key: bottleKeys[def.color]!,
-                            child: Text(def.emoji,
-                                style: const TextStyle(fontSize: AppTheme.fontTitleLg)),
-                          ),
-                          const SizedBox(width: 5),
-                          // 中：等級 + 能量
-                          Expanded(
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                // 能量數字
-                                Text(
-                                  isFull
-                                      ? '${bottle.currentEnergy} ✓'
-                                      : '${bottle.currentEnergy}/${bottle.capacity}',
-                                  style: TextStyle(
-                                    fontSize: AppTheme.fontBodyLg,
-                                    fontWeight: FontWeight.bold,
-                                    color: isFull ? clr : AppTheme.textPrimary,
-                                  ),
-                                ),
-                                // 等級
-                                Text(
-                                  'Lv${bottle.level}',
-                                  style: TextStyle(
-                                    fontSize: AppTheme.fontLabelLg,
-                                    color: AppTheme.textSecondary.withAlpha(160),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          // 右：甜點 + 售價
-                          if (dessert != null)
-                            Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Text(dessert.emoji,
-                                    style: const TextStyle(fontSize: AppTheme.fontTitleMd)),
-                                Text(
-                                  '${dessert.sellPrice}🍬',
-                                  style: TextStyle(
-                                    fontSize: AppTheme.fontLabelLg,
-                                    fontWeight: FontWeight.w600,
-                                    color: AppTheme.textSecondary.withAlpha(180),
-                                  ),
-                                ),
-                              ],
-                            ),
-                        ],
-                      ),
-                    ),
-                    // 升級紅點
-                    if (canUpgrade)
-                      Positioned(
-                        top: 3, right: 3,
-                        child: Container(
-                          width: 8, height: 8,
-                          decoration: BoxDecoration(
-                            color: AppTheme.accentPrimary,
-                            shape: BoxShape.circle,
-                            border: Border.all(color: AppTheme.bgCard, width: 1),
-                            boxShadow: [BoxShadow(color: AppTheme.accentPrimary.withAlpha(100), blurRadius: 4)],
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        );
-      }).toList(),
-    );
-  }
-
-  // ─── C. 自動化區：極簡兩行開關（關卡解鎖） ───
-  Widget _buildAutoSection(BuildContext context, IdleProvider idle, BottleProvider bp) {
-    final config = idle.autoConfig;
-    final playerProvider = context.read<PlayerProvider>();
-    final progress = playerProvider.data.stageProgress;
-
-    // 自動收成：突破 1-5 解鎖
-    final isHarvestUnlocked = progress[AutoEliminateConfig.autoHarvestUnlockStage]?.cleared ?? false;
-    // 自動消除：突破 1-10 解鎖
-    final isEliminateUnlocked = progress[AutoEliminateConfig.autoEliminateUnlockStage]?.cleared ?? false;
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-      decoration: BoxDecoration(
-        color: AppTheme.bgCard,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: AppTheme.accentSecondary.withAlpha(40)),
-      ),
-      child: Column(
-        children: [
-          // 自動收成（上方）
-          Row(
-            children: [
-              Icon(Icons.autorenew, size: 13,
-                color: isHarvestUnlocked && bp.autoHarvestEnabled
-                    ? const Color(0xFFFFD43B) : AppTheme.textSecondary.withAlpha(80)),
-              const SizedBox(width: 4),
-              Expanded(
-                child: Text(
-                  isHarvestUnlocked ? '自動收成' : '通關 1-5 解鎖',
-                  style: TextStyle(
-                    color: isHarvestUnlocked ? AppTheme.textPrimary : AppTheme.textSecondary.withAlpha(100),
-                    fontSize: AppTheme.fontLabelLg,
-                  ),
-                ),
-              ),
-              SizedBox(
-                width: 32, height: 18,
-                child: FittedBox(
-                  child: Switch(
-                    value: isHarvestUnlocked && bp.autoHarvestEnabled,
-                    onChanged: isHarvestUnlocked ? (v) => bp.setAutoHarvest(v) : null,
-                    activeColor: const Color(0xFFFFD43B),
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 4),
-          // 自動消除（下方）
-          GestureDetector(
-            onTap: isEliminateUnlocked ? () {
-              showModalBottomSheet(
-                context: context,
-                isScrollControlled: true,
+          const SizedBox(height: 3),
+          // 能量條
+          SizedBox(
+            width: 48,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(3),
+              child: LinearProgressIndicator(
+                value: (energy / cost).clamp(0.0, 1.0), minHeight: 5,
                 backgroundColor: AppTheme.bgSecondary,
-                shape: const RoundedRectangleBorder(
-                  borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-                ),
-                builder: (_) => const AutoEliminateSettings(),
-              );
-            } : null,
-            behavior: HitTestBehavior.opaque,
-            child: Row(
-              children: [
-                Icon(Icons.flash_auto, size: 13,
-                  color: isEliminateUnlocked && config.isAutoActive
-                      ? AppTheme.accentSecondary : AppTheme.textSecondary.withAlpha(80)),
-                const SizedBox(width: 4),
-                Expanded(
-                  child: Text(
-                    isEliminateUnlocked ? '自動消除' : '通關 1-10 解鎖',
-                    style: TextStyle(
-                      color: isEliminateUnlocked ? AppTheme.textPrimary : AppTheme.textSecondary.withAlpha(100),
-                      fontSize: AppTheme.fontLabelLg,
-                    ),
-                  ),
-                ),
-                KeyedSubtree(
-                  key: tutorialAutoSwitchKey ?? GlobalKey(),
-                  child: SizedBox(
-                    width: 32, height: 18,
-                    child: FittedBox(
-                      child: Switch(
-                        value: isEliminateUnlocked && config.isEnabled,
-                        onChanged: isEliminateUnlocked ? (v) => idle.toggleAutoEliminate(v) : null,
-                        activeColor: AppTheme.accentSecondary,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
+                valueColor: AlwaysStoppedAnimation(isReady ? attrColor : attrColor.withAlpha(120)),
+              ),
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildGearButton(BuildContext context, IdleProvider idle, BottleProvider bp) {
+    final config = idle.autoConfig;
+    final progress = context.read<PlayerProvider>().data.stageProgress;
+    final isHarvestUnlocked = progress[AutoEliminateConfig.autoHarvestUnlockStage]?.cleared ?? false;
+    final isEliminateUnlocked = progress[AutoEliminateConfig.autoEliminateUnlockStage]?.cleared ?? false;
+    final hasAutoActive = (isHarvestUnlocked && bp.autoHarvestEnabled) || (isEliminateUnlocked && config.isAutoActive);
+
+    return KeyedSubtree(
+      key: tutorialAutoSwitchKey ?? GlobalKey(),
+      child: GestureDetector(
+        onTap: () {
+          showModalBottomSheet(
+            context: context,
+            isScrollControlled: true,
+            backgroundColor: AppTheme.bgSecondary,
+            shape: const RoundedRectangleBorder(
+              borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+            ),
+            builder: (_) => const AutoEliminateSettings(),
+          );
+        },
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            Container(
+              width: 36, height: 36,
+              decoration: BoxDecoration(
+                color: AppTheme.bgCard,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: AppTheme.accentSecondary.withAlpha(40)),
+              ),
+              child: Icon(Icons.tune_rounded, size: 18, color: AppTheme.textSecondary.withAlpha(160)),
+            ),
+            if (hasAutoActive)
+              Positioned(
+                top: -2, right: -2,
+                child: Container(
+                  width: 8, height: 8,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF4CAF50),
+                    shape: BoxShape.circle,
+                    border: Border.all(color: AppTheme.bgCard, width: 1),
+                  ),
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }
@@ -1078,6 +875,133 @@ class _LeftPanel extends StatelessWidget {
           size: size * 0.5,
         ),
       ),
+    );
+  }
+}
+
+// ═══════════════════════════════════════════
+// 5 色瓶子橫排
+// ═══════════════════════════════════════════
+
+class _HorizontalBottleStrip extends StatelessWidget {
+  final Map<BlockColor, GlobalKey> bottleKeys;
+  final VoidCallback? onBottleTap;
+
+  const _HorizontalBottleStrip({
+    required this.bottleKeys,
+    this.onBottleTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Consumer2<BottleProvider, PlayerProvider>(
+      builder: (context, bp, pp, _) {
+        if (!bp.isInitialized) return const SizedBox.shrink();
+
+        for (final def in BottleDefinitions.all) {
+          bottleKeys.putIfAbsent(def.color, () => GlobalKey());
+        }
+
+        return Row(
+          children: BottleDefinitions.all.map((def) {
+            final bottle = bp.getBottle(def.color);
+            final isFull = bottle.isFull;
+            final canUpgrade = bp.canUpgrade(def.color, pp.data);
+            final clr = def.color.color;
+
+            return Expanded(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 2),
+                child: GestureDetector(
+                  onTap: onBottleTap,
+                  child: KeyedSubtree(
+                    key: bottleKeys[def.color]!,
+                    child: Container(
+                      height: 56,
+                      clipBehavior: Clip.antiAlias,
+                      decoration: BoxDecoration(
+                        color: AppTheme.bgCard,
+                        borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
+                        border: Border.all(
+                          color: isFull ? clr.withAlpha(180) : clr.withAlpha(30),
+                          width: isFull ? 1.5 : 0.5,
+                        ),
+                        boxShadow: isFull
+                            ? [BoxShadow(color: clr.withAlpha(40), blurRadius: 6)]
+                            : [BoxShadow(color: Colors.black.withAlpha(6), blurRadius: 2)],
+                      ),
+                      child: Stack(
+                        children: [
+                          // 進度填充（底→頂）
+                          Positioned.fill(
+                            child: Align(
+                              alignment: Alignment.bottomCenter,
+                              child: FractionallySizedBox(
+                                widthFactor: 1.0,
+                                heightFactor: bottle.fillProgress,
+                                child: Container(
+                                  decoration: BoxDecoration(
+                                    gradient: LinearGradient(
+                                      begin: Alignment.bottomCenter,
+                                      end: Alignment.topCenter,
+                                      colors: [
+                                        clr.withAlpha(isFull ? 140 : 65),
+                                        clr.withAlpha(isFull ? 80 : 35),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                          // 內容：emoji + 數字
+                          Center(
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(def.emoji, style: const TextStyle(fontSize: AppTheme.fontTitleMd)),
+                                const SizedBox(height: 2),
+                                Text(
+                                  isFull ? '✓' : '${bottle.currentEnergy}',
+                                  style: TextStyle(
+                                    fontSize: AppTheme.fontLabelLg,
+                                    fontWeight: FontWeight.bold,
+                                    color: isFull ? clr : AppTheme.textPrimary,
+                                  ),
+                                ),
+                                Text(
+                                  'Lv${bottle.level}',
+                                  style: TextStyle(
+                                    fontSize: AppTheme.fontLabelSm,
+                                    color: AppTheme.textSecondary.withAlpha(140),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          // 升級紅點
+                          if (canUpgrade)
+                            Positioned(
+                              top: 2, right: 2,
+                              child: Container(
+                                width: 7, height: 7,
+                                decoration: BoxDecoration(
+                                  color: AppTheme.accentPrimary,
+                                  shape: BoxShape.circle,
+                                  border: Border.all(color: AppTheme.bgCard, width: 1),
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            );
+          }).toList(),
+        );
+      },
     );
   }
 }
@@ -1176,7 +1100,7 @@ class _HarvestButtonState extends State<_HarvestButton>
               children: [
                 Container(
                   width: double.infinity,
-                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
                   decoration: BoxDecoration(
                     gradient: gradient,
                     borderRadius: BorderRadius.circular(14),
@@ -1185,15 +1109,15 @@ class _HarvestButtonState extends State<_HarvestButton>
                         : null,
                   ),
                   child: isReady
-                      ? Column(
-                          mainAxisSize: MainAxisSize.min,
+                      ? Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             Text(
                               isRich ? '💰 收成！' : '🧪 收成！',
                               style: TextStyle(color: textColor, fontSize: AppTheme.fontBodyLg, fontWeight: FontWeight.bold),
                             ),
                             if (isRich) ...[
-                              const SizedBox(height: 2),
+                              const SizedBox(width: 6),
                               Text(
                                 '+$estimatedGold🍬',
                                 style: TextStyle(color: textColor.withAlpha(200), fontSize: AppTheme.fontLabelLg),
@@ -1201,26 +1125,24 @@ class _HarvestButtonState extends State<_HarvestButton>
                             ],
                           ],
                         )
-                      : Center(
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              SizedBox(
-                                width: 16, height: 16,
-                                child: CircularProgressIndicator(
-                                  value: nearestProgress,
-                                  strokeWidth: 2,
-                                  backgroundColor: Colors.white.withAlpha(20),
-                                  valueColor: const AlwaysStoppedAnimation(Color(0xFF6BAF5B)),
-                                ),
+                      : Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            SizedBox(
+                              width: 16, height: 16,
+                              child: CircularProgressIndicator(
+                                value: nearestProgress,
+                                strokeWidth: 2,
+                                backgroundColor: Colors.white.withAlpha(20),
+                                valueColor: const AlwaysStoppedAnimation(Color(0xFF6BAF5B)),
                               ),
-                              const SizedBox(width: 6),
-                              Text(
-                                '${(nearestProgress * 100).toInt()}%',
-                                style: TextStyle(color: textColor, fontSize: AppTheme.fontLabelLg),
-                              ),
-                            ],
-                          ),
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              '${(nearestProgress * 100).toInt()}%',
+                              style: TextStyle(color: textColor, fontSize: AppTheme.fontLabelLg),
+                            ),
+                          ],
                         ),
                 ),
                 // 徽章
