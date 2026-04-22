@@ -84,6 +84,22 @@ class _BattleScreenState extends State<BattleScreen> {
   final GlobalKey _agentPanelKey = GlobalKey();
   final GlobalKey _boardKey = GlobalKey();
 
+  GameProvider? _gameProvider;
+  BattleProvider? _battleProvider;
+  PlayerProvider? _playerProvider;
+  OnMatchTurnComplete? _onMatchTurnComplete;
+  void Function({bool hadMatches})? _onTurnEnd;
+  Set<String> Function()? _getBlockedPositions;
+  OnBoardEffectRequested? _onBoardEffectRequested;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _gameProvider ??= context.read<GameProvider>();
+    _battleProvider ??= context.read<BattleProvider>();
+    _playerProvider ??= context.read<PlayerProvider>();
+  }
+
   @override
   void initState() {
     super.initState();
@@ -115,9 +131,9 @@ class _BattleScreenState extends State<BattleScreen> {
   }
 
   void _initBattle() {
-    final gameProvider = context.read<GameProvider>();
-    final battleProvider = context.read<BattleProvider>();
-    final playerProvider = context.read<PlayerProvider>();
+    final gameProvider = _gameProvider ?? context.read<GameProvider>();
+    final battleProvider = _battleProvider ?? context.read<BattleProvider>();
+    final playerProvider = _playerProvider ?? context.read<PlayerProvider>();
 
     battleProvider.startBattle(
       stage: widget.stage,
@@ -135,25 +151,28 @@ class _BattleScreenState extends State<BattleScreen> {
       scoring: GameModes.triple.scoring,
     );
 
-    gameProvider.onMatchTurnComplete = (result) {
+    _onMatchTurnComplete = (result) {
       battleProvider.onMatchesProcessed(
         result.matchedBlockCounts,
         result.combo,
         eliminatedBlocks: result.eliminatedBlocks,
       );
       if (result.totalBlocksEliminated > 0) {
-        context.read<PlayerProvider>().addBlocksEliminated(
+        playerProvider.addBlocksEliminated(
           result.totalBlocksEliminated,
         );
       }
     };
-    gameProvider.onTurnEnd = ({bool hadMatches = true}) {
+    gameProvider.onMatchTurnComplete = _onMatchTurnComplete;
+    _onTurnEnd = ({bool hadMatches = true}) {
       battleProvider.onTurnEnd(hadMatches: hadMatches);
     };
-    battleProvider.onBoardEffectRequested = (effect, agentColor) {
+    gameProvider.onTurnEnd = _onTurnEnd;
+    _onBoardEffectRequested = (effect, agentColor) {
       return gameProvider.applyBoardEffect(effect, agentColor);
     };
-    gameProvider.getBlockedPositions = () {
+    battleProvider.onBoardEffectRequested = _onBoardEffectRequested;
+    _getBlockedPositions = () {
       final bs = battleProvider.battleState;
       if (bs == null) return {};
       return {
@@ -161,6 +180,7 @@ class _BattleScreenState extends State<BattleScreen> {
           if (!o.isBroken) '${o.col},${o.row}',
       };
     };
+    gameProvider.getBlockedPositions = _getBlockedPositions;
 
     gameProvider.startGame(battleMode, initialColors: widget.initialColors);
 
@@ -327,12 +347,23 @@ class _BattleScreenState extends State<BattleScreen> {
 
   @override
   void dispose() {
-    final gameProvider = context.read<GameProvider>();
-    final battleProvider = context.read<BattleProvider>();
-    gameProvider.onMatchTurnComplete = null;
-    gameProvider.onTurnEnd = null;
-    gameProvider.getBlockedPositions = null;
-    battleProvider.onBoardEffectRequested = null;
+    final gameProvider = _gameProvider;
+    final battleProvider = _battleProvider;
+    if (gameProvider != null) {
+      if (identical(gameProvider.onMatchTurnComplete, _onMatchTurnComplete)) {
+        gameProvider.onMatchTurnComplete = null;
+      }
+      if (identical(gameProvider.onTurnEnd, _onTurnEnd)) {
+        gameProvider.onTurnEnd = null;
+      }
+      if (identical(gameProvider.getBlockedPositions, _getBlockedPositions)) {
+        gameProvider.getBlockedPositions = null;
+      }
+    }
+    if (battleProvider != null &&
+        identical(battleProvider.onBoardEffectRequested, _onBoardEffectRequested)) {
+      battleProvider.onBoardEffectRequested = null;
+    }
     _attackAnimPlaying.dispose();
     super.dispose();
   }
