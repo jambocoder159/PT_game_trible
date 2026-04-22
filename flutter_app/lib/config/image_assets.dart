@@ -99,6 +99,12 @@ class ImageAssets {
     return '$_base/blocks/$name$suffix.png';
   }
 
+  static const blockObstacle = '$_base/blocks/block_obstacle.png';
+  static const blockObstacleCracked =
+      '$_base/blocks/block_obstacle_cracked.png';
+  static const blockPoison = '$_base/blocks/block_poison.png';
+  static const blockWeakened = '$_base/blocks/block_weakened.png';
+
   // ═══════════════════════════════════════
   // 背景圖映射
   // ═══════════════════════════════════════

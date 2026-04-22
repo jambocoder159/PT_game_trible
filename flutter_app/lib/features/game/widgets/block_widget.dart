@@ -212,7 +212,8 @@ class _BlockWidgetState extends State<BlockWidget>
           width: size,
           height: size,
           fit: BoxFit.cover,
-          errorBuilder: (_, __, ___) => _buildFallbackBlock(color, darkerColor, size),
+          errorBuilder: (_, __, ___) =>
+              _buildFallbackBlock(color, darkerColor, size),
         ),
       ),
     );
@@ -248,17 +249,15 @@ class _BlockWidgetState extends State<BlockWidget>
   /// 障礙格：灰色石頭方塊
   Widget _buildObstacleBlock(double size) {
     final isCracked = widget.skillOverlay == BlockSkillOverlay.obstaclesCracked;
+    final imagePath = isCracked
+        ? ImageAssets.blockObstacleCracked
+        : ImageAssets.blockObstacle;
+
     return Container(
       width: size,
       height: size,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(AppTheme.radiusBlock),
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Colors.grey.shade600, Colors.grey.shade800],
-        ),
-        border: Border.all(color: Colors.grey.shade500, width: 1.5),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withAlpha(60),
@@ -266,6 +265,31 @@ class _BlockWidgetState extends State<BlockWidget>
             offset: const Offset(0, 2),
           ),
         ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(AppTheme.radiusBlock),
+        child: Image.asset(
+          imagePath,
+          width: size,
+          height: size,
+          fit: BoxFit.cover,
+          errorBuilder: (_, __, ___) => _buildObstacleFallback(size, isCracked),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildObstacleFallback(double size, bool isCracked) {
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Colors.grey.shade600, Colors.grey.shade800],
+        ),
+        border: Border.all(color: Colors.grey.shade500, width: 1.5),
       ),
       child: Center(
         child: Text(
@@ -276,35 +300,82 @@ class _BlockWidgetState extends State<BlockWidget>
     );
   }
 
-  /// 毒格覆蓋：紫色半透明 + 倒數數字
+  /// 毒格覆蓋：毒格素材 + 倒數數字
   Widget _buildPoisonOverlay(double size) {
     return Container(
       width: size,
       height: size,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(AppTheme.radiusBlock),
-        color: Colors.purple.withAlpha(120),
-        border: Border.all(color: Colors.purple.shade300, width: 2),
-      ),
-      child: Center(
-        child: Text(
-          '${widget.poisonCountdown}',
-          style: TextStyle(
-            fontSize: size * 0.45,
-            fontWeight: FontWeight.w900,
-            color: Colors.white,
-            shadows: const [
-              Shadow(color: Colors.purple, blurRadius: 8),
-              Shadow(color: Colors.purple, blurRadius: 16),
-            ],
+        boxShadow: [
+          BoxShadow(
+            color: Colors.purple.withAlpha(80),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
           ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(AppTheme.radiusBlock),
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            Image.asset(
+              ImageAssets.blockPoison,
+              fit: BoxFit.cover,
+              errorBuilder: (_, __, ___) => Container(
+                color: Colors.purple.withAlpha(120),
+              ),
+            ),
+            Center(
+              child: Text(
+                '${widget.poisonCountdown}',
+                style: TextStyle(
+                  fontSize: size * 0.45,
+                  fontWeight: FontWeight.w900,
+                  color: Colors.white,
+                  shadows: const [
+                    Shadow(color: Colors.purple, blurRadius: 8),
+                    Shadow(color: Colors.purple, blurRadius: 16),
+                  ],
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
   }
 
-  /// 弱化覆蓋：暗色半透明 + 向下箭頭
+  /// 弱化覆蓋：弱化素材
   Widget _buildWeakenOverlay(double size) {
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(AppTheme.radiusBlock),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.red.withAlpha(50),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(AppTheme.radiusBlock),
+        child: Image.asset(
+          ImageAssets.blockWeakened,
+          width: size,
+          height: size,
+          fit: BoxFit.cover,
+          errorBuilder: (_, __, ___) => _buildWeakenFallback(size),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildWeakenFallback(double size) {
     return Container(
       width: size,
       height: size,
@@ -326,4 +397,3 @@ class _BlockWidgetState extends State<BlockWidget>
     );
   }
 }
-

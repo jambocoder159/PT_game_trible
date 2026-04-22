@@ -23,8 +23,7 @@ class GameBoard extends StatefulWidget {
   State<GameBoard> createState() => _GameBoardState();
 }
 
-class _GameBoardState extends State<GameBoard>
-    with TickerProviderStateMixin {
+class _GameBoardState extends State<GameBoard> with TickerProviderStateMixin {
   // 分數彈出
   final List<_ScorePopupData> _activePopups = [];
   int _popupIdCounter = 0;
@@ -51,9 +50,6 @@ class _GameBoardState extends State<GameBoard>
   double _bigHitIntensity = 0;
   // 閃光顏色（依 combo 大小變化：金 → 橘紅）
   Color _bigHitColor = Colors.white;
-
-  // 長按計時
-  bool _longPressActivated = false;
 
   // 快取棋盤佈局（第一次計算後鎖定，防止動態 UI 變化導致棋盤大小跳動）
   _BoardLayout? _cachedLayout;
@@ -109,7 +105,9 @@ class _GameBoardState extends State<GameBoard>
   _BoardLayout _calcLayout(
       BoxConstraints constraints, int numCols, int numRows) {
     // 如果行列不變，直接返回快取
-    if (_cachedLayout != null && _cachedCols == numCols && _cachedRows == numRows) {
+    if (_cachedLayout != null &&
+        _cachedCols == numCols &&
+        _cachedRows == numRows) {
       return _cachedLayout!;
     }
 
@@ -117,7 +115,7 @@ class _GameBoardState extends State<GameBoard>
     final totalGapsW = (numCols + 1) * AppTheme.blockGap;
     final availableWidth = screenWidth * 0.85 - totalGapsW;
     final blockByWidth = availableWidth / numCols;
-    final boardPadding = 16.0;
+    const boardPadding = 16.0;
     final availableHeight = constraints.maxHeight - boardPadding;
     final blockByHeight = (availableHeight / numRows) - AppTheme.blockGap;
     final blockSize = blockByWidth
@@ -258,35 +256,52 @@ class _GameBoardState extends State<GameBoard>
             for (int col = 0; col < numCols; col++) {
               for (int row = 0; row < numRows; row++) {
                 final block = state.grid[col][row];
-                if (block == null) continue;
 
                 final pos = _cellTopLeft(layout, col, row);
-                final isBeingDragged =
-                    _isDragging && col == _dragCol && row == _dragRow;
+                final isBeingDragged = block != null &&
+                    _isDragging &&
+                    col == _dragCol &&
+                    row == _dragRow;
 
                 // 判斷該格的技能覆蓋效果
                 var overlay = BlockSkillOverlay.none;
+                var poisonCountdown = 0;
                 if (battleState != null) {
                   if (battleState.isObstacle(col, row)) {
                     final ob = battleState.obstacleBlocks
-                        .where((b) => b.col == col && b.row == row && !b.isBroken)
+                        .where(
+                            (b) => b.col == col && b.row == row && !b.isBroken)
                         .firstOrNull;
                     overlay = (ob != null && ob.hitCount > 0)
                         ? BlockSkillOverlay.obstaclesCracked
                         : BlockSkillOverlay.obstacle;
                   } else if (battleState.getPoisonAt(col, row) != null) {
+                    poisonCountdown =
+                        battleState.getPoisonAt(col, row)?.countdown ?? 0;
                     overlay = BlockSkillOverlay.poison;
                   } else if (battleState.isWeakened(col, row)) {
                     overlay = BlockSkillOverlay.weakened;
                   }
                 }
 
+                if (block == null && overlay == BlockSkillOverlay.none) {
+                  continue;
+                }
+
+                final displayBlock = block ??
+                    Block(
+                      id: 'skill_${col}_${row}_${overlay.name}',
+                      color: BlockColor.coral,
+                      col: col,
+                      row: row,
+                    );
+
                 // 依目標 row 計算微微的逐行錯落延遲，下方先落，上方稍後 —
                 // 視覺上像「重力依序落下」而非整列同時定位
                 final dropDelayMs = ((numRows - row - 1) * 18).clamp(0, 90);
                 blockWidgets.add(
                   AnimatedPositioned(
-                    key: ValueKey(block.id),
+                    key: ValueKey(displayBlock.id),
                     duration: Duration(milliseconds: 420 + dropDelayMs),
                     curve: Curves.bounceOut,
                     left: pos.dx,
@@ -300,9 +315,11 @@ class _GameBoardState extends State<GameBoard>
                         opacity: isBeingDragged ? 0.25 : 1.0,
                         duration: const Duration(milliseconds: 150),
                         child: BlockWidget(
-                            block: block,
-                            size: layout.blockSize,
-                            skillOverlay: overlay),
+                          block: displayBlock,
+                          size: layout.blockSize,
+                          skillOverlay: overlay,
+                          poisonCountdown: poisonCountdown,
+                        ),
                       ),
                     ),
                   ),
@@ -323,15 +340,13 @@ class _GameBoardState extends State<GameBoard>
                   animation: _arrowOffset,
                   builder: (context, child) {
                     return Positioned(
-                      left: originPos.dx +
-                          (layout.blockSize - arrowSize) / 2,
+                      left: originPos.dx + (layout.blockSize - arrowSize) / 2,
                       top: originPos.dy - arrowSize - 4 + _arrowOffset.value,
                       child: _ArrowIcon(
                         direction: -1,
                         size: arrowSize,
                         isSolid: dir == -1,
-                        color: _dragBlock?.color.color ??
-                            AppTheme.textPrimary,
+                        color: _dragBlock?.color.color ?? AppTheme.textPrimary,
                       ),
                     );
                   },
@@ -341,8 +356,7 @@ class _GameBoardState extends State<GameBoard>
                   animation: _arrowOffset,
                   builder: (context, child) {
                     return Positioned(
-                      left: originPos.dx +
-                          (layout.blockSize - arrowSize) / 2,
+                      left: originPos.dx + (layout.blockSize - arrowSize) / 2,
                       top: originPos.dy +
                           layout.blockSize +
                           4 -
@@ -351,8 +365,7 @@ class _GameBoardState extends State<GameBoard>
                         direction: 1,
                         size: arrowSize,
                         isSolid: dir == 1,
-                        color: _dragBlock?.color.color ??
-                            AppTheme.textPrimary,
+                        color: _dragBlock?.color.color ?? AppTheme.textPrimary,
                       ),
                     );
                   },
@@ -394,8 +407,7 @@ class _GameBoardState extends State<GameBoard>
                 height: layout.boardHeight,
                 decoration: BoxDecoration(
                   color: AppTheme.bgSecondary.withAlpha(180),
-                  borderRadius:
-                      BorderRadius.circular(AppTheme.radiusLarge),
+                  borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
                   border: Border.all(
                     color: AppTheme.accentPrimary.withAlpha(100),
                     width: 1.5,
@@ -439,8 +451,8 @@ class _GameBoardState extends State<GameBoard>
                             height: layout.blockSize,
                             decoration: BoxDecoration(
                               color: Colors.white.withAlpha(8),
-                              borderRadius: BorderRadius.circular(
-                                  AppTheme.radiusBlock),
+                              borderRadius:
+                                  BorderRadius.circular(AppTheme.radiusBlock),
                             ),
                           ),
                         );
@@ -453,7 +465,8 @@ class _GameBoardState extends State<GameBoard>
                           child: IgnorePointer(
                             child: CustomPaint(
                               painter: _BoardSpotlightPainter(
-                                highlightRect: _getBlockRect(layout, widget.tutorialHintBlock!),
+                                highlightRect: _getBlockRect(
+                                    layout, widget.tutorialHintBlock!),
                               ),
                             ),
                           ),
@@ -503,13 +516,11 @@ class _GameBoardState extends State<GameBoard>
                               }
                               // 0→1 快速進、慢慢出
                               final t = _bigHitFlash.value;
-                              final fade = t < 0.25
-                                  ? t / 0.25
-                                  : 1 - (t - 0.25) / 0.75;
-                              final alpha =
-                                  (fade * _bigHitIntensity * 255)
-                                      .round()
-                                      .clamp(0, 255);
+                              final fade =
+                                  t < 0.25 ? t / 0.25 : 1 - (t - 0.25) / 0.75;
+                              final alpha = (fade * _bigHitIntensity * 255)
+                                  .round()
+                                  .clamp(0, 255);
                               return DecoratedBox(
                                 decoration: BoxDecoration(
                                   borderRadius: BorderRadius.circular(
@@ -699,8 +710,7 @@ class _BoardInteractionLayer extends StatefulWidget {
   });
 
   @override
-  State<_BoardInteractionLayer> createState() =>
-      _BoardInteractionLayerState();
+  State<_BoardInteractionLayer> createState() => _BoardInteractionLayerState();
 }
 
 class _BoardInteractionLayerState extends State<_BoardInteractionLayer> {
@@ -757,8 +767,7 @@ class _BoardInteractionLayerState extends State<_BoardInteractionLayer> {
     Future.delayed(_longPressDuration, () {
       if (_downPos != null && !_isSwipeDetected && !_longPressActivated) {
         _longPressActivated = true;
-        widget.onLongPressStart(
-            _downCol!, _downRow!, _downBlock!, _downPos!);
+        widget.onLongPressStart(_downCol!, _downRow!, _downBlock!, _downPos!);
       }
     });
   }

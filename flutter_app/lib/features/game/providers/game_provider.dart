@@ -42,7 +42,8 @@ class EliminatedBlockInfo {
   final int col;
   final int row;
   final BlockColor color;
-  const EliminatedBlockInfo({required this.col, required this.row, required this.color});
+  const EliminatedBlockInfo(
+      {required this.col, required this.row, required this.color});
 }
 
 /// 消除回合結果（給 BattleProvider 用）
@@ -359,7 +360,8 @@ class GameProvider extends ChangeNotifier {
 
   /// 施放技能時操作棋盤（由 BattleProvider 呼叫）
   /// 技能效果不觸發三消判斷，不中斷 combo
-  Future<void> applyBoardEffect(SkillBoardEffect effect, BlockColor agentColor) async {
+  Future<void> applyBoardEffect(
+      SkillBoardEffect effect, BlockColor agentColor) async {
     final s = _state;
     if (s == null || s.status != GameStatus.playing || _isProcessing) return;
 
@@ -611,8 +613,7 @@ class GameProvider extends ChangeNotifier {
         final eliminatedBlocks = <EliminatedBlockInfo>[];
         for (final match in matches) {
           for (final block in match.blocks) {
-            chainBlocks[block.color] =
-                (chainBlocks[block.color] ?? 0) + 1;
+            chainBlocks[block.color] = (chainBlocks[block.color] ?? 0) + 1;
             eliminatedBlocks.add(EliminatedBlockInfo(
               col: block.col,
               row: block.row,
@@ -673,9 +674,10 @@ class GameProvider extends ChangeNotifier {
     final s = _state!;
     for (int col = 0; col < s.mode.numCols; col++) {
       for (int row = 0; row < s.mode.numRows; row++) {
-        final color = (col < initialColors.length && row < initialColors[col].length)
-            ? initialColors[col][row]
-            : _randomColor();
+        final color =
+            (col < initialColors.length && row < initialColors[col].length)
+                ? initialColors[col][row]
+                : _randomColor();
         s.grid[col][row] = Block(
           id: _uuid.v4(),
           color: color,
@@ -758,10 +760,20 @@ class GameProvider extends ChangeNotifier {
 
   void _applyGravity() {
     final s = _state!;
+    final blocked = getBlockedPositions?.call() ?? {};
     for (int col = 0; col < s.mode.numCols; col++) {
       int writeRow = s.mode.numRows - 1;
       for (int readRow = s.mode.numRows - 1; readRow >= 0; readRow--) {
-        if (s.grid[col][readRow] != null) {
+        if (blocked.contains('$col,$readRow')) {
+          writeRow = readRow - 1;
+          continue;
+        }
+
+        while (writeRow >= 0 && blocked.contains('$col,$writeRow')) {
+          writeRow--;
+        }
+
+        if (s.grid[col][readRow] != null && writeRow >= 0) {
           if (writeRow != readRow) {
             s.grid[col][writeRow] = s.grid[col][readRow];
             s.grid[col][writeRow]!.row = writeRow;
