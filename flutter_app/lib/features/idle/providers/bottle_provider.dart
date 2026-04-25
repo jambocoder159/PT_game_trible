@@ -44,7 +44,8 @@ class BottleProvider extends ChangeNotifier {
   }
 
   Future<void> _saveAutoHarvest() async {
-    await LocalStorageService.instance.setJson('auto_harvest', _autoHarvestEnabled);
+    await LocalStorageService.instance
+        .setJson('auto_harvest', _autoHarvestEnabled);
   }
 
   Map<BlockColor, BottleStatus> get bottles => _bottles;
@@ -99,6 +100,38 @@ class BottleProvider extends ChangeNotifier {
     }
     notifyListeners();
     _save();
+  }
+
+  /// 指定瓶子是否有足夠能量開始製作甜點。
+  bool canProduce(BlockColor color, String dessertId) {
+    final bottle = _bottles[color];
+    if (bottle == null) return false;
+
+    final recipe = DessertDefinitions.getById(dessertId);
+    if (recipe == null) return false;
+    if (recipe.sourceColor != null && recipe.sourceColor != color) return false;
+
+    final energyCost = recipe.directEnergyCost ??
+        BottleDessertMap.getBestForLevel(color, bottle.level)?.energyCost;
+    if (energyCost == null || energyCost <= 0) return false;
+
+    final available = BottleDessertMap.getAvailable(color, bottle.level)
+        .any((tier) => tier.dessertId == dessertId);
+    if (!available) return false;
+
+    return bottle.currentEnergy >= energyCost;
+  }
+
+  /// 開始製作時扣除瓶子能量。
+  bool consumeEnergy(BlockColor color, int amount) {
+    final bottle = _bottles[color];
+    if (bottle == null || amount <= 0) return false;
+    final didConsume = bottle.consumeEnergy(amount);
+    if (didConsume) {
+      notifyListeners();
+      _save();
+    }
+    return didConsume;
   }
 
   // ═══════════════════════════════════════════
@@ -172,11 +205,13 @@ class BottleProvider extends ChangeNotifier {
     for (final bottle in _bottles.values) {
       if (bottle.currentEnergy <= 0) continue;
       final dessertId = bottle.currentDessertId ??
-          BottleDessertMap.getBestForLevel(bottle.color, bottle.level)?.dessertId;
+          BottleDessertMap.getBestForLevel(bottle.color, bottle.level)
+              ?.dessertId;
       if (dessertId == null) continue;
       final recipe = DessertDefinitions.getById(dessertId);
       final energyCost = recipe?.directEnergyCost ??
-          BottleDessertMap.getBestForLevel(bottle.color, bottle.level)?.energyCost ??
+          BottleDessertMap.getBestForLevel(bottle.color, bottle.level)
+              ?.energyCost ??
           30;
       if (bottle.currentEnergy >= energyCost) count++;
     }
@@ -198,12 +233,14 @@ class BottleProvider extends ChangeNotifier {
     for (final bottle in _bottles.values) {
       if (bottle.currentEnergy <= 0) continue;
       final dessertId = bottle.currentDessertId ??
-          BottleDessertMap.getBestForLevel(bottle.color, bottle.level)?.dessertId;
+          BottleDessertMap.getBestForLevel(bottle.color, bottle.level)
+              ?.dessertId;
       if (dessertId == null) continue;
       final recipe = DessertDefinitions.getById(dessertId);
       if (recipe == null) continue;
       final energyCost = recipe.directEnergyCost ??
-          BottleDessertMap.getBestForLevel(bottle.color, bottle.level)?.energyCost ??
+          BottleDessertMap.getBestForLevel(bottle.color, bottle.level)
+              ?.energyCost ??
           30;
       final count = bottle.currentEnergy ~/ energyCost;
       total += count * recipe.sellPrice;
@@ -376,7 +413,9 @@ class BottleProvider extends ChangeNotifier {
 
   bool canUpgrade(BlockColor color, PlayerData playerData) {
     final bottle = _bottles[color];
-    if (bottle == null || bottle.level >= BottleDefinitions.maxLevel) return false;
+    if (bottle == null || bottle.level >= BottleDefinitions.maxLevel) {
+      return false;
+    }
 
     final targetLevel = bottle.level + 1;
     final levelData = BottleDefinitions.getLevelData(targetLevel);

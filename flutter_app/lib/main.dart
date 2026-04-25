@@ -13,6 +13,7 @@ import 'features/idle/providers/idle_provider.dart';
 import 'features/idle/providers/cat_provider.dart';
 import 'features/idle/providers/bottle_provider.dart';
 import 'features/idle/providers/crafting_provider.dart';
+import 'features/idle/providers/production_provider.dart';
 import 'features/idle/screens/home_screen.dart';
 import 'features/tutorial/providers/tutorial_provider.dart';
 import 'features/tutorial/screens/tutorial_router.dart';
@@ -72,6 +73,11 @@ class Match3App extends StatelessWidget {
           return provider;
         }),
         ChangeNotifierProvider(create: (_) => CraftingProvider()),
+        ChangeNotifierProvider(create: (_) {
+          final provider = ProductionProvider();
+          provider.init();
+          return provider;
+        }),
         ChangeNotifierProvider(create: (_) {
           final provider = TutorialProvider();
           provider.init();

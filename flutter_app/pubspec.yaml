@@ -1,7 +1,7 @@
 name: match3_puzzle
 description: 貓咪點心屋 - Kitty Pastry House Match-3 Puzzle Mobile Game
 publish_to: 'none'
-version: 1.0.0+1
+version: 1.0.0+2
 
 environment:
   sdk: ^3.6.0

@@ -8,12 +8,19 @@ import '../../../core/models/block.dart';
 import '../../../core/models/bottle_data.dart';
 import '../../agents/providers/player_provider.dart';
 import '../providers/bottle_provider.dart';
+import '../providers/production_provider.dart';
 
 /// 工坊詳情面板 — 查看/切換每個瓶子的甜點產線
 class WorkshopDetailPanel extends StatefulWidget {
-  const WorkshopDetailPanel({super.key});
+  final BlockColor initialColor;
 
-  static void show(BuildContext context) {
+  const WorkshopDetailPanel({
+    super.key,
+    this.initialColor = BlockColor.coral,
+  });
+
+  static void show(BuildContext context,
+      {BlockColor initialColor = BlockColor.coral}) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -21,7 +28,7 @@ class WorkshopDetailPanel extends StatefulWidget {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      builder: (_) => const WorkshopDetailPanel(),
+      builder: (_) => WorkshopDetailPanel(initialColor: initialColor),
     );
   }
 
@@ -30,12 +37,18 @@ class WorkshopDetailPanel extends StatefulWidget {
 }
 
 class _WorkshopDetailPanelState extends State<WorkshopDetailPanel> {
-  BlockColor _selectedColor = BlockColor.coral;
+  late BlockColor _selectedColor;
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedColor = widget.initialColor;
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Consumer2<BottleProvider, PlayerProvider>(
-      builder: (context, bottleProvider, playerProvider, _) {
+    return Consumer3<BottleProvider, PlayerProvider, ProductionProvider>(
+      builder: (context, bottleProvider, playerProvider, production, _) {
         final bottle = bottleProvider.getBottle(_selectedColor);
         final bottleDef = BottleDefinitions.getByColor(_selectedColor);
         final currentDessert = bottleProvider.getCurrentDessert(_selectedColor);
@@ -49,7 +62,8 @@ class _WorkshopDetailPanelState extends State<WorkshopDetailPanel> {
               children: [
                 // 拖曳指示條
                 Container(
-                  width: 36, height: 4,
+                  width: 36,
+                  height: 4,
                   decoration: BoxDecoration(
                     color: AppTheme.accentSecondary.withAlpha(60),
                     borderRadius: BorderRadius.circular(2),
@@ -79,7 +93,8 @@ class _WorkshopDetailPanelState extends State<WorkshopDetailPanel> {
                       return GestureDetector(
                         onTap: () => setState(() => _selectedColor = color),
                         child: Container(
-                          width: 40, height: 40,
+                          width: 40,
+                          height: 40,
                           decoration: BoxDecoration(
                             color: isSelected
                                 ? color.color.withAlpha(30)
@@ -95,11 +110,15 @@ class _WorkshopDetailPanelState extends State<WorkshopDetailPanel> {
                           child: Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              Text(def.emoji, style: const TextStyle(fontSize: AppTheme.fontTitleMd)),
+                              Text(def.emoji,
+                                  style: const TextStyle(
+                                      fontSize: AppTheme.fontTitleMd)),
                               Text(
                                 'Lv.${b.level}',
                                 style: TextStyle(
-                                  color: isSelected ? color.color : AppTheme.textSecondary,
+                                  color: isSelected
+                                      ? color.color
+                                      : AppTheme.textSecondary,
                                   fontSize: AppTheme.fontLabelSm,
                                   fontWeight: FontWeight.bold,
                                 ),
@@ -120,14 +139,17 @@ class _WorkshopDetailPanelState extends State<WorkshopDetailPanel> {
                   decoration: BoxDecoration(
                     color: AppTheme.bgCard,
                     borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: _selectedColor.color.withAlpha(60)),
+                    border:
+                        Border.all(color: _selectedColor.color.withAlpha(60)),
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Row(
                         children: [
-                          Text(bottleDef.emoji, style: const TextStyle(fontSize: AppTheme.fontDisplayLg)),
+                          Text(bottleDef.emoji,
+                              style: const TextStyle(
+                                  fontSize: AppTheme.fontDisplayLg)),
                           const SizedBox(width: 8),
                           Expanded(
                             child: Column(
@@ -145,7 +167,8 @@ class _WorkshopDetailPanelState extends State<WorkshopDetailPanel> {
                                   Text(
                                     '目前生產：${currentDessert.emoji} ${currentDessert.name}  售價 ${currentDessert.sellPrice}🍬',
                                     style: TextStyle(
-                                      color: AppTheme.textSecondary.withAlpha(180),
+                                      color:
+                                          AppTheme.textSecondary.withAlpha(180),
                                       fontSize: AppTheme.fontLabelLg,
                                     ),
                                   ),
@@ -163,7 +186,8 @@ class _WorkshopDetailPanelState extends State<WorkshopDetailPanel> {
                           minHeight: 8,
                           backgroundColor: AppTheme.bgSecondary,
                           valueColor: AlwaysStoppedAnimation(
-                            _selectedColor.color.withAlpha(bottle.isFull ? 220 : 140),
+                            _selectedColor.color
+                                .withAlpha(bottle.isFull ? 220 : 140),
                           ),
                         ),
                       ),
@@ -193,10 +217,17 @@ class _WorkshopDetailPanelState extends State<WorkshopDetailPanel> {
 
                       final isUnlocked = tier.requiredLevel <= bottle.level;
                       final isCurrent = currentDessert?.id == tier.dessertId;
+                      final catId =
+                          production.firstIdleCat(playerProvider.data.team);
+                      final canProduce = catId != null &&
+                          bottleProvider.canProduce(
+                              _selectedColor, tier.dessertId) &&
+                          !production.displayCase.isFull;
 
                       return Container(
                         margin: const EdgeInsets.only(bottom: 6),
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 8),
                         decoration: BoxDecoration(
                           color: isCurrent
                               ? _selectedColor.color.withAlpha(15)
@@ -214,7 +245,9 @@ class _WorkshopDetailPanelState extends State<WorkshopDetailPanel> {
                               recipe.emoji,
                               style: TextStyle(
                                 fontSize: AppTheme.fontDisplayMd,
-                                color: isUnlocked ? null : AppTheme.textSecondary.withAlpha(60),
+                                color: isUnlocked
+                                    ? null
+                                    : AppTheme.textSecondary.withAlpha(60),
                               ),
                             ),
                             const SizedBox(width: 8),
@@ -227,65 +260,127 @@ class _WorkshopDetailPanelState extends State<WorkshopDetailPanel> {
                                     style: TextStyle(
                                       color: isUnlocked
                                           ? AppTheme.textPrimary
-                                          : AppTheme.textSecondary.withAlpha(80),
+                                          : AppTheme.textSecondary
+                                              .withAlpha(80),
                                       fontSize: AppTheme.fontBodyMd,
                                       fontWeight: FontWeight.bold,
                                     ),
                                   ),
                                   Text(
                                     isUnlocked
-                                        ? '售價 ${recipe.sellPrice}🍬 · 耗能 ${tier.energyCost}'
+                                        ? '售價 ${recipe.sellPrice}🍬 · 耗能 ${tier.energyCost} · ${recipe.craftDurationSec}s'
                                         : '🔒 需 Lv.${tier.requiredLevel}',
                                     style: TextStyle(
-                                      color: AppTheme.textSecondary.withAlpha(isUnlocked ? 150 : 80),
+                                      color: AppTheme.textSecondary
+                                          .withAlpha(isUnlocked ? 150 : 80),
                                       fontSize: AppTheme.fontLabelSm,
                                     ),
                                   ),
                                 ],
                               ),
                             ),
-                            if (isCurrent)
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFF51CF66).withAlpha(20),
-                                  borderRadius: BorderRadius.circular(4),
-                                ),
-                                child: const Text(
-                                  '生產中 ✓',
-                                  style: TextStyle(
-                                    color: Color(0xFF51CF66),
-                                    fontSize: AppTheme.fontLabelSm,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              )
-                            else if (isUnlocked)
-                              GestureDetector(
-                                onTap: () {
-                                  HapticFeedback.lightImpact();
-                                  bottleProvider.setCurrentDessert(
-                                    _selectedColor,
-                                    tier.dessertId,
-                                  );
-                                  setState(() {});
-                                },
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                  decoration: BoxDecoration(
-                                    color: _selectedColor.color.withAlpha(20),
-                                    borderRadius: BorderRadius.circular(4),
-                                    border: Border.all(color: _selectedColor.color.withAlpha(100)),
-                                  ),
-                                  child: Text(
-                                    '切換',
-                                    style: TextStyle(
-                                      color: _selectedColor.color,
-                                      fontSize: AppTheme.fontLabelLg,
-                                      fontWeight: FontWeight.bold,
+                            if (isUnlocked)
+                              Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  if (isCurrent)
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 6, vertical: 3),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFF51CF66)
+                                            .withAlpha(20),
+                                        borderRadius: BorderRadius.circular(4),
+                                      ),
+                                      child: const Text(
+                                        '目前',
+                                        style: TextStyle(
+                                          color: Color(0xFF51CF66),
+                                          fontSize: AppTheme.fontLabelSm,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    )
+                                  else
+                                    GestureDetector(
+                                      onTap: () {
+                                        HapticFeedback.lightImpact();
+                                        bottleProvider.setCurrentDessert(
+                                          _selectedColor,
+                                          tier.dessertId,
+                                        );
+                                        setState(() {});
+                                      },
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 8, vertical: 4),
+                                        decoration: BoxDecoration(
+                                          color: _selectedColor.color
+                                              .withAlpha(20),
+                                          borderRadius:
+                                              BorderRadius.circular(4),
+                                          border: Border.all(
+                                              color: _selectedColor.color
+                                                  .withAlpha(100)),
+                                        ),
+                                        child: Text(
+                                          '切換',
+                                          style: TextStyle(
+                                            color: _selectedColor.color,
+                                            fontSize: AppTheme.fontLabelLg,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  const SizedBox(width: 6),
+                                  GestureDetector(
+                                    onTap: canProduce
+                                        ? () async {
+                                            HapticFeedback.mediumImpact();
+                                            bottleProvider.setCurrentDessert(
+                                              _selectedColor,
+                                              tier.dessertId,
+                                            );
+                                            final agent = playerProvider
+                                                .data.agents[catId];
+                                            final didStart = await production
+                                                .startProduction(
+                                              catId: catId,
+                                              dessertId: tier.dessertId,
+                                              sourceColor: _selectedColor,
+                                              catLevel: agent?.level ?? 1,
+                                              bottleProvider: bottleProvider,
+                                            );
+                                            if (!context.mounted) return;
+                                            if (didStart) {
+                                              Navigator.of(context).pop();
+                                            }
+                                          }
+                                        : null,
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 8, vertical: 4),
+                                      decoration: BoxDecoration(
+                                        color: canProduce
+                                            ? AppTheme.accentPrimary
+                                            : AppTheme.bgSecondary,
+                                        borderRadius: BorderRadius.circular(4),
+                                      ),
+                                      child: Text(
+                                        '製作',
+                                        style: TextStyle(
+                                          color: canProduce
+                                              ? Colors.white
+                                              : AppTheme.textSecondary
+                                                  .withAlpha(100),
+                                          fontSize: AppTheme.fontLabelLg,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
                                     ),
                                   ),
-                                ),
+                                ],
                               ),
                           ],
                         ),
@@ -297,7 +392,8 @@ class _WorkshopDetailPanelState extends State<WorkshopDetailPanel> {
                 // 瓶子升級按鈕（永遠顯示）
                 if (bottle.level < BottleDefinitions.maxLevel) ...[
                   const SizedBox(height: 8),
-                  _buildUpgradeButton(context, bottle, bottleDef, bottleProvider, playerProvider),
+                  _buildUpgradeButton(context, bottle, bottleDef,
+                      bottleProvider, playerProvider),
                 ],
               ],
             ),
@@ -314,21 +410,25 @@ class _WorkshopDetailPanelState extends State<WorkshopDetailPanel> {
     BottleProvider bottleProvider,
     PlayerProvider playerProvider,
   ) {
-    final canUpgrade = bottleProvider.canUpgrade(_selectedColor, playerProvider.data);
+    final canUpgrade =
+        bottleProvider.canUpgrade(_selectedColor, playerProvider.data);
     final targetLevel = bottle.level + 1;
     final levelData = BottleDefinitions.getLevelData(targetLevel);
-    final materials = BottleDefinitions.getUpgradeMaterials(targetLevel, _selectedColor);
+    final materials =
+        BottleDefinitions.getUpgradeMaterials(targetLevel, _selectedColor);
 
     // 判斷缺什麼
     String? blockReason;
     if (!canUpgrade) {
       if (levelData.stageGateId != null) {
-        final progress = playerProvider.data.stageProgress[levelData.stageGateId!];
+        final progress =
+            playerProvider.data.stageProgress[levelData.stageGateId!];
         if (progress == null || !progress.cleared) {
           blockReason = '需通關 ${levelData.stageGateId}';
         }
       }
-      if (blockReason == null && playerProvider.data.gold < levelData.upgradeCostGold) {
+      if (blockReason == null &&
+          playerProvider.data.gold < levelData.upgradeCostGold) {
         blockReason = '金幣不足 (需 ${levelData.upgradeCostGold})';
       }
       if (blockReason == null) {
@@ -345,7 +445,8 @@ class _WorkshopDetailPanelState extends State<WorkshopDetailPanel> {
     return GestureDetector(
       onTap: canUpgrade
           ? () {
-              if (bottleProvider.upgradeBottle(_selectedColor, playerProvider.data)) {
+              if (bottleProvider.upgradeBottle(
+                  _selectedColor, playerProvider.data)) {
                 HapticFeedback.mediumImpact();
                 playerProvider.notifyAndSave();
                 setState(() {});
@@ -363,7 +464,10 @@ class _WorkshopDetailPanelState extends State<WorkshopDetailPanel> {
         padding: const EdgeInsets.symmetric(vertical: 10),
         decoration: BoxDecoration(
           gradient: canUpgrade
-              ? LinearGradient(colors: [_selectedColor.color.withAlpha(180), _selectedColor.color])
+              ? LinearGradient(colors: [
+                  _selectedColor.color.withAlpha(180),
+                  _selectedColor.color
+                ])
               : null,
           color: canUpgrade ? null : AppTheme.bgSecondary,
           borderRadius: BorderRadius.circular(8),
@@ -377,7 +481,9 @@ class _WorkshopDetailPanelState extends State<WorkshopDetailPanel> {
             Text(
               '⬆ 升級至 Lv.$targetLevel',
               style: TextStyle(
-                color: canUpgrade ? Colors.white : AppTheme.textSecondary.withAlpha(120),
+                color: canUpgrade
+                    ? Colors.white
+                    : AppTheme.textSecondary.withAlpha(120),
                 fontSize: AppTheme.fontBodyMd,
                 fontWeight: FontWeight.bold,
               ),

@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../../config/image_assets.dart';
 import '../../../config/cat_agent_data.dart';
+import '../../../config/bottle_dessert_map.dart';
 import '../../../config/theme.dart';
 import '../../agents/providers/player_provider.dart';
 import '../../agents/screens/agent_list_screen.dart';
@@ -16,14 +17,15 @@ import '../../settings/screens/settings_screen.dart';
 import '../../profile/screens/player_profile_screen.dart';
 import '../../../core/models/block.dart';
 import '../../../core/models/bottle_data.dart';
+import '../../../core/models/production.dart';
 import '../providers/idle_provider.dart';
 import '../providers/bottle_provider.dart';
+import '../providers/production_provider.dart';
 import '../widgets/player_info_bar.dart';
 import '../widgets/bottom_nav_bar.dart';
 import '../widgets/idle_mini_game.dart';
 import '../../../core/models/auto_eliminate_config.dart';
 import '../widgets/auto_eliminate_settings.dart';
-import '../widgets/crafting_panel.dart';
 import '../widgets/workshop_detail_panel.dart';
 import '../widgets/energy_orb_overlay.dart';
 import '../widgets/home_guide_overlay.dart';
@@ -36,21 +38,28 @@ import '../../../core/models/cat_agent.dart';
 class HomeScreen extends StatefulWidget {
   /// 教學模式：跳過內建 HomeGuide，由外部 overlay 控制
   final bool tutorialMode;
+
   /// 教學模式下，攔截導航列點擊（僅闖關 Tab 回調）
   final VoidCallback? onTutorialNavTap;
+
   /// 起始 Tab（預設 2 = 放置頁）
   final int initialNavIndex;
+
   /// 外部 GlobalKey — 供高亮定位
   final GlobalKey? externalBottleAreaKey;
   final GlobalKey? externalConvertButtonKey;
   final GlobalKey? externalCraftButtonKey;
   final GlobalKey? externalNavBarKey;
+
   /// 教學高亮的 agent id（傳給 AgentListScreen）
   final String? tutorialHighlightAgentId;
+
   /// Tab 切換回調
   final ValueChanged<int>? onTabChanged;
+
   /// 教學用：自動消除 Switch 的 GlobalKey
   final GlobalKey? tutorialAutoSwitchKey;
+
   /// 教學用：元氣區域的 GlobalKey
   final GlobalKey? tutorialStaminaKey;
 
@@ -84,9 +93,9 @@ class _HomeScreenState extends State<HomeScreen> {
   AgentAttribute? _skillVfxAttribute;
   String? _skillVfxAgentName;
 
-  // 演出區狀態：idle → making (3.5s) → serving (1.3s) → idle
-  String _stageMode = 'idle'; // 'idle' | 'making' | 'serving'
-  BlockColor? _stageColor; // 哪個瓶子觸發了 making
+  // 演出區狀態：idle / serving。製作中維持 idle 舞台，不再展開演出框。
+  String _stageMode = 'idle'; // 'idle' | 'serving'
+  BlockColor? _stageColor;
 
   // 瓶子 GlobalKey（用於定位能量球目標位置）
   final Map<BlockColor, GlobalKey> _bottleKeys = {};
@@ -99,9 +108,6 @@ class _HomeScreenState extends State<HomeScreen> {
   final GlobalKey _guideNavBarKey = GlobalKey();
   bool _showHomeGuide = false;
   bool _showStaminaHint = false;
-
-  // 瓶子滿提示節流（避免重複提醒）
-  final Set<BlockColor> _notifiedFullBottles = {};
 
   @override
   void initState() {
@@ -242,13 +248,9 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
-  /// 檢查瓶子是否滿了 → 觸發自動收成（如已啟用）
+  /// 檢查瓶子狀態。滿瓶只代表容量已達上限，不再自動製作。
   void _checkBottleFull(BottleProvider bp) {
     if (_showHomeGuide || _currentNavIndex != 2) return;
-    // 自動收成
-    if (bp.autoHarvestEnabled && bp.getHarvestableCount() > 0) {
-      _onHarvest();
-    }
   }
 
   /// 發射能量球：從遊戲區中心飛向對應顏色的瓶子
@@ -339,7 +341,9 @@ class _HomeScreenState extends State<HomeScreen> {
 
                     // 每日任務有可領取 → 也在闖關 Tab（引導玩家進入任務中心）
                     final dq = player.data.dailyQuests;
-                    if (!dq.needsReset && dq.allCompleted && !dq.rewardsClaimed) {
+                    if (!dq.needsReset &&
+                        dq.allCompleted &&
+                        !dq.rewardsClaimed) {
                       badges.add(3);
                     }
                   }
@@ -347,7 +351,8 @@ class _HomeScreenState extends State<HomeScreen> {
                     currentIndex: _currentNavIndex,
                     onTap: _showHomeGuide ? null : _onNavTap,
                     badges: badges,
-                    highlightTabIndex: widget.externalNavBarKey != null ? 3 : -1,
+                    highlightTabIndex:
+                        widget.externalNavBarKey != null ? 3 : -1,
                     highlightTabKey: widget.externalNavBarKey,
                   );
                 },
@@ -357,13 +362,13 @@ class _HomeScreenState extends State<HomeScreen> {
           body: IndexedStack(
             index: _currentNavIndex,
             children: [
-              const BackpackScreen(),       // 0: 背包
+              const BackpackScreen(), // 0: 背包
               AgentListScreen(
                 tutorialHighlightAgentId: widget.tutorialHighlightAgentId,
-              ),                            // 1: 角色
-              _buildIdleContent(),          // 2: 放置
-              const StageSelectScreen(),    // 3: 闖關
-              const ShopScreen(),           // 4: 商店
+              ), // 1: 角色
+              _buildIdleContent(), // 2: 放置
+              const StageSelectScreen(), // 3: 闖關
+              const ShopScreen(), // 4: 商店
             ],
           ),
         ),
@@ -422,46 +427,81 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  /// 瓶子滿時觸發生產流程
-  void _triggerMake(BlockColor color) {
-    if (_stageMode != 'idle') return;
-    setState(() {
-      _stageMode = 'making';
-      _stageColor = color;
-    });
-    // 3.5s 後切換到 serving
-    Future.delayed(const Duration(milliseconds: 3500), () {
-      if (!mounted || _stageMode != 'making') return;
-      // 收穫該瓶的能量
-      final bp = context.read<BottleProvider>();
-      final pp = context.read<PlayerProvider>();
-      bp.harvest(pp.data);
-      pp.notifyAndSave();
-      setState(() => _stageMode = 'serving');
-      // 1.3s 後回到 idle
-      Future.delayed(const Duration(milliseconds: 1300), () {
-        if (mounted) setState(() { _stageMode = 'idle'; _stageColor = null; });
-      });
-    });
-  }
-
-  /// 手動收成（收成按鈕 / 演出區內按鈕）
-  void _onHarvest() {
-    if (_stageMode != 'idle') return;
+  Future<void> _startProductionForBottle(BlockColor color) async {
+    if (widget.tutorialMode) return;
     final bp = context.read<BottleProvider>();
-    if (bp.getHarvestableCount() <= 0) return;
-    // 找到第一個有能量的瓶子觸發 making
-    for (final def in BottleDefinitions.all) {
-      final bottle = bp.getBottle(def.color);
-      if (bottle.currentEnergy > 0) {
-        _triggerMake(def.color);
-        return;
-      }
+    final pp = context.read<PlayerProvider>();
+    final production = context.read<ProductionProvider>();
+    if (!pp.isInitialized || !bp.isInitialized || !production.isInitialized) {
+      return;
+    }
+
+    final bottle = bp.getBottle(color);
+    final dessertId = bottle.currentDessertId ??
+        BottleDessertMap.getBestForLevel(color, bottle.level)?.dessertId;
+    final recipe =
+        dessertId == null ? null : DessertDefinitions.getById(dessertId);
+    if (dessertId == null || recipe == null) {
+      WorkshopDetailPanel.show(context, initialColor: color);
+      return;
+    }
+
+    final catId = production.firstIdleCat(pp.data.team);
+    if (catId == null) {
+      _showProductionSnack('所有貓咪都在製作中');
+      return;
+    }
+    if (!bp.canProduce(color, dessertId)) {
+      WorkshopDetailPanel.show(context, initialColor: color);
+      return;
+    }
+
+    final catLevel = pp.data.agents[catId]?.level ?? 1;
+    final didStart = await production.startProduction(
+      catId: catId,
+      dessertId: dessertId,
+      sourceColor: color,
+      catLevel: catLevel,
+      bottleProvider: bp,
+    );
+    if (!mounted) return;
+    if (didStart) {
+      HapticFeedback.mediumImpact();
+      final catName = _findAgentDef(catId)?.name ?? '貓咪';
+      _showProductionSnack('$catName 開始製作 ${recipe.emoji} ${recipe.name}');
     }
   }
 
+  /// 手動售出展示櫃甜點。
+  Future<void> _onHarvest() async {
+    final production = context.read<ProductionProvider>();
+    final pp = context.read<PlayerProvider>();
+    if (!production.isInitialized || production.displayCase.totalCount <= 0) {
+      return;
+    }
+    final result = await production.sellAll(pp.data);
+    if (!mounted || result.isEmpty) return;
+    await pp.notifyAndSave();
+    setState(() {
+      _stageMode = 'idle';
+      _stageColor = null;
+    });
+    _showHarvestAnimation(HarvestResult(
+      dessertsProduced: result.dessertsSold,
+      totalGold: result.totalGold,
+      critBonusGold: result.critBonusGold,
+    ));
+  }
+
+  void _showProductionSnack(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message), duration: const Duration(seconds: 1)),
+    );
+  }
+
   /// 收成動畫：甜點圖示飛出 → 金幣數字放大
-  void _showHarvestAnimation(HarvestResult result, {VoidCallback? onParticlesArrived}) {
+  void _showHarvestAnimation(HarvestResult result,
+      {VoidCallback? onParticlesArrived}) {
     final overlay = Overlay.of(context);
     late OverlayEntry entry;
 
@@ -496,14 +536,15 @@ class _HomeScreenState extends State<HomeScreen> {
                     onStats: _showCareerStatsModal,
                     onDailyQuest: () {
                       Navigator.of(context).push(
-                        MaterialPageRoute(builder: (_) => const DailyQuestScreen()),
+                        MaterialPageRoute(
+                            builder: (_) => const DailyQuestScreen()),
                       );
                     },
                   ),
                 ),
               ),
 
-              // ─── 演出區（固定高度）+ 瓶子（making 時被演出覆蓋） ───
+              // ─── 演出區（固定高度）+ 瓶子 ───
               _StageAndBottles(
                 stageMode: _stageMode,
                 stageColor: _stageColor,
@@ -512,9 +553,10 @@ class _HomeScreenState extends State<HomeScreen> {
                 tutorialAutoSwitchKey: widget.tutorialAutoSwitchKey,
                 tutorialMode: widget.tutorialMode,
                 bottleKeys: _bottleKeys,
-                bottleAreaKey: widget.externalBottleAreaKey ?? _guideBottleAreaKey,
-                onBottleTap: widget.tutorialMode ? null : () => WorkshopDetailPanel.show(context),
-                onBottleFull: _triggerMake,
+                bottleAreaKey:
+                    widget.externalBottleAreaKey ?? _guideBottleAreaKey,
+                onBottleTap:
+                    widget.tutorialMode ? null : _startProductionForBottle,
               ),
 
               // ─── 棋盤 ───
@@ -524,6 +566,8 @@ class _HomeScreenState extends State<HomeScreen> {
                   child: IdleMiniGame(key: _gameAreaKey),
                 ),
               ),
+              if (!widget.tutorialMode)
+                _DisplayCaseStrip(onSellAll: _onHarvest),
             ],
           ),
 
@@ -726,13 +770,11 @@ class _SkillVfxOverlayState extends State<_SkillVfxOverlay>
 
 class _HorizontalBottleStrip extends StatelessWidget {
   final Map<BlockColor, GlobalKey> bottleKeys;
-  final VoidCallback? onBottleTap;
-  final void Function(BlockColor color)? onBottleFull;
+  final void Function(BlockColor color)? onBottleTap;
 
   const _HorizontalBottleStrip({
     required this.bottleKeys,
     this.onBottleTap,
-    this.onBottleFull,
   });
 
   @override
@@ -745,22 +787,15 @@ class _HorizontalBottleStrip extends StatelessWidget {
           bottleKeys.putIfAbsent(def.color, () => GlobalKey());
         }
 
-        // 檢查是否有瓶子剛滿，觸發 making
-        if (onBottleFull != null) {
-          for (final def in BottleDefinitions.all) {
-            if (bp.getBottle(def.color).isFull) {
-              WidgetsBinding.instance.addPostFrameCallback((_) {
-                onBottleFull!(def.color);
-              });
-              break;
-            }
-          }
-        }
-
         return Row(
           children: BottleDefinitions.all.map((def) {
             final bottle = bp.getBottle(def.color);
             final isFull = bottle.isFull;
+            final dessertId = bottle.currentDessertId ??
+                BottleDessertMap.getBestForLevel(def.color, bottle.level)
+                    ?.dessertId;
+            final canProduce =
+                dessertId != null && bp.canProduce(def.color, dessertId);
             final canUpgrade = bp.canUpgrade(def.color, pp.data);
             final clr = def.color.color;
 
@@ -768,7 +803,10 @@ class _HorizontalBottleStrip extends StatelessWidget {
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 2),
                 child: GestureDetector(
-                  onTap: onBottleTap,
+                  onTap: () {
+                    HapticFeedback.lightImpact();
+                    onBottleTap?.call(def.color);
+                  },
                   child: KeyedSubtree(
                     key: bottleKeys[def.color]!,
                     child: Container(
@@ -776,14 +814,26 @@ class _HorizontalBottleStrip extends StatelessWidget {
                       clipBehavior: Clip.antiAlias,
                       decoration: BoxDecoration(
                         color: AppTheme.bgCard,
-                        borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
+                        borderRadius:
+                            BorderRadius.circular(AppTheme.radiusSmall),
                         border: Border.all(
-                          color: isFull ? clr.withAlpha(180) : clr.withAlpha(30),
-                          width: isFull ? 1.5 : 0.5,
+                          color: canProduce
+                              ? clr.withAlpha(210)
+                              : isFull
+                                  ? clr.withAlpha(180)
+                                  : clr.withAlpha(30),
+                          width: canProduce || isFull ? 1.5 : 0.5,
                         ),
-                        boxShadow: isFull
-                            ? [BoxShadow(color: clr.withAlpha(40), blurRadius: 6)]
-                            : [BoxShadow(color: Colors.black.withAlpha(6), blurRadius: 2)],
+                        boxShadow: canProduce || isFull
+                            ? [
+                                BoxShadow(
+                                    color: clr.withAlpha(40), blurRadius: 6)
+                              ]
+                            : [
+                                BoxShadow(
+                                    color: Colors.black.withAlpha(6),
+                                    blurRadius: 2)
+                              ],
                       ),
                       child: Stack(
                         children: [
@@ -814,21 +864,30 @@ class _HorizontalBottleStrip extends StatelessWidget {
                             child: Column(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                Text(def.emoji, style: const TextStyle(fontSize: AppTheme.fontTitleMd)),
+                                Text(def.emoji,
+                                    style: const TextStyle(
+                                        fontSize: AppTheme.fontTitleMd)),
                                 const SizedBox(height: 2),
                                 Text(
-                                  isFull ? '✓' : '${bottle.currentEnergy}',
+                                  canProduce
+                                      ? '製作'
+                                      : isFull
+                                          ? '滿'
+                                          : '${bottle.currentEnergy}',
                                   style: TextStyle(
                                     fontSize: AppTheme.fontLabelLg,
                                     fontWeight: FontWeight.bold,
-                                    color: isFull ? clr : AppTheme.textPrimary,
+                                    color: canProduce || isFull
+                                        ? clr
+                                        : AppTheme.textPrimary,
                                   ),
                                 ),
                                 Text(
                                   'Lv${bottle.level}',
                                   style: TextStyle(
                                     fontSize: AppTheme.fontLabelSm,
-                                    color: AppTheme.textSecondary.withAlpha(140),
+                                    color:
+                                        AppTheme.textSecondary.withAlpha(140),
                                   ),
                                 ),
                               ],
@@ -837,13 +896,16 @@ class _HorizontalBottleStrip extends StatelessWidget {
                           // 升級紅點
                           if (canUpgrade)
                             Positioned(
-                              top: 2, right: 2,
+                              top: 2,
+                              right: 2,
                               child: Container(
-                                width: 7, height: 7,
+                                width: 7,
+                                height: 7,
                                 decoration: BoxDecoration(
                                   color: AppTheme.accentPrimary,
                                   shape: BoxShape.circle,
-                                  border: Border.all(color: AppTheme.bgCard, width: 1),
+                                  border: Border.all(
+                                      color: AppTheme.bgCard, width: 1),
                                 ),
                               ),
                             ),
@@ -862,7 +924,7 @@ class _HorizontalBottleStrip extends StatelessWidget {
 }
 
 // ═══════════════════════════════════════════
-// 演出區 + 瓶子合體：making 時演出往下蓋住瓶子
+// 演出區 + 瓶子合體
 // ═══════════════════════════════════════════
 
 class _StageAndBottles extends StatelessWidget {
@@ -874,8 +936,7 @@ class _StageAndBottles extends StatelessWidget {
   final bool tutorialMode;
   final Map<BlockColor, GlobalKey> bottleKeys;
   final GlobalKey bottleAreaKey;
-  final VoidCallback? onBottleTap;
-  final void Function(BlockColor)? onBottleFull;
+  final void Function(BlockColor color)? onBottleTap;
 
   const _StageAndBottles({
     required this.stageMode,
@@ -887,10 +948,9 @@ class _StageAndBottles extends StatelessWidget {
     required this.bottleKeys,
     required this.bottleAreaKey,
     this.onBottleTap,
-    this.onBottleFull,
   });
 
-  bool get _isExpanded => stageMode != 'idle';
+  bool get _isExpanded => stageMode == 'serving';
   // 演出區固定高度 + 瓶子高度
   static const _stageHeight = 120.0;
   static const _bottleHeight = 60.0;
@@ -903,7 +963,9 @@ class _StageAndBottles extends StatelessWidget {
         children: [
           // 底層：瓶子（固定在底部）
           Positioned(
-            left: 10, right: 10, bottom: 0,
+            left: 10,
+            right: 10,
+            bottom: 0,
             height: _bottleHeight,
             child: AnimatedOpacity(
               duration: const Duration(milliseconds: 300),
@@ -913,15 +975,16 @@ class _StageAndBottles extends StatelessWidget {
                 child: _HorizontalBottleStrip(
                   bottleKeys: bottleKeys,
                   onBottleTap: onBottleTap,
-                  onBottleFull: onBottleFull,
                 ),
               ),
             ),
           ),
 
-          // 上層：演出區（making 時擴展覆蓋瓶子）
+          // 上層：演出區（製作中不展開，只在售出演出時覆蓋瓶子）
           Positioned(
-            left: 0, right: 0, top: 0,
+            left: 0,
+            right: 0,
+            top: 0,
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 380),
               curve: Curves.easeInOutCubic,
@@ -943,11 +1006,11 @@ class _StageAndBottles extends StatelessWidget {
 }
 
 // ═══════════════════════════════════════════
-// 角色演出區 — idle / making / serving 三態
+// 角色演出區 — idle / serving，製作狀態由 ProductionProvider 驅動
 // ═══════════════════════════════════════════
 
 class _StageArea extends StatelessWidget {
-  final String stageMode; // 'idle' | 'making' | 'serving'
+  final String stageMode; // 'idle' | 'serving'
   final BlockColor? stageColor;
   final VoidCallback onHarvest;
   final GlobalKey? externalHarvestButtonKey;
@@ -963,12 +1026,13 @@ class _StageArea extends StatelessWidget {
     this.tutorialMode = false,
   });
 
-  bool get _isExpanded => stageMode != 'idle';
+  bool get _isExpanded => stageMode == 'serving';
 
   @override
   Widget build(BuildContext context) {
-    return Consumer3<PlayerProvider, IdleProvider, BottleProvider>(
-      builder: (context, pp, idle, bp, _) {
+    return Consumer4<PlayerProvider, IdleProvider, BottleProvider,
+        ProductionProvider>(
+      builder: (context, pp, idle, bp, production, _) {
         if (!pp.isInitialized) return const SizedBox.shrink();
         final team = pp.data.team;
 
@@ -1003,19 +1067,25 @@ class _StageArea extends StatelessWidget {
 
               // 地面漸層
               Positioned(
-                left: 0, right: 0, bottom: 0, height: 30,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                height: 30,
                 child: Container(
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
                       begin: Alignment.topCenter,
                       end: Alignment.bottomCenter,
-                      colors: [Colors.transparent, AppTheme.bgSecondary.withAlpha(200)],
+                      colors: [
+                        Colors.transparent,
+                        AppTheme.bgSecondary.withAlpha(200)
+                      ],
                     ),
                   ),
                 ),
               ),
 
-              // ── idle：角色走動 ──
+              // ── idle：角色走動；製作中的角色維持在同一水平舞台製作 ──
               if (stageMode == 'idle' && team.isNotEmpty)
                 Positioned.fill(
                   child: LayoutBuilder(
@@ -1025,7 +1095,10 @@ class _StageArea extends StatelessWidget {
                         final agentDef = _findAgentDef(agentId);
                         if (agentDef == null) return const SizedBox.shrink();
                         final instance = pp.data.agents[agentId];
+                        final productionSlot =
+                            _productionSlotForCat(production, agentId);
                         return _StageCharacter(
+                          key: ValueKey(agentId),
                           agentId: agentId,
                           agentDef: agentDef,
                           evolutionStage: instance?.evolutionStage ?? 0,
@@ -1033,63 +1106,70 @@ class _StageArea extends StatelessWidget {
                           totalCharacters: team.length.clamp(1, 3),
                           stageWidth: c.maxWidth,
                           stageHeight: c.maxHeight,
-                          isCooking: false,
+                          productionSlot: productionSlot,
+                          productionNow: production.now,
                         );
                       }),
                     ),
                   ),
                 ),
 
-              // ── making：烹飪動畫 ──
-              if (stageMode == 'making')
-                _MakingScene(team: team, stageColor: stageColor),
-
               // ── serving：上菜動畫 ──
-              if (stageMode == 'serving')
-                _ServingScene(stageColor: stageColor),
+              if (stageMode == 'serving') _ServingScene(stageColor: stageColor),
 
               // ── 左上：廚房按鈕 ──
               if (stageMode == 'idle')
                 Positioned(
-                  left: 8, top: 8,
-                  child: _wrapWithKey(externalHarvestButtonKey, GestureDetector(
-                    onTap: onHarvest,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withAlpha(220),
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: AppTheme.accentSecondary.withAlpha(40)),
-                      ),
-                      child: Consumer<BottleProvider>(
-                        builder: (_, bp, __) {
-                          final ready = bp.getHarvestableCount() > 0;
-                          return Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(ready ? '🍳' : '🏠', style: const TextStyle(fontSize: 14)),
-                              const SizedBox(width: 4),
-                              Text(
-                                ready ? '收成！' : '廚房',
-                                style: TextStyle(
-                                  fontSize: AppTheme.fontLabelLg,
-                                  fontWeight: FontWeight.w900,
-                                  color: ready ? AppTheme.accentPrimary : AppTheme.textSecondary,
-                                ),
-                              ),
-                            ],
-                          );
-                        },
-                      ),
-                    ),
-                  )),
+                  left: 8,
+                  top: 8,
+                  child: _wrapWithKey(
+                      externalHarvestButtonKey,
+                      GestureDetector(
+                        onTap: onHarvest,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 10, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withAlpha(220),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(
+                                color: AppTheme.accentSecondary.withAlpha(40)),
+                          ),
+                          child: Consumer<ProductionProvider>(
+                            builder: (_, production, __) {
+                              final ready =
+                                  production.displayCase.totalCount > 0;
+                              return Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(ready ? '💰' : '🏠',
+                                      style: const TextStyle(fontSize: 14)),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    ready ? '售出' : '廚房',
+                                    style: TextStyle(
+                                      fontSize: AppTheme.fontLabelLg,
+                                      fontWeight: FontWeight.w900,
+                                      color: ready
+                                          ? AppTheme.accentPrimary
+                                          : AppTheme.textSecondary,
+                                    ),
+                                  ),
+                                ],
+                              );
+                            },
+                          ),
+                        ),
+                      )),
                 ),
 
               // ── 右上：齒輪（自動設定） ──
               if (stageMode == 'idle')
                 Positioned(
-                  right: 8, top: 8,
-                  child: _buildGearButton(context, idle, bp, tutorialAutoSwitchKey),
+                  right: 8,
+                  top: 8,
+                  child: _buildGearButton(
+                      context, idle, bp, tutorialAutoSwitchKey),
                 ),
             ],
           ),
@@ -1103,12 +1183,17 @@ class _StageArea extends StatelessWidget {
     return KeyedSubtree(key: key, child: child);
   }
 
-  static Widget _buildGearButton(BuildContext context, IdleProvider idle, BottleProvider bp, GlobalKey? tutorialKey) {
+  static Widget _buildGearButton(BuildContext context, IdleProvider idle,
+      BottleProvider bp, GlobalKey? tutorialKey) {
     final config = idle.autoConfig;
     final progress = context.read<PlayerProvider>().data.stageProgress;
-    final isHarvestUnlocked = progress[AutoEliminateConfig.autoHarvestUnlockStage]?.cleared ?? false;
-    final isEliminateUnlocked = progress[AutoEliminateConfig.autoEliminateUnlockStage]?.cleared ?? false;
-    final hasAutoActive = (isHarvestUnlocked && bp.autoHarvestEnabled) || (isEliminateUnlocked && config.isAutoActive);
+    final isHarvestUnlocked =
+        progress[AutoEliminateConfig.autoHarvestUnlockStage]?.cleared ?? false;
+    final isEliminateUnlocked =
+        progress[AutoEliminateConfig.autoEliminateUnlockStage]?.cleared ??
+            false;
+    final hasAutoActive = (isHarvestUnlocked && bp.autoHarvestEnabled) ||
+        (isEliminateUnlocked && config.isAutoActive);
 
     return KeyedSubtree(
       key: tutorialKey ?? GlobalKey(),
@@ -1125,7 +1210,8 @@ class _StageArea extends StatelessWidget {
           );
         },
         child: Container(
-          width: 32, height: 32,
+          width: 32,
+          height: 32,
           decoration: BoxDecoration(
             color: Colors.white.withAlpha(220),
             borderRadius: BorderRadius.circular(8),
@@ -1133,11 +1219,18 @@ class _StageArea extends StatelessWidget {
           ),
           child: Stack(
             children: [
-              Center(child: Icon(Icons.tune_rounded, size: 16, color: AppTheme.textSecondary.withAlpha(160))),
+              Center(
+                  child: Icon(Icons.tune_rounded,
+                      size: 16, color: AppTheme.textSecondary.withAlpha(160))),
               if (hasAutoActive)
                 Positioned(
-                  top: 2, right: 2,
-                  child: Container(width: 6, height: 6, decoration: const BoxDecoration(color: Color(0xFF4CAF50), shape: BoxShape.circle)),
+                  top: 2,
+                  right: 2,
+                  child: Container(
+                      width: 6,
+                      height: 6,
+                      decoration: const BoxDecoration(
+                          color: Color(0xFF4CAF50), shape: BoxShape.circle)),
                 ),
             ],
           ),
@@ -1147,80 +1240,118 @@ class _StageArea extends StatelessWidget {
   }
 }
 
-// ── 烹飪場景 ──
-class _MakingScene extends StatelessWidget {
-  final List<String> team;
-  final BlockColor? stageColor;
-  const _MakingScene({required this.team, this.stageColor});
+ProductionSlot? _productionSlotForCat(
+    ProductionProvider production, String catId) {
+  for (final slot in production.activeSlots) {
+    if (slot.catId == catId) return slot;
+  }
+  return null;
+}
+
+class _DisplayCaseStrip extends StatelessWidget {
+  final VoidCallback onSellAll;
+
+  const _DisplayCaseStrip({required this.onSellAll});
 
   @override
   Widget build(BuildContext context) {
-    final colorDef = stageColor != null
-        ? BottleDefinitions.all.firstWhere((d) => d.color == stageColor, orElse: () => BottleDefinitions.all.first)
-        : BottleDefinitions.all.first;
+    return Consumer<ProductionProvider>(
+      builder: (context, production, _) {
+        if (!production.isInitialized) return const SizedBox(height: 50);
+        final display = production.displayCase;
+        final items = display.desserts.entries.toList();
 
-    return Stack(
-      children: [
-        // 主角色（中間偏左）
-        if (team.isNotEmpty)
-          Positioned(
-            left: 60, bottom: 30,
-            child: _AnimatedCookingCat(agentId: team.first),
+        return Container(
+          height: 54,
+          margin: const EdgeInsets.fromLTRB(8, 0, 8, 4),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+          decoration: BoxDecoration(
+            color: AppTheme.bgCard,
+            borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+            border: Border.all(color: AppTheme.accentSecondary.withAlpha(35)),
           ),
-        // 能量瓶（左側）
-        Positioned(
-          left: 20, top: 20,
-          child: Text(colorDef.emoji, style: const TextStyle(fontSize: 32)),
-        ),
-        // 鍋子（右側）
-        Positioned(
-          right: 30, bottom: 25,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
+          child: Row(
             children: [
-              // 蒸汽
-              Text('♨️', style: TextStyle(fontSize: 18, color: Colors.white.withAlpha(180))),
-              const Text('🍲', style: TextStyle(fontSize: 36)),
+              Text(
+                '展示櫃 ${display.totalCount}/${display.maxCapacity}',
+                style: const TextStyle(
+                  color: AppTheme.textPrimary,
+                  fontSize: AppTheme.fontLabelLg,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: items.isEmpty
+                    ? Text(
+                        '完成的甜點會放在這裡',
+                        style: TextStyle(
+                          color: AppTheme.textSecondary.withAlpha(130),
+                          fontSize: AppTheme.fontLabelLg,
+                        ),
+                      )
+                    : ListView.separated(
+                        scrollDirection: Axis.horizontal,
+                        itemCount: items.length,
+                        separatorBuilder: (_, __) => const SizedBox(width: 6),
+                        itemBuilder: (context, index) {
+                          final entry = items[index];
+                          final recipe = DessertDefinitions.getById(entry.key);
+                          return Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 7, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: AppTheme.bgSecondary,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(recipe?.emoji ?? '🧁'),
+                                const SizedBox(width: 3),
+                                Text(
+                                  'x${entry.value}',
+                                  style: const TextStyle(
+                                    color: AppTheme.textPrimary,
+                                    fontSize: AppTheme.fontLabelLg,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        },
+                      ),
+              ),
+              const SizedBox(width: 8),
+              GestureDetector(
+                onTap: display.totalCount > 0 ? onSellAll : null,
+                child: Container(
+                  height: 34,
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: display.totalCount > 0
+                        ? AppTheme.accentPrimary
+                        : AppTheme.bgSecondary,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    '售出',
+                    style: TextStyle(
+                      color: display.totalCount > 0
+                          ? Colors.white
+                          : AppTheme.textSecondary.withAlpha(120),
+                      fontSize: AppTheme.fontLabelLg,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ),
             ],
           ),
-        ),
-        // 助手角色
-        ...List.generate((team.length - 1).clamp(0, 2), (i) {
-          return Positioned(
-            right: 20.0 + i * 40,
-            bottom: 60,
-            child: _buildSmallAgent(team[i + 1]),
-          );
-        }),
-        // 狀態文字
-        Positioned(
-          left: 0, right: 0, bottom: 6,
-          child: Center(
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-              decoration: BoxDecoration(
-                color: Colors.white.withAlpha(200),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Text(
-                '製作中… ${colorDef.emoji}',
-                style: const TextStyle(fontSize: AppTheme.fontLabelLg, fontWeight: FontWeight.bold, color: AppTheme.textSecondary),
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildSmallAgent(String agentId) {
-    return SizedBox(
-      width: 36, height: 36,
-      child: Image.asset(
-        ImageAssets.characterImage(agentId) ?? '',
-        fit: BoxFit.contain,
-        errorBuilder: (_, __, ___) => const Text('🐱', style: TextStyle(fontSize: 20)),
-      ),
+        );
+      },
     );
   }
 }
@@ -1243,19 +1374,26 @@ class _ServingSceneState extends State<_ServingScene>
   @override
   void initState() {
     super.initState();
-    _ctrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 1200));
-    _riseAnim = Tween(begin: 0.0, end: -40.0).animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeOut));
-    _fadeAnim = Tween(begin: 1.0, end: 0.0).animate(CurvedAnimation(parent: _ctrl, curve: const Interval(0.5, 1.0)));
+    _ctrl = AnimationController(
+        vsync: this, duration: const Duration(milliseconds: 1200));
+    _riseAnim = Tween(begin: 0.0, end: -40.0)
+        .animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeOut));
+    _fadeAnim = Tween(begin: 1.0, end: 0.0).animate(
+        CurvedAnimation(parent: _ctrl, curve: const Interval(0.5, 1.0)));
     _ctrl.forward();
   }
 
   @override
-  void dispose() { _ctrl.dispose(); super.dispose(); }
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     final colorDef = widget.stageColor != null
-        ? BottleDefinitions.all.firstWhere((d) => d.color == widget.stageColor, orElse: () => BottleDefinitions.all.first)
+        ? BottleDefinitions.all.firstWhere((d) => d.color == widget.stageColor,
+            orElse: () => BottleDefinitions.all.first)
         : BottleDefinitions.all.first;
 
     return AnimatedBuilder(
@@ -1264,81 +1402,33 @@ class _ServingSceneState extends State<_ServingScene>
         children: [
           // 甜點上升
           Positioned(
-            left: 0, right: 0,
+            left: 0,
+            right: 0,
             top: 60 + _riseAnim.value,
             child: Opacity(
               opacity: _fadeAnim.value,
-              child: Center(child: Text(colorDef.emoji, style: const TextStyle(fontSize: 40))),
+              child: Center(
+                  child: Text(colorDef.emoji,
+                      style: const TextStyle(fontSize: 40))),
             ),
           ),
           // 金幣飛出
           Positioned(
-            left: 0, right: 0,
+            left: 0,
+            right: 0,
             top: 80 + _riseAnim.value * 1.3,
             child: Opacity(
               opacity: _fadeAnim.value,
-              child: const Center(child: Text('🪙 +金幣', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFFD4A017)))),
+              child: const Center(
+                  child: Text('🪙 +金幣',
+                      style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFFD4A017)))),
             ),
           ),
         ],
       ),
-    );
-  }
-}
-
-// ── 烹飪角色動畫（左右走動 + 跳動） ──
-class _AnimatedCookingCat extends StatefulWidget {
-  final String agentId;
-  const _AnimatedCookingCat({required this.agentId});
-
-  @override
-  State<_AnimatedCookingCat> createState() => _AnimatedCookingCatState();
-}
-
-class _AnimatedCookingCatState extends State<_AnimatedCookingCat>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _ctrl;
-  late Animation<double> _walkAnim;
-
-  @override
-  void initState() {
-    super.initState();
-    _ctrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 3200));
-    _walkAnim = TweenSequence<double>([
-      TweenSequenceItem(tween: Tween(begin: 0, end: -40), weight: 25), // walk left
-      TweenSequenceItem(tween: Tween(begin: -40, end: -40), weight: 10), // pause
-      TweenSequenceItem(tween: Tween(begin: -40, end: 60), weight: 40), // walk right (to pot)
-      TweenSequenceItem(tween: Tween(begin: 60, end: 60), weight: 10), // pause at pot
-      TweenSequenceItem(tween: Tween(begin: 60, end: 0), weight: 15), // return
-    ]).animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut));
-    _ctrl.repeat();
-  }
-
-  @override
-  void dispose() { _ctrl.dispose(); super.dispose(); }
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _walkAnim,
-      builder: (_, __) {
-        final goingRight = _walkAnim.value > (_ctrl.value < 0.35 ? -100 : 0);
-        return Transform.translate(
-          offset: Offset(_walkAnim.value, 0),
-          child: Transform(
-            alignment: Alignment.center,
-            transform: Matrix4.identity()..scale(goingRight ? 1.0 : -1.0, 1.0),
-            child: SizedBox(
-              width: 56, height: 56,
-              child: Image.asset(
-                ImageAssets.characterImage(widget.agentId) ?? '',
-                fit: BoxFit.contain,
-                errorBuilder: (_, __, ___) => const Text('🐱', style: TextStyle(fontSize: 30)),
-              ),
-            ),
-          ),
-        );
-      },
     );
   }
 }
@@ -1355,9 +1445,11 @@ class _StageCharacter extends StatefulWidget {
   final int totalCharacters;
   final double stageWidth;
   final double stageHeight;
-  final bool isCooking;
+  final ProductionSlot? productionSlot;
+  final DateTime productionNow;
 
   const _StageCharacter({
+    super.key,
     required this.agentId,
     required this.agentDef,
     required this.evolutionStage,
@@ -1365,16 +1457,71 @@ class _StageCharacter extends StatefulWidget {
     required this.totalCharacters,
     required this.stageWidth,
     required this.stageHeight,
-    required this.isCooking,
+    required this.productionSlot,
+    required this.productionNow,
   });
 
   @override
   State<_StageCharacter> createState() => _StageCharacterState();
 }
 
+class _CharacterSpriteSet {
+  final List<String> moveFrames;
+  final List<String> cookFrames;
+  final List<String> doneFrames;
+
+  const _CharacterSpriteSet({
+    required this.moveFrames,
+    required this.cookFrames,
+    required this.doneFrames,
+  });
+}
+
 class _StageCharacterState extends State<_StageCharacter>
     with TickerProviderStateMixin {
   static const _charSize = 56.0;
+  static const Map<String, _CharacterSpriteSet> _spriteSets = {
+    'blaze': _CharacterSpriteSet(
+      moveFrames: [
+        'assets/images/output/characters/char_wheat_move_1.png',
+        'assets/images/output/characters/char_wheat_move_2.png',
+        'assets/images/output/characters/char_wheat_move_3.png',
+        'assets/images/output/characters/char_wheat_move_4.png',
+      ],
+      cookFrames: [
+        'assets/images/output/characters/char_wheat_cook_1.png',
+        'assets/images/output/characters/char_wheat_cook_2.png',
+        'assets/images/output/characters/char_wheat_cook_3.png',
+        'assets/images/output/characters/char_wheat_cook_4.png',
+      ],
+      doneFrames: [
+        'assets/images/output/characters/char_wheat_done_1.png',
+        'assets/images/output/characters/char_wheat_done_2.png',
+        'assets/images/output/characters/char_wheat_done_3.png',
+        'assets/images/output/characters/char_wheat_done_4.png',
+      ],
+    ),
+    'tide': _CharacterSpriteSet(
+      moveFrames: [
+        'assets/images/output/characters/char_dew_move_1.png',
+        'assets/images/output/characters/char_dew_move_2.png',
+        'assets/images/output/characters/char_dew_move_3.png',
+        'assets/images/output/characters/char_dew_move_4.png',
+      ],
+      cookFrames: [
+        'assets/images/output/characters/char_dew_cook_1.png',
+        'assets/images/output/characters/char_dew_cook_2.png',
+        'assets/images/output/characters/char_dew_cook_3.png',
+        'assets/images/output/characters/char_dew_cook_4.png',
+      ],
+      doneFrames: [
+        'assets/images/output/characters/char_dew_done_1.png',
+        'assets/images/output/characters/char_dew_done_2.png',
+        'assets/images/output/characters/char_dew_done_3.png',
+        'assets/images/output/characters/char_dew_done_4.png',
+      ],
+    ),
+  };
 
   late double _posX;
   bool _facingRight = true;
@@ -1390,7 +1537,21 @@ class _StageCharacterState extends State<_StageCharacter>
 
   // 走動 Timer
   Timer? _walkTimer;
+  AnimationController? _regularMoveCtrl;
+  AnimationController? _spriteFrameCtrl;
+  AnimationController? _doneEffectCtrl;
+  bool _showDoneEffect = false;
+  String _doneLabel = '甜點 +1';
   final _rng = math.Random();
+
+  bool get _isCooking => widget.productionSlot != null;
+  double get _productionProgress =>
+      widget.productionSlot?.progress(widget.productionNow) ?? 0.0;
+  _CharacterSpriteSet? get _spriteSet => _spriteSets[widget.agentId];
+  bool get _usesSpriteSet => _spriteSet != null;
+  bool get _usesRegularHorizontalMotion =>
+      _usesSpriteSet && !_isCooking && !_showDoneEffect;
+  bool get _usesCookSprite => _usesSpriteSet && _isCooking;
 
   @override
   void initState() {
@@ -1421,21 +1582,53 @@ class _StageCharacterState extends State<_StageCharacter>
       TweenSequenceItem(tween: Tween(begin: -6, end: 0), weight: 10),
     ]).animate(CurvedAnimation(parent: _bounceCtrl, curve: Curves.easeOut));
 
-    // 啟動隨機走動
-    _scheduleNextWalk();
+    if (_usesRegularHorizontalMotion) {
+      _startRegularHorizontalMotion();
+    } else if (_isCooking) {
+      if (_usesCookSprite) {
+        _startSpriteFrames();
+      }
+    } else {
+      // 啟動隨機走動
+      _scheduleNextWalk();
+    }
   }
 
   @override
   void didUpdateWidget(_StageCharacter old) {
     super.didUpdateWidget(old);
-    if (widget.isCooking && !old.isCooking) {
+    final wasCooking = old.productionSlot != null;
+    final isCooking = _isCooking;
+    if (isCooking && !wasCooking) {
+      if (_regularMoveCtrl != null) {
+        _posX = _xForRegularMotion(_regularMoveCtrl!.value);
+        _facingRight = _regularMoveCtrl!.status != AnimationStatus.reverse;
+      }
+      _walkTimer?.cancel();
+      _isWalking = false;
       _startCooking();
+      _stopRegularHorizontalMotion(resetPosition: false);
+      if (_usesCookSprite) {
+        _startSpriteFrames();
+      }
+    } else if (!isCooking && wasCooking) {
+      final recipe = DessertDefinitions.getById(old.productionSlot!.dessertId);
+      _doneLabel = '${recipe?.name ?? '甜點'} +1';
+      _stopRegularHorizontalMotion();
+      if (_usesSpriteSet) {
+        _startDoneEffect();
+      } else {
+        _scheduleNextWalk();
+      }
     }
   }
 
   @override
   void dispose() {
     _walkTimer?.cancel();
+    _regularMoveCtrl?.dispose();
+    _spriteFrameCtrl?.dispose();
+    _doneEffectCtrl?.dispose();
     _breathCtrl.dispose();
     _bounceCtrl.dispose();
     super.dispose();
@@ -1448,11 +1641,11 @@ class _StageCharacterState extends State<_StageCharacter>
   }
 
   void _walkToRandomPosition() {
-    if (!mounted || widget.isCooking) {
+    if (!mounted || _isCooking) {
       _scheduleNextWalk();
       return;
     }
-    final margin = _charSize;
+    const margin = _charSize;
     final maxX = widget.stageWidth - margin;
     final targetX = margin / 2 + _rng.nextDouble() * (maxX - margin);
 
@@ -1472,9 +1665,378 @@ class _StageCharacterState extends State<_StageCharacter>
     _bounceCtrl.forward(from: 0);
   }
 
+  void _startRegularHorizontalMotion({bool preservePosition = false}) {
+    _regularMoveCtrl ??= AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 5200),
+    );
+    if (preservePosition) {
+      _regularMoveCtrl!.value = _regularValueForX(_posX);
+    }
+    _startSpriteFrames();
+    if (!_regularMoveCtrl!.isAnimating) {
+      _regularMoveCtrl!.repeat(reverse: true);
+    }
+  }
+
+  void _startSpriteFrames() {
+    _spriteFrameCtrl ??= AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 560),
+    );
+    if (!_spriteFrameCtrl!.isAnimating) {
+      _spriteFrameCtrl!.repeat();
+    }
+  }
+
+  void _stopRegularHorizontalMotion({bool resetPosition = true}) {
+    _regularMoveCtrl?.stop();
+    if (resetPosition) {
+      _regularMoveCtrl?.reset();
+    }
+    _spriteFrameCtrl?.stop();
+    _spriteFrameCtrl?.reset();
+  }
+
+  double _xForRegularMotion(double value) {
+    final margin = math.min(24.0, widget.stageWidth * 0.08);
+    final minX = margin;
+    final maxX = math.max(minX, widget.stageWidth - _charSize - margin);
+    final eased = Curves.easeInOut.transform(value);
+    return minX + (maxX - minX) * eased;
+  }
+
+  double _regularValueForX(double x) {
+    final margin = math.min(24.0, widget.stageWidth * 0.08);
+    final minX = margin;
+    final maxX = math.max(minX, widget.stageWidth - _charSize - margin);
+    if (maxX <= minX) return 0.0;
+    final target = ((x - minX) / (maxX - minX)).clamp(0.0, 1.0);
+    var low = 0.0;
+    var high = 1.0;
+    for (var i = 0; i < 12; i++) {
+      final mid = (low + high) / 2;
+      if (Curves.easeInOut.transform(mid) < target) {
+        low = mid;
+      } else {
+        high = mid;
+      }
+    }
+    return (low + high) / 2;
+  }
+
+  void _startDoneEffect() {
+    _doneEffectCtrl ??= AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 720),
+    );
+    _doneEffectCtrl!
+      ..stop()
+      ..reset();
+    _showDoneEffect = true;
+    _doneEffectCtrl!.forward().whenComplete(() {
+      if (!mounted) return;
+      setState(() => _showDoneEffect = false);
+      _startRegularHorizontalMotion(preservePosition: true);
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final groundY = widget.stageHeight - _charSize - widget.stageHeight * 0.12;
+
+    if (_usesRegularHorizontalMotion) {
+      final moveCtrl = _regularMoveCtrl!;
+      final frameCtrl = _spriteFrameCtrl!;
+      final moveFrames = _spriteSet!.moveFrames;
+
+      return AnimatedBuilder(
+        animation:
+            Listenable.merge([moveCtrl, frameCtrl, _breathAnim, _bounceAnim]),
+        builder: (_, __) {
+          final x = _xForRegularMotion(moveCtrl.value);
+          final frameIndex = math.min(
+            moveFrames.length - 1,
+            (frameCtrl.value * moveFrames.length).floor(),
+          );
+          final facingRight = moveCtrl.status != AnimationStatus.reverse;
+
+          return Positioned(
+            left: x,
+            top: groundY,
+            child: Transform.translate(
+              offset: Offset(0, _bounceAnim.value),
+              child: Transform.scale(
+                scale: _breathAnim.value,
+                child: Transform.flip(
+                  flipX: !facingRight,
+                  child: SizedBox(
+                    width: _charSize,
+                    height: _charSize,
+                    child: Image.asset(
+                      moveFrames[frameIndex],
+                      fit: BoxFit.contain,
+                      errorBuilder: (_, __, ___) => _buildFallbackCharacter(),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          );
+        },
+      );
+    }
+
+    if (_usesCookSprite) {
+      final frameCtrl = _spriteFrameCtrl!;
+      final cookFrames = _spriteSet!.cookFrames;
+      const ringPadding = 7.0;
+      const ringSize = _charSize + ringPadding * 2;
+
+      return AnimatedBuilder(
+        animation: Listenable.merge([frameCtrl, _breathAnim, _bounceAnim]),
+        builder: (_, __) {
+          final frameIndex = math.min(
+            cookFrames.length - 1,
+            (frameCtrl.value * cookFrames.length).floor(),
+          );
+          final labelDy =
+              -4.0 * math.sin(frameCtrl.value * math.pi * 2.0).abs();
+
+          return Positioned(
+            left: _posX - ringPadding - 24,
+            top: groundY - ringPadding - 22,
+            child: SizedBox(
+              width: ringSize + 48,
+              height: ringSize + 22,
+              child: Stack(
+                alignment: Alignment.topCenter,
+                children: [
+                  Transform.translate(
+                    offset: Offset(0, labelDy),
+                    child: Text(
+                      '製作中...',
+                      maxLines: 1,
+                      style: TextStyle(
+                        color: AppTheme.textPrimary,
+                        fontSize: AppTheme.fontLabelLg,
+                        height: 1.0,
+                        fontWeight: FontWeight.w900,
+                        shadows: [
+                          Shadow(
+                            color: Colors.white.withAlpha(230),
+                            blurRadius: 5,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  Positioned(
+                    left: 24,
+                    top: 22,
+                    child: Transform.translate(
+                      offset: Offset(0, _bounceAnim.value),
+                      child: Transform.scale(
+                        scale: _breathAnim.value,
+                        child: SizedBox(
+                          width: ringSize,
+                          height: ringSize,
+                          child: Stack(
+                            alignment: Alignment.center,
+                            children: [
+                              Positioned.fill(
+                                child: CircularProgressIndicator(
+                                  value: _productionProgress,
+                                  strokeWidth: 3,
+                                  backgroundColor: Colors.white.withAlpha(190),
+                                  valueColor: AlwaysStoppedAnimation(
+                                    AppTheme.accentPrimary.withAlpha(230),
+                                  ),
+                                ),
+                              ),
+                              Transform.flip(
+                                flipX: !_facingRight,
+                                child: SizedBox(
+                                  width: _charSize,
+                                  height: _charSize,
+                                  child: Image.asset(
+                                    cookFrames[frameIndex],
+                                    fit: BoxFit.contain,
+                                    errorBuilder: (_, __, ___) =>
+                                        _buildFallbackCharacter(),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      );
+    }
+
+    if (_showDoneEffect && _usesSpriteSet) {
+      final doneCtrl = _doneEffectCtrl!;
+      final doneFrames = _spriteSet!.doneFrames;
+
+      return AnimatedBuilder(
+        animation: Listenable.merge([doneCtrl, _breathAnim]),
+        builder: (_, __) {
+          final frameIndex = math.min(
+            doneFrames.length - 1,
+            (doneCtrl.value * doneFrames.length).floor(),
+          );
+          final labelCurve = Curves.easeOutCubic.transform(doneCtrl.value);
+          final labelOpacity =
+              (1.0 - Curves.easeIn.transform(doneCtrl.value)).clamp(0.0, 1.0);
+
+          return Positioned(
+            left: _posX - 36,
+            top: groundY - 28,
+            child: SizedBox(
+              width: _charSize + 72,
+              height: _charSize + 28,
+              child: Stack(
+                alignment: Alignment.topCenter,
+                children: [
+                  Transform.translate(
+                    offset: Offset(0, -18 * labelCurve),
+                    child: Opacity(
+                      opacity: labelOpacity,
+                      child: Text(
+                        _doneLabel,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: AppTheme.accentPrimary,
+                          fontSize: AppTheme.fontLabelLg,
+                          height: 1.0,
+                          fontWeight: FontWeight.w900,
+                          shadows: [
+                            Shadow(
+                              color: Colors.white.withAlpha(240),
+                              blurRadius: 6,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                  Positioned(
+                    top: 28,
+                    child: Transform.scale(
+                      scale: _breathAnim.value,
+                      child: Transform.flip(
+                        flipX: !_facingRight,
+                        child: SizedBox(
+                          width: _charSize,
+                          height: _charSize,
+                          child: Image.asset(
+                            doneFrames[frameIndex],
+                            fit: BoxFit.contain,
+                            errorBuilder: (_, __, ___) =>
+                                _buildFallbackCharacter(),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      );
+    }
+
+    if (_isCooking) {
+      const ringPadding = 7.0;
+      const ringSize = _charSize + ringPadding * 2;
+
+      return AnimatedBuilder(
+        animation: _breathAnim,
+        builder: (_, __) {
+          final labelDy =
+              -4.0 * math.sin(_breathAnim.value * math.pi * 12.0).abs();
+
+          return Positioned(
+            left: _posX - ringPadding - 24,
+            top: groundY - ringPadding - 22,
+            child: SizedBox(
+              width: ringSize + 48,
+              height: ringSize + 22,
+              child: Stack(
+                alignment: Alignment.topCenter,
+                children: [
+                  Transform.translate(
+                    offset: Offset(0, labelDy),
+                    child: Text(
+                      '製作中...',
+                      maxLines: 1,
+                      style: TextStyle(
+                        color: AppTheme.textPrimary,
+                        fontSize: AppTheme.fontLabelLg,
+                        height: 1.0,
+                        fontWeight: FontWeight.w900,
+                        shadows: [
+                          Shadow(
+                            color: Colors.white.withAlpha(230),
+                            blurRadius: 5,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  Positioned(
+                    left: 24,
+                    top: 22,
+                    child: Transform.translate(
+                      offset: Offset(0, _bounceAnim.value),
+                      child: Transform.scale(
+                        scale: _breathAnim.value,
+                        child: SizedBox(
+                          width: ringSize,
+                          height: ringSize,
+                          child: Stack(
+                            alignment: Alignment.center,
+                            children: [
+                              Positioned.fill(
+                                child: CircularProgressIndicator(
+                                  value: _productionProgress,
+                                  strokeWidth: 3,
+                                  backgroundColor: Colors.white.withAlpha(190),
+                                  valueColor: AlwaysStoppedAnimation(
+                                    AppTheme.accentPrimary.withAlpha(230),
+                                  ),
+                                ),
+                              ),
+                              Transform.flip(
+                                flipX: !_facingRight,
+                                child: SizedBox(
+                                  width: _charSize,
+                                  height: _charSize,
+                                  child: _buildFallbackCharacter(),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      );
+    }
 
     return AnimatedPositioned(
       duration: _isWalking
@@ -1494,23 +2056,28 @@ class _StageCharacterState extends State<_StageCharacter>
             ),
           );
         },
-        child: Transform(
-          alignment: Alignment.center,
-          transform: Matrix4.identity()..scale(_facingRight ? 1.0 : -1.0, 1.0),
+        child: Transform.flip(
+          flipX: !_facingRight,
           child: SizedBox(
             width: _charSize,
             height: _charSize,
-            child: Image.asset(
-              ImageAssets.characterImage(widget.agentId, evolutionStage: widget.evolutionStage) ?? '',
-              fit: BoxFit.contain,
-              errorBuilder: (_, __, ___) => Center(
-                child: Text(
-                  widget.agentDef.attribute.emoji,
-                  style: const TextStyle(fontSize: 28),
-                ),
-              ),
-            ),
+            child: _buildFallbackCharacter(),
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFallbackCharacter() {
+    return Image.asset(
+      ImageAssets.characterImage(widget.agentId,
+              evolutionStage: widget.evolutionStage) ??
+          '',
+      fit: BoxFit.contain,
+      errorBuilder: (_, __, ___) => Center(
+        child: Text(
+          widget.agentDef.attribute.emoji,
+          style: const TextStyle(fontSize: 28),
         ),
       ),
     );
@@ -1597,28 +2164,43 @@ class _SideCharmState extends State<_SideCharm>
                     opacity: _expandAnim.value,
                     child: Container(
                       margin: const EdgeInsets.only(left: 4, bottom: 4),
-                      padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 6),
+                      padding: const EdgeInsets.symmetric(
+                          vertical: 6, horizontal: 6),
                       decoration: BoxDecoration(
                         color: AppTheme.bgCard.withAlpha(240),
                         borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: AppTheme.accentSecondary.withAlpha(40)),
-                        boxShadow: [BoxShadow(color: Colors.black.withAlpha(20), blurRadius: 8, offset: const Offset(2, 2))],
+                        border: Border.all(
+                            color: AppTheme.accentSecondary.withAlpha(40)),
+                        boxShadow: [
+                          BoxShadow(
+                              color: Colors.black.withAlpha(20),
+                              blurRadius: 8,
+                              offset: const Offset(2, 2))
+                        ],
                       ),
                       child: Consumer<PlayerProvider>(
                         builder: (context, pp, _) {
                           final dq = pp.data.dailyQuests;
                           final nq = pp.data.newbieQuests;
-                          final hasQuestReward = nq.completedIds.any((id) => !nq.claimedIds.contains(id))
-                              || (!dq.needsReset && dq.allCompleted && !dq.rewardsClaimed);
+                          final hasQuestReward = nq.completedIds
+                                  .any((id) => !nq.claimedIds.contains(id)) ||
+                              (!dq.needsReset &&
+                                  dq.allCompleted &&
+                                  !dq.rewardsClaimed);
                           return Column(
                             children: [
-                              _charmItem(Icons.task_alt_rounded, '任務', widget.onQuest, badge: hasQuestReward),
+                              _charmItem(
+                                  Icons.task_alt_rounded, '任務', widget.onQuest,
+                                  badge: hasQuestReward),
                               const SizedBox(height: 6),
-                              _charmItem(Icons.bar_chart_rounded, '統計', widget.onStats),
+                              _charmItem(Icons.bar_chart_rounded, '統計',
+                                  widget.onStats),
                               const SizedBox(height: 6),
-                              _charmItem(Icons.shopping_bag_rounded, '商店', widget.onShop),
+                              _charmItem(Icons.shopping_bag_rounded, '商店',
+                                  widget.onShop),
                               const SizedBox(height: 6),
-                              _charmItem(Icons.settings_rounded, '設定', widget.onSettings),
+                              _charmItem(Icons.settings_rounded, '設定',
+                                  widget.onSettings),
                             ],
                           );
                         },
@@ -1640,9 +2222,16 @@ class _SideCharmState extends State<_SideCharm>
                 color: _expanded
                     ? AppTheme.accentSecondary.withAlpha(200)
                     : AppTheme.bgCard.withAlpha(220),
-                borderRadius: const BorderRadius.horizontal(right: Radius.circular(16)),
-                border: Border.all(color: AppTheme.accentSecondary.withAlpha(60)),
-                boxShadow: [BoxShadow(color: Colors.black.withAlpha(15), blurRadius: 6, offset: const Offset(2, 1))],
+                borderRadius:
+                    const BorderRadius.horizontal(right: Radius.circular(16)),
+                border:
+                    Border.all(color: AppTheme.accentSecondary.withAlpha(60)),
+                boxShadow: [
+                  BoxShadow(
+                      color: Colors.black.withAlpha(15),
+                      blurRadius: 6,
+                      offset: const Offset(2, 1))
+                ],
               ),
               child: Icon(
                 _expanded ? Icons.chevron_left_rounded : Icons.menu_rounded,
@@ -1656,7 +2245,8 @@ class _SideCharmState extends State<_SideCharm>
     );
   }
 
-  Widget _charmItem(IconData icon, String label, VoidCallback onTap, {bool badge = false}) {
+  Widget _charmItem(IconData icon, String label, VoidCallback onTap,
+      {bool badge = false}) {
     return GestureDetector(
       onTap: () => _tapItem(onTap),
       child: Stack(
@@ -1665,7 +2255,8 @@ class _SideCharmState extends State<_SideCharm>
           Column(
             children: [
               Container(
-                width: 36, height: 36,
+                width: 36,
+                height: 36,
                 decoration: BoxDecoration(
                   color: AppTheme.bgSecondary,
                   borderRadius: BorderRadius.circular(10),
@@ -1673,14 +2264,19 @@ class _SideCharmState extends State<_SideCharm>
                 child: Icon(icon, size: 18, color: AppTheme.accentSecondary),
               ),
               const SizedBox(height: 2),
-              Text(label, style: const TextStyle(fontSize: AppTheme.fontLabelSm, color: AppTheme.textSecondary)),
+              Text(label,
+                  style: const TextStyle(
+                      fontSize: AppTheme.fontLabelSm,
+                      color: AppTheme.textSecondary)),
             ],
           ),
           if (badge)
             Positioned(
-              top: -2, right: -2,
+              top: -2,
+              right: -2,
               child: Container(
-                width: 8, height: 8,
+                width: 8,
+                height: 8,
                 decoration: BoxDecoration(
                   color: AppTheme.accentPrimary,
                   shape: BoxShape.circle,
@@ -1759,19 +2355,27 @@ class _HarvestButtonState extends State<_HarvestButton>
     final Color textColor;
 
     if (isRich) {
-      gradient = const LinearGradient(colors: [Color(0xFFFFD43B), Color(0xFFFCC419)]);
+      gradient =
+          const LinearGradient(colors: [Color(0xFFFFD43B), Color(0xFFFCC419)]);
       textColor = const Color(0xFF7C5E10);
     } else if (isReady) {
-      gradient = const LinearGradient(colors: [Color(0xFF6BAF5B), Color(0xFF4CAF50)]);
+      gradient =
+          const LinearGradient(colors: [Color(0xFF6BAF5B), Color(0xFF4CAF50)]);
       textColor = Colors.white;
     } else {
-      gradient = const LinearGradient(colors: [Color(0xFF4A5A48), Color(0xFF3E4E3C)]);
+      gradient =
+          const LinearGradient(colors: [Color(0xFF4A5A48), Color(0xFF3E4E3C)]);
       textColor = Colors.white38;
     }
 
     return GestureDetector(
       onTapDown: isReady ? (_) => setState(() => _pressed = true) : null,
-      onTapUp: isReady ? (_) { setState(() => _pressed = false); widget.onTap(); } : null,
+      onTapUp: isReady
+          ? (_) {
+              setState(() => _pressed = false);
+              widget.onTap();
+            }
+          : null,
       onTapCancel: () => setState(() => _pressed = false),
       child: AnimatedBuilder(
         animation: _glowAnim,
@@ -1788,12 +2392,18 @@ class _HarvestButtonState extends State<_HarvestButton>
               children: [
                 Container(
                   width: double.infinity,
-                  padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
+                  padding:
+                      const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
                   decoration: BoxDecoration(
                     gradient: gradient,
                     borderRadius: BorderRadius.circular(14),
                     boxShadow: glowAlpha > 0
-                        ? [BoxShadow(color: glowColor.withAlpha(glowAlpha), blurRadius: 12 + _glowAnim.value * 6, spreadRadius: _glowAnim.value * 2)]
+                        ? [
+                            BoxShadow(
+                                color: glowColor.withAlpha(glowAlpha),
+                                blurRadius: 12 + _glowAnim.value * 6,
+                                spreadRadius: _glowAnim.value * 2)
+                          ]
                         : null,
                   ),
                   child: isReady
@@ -1802,13 +2412,18 @@ class _HarvestButtonState extends State<_HarvestButton>
                           children: [
                             Text(
                               isRich ? '💰 收成！' : '🧪 收成！',
-                              style: TextStyle(color: textColor, fontSize: AppTheme.fontBodyLg, fontWeight: FontWeight.bold),
+                              style: TextStyle(
+                                  color: textColor,
+                                  fontSize: AppTheme.fontBodyLg,
+                                  fontWeight: FontWeight.bold),
                             ),
                             if (isRich) ...[
                               const SizedBox(width: 6),
                               Text(
                                 '+$estimatedGold🍬',
-                                style: TextStyle(color: textColor.withAlpha(200), fontSize: AppTheme.fontLabelLg),
+                                style: TextStyle(
+                                    color: textColor.withAlpha(200),
+                                    fontSize: AppTheme.fontLabelLg),
                               ),
                             ],
                           ],
@@ -1817,18 +2432,22 @@ class _HarvestButtonState extends State<_HarvestButton>
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             SizedBox(
-                              width: 16, height: 16,
+                              width: 16,
+                              height: 16,
                               child: CircularProgressIndicator(
                                 value: nearestProgress,
                                 strokeWidth: 2,
                                 backgroundColor: Colors.white.withAlpha(20),
-                                valueColor: const AlwaysStoppedAnimation(Color(0xFF6BAF5B)),
+                                valueColor: const AlwaysStoppedAnimation(
+                                    Color(0xFF6BAF5B)),
                               ),
                             ),
                             const SizedBox(width: 6),
                             Text(
                               '${(nearestProgress * 100).toInt()}%',
-                              style: TextStyle(color: textColor, fontSize: AppTheme.fontLabelLg),
+                              style: TextStyle(
+                                  color: textColor,
+                                  fontSize: AppTheme.fontLabelLg),
                             ),
                           ],
                         ),
@@ -1836,16 +2455,22 @@ class _HarvestButtonState extends State<_HarvestButton>
                 // 徽章
                 if (isReady && fullCount > 0)
                   Positioned(
-                    top: -4, right: 6,
+                    top: -4,
+                    right: 6,
                     child: Container(
-                      width: 18, height: 18,
+                      width: 18,
+                      height: 18,
                       decoration: BoxDecoration(
                         color: const Color(0xFFFF6B6B),
                         shape: BoxShape.circle,
                         border: Border.all(color: AppTheme.bgCard, width: 1.5),
                       ),
                       child: Center(
-                        child: Text('$fullCount', style: const TextStyle(color: Colors.white, fontSize: AppTheme.fontLabelSm, fontWeight: FontWeight.bold)),
+                        child: Text('$fullCount',
+                            style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: AppTheme.fontLabelSm,
+                                fontWeight: FontWeight.bold)),
                       ),
                     ),
                   ),
@@ -1878,13 +2503,14 @@ class _HarvestAnimationOverlay extends StatefulWidget {
   });
 
   @override
-  State<_HarvestAnimationOverlay> createState() => _HarvestAnimationOverlayState();
+  State<_HarvestAnimationOverlay> createState() =>
+      _HarvestAnimationOverlayState();
 }
 
 class _HarvestAnimationOverlayState extends State<_HarvestAnimationOverlay>
     with TickerProviderStateMixin {
-  late AnimationController _burstCtrl;   // 粒子散開
-  late AnimationController _flyCtrl;     // 粒子飛向資源區
+  late AnimationController _burstCtrl; // 粒子散開
+  late AnimationController _flyCtrl; // 粒子飛向資源區
 
   late List<_CandyParticle> _particles;
   static const _particleCount = 12;
@@ -1896,12 +2522,14 @@ class _HarvestAnimationOverlayState extends State<_HarvestAnimationOverlay>
 
     // Phase 1: 粒子爆開 (600ms)
     _burstCtrl = AnimationController(
-      vsync: this, duration: const Duration(milliseconds: 600),
+      vsync: this,
+      duration: const Duration(milliseconds: 600),
     );
 
     // Phase 2: 粒子飛向右上角 (800ms)
     _flyCtrl = AnimationController(
-      vsync: this, duration: const Duration(milliseconds: 800),
+      vsync: this,
+      duration: const Duration(milliseconds: 800),
     );
 
     _particles = _generateParticles();
@@ -1988,21 +2616,23 @@ class _HarvestAnimationOverlayState extends State<_HarvestAnimationOverlay>
             children: [
               // 糖果粒子
               ..._particles.map((p) {
-                final burstT = (_burstCtrl.value - p.delay).clamp(0.0, 1.0) / (1.0 - p.delay);
+                final burstT = (_burstCtrl.value - p.delay).clamp(0.0, 1.0) /
+                    (1.0 - p.delay);
                 final flyT = Curves.easeInCubic.transform(_flyCtrl.value);
 
                 // Phase 1: 從中心爆開
-                final burstX = originX + math.cos(p.angle) * p.burstRadius * burstT;
-                final burstY = originY + math.sin(p.angle) * p.burstRadius * burstT;
+                final burstX =
+                    originX + math.cos(p.angle) * p.burstRadius * burstT;
+                final burstY =
+                    originY + math.sin(p.angle) * p.burstRadius * burstT;
 
                 // Phase 2: 從爆開位置飛向目標
                 final currentX = burstX + (targetX - burstX) * flyT;
                 final currentY = burstY + (targetY - burstY) * flyT;
 
                 // 透明度：爆開時漸入，飛行末段漸出
-                final alpha = burstT > 0
-                    ? (1.0 - flyT * flyT).clamp(0.0, 1.0)
-                    : 0.0;
+                final alpha =
+                    burstT > 0 ? (1.0 - flyT * flyT).clamp(0.0, 1.0) : 0.0;
                 // 縮放：飛行時逐漸縮小
                 final scale = 1.0 - flyT * 0.6;
 
@@ -2014,7 +2644,8 @@ class _HarvestAnimationOverlayState extends State<_HarvestAnimationOverlay>
                     child: Transform.scale(
                       scale: scale,
                       child: Text(p.emoji,
-                          style: const TextStyle(fontSize: AppTheme.fontTitleLg)),
+                          style:
+                              const TextStyle(fontSize: AppTheme.fontTitleLg)),
                     ),
                   ),
                 );
@@ -2033,7 +2664,10 @@ class _HarvestAnimationOverlayState extends State<_HarvestAnimationOverlay>
                       color: const Color(0xFFFFD43B),
                       fontSize: AppTheme.fontTitleMd,
                       fontWeight: FontWeight.bold,
-                      shadows: [Shadow(color: Colors.black.withAlpha(200), blurRadius: 6)],
+                      shadows: [
+                        Shadow(
+                            color: Colors.black.withAlpha(200), blurRadius: 6)
+                      ],
                     ),
                   ),
                 ),
@@ -2123,7 +2757,8 @@ class _ComboOverlayState extends State<_ComboOverlay>
         if (combo <= 1) return const SizedBox.shrink();
 
         // 定位到棋盤區域上方（使用全屏覆蓋 + 手動偏移）
-        final gameBox = widget.gameAreaKey.currentContext?.findRenderObject() as RenderBox?;
+        final gameBox =
+            widget.gameAreaKey.currentContext?.findRenderObject() as RenderBox?;
         if (gameBox == null) return const SizedBox.shrink();
         final gamePos = gameBox.localToGlobal(Offset.zero);
         final gameCenterX = gamePos.dx + gameBox.size.width / 2;
@@ -2148,7 +2783,8 @@ class _ComboOverlayState extends State<_ComboOverlay>
                       );
                     },
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 14, vertical: 5),
                       decoration: BoxDecoration(
                         gradient: const LinearGradient(
                           colors: [Color(0xFFFF6B6B), Color(0xFFFFAA5B)],
@@ -2191,14 +2827,3 @@ CatAgentDefinition? _findAgentDef(String agentId) {
   }
   return null;
 }
-
-Color _attrColorFor(AgentAttribute attr) {
-  switch (attr) {
-    case AgentAttribute.attributeA: return const Color(0xFFFF6B6B);
-    case AgentAttribute.attributeB: return const Color(0xFF51CF66);
-    case AgentAttribute.attributeC: return const Color(0xFF4DABF7);
-    case AgentAttribute.attributeD: return const Color(0xFFFFD43B);
-    case AgentAttribute.attributeE: return const Color(0xFFCC5DE8);
-  }
-}
-

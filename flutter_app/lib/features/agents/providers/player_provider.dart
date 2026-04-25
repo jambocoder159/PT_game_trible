@@ -88,7 +88,8 @@ class PlayerProvider extends ChangeNotifier {
 
     // 檢查關卡進度
     if (def.unlockCondition.stageRequirement != null) {
-      final progress = _data.stageProgress[def.unlockCondition.stageRequirement!];
+      final progress =
+          _data.stageProgress[def.unlockCondition.stageRequirement!];
       if (progress == null || !progress.cleared) return false;
       if (def.unlockCondition.requireAllStars == true && progress.stars < 3) {
         return false;
@@ -148,9 +149,12 @@ class PlayerProvider extends ChangeNotifier {
   /// 設定隊伍
   Future<void> setTeam(List<String> agentIds) async {
     // 驗證：最多 3 個，且都已解鎖
-    final validIds = agentIds.where((id) {
-      return _data.agents[id]?.isUnlocked == true;
-    }).take(3).toList();
+    final validIds = agentIds
+        .where((id) {
+          return _data.agents[id]?.isUnlocked == true;
+        })
+        .take(3)
+        .toList();
 
     _data.team = validIds;
     await _save();
@@ -207,7 +211,8 @@ class PlayerProvider extends ChangeNotifier {
     final existing = _data.stageProgress[stageId];
     final isFirstClear = existing == null || !existing.cleared;
     final newStars = (existing?.stars ?? 0) > stars ? existing!.stars : stars;
-    final newBest = (existing?.bestScore ?? 0) > score ? existing!.bestScore : score;
+    final newBest =
+        (existing?.bestScore ?? 0) > score ? existing!.bestScore : score;
 
     _data.stageProgress[stageId] = StageProgress(
       cleared: true,
@@ -224,7 +229,8 @@ class PlayerProvider extends ChangeNotifier {
 
     // 解鎖角色
     bool agentUnlocked = false;
-    if (unlockAgentId != null && _data.agents[unlockAgentId]?.isUnlocked != true) {
+    if (unlockAgentId != null &&
+        _data.agents[unlockAgentId]?.isUnlocked != true) {
       _data.agents[unlockAgentId] = CatAgentInstance(
         definitionId: unlockAgentId,
         isUnlocked: true,
@@ -265,7 +271,8 @@ class PlayerProvider extends ChangeNotifier {
   static final _rng = Random();
 
   /// 根據關卡 ID 和星級生成素材掉落
-  Map<GameMaterial, int> _generateBattleMaterialDrops(String stageId, int stars) {
+  Map<GameMaterial, int> _generateBattleMaterialDrops(
+      String stageId, int stars) {
     final drops = <GameMaterial, int>{};
     // 從 stageId 解析章節 (e.g. "1-3" → chapter 1)
     final chapter = int.tryParse(stageId.split('-').first) ?? 1;
@@ -395,7 +402,8 @@ class PlayerProvider extends ChangeNotifier {
     // 完成教學
     if (d.tutorialCompleted) nq.complete('tutorial');
     // 解鎖第二個角色
-    if (d.agents.values.where((a) => a.isUnlocked).length >= 2) nq.complete('unlock_agent');
+    if (d.agents.values.where((a) => a.isUnlocked).length >= 2)
+      nq.complete('unlock_agent');
     // 通關 1-3
     if (d.stageProgress['1-3']?.cleared == true) nq.complete('clear_1_3');
     // 組滿 3 人隊伍
@@ -409,7 +417,8 @@ class PlayerProvider extends ChangeNotifier {
   }
 
   /// 領取新手任務獎勵
-  Future<bool> claimNewbieReward(String questId, {int gold = 0, int diamonds = 0}) async {
+  Future<bool> claimNewbieReward(String questId,
+      {int gold = 0, int diamonds = 0}) async {
     final nq = _data.newbieQuests;
     if (!nq.isCompleted(questId) || nq.isClaimed(questId)) return false;
     nq.claim(questId);
@@ -499,7 +508,9 @@ class PlayerProvider extends ChangeNotifier {
     var maxLevel = def.maxLevel;
     if (instance != null) {
       final evolutions = EvolutionData.getEvolutionsForRarity(def.rarity.name);
-      for (int i = 0; i < instance.evolutionStage && i < evolutions.length; i++) {
+      for (int i = 0;
+          i < instance.evolutionStage && i < evolutions.length;
+          i++) {
         maxLevel += evolutions[i].maxLevelIncrease;
       }
     }
@@ -747,6 +758,7 @@ class PlayerProvider extends ChangeNotifier {
     await storage.setJson('tutorial_state', null);
     await storage.setJson('cat_states', null);
     await storage.setJson('bottle_states', null);
+    await storage.setJson('idle_production_state', null);
     await storage.setJson('auto_eliminate_config', null);
     await storage.setJson('board_on_left', null);
     await storage.setJson('battle_board_left', null);
@@ -849,7 +861,6 @@ class PlayerProvider extends ChangeNotifier {
     await _save();
     notifyListeners();
   }
-
 }
 
 /// 角色資訊（定義 + 實例的組合）
@@ -870,7 +881,8 @@ class AgentInfo {
   /// 進化名稱（加後綴）
   String get displayName {
     if (evolutionStage == 0) return definition.name;
-    final evolutions = EvolutionData.getEvolutionsForRarity(definition.rarity.name);
+    final evolutions =
+        EvolutionData.getEvolutionsForRarity(definition.rarity.name);
     if (evolutionStage <= evolutions.length) {
       return '${definition.name}${evolutions[evolutionStage - 1].nameSuffix}';
     }
@@ -880,17 +892,22 @@ class AgentInfo {
   /// 進化倍率
   double get _evoAtkMult {
     if (evolutionStage == 0) return 1.0;
-    final evo = EvolutionData.getEvolution(definition.rarity.name, evolutionStage);
+    final evo =
+        EvolutionData.getEvolution(definition.rarity.name, evolutionStage);
     return evo?.atkMultiplier ?? 1.0;
   }
+
   double get _evoDefMult {
     if (evolutionStage == 0) return 1.0;
-    final evo = EvolutionData.getEvolution(definition.rarity.name, evolutionStage);
+    final evo =
+        EvolutionData.getEvolution(definition.rarity.name, evolutionStage);
     return evo?.defMultiplier ?? 1.0;
   }
+
   double get _evoHpMult {
     if (evolutionStage == 0) return 1.0;
-    final evo = EvolutionData.getEvolution(definition.rarity.name, evolutionStage);
+    final evo =
+        EvolutionData.getEvolution(definition.rarity.name, evolutionStage);
     return evo?.hpMultiplier ?? 1.0;
   }
 

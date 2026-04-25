@@ -20,33 +20,52 @@ class BottleDessertMap {
   static const Map<BlockColor, List<BottleDessertTier>> mapping = {
     // ☀️ 烘焙瓶
     BlockColor.coral: [
-      BottleDessertTier(requiredLevel: 1, dessertId: 'butter_roll', energyCost: 30),
-      BottleDessertTier(requiredLevel: 3, dessertId: 'honey_toast', energyCost: 60),
-      BottleDessertTier(requiredLevel: 5, dessertId: 'cinnamon_roll', energyCost: 80),
+      BottleDessertTier(
+          requiredLevel: 1, dessertId: 'butter_roll', energyCost: 30),
+      BottleDessertTier(
+          requiredLevel: 3, dessertId: 'honey_toast', energyCost: 60),
+      BottleDessertTier(
+          requiredLevel: 3, dessertId: 'cinnamon_roll', energyCost: 60),
+      BottleDessertTier(
+          requiredLevel: 10, dessertId: 'golden_crown_puff', energyCost: 120),
     ],
     // 🍃 香草瓶
     BlockColor.mint: [
-      BottleDessertTier(requiredLevel: 1, dessertId: 'mint_tea', energyCost: 30),
-      BottleDessertTier(requiredLevel: 3, dessertId: 'matcha_latte', energyCost: 60),
-      BottleDessertTier(requiredLevel: 5, dessertId: 'saffron_millefeuille', energyCost: 80),
+      BottleDessertTier(
+          requiredLevel: 1, dessertId: 'mint_tea', energyCost: 30),
+      BottleDessertTier(
+          requiredLevel: 3, dessertId: 'matcha_latte', energyCost: 60),
+      BottleDessertTier(
+          requiredLevel: 7, dessertId: 'saffron_millefeuille', energyCost: 80),
     ],
     // 💧 飲品瓶
     BlockColor.teal: [
-      BottleDessertTier(requiredLevel: 1, dessertId: 'fresh_juice', energyCost: 30),
-      BottleDessertTier(requiredLevel: 3, dessertId: 'coconut_taro_sago', energyCost: 60),
-      BottleDessertTier(requiredLevel: 5, dessertId: 'tiramisu', energyCost: 80),
+      BottleDessertTier(
+          requiredLevel: 1, dessertId: 'fresh_juice', energyCost: 30),
+      BottleDessertTier(
+          requiredLevel: 5, dessertId: 'coconut_taro_sago', energyCost: 80),
+      BottleDessertTier(
+          requiredLevel: 7, dessertId: 'tiramisu', energyCost: 80),
     ],
     // ⭐ 裝飾瓶
     BlockColor.gold: [
-      BottleDessertTier(requiredLevel: 1, dessertId: 'cocoa_cookie', energyCost: 30),
-      BottleDessertTier(requiredLevel: 3, dessertId: 'starry_lollipop', energyCost: 60),
-      BottleDessertTier(requiredLevel: 5, dessertId: 'stardust_truffle', energyCost: 80),
+      BottleDessertTier(
+          requiredLevel: 1, dessertId: 'cocoa_cookie', energyCost: 30),
+      BottleDessertTier(
+          requiredLevel: 5, dessertId: 'starry_lollipop', energyCost: 80),
+      BottleDessertTier(
+          requiredLevel: 9, dessertId: 'stardust_truffle', energyCost: 120),
     ],
     // 🌙 夜甜點瓶
     BlockColor.rose: [
-      BottleDessertTier(requiredLevel: 1, dessertId: 'rose_pudding', energyCost: 30),
-      BottleDessertTier(requiredLevel: 3, dessertId: 'moonlight_macaron', energyCost: 60),
-      BottleDessertTier(requiredLevel: 5, dessertId: 'patissier_masterpiece', energyCost: 80),
+      BottleDessertTier(
+          requiredLevel: 1, dessertId: 'rose_pudding', energyCost: 30),
+      BottleDessertTier(
+          requiredLevel: 8, dessertId: 'moonlight_macaron', energyCost: 100),
+      BottleDessertTier(
+          requiredLevel: 10,
+          dessertId: 'patissier_masterpiece',
+          energyCost: 120),
     ],
   };
 
