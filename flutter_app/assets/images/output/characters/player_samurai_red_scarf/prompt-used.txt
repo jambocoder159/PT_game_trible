@@ -1,0 +1,1 @@
+Top-down 4x4 player_sheet for a wandering young samurai with a red scarf and short katana. Four-direction walk sprite sheet, 4 frames per direction. Row order: down, left, right, up. Same character, same outfit, same proportions, same pixel scale in every frame. Solid #FF00FF background. Each frame fits fully inside its cell with clear margin. Retro JRPG pixel-art style.

@@ -1,0 +1,155 @@
+{
+  "target": "asset",
+  "mode": "walk",
+  "prompt": "1x4 horizontal moving sprite sheet for Lulu/Dew, orange tabby juice-bar cat with fruit hair accessory, pastel juice bar apron, teal waist ribbon. Retro JRPG pixel art. Same character, outfit, proportions, and pixel scale in every frame. Solid #FF00FF background. Fully contained with clear margin.",
+  "role": "",
+  "input": "/Users/jambo/.codex/generated_images/019dc02a-9223-74e0-a3e2-9629771d4a2f/ig_0e0be8c6c82c50ef0169ece3a44d10819190e14ae17bdf9587.png",
+  "threshold": 100,
+  "edge_threshold": 150,
+  "duration": 140,
+  "rows": 1,
+  "cols": 4,
+  "cell_size": 128,
+  "fit_scale": 0.82,
+  "trim_border": 2,
+  "edge_clean_depth": 3,
+  "align": "feet",
+  "shared_scale": true,
+  "component_mode": "all",
+  "component_padding": 4,
+  "min_component_area": 8,
+  "edge_touch_margin": 6,
+  "frame_labels": [
+    "char-dew-move-1",
+    "char-dew-move-2",
+    "char-dew-move-3",
+    "char-dew-move-4"
+  ],
+  "frames": [
+    {
+      "grid": [
+        0,
+        0
+      ],
+      "source_box": [
+        0,
+        0,
+        543,
+        724
+      ],
+      "component_mode": "all",
+      "component_count": 3,
+      "selected_component_area": null,
+      "selected_component_bbox": null,
+      "crop_bbox": [
+        59,
+        126,
+        456,
+        589
+      ],
+      "edge_touch": false,
+      "output_size": [
+        89,
+        104
+      ],
+      "paste_position": [
+        19,
+        13
+      ]
+    },
+    {
+      "grid": [
+        0,
+        1
+      ],
+      "source_box": [
+        543,
+        0,
+        1086,
+        724
+      ],
+      "component_mode": "all",
+      "component_count": 2,
+      "selected_component_area": null,
+      "selected_component_bbox": null,
+      "crop_bbox": [
+        58,
+        134,
+        458,
+        584
+      ],
+      "edge_touch": false,
+      "output_size": [
+        90,
+        102
+      ],
+      "paste_position": [
+        19,
+        15
+      ]
+    },
+    {
+      "grid": [
+        0,
+        2
+      ],
+      "source_box": [
+        1086,
+        0,
+        1629,
+        724
+      ],
+      "component_mode": "all",
+      "component_count": 2,
+      "selected_component_area": null,
+      "selected_component_bbox": null,
+      "crop_bbox": [
+        42,
+        131,
+        418,
+        586
+      ],
+      "edge_touch": false,
+      "output_size": [
+        85,
+        103
+      ],
+      "paste_position": [
+        21,
+        14
+      ]
+    },
+    {
+      "grid": [
+        0,
+        3
+      ],
+      "source_box": [
+        1629,
+        0,
+        2172,
+        724
+      ],
+      "component_mode": "all",
+      "component_count": 2,
+      "selected_component_area": null,
+      "selected_component_bbox": null,
+      "crop_bbox": [
+        26,
+        127,
+        420,
+        582
+      ],
+      "edge_touch": false,
+      "output_size": [
+        89,
+        103
+      ],
+      "paste_position": [
+        19,
+        14
+      ]
+    }
+  ],
+  "edge_touch_frames": []
+}

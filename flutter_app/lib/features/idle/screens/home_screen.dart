@@ -428,7 +428,6 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _startProductionForBottle(BlockColor color) async {
-    if (widget.tutorialMode) return;
     final bp = context.read<BottleProvider>();
     final pp = context.read<PlayerProvider>();
     final production = context.read<ProductionProvider>();
@@ -456,7 +455,8 @@ class _HomeScreenState extends State<HomeScreen> {
       return;
     }
 
-    final catLevel = pp.data.agents[catId]?.level ?? 1;
+    final catLevel =
+        widget.tutorialMode ? 999 : (pp.data.agents[catId]?.level ?? 1);
     final didStart = await production.startProduction(
       catId: catId,
       dessertId: dessertId,
@@ -550,13 +550,16 @@ class _HomeScreenState extends State<HomeScreen> {
                 stageColor: _stageColor,
                 onHarvest: _onHarvest,
                 externalHarvestButtonKey: widget.externalConvertButtonKey,
+                externalCraftButtonKey: widget.externalCraftButtonKey,
                 tutorialAutoSwitchKey: widget.tutorialAutoSwitchKey,
                 tutorialMode: widget.tutorialMode,
                 bottleKeys: _bottleKeys,
                 bottleAreaKey:
                     widget.externalBottleAreaKey ?? _guideBottleAreaKey,
-                onBottleTap:
-                    widget.tutorialMode ? null : _startProductionForBottle,
+                onBottleTap: !widget.tutorialMode ||
+                        widget.externalCraftButtonKey != null
+                    ? _startProductionForBottle
+                    : null,
               ),
 
               // ─── 棋盤 ───
@@ -771,10 +774,12 @@ class _SkillVfxOverlayState extends State<_SkillVfxOverlay>
 class _HorizontalBottleStrip extends StatelessWidget {
   final Map<BlockColor, GlobalKey> bottleKeys;
   final void Function(BlockColor color)? onBottleTap;
+  final GlobalKey? craftButtonKey;
 
   const _HorizontalBottleStrip({
     required this.bottleKeys,
     this.onBottleTap,
+    this.craftButtonKey,
   });
 
   @override
@@ -802,114 +807,120 @@ class _HorizontalBottleStrip extends StatelessWidget {
             return Expanded(
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 2),
-                child: GestureDetector(
-                  onTap: () {
-                    HapticFeedback.lightImpact();
-                    onBottleTap?.call(def.color);
-                  },
-                  child: KeyedSubtree(
-                    key: bottleKeys[def.color]!,
-                    child: Container(
-                      height: 56,
-                      clipBehavior: Clip.antiAlias,
-                      decoration: BoxDecoration(
-                        color: AppTheme.bgCard,
-                        borderRadius:
-                            BorderRadius.circular(AppTheme.radiusSmall),
-                        border: Border.all(
-                          color: canProduce
-                              ? clr.withAlpha(210)
-                              : isFull
-                                  ? clr.withAlpha(180)
-                                  : clr.withAlpha(30),
-                          width: canProduce || isFull ? 1.5 : 0.5,
+                child: _wrapTutorialCraftKey(
+                  def.color,
+                  canProduce,
+                  GestureDetector(
+                    onTap: onBottleTap == null
+                        ? null
+                        : () {
+                            HapticFeedback.lightImpact();
+                            onBottleTap?.call(def.color);
+                          },
+                    child: KeyedSubtree(
+                      key: bottleKeys[def.color]!,
+                      child: Container(
+                        height: 56,
+                        clipBehavior: Clip.antiAlias,
+                        decoration: BoxDecoration(
+                          color: AppTheme.bgCard,
+                          borderRadius:
+                              BorderRadius.circular(AppTheme.radiusSmall),
+                          border: Border.all(
+                            color: canProduce
+                                ? clr.withAlpha(210)
+                                : isFull
+                                    ? clr.withAlpha(180)
+                                    : clr.withAlpha(30),
+                            width: canProduce || isFull ? 1.5 : 0.5,
+                          ),
+                          boxShadow: canProduce || isFull
+                              ? [
+                                  BoxShadow(
+                                      color: clr.withAlpha(40), blurRadius: 6)
+                                ]
+                              : [
+                                  BoxShadow(
+                                      color: Colors.black.withAlpha(6),
+                                      blurRadius: 2)
+                                ],
                         ),
-                        boxShadow: canProduce || isFull
-                            ? [
-                                BoxShadow(
-                                    color: clr.withAlpha(40), blurRadius: 6)
-                              ]
-                            : [
-                                BoxShadow(
-                                    color: Colors.black.withAlpha(6),
-                                    blurRadius: 2)
-                              ],
-                      ),
-                      child: Stack(
-                        children: [
-                          // 進度填充（底→頂）
-                          Positioned.fill(
-                            child: Align(
-                              alignment: Alignment.bottomCenter,
-                              child: FractionallySizedBox(
-                                widthFactor: 1.0,
-                                heightFactor: bottle.fillProgress,
-                                child: Container(
-                                  decoration: BoxDecoration(
-                                    gradient: LinearGradient(
-                                      begin: Alignment.bottomCenter,
-                                      end: Alignment.topCenter,
-                                      colors: [
-                                        clr.withAlpha(isFull ? 140 : 65),
-                                        clr.withAlpha(isFull ? 80 : 35),
-                                      ],
+                        child: Stack(
+                          children: [
+                            // 進度填充（底→頂）
+                            Positioned.fill(
+                              child: Align(
+                                alignment: Alignment.bottomCenter,
+                                child: FractionallySizedBox(
+                                  widthFactor: 1.0,
+                                  heightFactor: bottle.fillProgress,
+                                  child: Container(
+                                    decoration: BoxDecoration(
+                                      gradient: LinearGradient(
+                                        begin: Alignment.bottomCenter,
+                                        end: Alignment.topCenter,
+                                        colors: [
+                                          clr.withAlpha(isFull ? 140 : 65),
+                                          clr.withAlpha(isFull ? 80 : 35),
+                                        ],
+                                      ),
                                     ),
                                   ),
                                 ),
                               ),
                             ),
-                          ),
-                          // 內容：emoji + 數字
-                          Center(
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Text(def.emoji,
-                                    style: const TextStyle(
-                                        fontSize: AppTheme.fontTitleMd)),
-                                const SizedBox(height: 2),
-                                Text(
-                                  canProduce
-                                      ? '製作'
-                                      : isFull
-                                          ? '滿'
-                                          : '${bottle.currentEnergy}',
-                                  style: TextStyle(
-                                    fontSize: AppTheme.fontLabelLg,
-                                    fontWeight: FontWeight.bold,
-                                    color: canProduce || isFull
-                                        ? clr
-                                        : AppTheme.textPrimary,
+                            // 內容：emoji + 數字
+                            Center(
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(def.emoji,
+                                      style: const TextStyle(
+                                          fontSize: AppTheme.fontTitleMd)),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    canProduce
+                                        ? '製作'
+                                        : isFull
+                                            ? '滿'
+                                            : '${bottle.currentEnergy}',
+                                    style: TextStyle(
+                                      fontSize: AppTheme.fontLabelLg,
+                                      fontWeight: FontWeight.bold,
+                                      color: canProduce || isFull
+                                          ? clr
+                                          : AppTheme.textPrimary,
+                                    ),
                                   ),
-                                ),
-                                Text(
-                                  'Lv${bottle.level}',
-                                  style: TextStyle(
-                                    fontSize: AppTheme.fontLabelSm,
-                                    color:
-                                        AppTheme.textSecondary.withAlpha(140),
+                                  Text(
+                                    'Lv${bottle.level}',
+                                    style: TextStyle(
+                                      fontSize: AppTheme.fontLabelSm,
+                                      color:
+                                          AppTheme.textSecondary.withAlpha(140),
+                                    ),
                                   ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          // 升級紅點
-                          if (canUpgrade)
-                            Positioned(
-                              top: 2,
-                              right: 2,
-                              child: Container(
-                                width: 7,
-                                height: 7,
-                                decoration: BoxDecoration(
-                                  color: AppTheme.accentPrimary,
-                                  shape: BoxShape.circle,
-                                  border: Border.all(
-                                      color: AppTheme.bgCard, width: 1),
-                                ),
+                                ],
                               ),
                             ),
-                        ],
+                            // 升級紅點
+                            if (canUpgrade)
+                              Positioned(
+                                top: 2,
+                                right: 2,
+                                child: Container(
+                                  width: 7,
+                                  height: 7,
+                                  decoration: BoxDecoration(
+                                    color: AppTheme.accentPrimary,
+                                    shape: BoxShape.circle,
+                                    border: Border.all(
+                                        color: AppTheme.bgCard, width: 1),
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
                       ),
                     ),
                   ),
@@ -920,6 +931,14 @@ class _HorizontalBottleStrip extends StatelessWidget {
         );
       },
     );
+  }
+
+  Widget _wrapTutorialCraftKey(
+      BlockColor color, bool canProduce, Widget child) {
+    if (craftButtonKey == null || color != BlockColor.coral || !canProduce) {
+      return child;
+    }
+    return KeyedSubtree(key: craftButtonKey, child: child);
   }
 }
 
@@ -932,6 +951,7 @@ class _StageAndBottles extends StatelessWidget {
   final BlockColor? stageColor;
   final VoidCallback onHarvest;
   final GlobalKey? externalHarvestButtonKey;
+  final GlobalKey? externalCraftButtonKey;
   final GlobalKey? tutorialAutoSwitchKey;
   final bool tutorialMode;
   final Map<BlockColor, GlobalKey> bottleKeys;
@@ -943,6 +963,7 @@ class _StageAndBottles extends StatelessWidget {
     this.stageColor,
     required this.onHarvest,
     this.externalHarvestButtonKey,
+    this.externalCraftButtonKey,
     this.tutorialAutoSwitchKey,
     this.tutorialMode = false,
     required this.bottleKeys,
@@ -975,6 +996,7 @@ class _StageAndBottles extends StatelessWidget {
                 child: _HorizontalBottleStrip(
                   bottleKeys: bottleKeys,
                   onBottleTap: onBottleTap,
+                  craftButtonKey: externalCraftButtonKey,
                 ),
               ),
             ),

@@ -10,6 +10,7 @@ import '../../agents/providers/player_provider.dart';
 import '../../game/providers/game_provider.dart';
 import '../../game/widgets/game_board.dart';
 import '../../idle/providers/bottle_provider.dart';
+import '../../idle/providers/production_provider.dart';
 import '../../idle/screens/home_screen.dart';
 import '../models/tutorial_dialogue_data.dart';
 import '../providers/tutorial_provider.dart';
@@ -20,7 +21,7 @@ import '../widgets/tutorial_highlight_overlay.dart';
 
 /// Phase 1：首頁教學（精簡版）
 /// Part A（steps 0-3）：推門 → 點擊 → 三連消 → 進首頁
-/// Part B（steps 4-6）：兌換 → 製作甜點 → 去闖關
+/// Part B（steps 4-6）：製作甜點 → 售出 → 去闖關
 class Phase1HomeScreen extends StatefulWidget {
   const Phase1HomeScreen({super.key});
 
@@ -39,19 +40,21 @@ class _Phase1HomeScreenState extends State<Phase1HomeScreen> {
   // Part B
   bool _showHomeScreen = false;
   // Part B 步驟：
-  // 0: 高亮「收成！」+ 浮動提示 + 等用戶點擊收成
-  // 1: 高亮底部導航「闖關」→ 阻斷對話 → 等用戶點擊 → 完成 Phase 1
+  // 0: 高亮瓶子「製作」+ 浮動提示 + 等用戶點擊製作
+  // 1: 高亮「售出」+ 浮動提示 + 等用戶點擊售出
+  // 2: 高亮底部導航「闖關」→ 阻斷對話 → 等用戶點擊 → 完成 Phase 1
   int _homeTutorialStep = 0;
-  bool _showHomeTutorialDialogue = false; // 只有 step 1 用阻斷對話
+  bool _showHomeTutorialDialogue = false; // 只有 step 2 用阻斷對話
 
-  bool _waitingForHomeTutorialAction = false;
-  bool _hasHarvested = false;
+  bool _hasStartedProduction = false;
+  bool _hasSoldDessert = false;
 
   // HomeScreen 的 GlobalKey
   final GlobalKey<State> _homeScreenKey = GlobalKey();
 
   // Part B 高亮用 GlobalKey
   final GlobalKey _highlightBottleAreaKey = GlobalKey();
+  final GlobalKey _highlightCraftButtonKey = GlobalKey();
   final GlobalKey _highlightHarvestButtonKey = GlobalKey();
   final GlobalKey _highlightNavBarKey = GlobalKey();
 
@@ -60,7 +63,7 @@ class _Phase1HomeScreenState extends State<Phase1HomeScreen> {
   String? _floatingHintEmoji;
   TutorialHintPosition _floatingHintPosition = TutorialHintPosition.bottom;
 
-  /// 預設棋盤（3 列 × 10 行），確保三連消容易觸發
+  /// 預設棋盤（4 列 × 7 行），確保三連消容易觸發
   /// C=coral, M=mint, T=teal, G=gold, R=rose
   static const _c = BlockColor.coral;
   static const _m = BlockColor.mint;
@@ -70,15 +73,16 @@ class _Phase1HomeScreenState extends State<Phase1HomeScreen> {
 
   // 教學棋盤（全程共用一個，不切換）
   // 設計要點：
-  //   row 9（底部）：col0=coral, col1=mint, col2=coral — 差一個就橫向三連
-  //   col 1 row 7 = coral — 這是 Step 2 要玩家「向下滑」的目標方塊
-  //   玩家下滑 col1 row7 的 coral → 移到底部 → row 9 全 coral → 橫向三連！
+  //   row 6（底部）：col0=coral, col1=gold, col2=coral — 差一個就橫向三連
+  //   col 1 row 5 = coral — 這是 Step 2 要玩家「向下滑」的目標方塊
+  //   玩家下滑 col1 row5 的 coral → 移到底部 → row 6 前三格全 coral → 橫向三連！
   //   其他位置無即時三連（縱向 & 橫向都安全）
   static final _tutorialGrid = [
-    //  row: 0   1   2   3   4   5   6   7   8   9
-    [_t, _m, _g, _r, _t, _m, _g, _r, _m, _c], // col 0 — row9=coral
-    [_m, _g, _t, _m, _r, _g, _t, _c, _g, _m], // col 1 — row7=coral(目標), row9=mint
-    [_g, _t, _r, _g, _m, _t, _r, _m, _t, _c], // col 2 — row9=coral
+    //  row: 0   1   2   3   4   5   6
+    [_t, _m, _g, _r, _t, _m, _c], // col 0 — row6=coral
+    [_m, _g, _t, _m, _r, _c, _g], // col 1 — row5=coral(目標), row6=gold
+    [_g, _t, _r, _g, _m, _t, _c], // col 2 — row6=coral
+    [_r, _c, _m, _t, _g, _r, _m], // col 3 — 補齊新版 4 欄
   ];
 
   @override
@@ -87,28 +91,16 @@ class _Phase1HomeScreenState extends State<Phase1HomeScreen> {
     final tutorial = context.read<TutorialProvider>();
     _step = tutorial.currentStep;
 
-    // ─── 向下相容：舊版 Part A step > 3 但 < 4（舊版 12 步），直接進首頁 ───
-    if (_step > 3 && _step < 4) {
-      _step = 3;
-      _doorOpened = true;
-    }
-    // 舊版 steps 4-11 對應舊 Part A 的中後段，也跳到首頁
-    if (_step >= 4 && _step < 12) {
+    // Part B（含舊版 steps 4-11）都回到首頁教學，避免卡在舊流程。
+    if (_step >= 4) {
       _doorOpened = true;
       _showHomeScreen = true;
-      _homeTutorialStep = 0;
+      _homeTutorialStep = _step <= 6 ? (_step - 4).clamp(0, 2) : 2;
       _restoreHomeTutorialState();
       return;
     }
 
     if (_step > 0) _doorOpened = true;
-
-    // 新版 Part B（step >= 4，對應 homeTutorialStep = step - 4）
-    if (_step >= 4) {
-      _showHomeScreen = true;
-      _homeTutorialStep = (_step - 4).clamp(0, 1);
-      _restoreHomeTutorialState();
-    }
 
     if (_step >= 1 && _step <= 2) {
       _waitingForAction = true;
@@ -124,12 +116,12 @@ class _Phase1HomeScreenState extends State<Phase1HomeScreen> {
       case -1:
         break;
       case 0:
-        _waitingForHomeTutorialAction = true;
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (mounted) _ensureBottleFull();
         });
       case 1:
-        _waitingForHomeTutorialAction = true;
+        _showFloatingHint('甜點做好了！點「售出」賺金幣', emoji: '💰');
+      case 2:
         _showHomeTutorialDialogue = true;
     }
   }
@@ -218,8 +210,9 @@ class _Phase1HomeScreenState extends State<Phase1HomeScreen> {
   // ═══════════════════════════════════
   // homeTutorialStep:
   //   -1: 自由探索（等瓶子滿）
-  //    0: 瓶子滿了 → 高亮「收成！」
-  //    1: 收成完 → 高亮闖關 Tab
+  //    0: 瓶子滿了 → 高亮瓶子「製作」
+  //    1: 製作完成 → 高亮「售出」
+  //    2: 售出完成 → 高亮闖關 Tab
 
   void _enterHomeScreen() {
     _goToStep(4);
@@ -235,17 +228,24 @@ class _Phase1HomeScreenState extends State<Phase1HomeScreen> {
     if (_homeTutorialStep != -1) return;
     setState(() {
       _homeTutorialStep = 0;
-      _waitingForHomeTutorialAction = true;
     });
-    _showFloatingHint('瓶子滿了！點「收成！」收穫甜點', emoji: '🧪');
+    _showFloatingHint('瓶子能量夠了！點「製作」做出甜點', emoji: '🧪');
   }
 
-  /// 用戶按了收成按鈕（偵測金幣增加）
-  void _onUserHarvested() {
-    if (_homeTutorialStep == 0 && !_hasHarvested) {
+  /// 用戶按了製作（偵測到 ProductionSlot）
+  void _onUserStartedProduction() {
+    if (_homeTutorialStep == 0 && !_hasStartedProduction) {
       setState(() {
-        _hasHarvested = true;
-        _waitingForHomeTutorialAction = false;
+        _hasStartedProduction = true;
+      });
+      _showFloatingHint('甜點製作中，等一下就能售出了！', emoji: '🍰');
+    }
+  }
+
+  /// 甜點製作完成（展示櫃出現甜點）
+  void _onDessertReadyToSell() {
+    if (_homeTutorialStep == 0) {
+      setState(() {
         _floatingHintText = null;
       });
       Future.delayed(const Duration(milliseconds: 500), () {
@@ -253,7 +253,25 @@ class _Phase1HomeScreenState extends State<Phase1HomeScreen> {
           _goToStep(5);
           setState(() {
             _homeTutorialStep = 1;
-            _waitingForHomeTutorialAction = true;
+          });
+          _showFloatingHint('甜點做好了！點「售出」賺金幣', emoji: '💰');
+        }
+      });
+    }
+  }
+
+  /// 用戶按了售出按鈕（偵測金幣增加）
+  void _onUserSoldDessert() {
+    if (_homeTutorialStep == 1 && !_hasSoldDessert) {
+      setState(() {
+        _hasSoldDessert = true;
+        _floatingHintText = null;
+      });
+      Future.delayed(const Duration(milliseconds: 500), () {
+        if (mounted) {
+          _goToStep(6);
+          setState(() {
+            _homeTutorialStep = 2;
             _showHomeTutorialDialogue = true;
           });
         }
@@ -267,7 +285,9 @@ class _Phase1HomeScreenState extends State<Phase1HomeScreen> {
   }
 
   /// 浮動提示輔助
-  void _showFloatingHint(String text, {String? emoji, TutorialHintPosition position = TutorialHintPosition.bottom}) {
+  void _showFloatingHint(String text,
+      {String? emoji,
+      TutorialHintPosition position = TutorialHintPosition.bottom}) {
     setState(() {
       _floatingHintText = text;
       _floatingHintEmoji = emoji;
@@ -287,9 +307,11 @@ class _Phase1HomeScreenState extends State<Phase1HomeScreen> {
 
   GlobalKey? _highlightKeyForStep() {
     switch (_homeTutorialStep) {
-      case 0:  // 瓶子滿→高亮收成
+      case 0: // 瓶子滿→高亮製作
+        return _hasStartedProduction ? null : _highlightCraftButtonKey;
+      case 1: // 製作完成→高亮售出
         return _highlightHarvestButtonKey;
-      case 1:  // 收成完→高亮闖關
+      case 2: // 售出完→高亮闖關
         return _highlightNavBarKey;
       default: // -1 自由探索，不高亮
         return null;
@@ -333,18 +355,23 @@ class _Phase1HomeScreenState extends State<Phase1HomeScreen> {
         HomeScreen(
           key: _homeScreenKey,
           tutorialMode: true,
-          onTutorialNavTap: _homeTutorialStep == 1 ? _onUserTappedBattle : null,
+          onTutorialNavTap: _homeTutorialStep == 2 ? _onUserTappedBattle : null,
           externalBottleAreaKey: _highlightBottleAreaKey,
+          externalCraftButtonKey: _highlightCraftButtonKey,
           externalConvertButtonKey: _highlightHarvestButtonKey,
           externalNavBarKey: _highlightNavBarKey,
         ),
 
-        // 監聽瓶子滿、收成狀態
+        // 監聽瓶子、製作、售出狀態
         _HomeActionListener(
           onBottleFull: _onBottleFull,
-          onHarvested: _onUserHarvested,
+          onProductionStarted: _onUserStartedProduction,
+          onDessertReady: _onDessertReadyToSell,
+          onSold: _onUserSoldDessert,
           listenBottleFull: _homeTutorialStep == -1,
-          listenHarvest: _homeTutorialStep == 0 && !_hasHarvested,
+          listenProduction: _homeTutorialStep == 0 && !_hasStartedProduction,
+          listenDessertReady: _homeTutorialStep == 0,
+          listenSold: _homeTutorialStep == 1 && !_hasSoldDessert,
         ),
 
         // 高亮 overlay
@@ -365,7 +392,7 @@ class _Phase1HomeScreenState extends State<Phase1HomeScreen> {
           ),
 
         // 阻斷對話框（只有最後一步：去闘關）
-        if (_showHomeTutorialDialogue && _homeTutorialStep == 1)
+        if (_showHomeTutorialDialogue && _homeTutorialStep == 2)
           TutorialDialogueBox(
             dialogue: const TutorialDialogue(
               id: 'H06',
@@ -384,7 +411,9 @@ class _Phase1HomeScreenState extends State<Phase1HomeScreen> {
           child: TextButton(
             onPressed: _skipTutorial,
             child: const Text('跳過教學 →',
-                style: TextStyle(color: AppTheme.textSecondary, fontSize: AppTheme.fontBodyLg)),
+                style: TextStyle(
+                    color: AppTheme.textSecondary,
+                    fontSize: AppTheme.fontBodyLg)),
           ),
         ),
       ],
@@ -427,7 +456,8 @@ class _Phase1HomeScreenState extends State<Phase1HomeScreen> {
                         children: [
                           const Text('🏪 教學模式',
                               style: TextStyle(
-                                  color: AppTheme.textSecondary, fontSize: AppTheme.fontBodyLg)),
+                                  color: AppTheme.textSecondary,
+                                  fontSize: AppTheme.fontBodyLg)),
                           const Spacer(),
                           TextButton(
                             onPressed: _skipTutorial,
@@ -446,10 +476,9 @@ class _Phase1HomeScreenState extends State<Phase1HomeScreen> {
                           child: AbsorbPointer(
                             absorbing: !_waitingForAction,
                             child: GameBoard(
-                              // Step 2：高亮 col 1 row 7 的 coral 方塊，引導向下滑
-                              tutorialHintBlock: _step == 2
-                                  ? (col: 1, row: 7)
-                                  : null,
+                              // Step 2：高亮 col 1 row 5 的 coral 方塊，引導向下滑
+                              tutorialHintBlock:
+                                  _step == 2 ? (col: 1, row: 5) : null,
                             ),
                           ),
                         ),
@@ -547,7 +576,8 @@ class _Phase1HomeScreenState extends State<Phase1HomeScreen> {
                   borderRadius: BorderRadius.circular(16),
                 ),
                 child: const Text('跳過教學 →',
-                    style: TextStyle(color: Colors.white70, fontSize: AppTheme.fontBodyLg)),
+                    style: TextStyle(
+                        color: Colors.white70, fontSize: AppTheme.fontBodyLg)),
               ),
             ),
           ),
@@ -560,15 +590,23 @@ class _Phase1HomeScreenState extends State<Phase1HomeScreen> {
 /// 監聽瓶子滿、收成狀態
 class _HomeActionListener extends StatefulWidget {
   final VoidCallback? onBottleFull;
-  final VoidCallback onHarvested;
+  final VoidCallback onProductionStarted;
+  final VoidCallback onDessertReady;
+  final VoidCallback onSold;
   final bool listenBottleFull;
-  final bool listenHarvest;
+  final bool listenProduction;
+  final bool listenDessertReady;
+  final bool listenSold;
 
   const _HomeActionListener({
     this.onBottleFull,
-    required this.onHarvested,
+    required this.onProductionStarted,
+    required this.onDessertReady,
+    required this.onSold,
     this.listenBottleFull = false,
-    required this.listenHarvest,
+    required this.listenProduction,
+    required this.listenDessertReady,
+    required this.listenSold,
   });
 
   @override
@@ -587,8 +625,8 @@ class _HomeActionListenerState extends State<_HomeActionListener> {
 
   @override
   Widget build(BuildContext context) {
-    return Consumer2<PlayerProvider, BottleProvider>(
-      builder: (context, player, bottleProvider, _) {
+    return Consumer3<PlayerProvider, BottleProvider, ProductionProvider>(
+      builder: (context, player, bottleProvider, production, _) {
         // 偵測瓶子滿
         if (widget.listenBottleFull && bottleProvider.isInitialized) {
           final hasAnyFull = BottleDefinitions.all.any(
@@ -601,13 +639,28 @@ class _HomeActionListenerState extends State<_HomeActionListener> {
           }
         }
 
-        // 偵測收成（金幣增加 = 已收成）
-        if (widget.listenHarvest) {
+        // 偵測製作開始
+        if (widget.listenProduction && production.activeSlots.isNotEmpty) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            widget.onProductionStarted();
+          });
+        }
+
+        // 偵測甜點完成（展示櫃有品項 = 可售出）
+        if (widget.listenDessertReady &&
+            production.displayCase.totalCount > 0) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            widget.onDessertReady();
+          });
+        }
+
+        // 偵測售出（金幣增加 = 已售出）
+        if (widget.listenSold) {
           final currentGold = player.data.gold;
           if (currentGold > _lastGold) {
             _lastGold = currentGold;
             WidgetsBinding.instance.addPostFrameCallback((_) {
-              widget.onHarvested();
+              widget.onSold();
             });
           }
         }

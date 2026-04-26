@@ -1,0 +1,1 @@
+1x4 horizontal moving sprite sheet for Wheat, a cute orange tabby cat chef wearing white chef hat, white apron with pale blue straps and bow, upright striped tail, rosy cheeks. Retro JRPG pixel art. Same character, outfit, proportions, and pixel scale in every frame. Solid #FF00FF background. Character centered in each cell, fully contained with large clear margin.
