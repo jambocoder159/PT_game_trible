@@ -67,6 +67,7 @@ flutter:
     - assets/images/output/enemies/
     - assets/images/output/bosses/
     - assets/images/output/vfx/
+    - assets/images/output/vfx/serving_reward_reveal/
     - assets/images/output/evolutions/
     - assets/images/output/app_icons/
     - assets/images/icons/

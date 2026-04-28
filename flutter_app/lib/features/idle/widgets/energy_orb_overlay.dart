@@ -8,12 +8,14 @@ class DrainEventData {
   final BlockColor color;
   final Offset source; // 方塊消除處
   final Offset target; // 貓咪位置
+  final int intensity;
 
   const DrainEventData({
     required this.id,
     required this.color,
     required this.source,
     required this.target,
+    this.intensity = 1,
   });
 }
 
@@ -41,6 +43,7 @@ class EnergyOrbController {
       color: color,
       source: start,
       target: end,
+      intensity: 1,
     ));
     _onChange?.call();
   }
@@ -51,14 +54,28 @@ class EnergyOrbController {
     required Offset start,
     required Offset end,
     int count = 1,
+    int intensity = 1,
   }) {
-    // 吸收效果本身就有很多粒子，一次事件就夠
-    _activeEvents.add(DrainEventData(
-      id: _idCounter++,
-      color: color,
-      source: start,
-      target: end,
-    ));
+    final rng = Random();
+    final clampedIntensity = intensity.clamp(1, 4);
+    final eventCount = count.clamp(1, 8);
+    for (var i = 0; i < eventCount; i++) {
+      final startJitter = Offset(
+        (rng.nextDouble() - 0.5) * 28,
+        (rng.nextDouble() - 0.5) * 28,
+      );
+      final targetJitter = Offset(
+        (rng.nextDouble() - 0.5) * 12,
+        (rng.nextDouble() - 0.5) * 12,
+      );
+      _activeEvents.add(DrainEventData(
+        id: _idCounter++,
+        color: color,
+        source: start + startJitter,
+        target: end + targetJitter,
+        intensity: clampedIntensity,
+      ));
+    }
     _onChange?.call();
   }
 
@@ -137,11 +154,12 @@ class _DrainEffectState extends State<_DrainEffect>
   late AnimationController _controller;
   late List<_DrainParticle> _particles;
 
-  static const _totalDuration = Duration(milliseconds: 700);
+  Duration get _totalDuration =>
+      Duration(milliseconds: 700 + (widget.data.intensity - 1) * 70);
 
   // 時間分段
-  static const _burstEnd = 0.25;   // 0~25%: 爆散
-  static const _hoverEnd = 0.35;   // 25~35%: 短暫漂浮
+  static const _burstEnd = 0.25; // 0~25%: 爆散
+  static const _hoverEnd = 0.35; // 25~35%: 短暫漂浮
   // 35~100%: 收束匯聚
 
   @override
@@ -157,7 +175,8 @@ class _DrainEffectState extends State<_DrainEffect>
 
   List<_DrainParticle> _generateParticles() {
     final rng = Random();
-    final count = 10 + rng.nextInt(6); // 10~15 顆碎片
+    final count =
+        10 + rng.nextInt(6) + (widget.data.intensity - 1) * 4; // 10~27
     return List.generate(count, (i) {
       // 爆散方向（全方位，但稍微偏向遠離目標的方向）
       final baseAngle = (i / count) * 2 * pi;
@@ -165,10 +184,12 @@ class _DrainEffectState extends State<_DrainEffect>
       final angle = baseAngle + jitter;
 
       // 爆散距離（每顆不同，製造散射感）
-      final burstDist = 25.0 + rng.nextDouble() * 35.0;
+      final burstDist =
+          25.0 + rng.nextDouble() * 35.0 + (widget.data.intensity - 1) * 8.0;
 
       // 粒子大小
-      final size = 2.5 + rng.nextDouble() * 3.5;
+      final size =
+          2.5 + rng.nextDouble() * 3.5 + (widget.data.intensity - 1) * 0.7;
 
       // 收束時的延遲（讓粒子不同時抵達，製造拖尾流感）
       final convergeDelay = rng.nextDouble() * 0.15;
@@ -182,7 +203,9 @@ class _DrainEffectState extends State<_DrainEffect>
         size: size,
         convergeDelay: convergeDelay,
         curveBias: curveBias,
-        brightness: 0.6 + rng.nextDouble() * 0.4,
+        brightness:
+            (0.6 + rng.nextDouble() * 0.4 + (widget.data.intensity - 1) * 0.1)
+                .clamp(0.0, 1.35),
       );
     });
   }
@@ -206,6 +229,7 @@ class _DrainEffectState extends State<_DrainEffect>
             source: widget.data.source,
             target: widget.data.target,
             color: widget.data.color.color,
+            intensity: widget.data.intensity,
           ),
         );
       },
@@ -215,12 +239,12 @@ class _DrainEffectState extends State<_DrainEffect>
 
 /// 單顆碎片的參數
 class _DrainParticle {
-  final double burstAngle;    // 爆散方向
-  final double burstDist;     // 爆散距離
-  final double size;          // 粒子大小
+  final double burstAngle; // 爆散方向
+  final double burstDist; // 爆散距離
+  final double size; // 粒子大小
   final double convergeDelay; // 收束延遲 (0~0.15)
-  final double curveBias;     // 收束彎曲偏移
-  final double brightness;    // 亮度 (0.6~1.0)
+  final double curveBias; // 收束彎曲偏移
+  final double brightness; // 亮度 (0.6~1.0)
 
   const _DrainParticle({
     required this.burstAngle,
@@ -239,6 +263,7 @@ class _DrainPainter extends CustomPainter {
   final Offset source;
   final Offset target;
   final Color color;
+  final int intensity;
 
   const _DrainPainter({
     required this.progress,
@@ -246,6 +271,7 @@ class _DrainPainter extends CustomPainter {
     required this.source,
     required this.target,
     required this.color,
+    required this.intensity,
   });
 
   @override
@@ -268,9 +294,9 @@ class _DrainPainter extends CustomPainter {
       }
 
       // 越接近目標越亮
-      final convergePhase = ((progress - hoverEnd) / (1.0 - hoverEnd))
-          .clamp(0.0, 1.0);
-      final glowIntensity = convergePhase * 0.5;
+      final convergePhase =
+          ((progress - hoverEnd) / (1.0 - hoverEnd)).clamp(0.0, 1.0);
+      final glowIntensity = convergePhase * (0.5 + (intensity - 1) * 0.22);
 
       // 粒子大小：收束時略縮小
       final drawSize = p.size * (1.0 - convergePhase * 0.3);
@@ -286,9 +312,9 @@ class _DrainPainter extends CustomPainter {
       canvas.drawCircle(pos, glowRadius, glowPaint);
 
       // 繪製核心（白色帶顏色）
-      final coreColor = Color.lerp(color, Colors.white, 0.3 + glowIntensity * 0.4)!;
-      final corePaint = Paint()
-        ..color = coreColor.withAlpha(alphaInt);
+      final coreColor =
+          Color.lerp(color, Colors.white, 0.3 + glowIntensity * 0.4)!;
+      final corePaint = Paint()..color = coreColor.withAlpha(alphaInt);
       canvas.drawCircle(pos, drawSize, corePaint);
 
       // 收束階段繪製拖尾
@@ -301,7 +327,7 @@ class _DrainPainter extends CustomPainter {
     if (progress > 0.8) {
       final flashT = ((progress - 0.8) / 0.2).clamp(0.0, 1.0);
       final flashAlpha = (sin(flashT * pi) * 180).round().clamp(0, 255);
-      final flashRadius = 12.0 + flashT * 8.0;
+      final flashRadius = 12.0 + flashT * (8.0 + intensity * 3.0);
       final flashPaint = Paint()
         ..color = color.withAlpha(flashAlpha)
         ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8);
@@ -309,8 +335,17 @@ class _DrainPainter extends CustomPainter {
 
       // 白色核心閃光
       final coreFlashPaint = Paint()
-        ..color = Colors.white.withAlpha((flashAlpha * 0.6).round().clamp(0, 255));
+        ..color =
+            Colors.white.withAlpha((flashAlpha * 0.6).round().clamp(0, 255));
       canvas.drawCircle(target, flashRadius * 0.4, coreFlashPaint);
+
+      if (intensity >= 3) {
+        final ringPaint = Paint()
+          ..color = Colors.white.withAlpha((flashAlpha * 0.35).round())
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1.5;
+        canvas.drawCircle(target, flashRadius * 0.85, ringPaint);
+      }
     }
   }
 
@@ -384,8 +419,7 @@ class _DrainPainter extends CustomPainter {
 
       if (trailSize <= 0) continue;
 
-      final paint = Paint()
-        ..color = color.withAlpha(trailAlpha);
+      final paint = Paint()..color = color.withAlpha(trailAlpha);
       canvas.drawCircle(trailPos, trailSize, paint);
     }
   }

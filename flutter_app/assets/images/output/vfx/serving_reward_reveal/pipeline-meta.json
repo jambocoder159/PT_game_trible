@@ -1,0 +1,224 @@
+{
+  "target": "asset",
+  "mode": "cast",
+  "prompt": "2x3 pixel-art dessert serving reward reveal animation, covered tray opens, dessert and coins burst out, solid #FF00FF background",
+  "role": "",
+  "input": "assets/images/output/vfx/serving_reward_reveal/source-generated.png",
+  "threshold": 100,
+  "edge_threshold": 150,
+  "duration": 135,
+  "rows": 2,
+  "cols": 3,
+  "cell_size": 192,
+  "fit_scale": 0.82,
+  "trim_border": 4,
+  "edge_clean_depth": 3,
+  "align": "center",
+  "shared_scale": true,
+  "component_mode": "all",
+  "component_padding": 4,
+  "min_component_area": 1,
+  "edge_touch_margin": 2,
+  "frame_labels": [
+    "serve-1",
+    "serve-2",
+    "serve-3",
+    "serve-4",
+    "serve-5",
+    "serve-6"
+  ],
+  "frames": [
+    {
+      "grid": [
+        0,
+        0
+      ],
+      "source_box": [
+        0,
+        0,
+        512,
+        512
+      ],
+      "component_mode": "all",
+      "component_count": 1,
+      "selected_component_area": null,
+      "selected_component_bbox": null,
+      "crop_bbox": [
+        75,
+        163,
+        431,
+        422
+      ],
+      "edge_touch": false,
+      "output_size": [
+        138,
+        100
+      ],
+      "paste_position": [
+        27,
+        46
+      ]
+    },
+    {
+      "grid": [
+        0,
+        1
+      ],
+      "source_box": [
+        512,
+        0,
+        1024,
+        512
+      ],
+      "component_mode": "all",
+      "component_count": 16,
+      "selected_component_area": null,
+      "selected_component_bbox": null,
+      "crop_bbox": [
+        69,
+        103,
+        419,
+        422
+      ],
+      "edge_touch": false,
+      "output_size": [
+        135,
+        123
+      ],
+      "paste_position": [
+        28,
+        34
+      ]
+    },
+    {
+      "grid": [
+        0,
+        2
+      ],
+      "source_box": [
+        1024,
+        0,
+        1536,
+        512
+      ],
+      "component_mode": "all",
+      "component_count": 18,
+      "selected_component_area": null,
+      "selected_component_bbox": null,
+      "crop_bbox": [
+        55,
+        92,
+        413,
+        422
+      ],
+      "edge_touch": false,
+      "output_size": [
+        138,
+        127
+      ],
+      "paste_position": [
+        27,
+        32
+      ]
+    },
+    {
+      "grid": [
+        1,
+        0
+      ],
+      "source_box": [
+        0,
+        512,
+        512,
+        1024
+      ],
+      "component_mode": "all",
+      "component_count": 17,
+      "selected_component_area": null,
+      "selected_component_bbox": null,
+      "crop_bbox": [
+        97,
+        28,
+        442,
+        408
+      ],
+      "edge_touch": false,
+      "output_size": [
+        133,
+        147
+      ],
+      "paste_position": [
+        29,
+        22
+      ]
+    },
+    {
+      "grid": [
+        1,
+        1
+      ],
+      "source_box": [
+        512,
+        512,
+        1024,
+        1024
+      ],
+      "component_mode": "all",
+      "component_count": 41,
+      "selected_component_area": null,
+      "selected_component_bbox": null,
+      "crop_bbox": [
+        42,
+        2,
+        448,
+        408
+      ],
+      "edge_touch": true,
+      "output_size": [
+        157,
+        157
+      ],
+      "paste_position": [
+        17,
+        17
+      ]
+    },
+    {
+      "grid": [
+        1,
+        2
+      ],
+      "source_box": [
+        1024,
+        512,
+        1536,
+        1024
+      ],
+      "component_mode": "all",
+      "component_count": 12,
+      "selected_component_area": null,
+      "selected_component_bbox": null,
+      "crop_bbox": [
+        61,
+        141,
+        407,
+        408
+      ],
+      "edge_touch": false,
+      "output_size": [
+        134,
+        103
+      ],
+      "paste_position": [
+        29,
+        44
+      ]
+    }
+  ],
+  "edge_touch_frames": [
+    [
+      1,
+      1
+    ]
+  ]
+}

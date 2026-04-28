@@ -102,12 +102,18 @@ class _HomeScreenState extends State<HomeScreen> {
 
   // 遊戲區域 GlobalKey（用於定位能量球起點）
   final GlobalKey _gameAreaKey = GlobalKey();
+  final GlobalKey _stageAreaKey = GlobalKey();
+  final GlobalKey _displayCaseKey = GlobalKey();
 
   // 首頁導覽用 GlobalKey
   final GlobalKey _guideBottleAreaKey = GlobalKey();
   final GlobalKey _guideNavBarKey = GlobalKey();
   bool _showHomeGuide = false;
   bool _showStaminaHint = false;
+  bool _hasDisplayCaseBaseline = false;
+  Map<String, int> _displayCaseSnapshot = {};
+  bool _autoCraftInFlight = false;
+  bool _autoSellInFlight = false;
 
   @override
   void initState() {
@@ -116,6 +122,7 @@ class _HomeScreenState extends State<HomeScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _startIdleGame();
       _setupEnergyListener();
+      _setupProductionListener();
       _checkHomeGuide();
       _migrateIngredients();
     });
@@ -210,6 +217,11 @@ class _HomeScreenState extends State<HomeScreen> {
     idle.addListener(_onIdleUpdate);
   }
 
+  void _setupProductionListener() {
+    final production = context.read<ProductionProvider>();
+    production.addListener(_onProductionUpdate);
+  }
+
   void _onIdleUpdate() {
     if (!mounted) return;
 
@@ -245,6 +257,7 @@ class _HomeScreenState extends State<HomeScreen> {
         bottleProvider.addEnergyBatch(event.energyByColor);
       }
       _checkBottleFull(bottleProvider);
+      _tryAutoProduction();
     });
   }
 
@@ -261,6 +274,14 @@ class _HomeScreenState extends State<HomeScreen> {
     final gameCenter = gameBox.localToGlobal(
       Offset(gameBox.size.width / 2, gameBox.size.height / 2),
     );
+    final combo = context.read<IdleProvider>().state?.combo ?? 0;
+    final comboTier = combo >= 12
+        ? 4
+        : combo >= 8
+            ? 3
+            : combo >= 4
+                ? 2
+                : 1;
 
     for (final entry in energyByColor.entries) {
       final color = entry.key;
@@ -279,15 +300,162 @@ class _HomeScreenState extends State<HomeScreen> {
         color: color,
         start: gameCenter,
         end: bottleCenter,
-        count: 1,
+        count: (entry.value + comboTier - 1).clamp(1, 8),
+        intensity: comboTier,
       );
     }
+  }
+
+  void _onProductionUpdate() {
+    if (!mounted || _currentNavIndex != 2) return;
+    final production = context.read<ProductionProvider>();
+    if (!production.isInitialized) return;
+
+    final current = Map<String, int>.from(production.displayCase.desserts);
+    if (!_hasDisplayCaseBaseline) {
+      _displayCaseSnapshot = current;
+      _hasDisplayCaseBaseline = true;
+      final total = production.displayCase.totalCount;
+      if (total > 0) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          _showLoopToast('甜點堆疊 x$total 已在展示櫃');
+          _tryAutoSell();
+        });
+      }
+      return;
+    }
+
+    var addedCount = 0;
+    for (final entry in current.entries) {
+      final previous = _displayCaseSnapshot[entry.key] ?? 0;
+      if (entry.value > previous) {
+        final added = entry.value - previous;
+        addedCount += added;
+        _spawnDessertToDisplayCase(entry.key, added);
+      }
+    }
+    _displayCaseSnapshot = current;
+    if (addedCount > 0) {
+      Future.delayed(const Duration(milliseconds: 700), () {
+        if (mounted) _tryAutoSell();
+      });
+    }
+    _tryAutoProduction();
+  }
+
+  void _spawnBottleToStageEnergy(BlockColor color) {
+    final bottleBox =
+        _bottleKeys[color]?.currentContext?.findRenderObject() as RenderBox?;
+    final stageBox =
+        _stageAreaKey.currentContext?.findRenderObject() as RenderBox?;
+    if (bottleBox == null || stageBox == null) return;
+
+    final start = bottleBox.localToGlobal(
+      Offset(bottleBox.size.width / 2, bottleBox.size.height / 2),
+    );
+    final end = stageBox.localToGlobal(
+      Offset(stageBox.size.width / 2, stageBox.size.height * 0.52),
+    );
+    _orbController.spawnOrbs(color: color, start: start, end: end, count: 2);
+    _showLoopToast('能量送進廚房');
+  }
+
+  void _spawnDessertToDisplayCase(String dessertId, int count) {
+    final recipe = DessertDefinitions.getById(dessertId);
+    final stageBox =
+        _stageAreaKey.currentContext?.findRenderObject() as RenderBox?;
+    final caseBox =
+        _displayCaseKey.currentContext?.findRenderObject() as RenderBox?;
+    if (stageBox == null || caseBox == null) return;
+
+    final start = stageBox.localToGlobal(
+      Offset(stageBox.size.width / 2, stageBox.size.height * 0.45),
+    );
+    final end = caseBox.localToGlobal(
+      Offset(caseBox.size.width * 0.22, caseBox.size.height / 2),
+    );
+
+    final overlay = Overlay.of(context);
+    late OverlayEntry entry;
+    entry = OverlayEntry(
+      builder: (_) => _DessertToDisplayCaseOverlay(
+        emoji: recipe?.emoji ?? '🧁',
+        start: start,
+        end: end,
+        count: count,
+        onComplete: () => entry.remove(),
+      ),
+    );
+    overlay.insert(entry);
+    _showLoopToast('${recipe?.name ?? '甜點'} 放進展示櫃');
+  }
+
+  void _showLoopToast(String message) {
+    final overlay = Overlay.of(context);
+    late OverlayEntry entry;
+    entry = OverlayEntry(
+      builder: (_) => _LoopToastOverlay(
+        message: message,
+        onComplete: () => entry.remove(),
+      ),
+    );
+    overlay.insert(entry);
+  }
+
+  bool get _isAutoProductionEnabled {
+    final bp = context.read<BottleProvider>();
+    final pp = context.read<PlayerProvider>();
+    final unlocked = pp
+            .data
+            .stageProgress[AutoEliminateConfig.autoHarvestUnlockStage]
+            ?.cleared ??
+        false;
+    return unlocked && bp.autoHarvestEnabled;
+  }
+
+  void _tryAutoProduction() {
+    if (!mounted || _autoCraftInFlight || !_isAutoProductionEnabled) return;
+    _autoCraftInFlight = true;
+    Future.microtask(() async {
+      try {
+        if (!mounted) return;
+        for (final def in BottleDefinitions.all) {
+          final didStart = await _startProductionForBottle(
+            def.color,
+            automatic: true,
+          );
+          if (didStart) break;
+        }
+      } finally {
+        _autoCraftInFlight = false;
+      }
+    });
+  }
+
+  void _tryAutoSell() {
+    if (!mounted || _autoSellInFlight || !_isAutoProductionEnabled) return;
+    final production = context.read<ProductionProvider>();
+    if (!production.isInitialized || production.displayCase.totalCount <= 0) {
+      return;
+    }
+    _autoSellInFlight = true;
+    Future.delayed(const Duration(milliseconds: 450), () async {
+      try {
+        if (mounted) await _onHarvest(automatic: true);
+      } finally {
+        _autoSellInFlight = false;
+      }
+    });
   }
 
   @override
   void dispose() {
     try {
       context.read<IdleProvider>().removeListener(_onIdleUpdate);
+    } catch (_) {}
+    try {
+      context.read<ProductionProvider>().removeListener(_onProductionUpdate);
     } catch (_) {}
     super.dispose();
   }
@@ -427,12 +595,15 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Future<void> _startProductionForBottle(BlockColor color) async {
+  Future<bool> _startProductionForBottle(
+    BlockColor color, {
+    bool automatic = false,
+  }) async {
     final bp = context.read<BottleProvider>();
     final pp = context.read<PlayerProvider>();
     final production = context.read<ProductionProvider>();
     if (!pp.isInitialized || !bp.isInitialized || !production.isInitialized) {
-      return;
+      return false;
     }
 
     final bottle = bp.getBottle(color);
@@ -441,18 +612,18 @@ class _HomeScreenState extends State<HomeScreen> {
     final recipe =
         dessertId == null ? null : DessertDefinitions.getById(dessertId);
     if (dessertId == null || recipe == null) {
-      WorkshopDetailPanel.show(context, initialColor: color);
-      return;
+      if (!automatic) WorkshopDetailPanel.show(context, initialColor: color);
+      return false;
     }
 
     final catId = production.firstIdleCat(pp.data.team);
     if (catId == null) {
-      _showProductionSnack('所有貓咪都在製作中');
-      return;
+      if (!automatic) _showProductionSnack('所有貓咪都在製作中');
+      return false;
     }
     if (!bp.canProduce(color, dessertId)) {
-      WorkshopDetailPanel.show(context, initialColor: color);
-      return;
+      if (!automatic) WorkshopDetailPanel.show(context, initialColor: color);
+      return false;
     }
 
     final catLevel =
@@ -464,16 +635,22 @@ class _HomeScreenState extends State<HomeScreen> {
       catLevel: catLevel,
       bottleProvider: bp,
     );
-    if (!mounted) return;
+    if (!mounted) return false;
     if (didStart) {
-      HapticFeedback.mediumImpact();
+      if (!automatic) HapticFeedback.mediumImpact();
       final catName = _findAgentDef(catId)?.name ?? '貓咪';
-      _showProductionSnack('$catName 開始製作 ${recipe.emoji} ${recipe.name}');
+      _spawnBottleToStageEnergy(color);
+      if (automatic) {
+        _showLoopToast('自動製作 ${recipe.emoji}');
+      } else {
+        _showProductionSnack('$catName 開始製作 ${recipe.emoji} ${recipe.name}');
+      }
     }
+    return didStart;
   }
 
   /// 手動售出展示櫃甜點。
-  Future<void> _onHarvest() async {
+  Future<void> _onHarvest({bool automatic = false}) async {
     final production = context.read<ProductionProvider>();
     final pp = context.read<PlayerProvider>();
     if (!production.isInitialized || production.displayCase.totalCount <= 0) {
@@ -486,11 +663,13 @@ class _HomeScreenState extends State<HomeScreen> {
       _stageMode = 'idle';
       _stageColor = null;
     });
-    _showHarvestAnimation(HarvestResult(
-      dessertsProduced: result.dessertsSold,
-      totalGold: result.totalGold,
-      critBonusGold: result.critBonusGold,
-    ));
+    _showHarvestAnimation(
+        HarvestResult(
+          dessertsProduced: result.dessertsSold,
+          totalGold: result.totalGold,
+          critBonusGold: result.critBonusGold,
+        ),
+        automatic: automatic);
   }
 
   void _showProductionSnack(String message) {
@@ -501,18 +680,31 @@ class _HomeScreenState extends State<HomeScreen> {
 
   /// 收成動畫：甜點圖示飛出 → 金幣數字放大
   void _showHarvestAnimation(HarvestResult result,
-      {VoidCallback? onParticlesArrived}) {
+      {VoidCallback? onParticlesArrived, bool automatic = false}) {
     final overlay = Overlay.of(context);
     late OverlayEntry entry;
 
     entry = OverlayEntry(
-      builder: (context) => _HarvestAnimationOverlay(
-        totalGold: result.totalGold,
-        critBonusGold: result.critBonusGold,
-        dessertCount: result.dessertsProduced.values.fold(0, (a, b) => a + b),
-        onParticlesArrived: onParticlesArrived,
-        onComplete: () => entry.remove(),
-      ),
+      builder: (context) {
+        final dessertCount =
+            result.dessertsProduced.values.fold(0, (a, b) => a + b);
+        if (automatic) {
+          return _SaleRewardChipOverlay(
+            totalGold: result.totalGold,
+            critBonusGold: result.critBonusGold,
+            dessertCount: dessertCount,
+            automatic: true,
+            onParticlesArrived: onParticlesArrived,
+            onComplete: () => entry.remove(),
+          );
+        }
+        return _HarvestAnimationOverlay(
+          totalGold: result.totalGold,
+          critBonusGold: result.critBonusGold,
+          dessertCount: dessertCount,
+          onComplete: () => entry.remove(),
+        );
+      },
     );
 
     overlay.insert(entry);
@@ -546,6 +738,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
               // ─── 演出區（固定高度）+ 瓶子 ───
               _StageAndBottles(
+                stageKey: _stageAreaKey,
                 stageMode: _stageMode,
                 stageColor: _stageColor,
                 onHarvest: _onHarvest,
@@ -570,7 +763,10 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
               if (!widget.tutorialMode)
-                _DisplayCaseStrip(onSellAll: _onHarvest),
+                _DisplayCaseStrip(
+                  key: _displayCaseKey,
+                  onSellAll: _onHarvest,
+                ),
             ],
           ),
 
@@ -804,122 +1000,45 @@ class _HorizontalBottleStrip extends StatelessWidget {
             final canUpgrade = bp.canUpgrade(def.color, pp.data);
             final clr = def.color.color;
 
+            final statusText = canProduce
+                ? '可製作'
+                : isFull
+                    ? '已滿'
+                    : '能量 ${bottle.currentEnergy}/${bottle.capacity}';
+
             return Expanded(
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 2),
                 child: _wrapTutorialCraftKey(
                   def.color,
                   canProduce,
-                  GestureDetector(
-                    onTap: onBottleTap == null
-                        ? null
-                        : () {
-                            HapticFeedback.lightImpact();
-                            onBottleTap?.call(def.color);
-                          },
-                    child: KeyedSubtree(
-                      key: bottleKeys[def.color]!,
-                      child: Container(
-                        height: 56,
-                        clipBehavior: Clip.antiAlias,
-                        decoration: BoxDecoration(
-                          color: AppTheme.bgCard,
-                          borderRadius:
-                              BorderRadius.circular(AppTheme.radiusSmall),
-                          border: Border.all(
-                            color: canProduce
-                                ? clr.withAlpha(210)
-                                : isFull
-                                    ? clr.withAlpha(180)
-                                    : clr.withAlpha(30),
-                            width: canProduce || isFull ? 1.5 : 0.5,
+                  Tooltip(
+                    message:
+                        '${def.name} Lv${bottle.level}\n$statusText${canUpgrade ? '\n可升級' : ''}',
+                    waitDuration: const Duration(milliseconds: 350),
+                    child: Semantics(
+                      button: onBottleTap != null,
+                      label:
+                          '${def.name}，等級 ${bottle.level}，$statusText${canUpgrade ? '，可升級' : ''}',
+                      child: GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTap: onBottleTap == null
+                            ? null
+                            : () {
+                                HapticFeedback.lightImpact();
+                                onBottleTap?.call(def.color);
+                              },
+                        child: KeyedSubtree(
+                          key: bottleKeys[def.color]!,
+                          child: _CompactBottleMeter(
+                            emoji: def.emoji,
+                            color: clr,
+                            level: bottle.level,
+                            progress: bottle.fillProgress,
+                            isFull: isFull,
+                            canProduce: canProduce,
+                            canUpgrade: canUpgrade,
                           ),
-                          boxShadow: canProduce || isFull
-                              ? [
-                                  BoxShadow(
-                                      color: clr.withAlpha(40), blurRadius: 6)
-                                ]
-                              : [
-                                  BoxShadow(
-                                      color: Colors.black.withAlpha(6),
-                                      blurRadius: 2)
-                                ],
-                        ),
-                        child: Stack(
-                          children: [
-                            // 進度填充（底→頂）
-                            Positioned.fill(
-                              child: Align(
-                                alignment: Alignment.bottomCenter,
-                                child: FractionallySizedBox(
-                                  widthFactor: 1.0,
-                                  heightFactor: bottle.fillProgress,
-                                  child: Container(
-                                    decoration: BoxDecoration(
-                                      gradient: LinearGradient(
-                                        begin: Alignment.bottomCenter,
-                                        end: Alignment.topCenter,
-                                        colors: [
-                                          clr.withAlpha(isFull ? 140 : 65),
-                                          clr.withAlpha(isFull ? 80 : 35),
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ),
-                            // 內容：emoji + 數字
-                            Center(
-                              child: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Text(def.emoji,
-                                      style: const TextStyle(
-                                          fontSize: AppTheme.fontTitleMd)),
-                                  const SizedBox(height: 2),
-                                  Text(
-                                    canProduce
-                                        ? '製作'
-                                        : isFull
-                                            ? '滿'
-                                            : '${bottle.currentEnergy}',
-                                    style: TextStyle(
-                                      fontSize: AppTheme.fontLabelLg,
-                                      fontWeight: FontWeight.bold,
-                                      color: canProduce || isFull
-                                          ? clr
-                                          : AppTheme.textPrimary,
-                                    ),
-                                  ),
-                                  Text(
-                                    'Lv${bottle.level}',
-                                    style: TextStyle(
-                                      fontSize: AppTheme.fontLabelSm,
-                                      color:
-                                          AppTheme.textSecondary.withAlpha(140),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            // 升級紅點
-                            if (canUpgrade)
-                              Positioned(
-                                top: 2,
-                                right: 2,
-                                child: Container(
-                                  width: 7,
-                                  height: 7,
-                                  decoration: BoxDecoration(
-                                    color: AppTheme.accentPrimary,
-                                    shape: BoxShape.circle,
-                                    border: Border.all(
-                                        color: AppTheme.bgCard, width: 1),
-                                  ),
-                                ),
-                              ),
-                          ],
                         ),
                       ),
                     ),
@@ -942,11 +1061,493 @@ class _HorizontalBottleStrip extends StatelessWidget {
   }
 }
 
+class _CompactBottleMeter extends StatefulWidget {
+  final String emoji;
+  final Color color;
+  final int level;
+  final double progress;
+  final bool isFull;
+  final bool canProduce;
+  final bool canUpgrade;
+
+  const _CompactBottleMeter({
+    required this.emoji,
+    required this.color,
+    required this.level,
+    required this.progress,
+    required this.isFull,
+    required this.canProduce,
+    required this.canUpgrade,
+  });
+
+  @override
+  State<_CompactBottleMeter> createState() => _CompactBottleMeterState();
+}
+
+class _CompactBottleMeterState extends State<_CompactBottleMeter>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _impactCtrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _impactCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 280),
+    );
+  }
+
+  @override
+  void didUpdateWidget(covariant _CompactBottleMeter oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final gainedEnergy = widget.progress > oldWidget.progress;
+    final becameReady = widget.canProduce && !oldWidget.canProduce;
+    if (gainedEnergy || becameReady) {
+      _impactCtrl.forward(from: 0);
+    }
+  }
+
+  @override
+  void dispose() {
+    _impactCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final active = widget.canProduce || widget.isFull;
+    final tier = _bottleVisualTier(widget.level);
+    final premium = tier >= 3;
+    final legendary = tier >= 4;
+
+    return AnimatedBuilder(
+      animation: _impactCtrl,
+      builder: (context, child) {
+        final hit = math.sin(_impactCtrl.value * math.pi);
+        return Transform.scale(
+          scale: 1 + hit * 0.06,
+          child: SizedBox(
+            height: 42,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    AppTheme.bgCard.withAlpha(240),
+                    Color.lerp(
+                        AppTheme.bgCard, widget.color, 0.08 + tier * 0.035)!,
+                  ],
+                ),
+                borderRadius: BorderRadius.circular(8 + tier * 0.8),
+                border: Border.all(
+                  color: active || premium
+                      ? Color.lerp(widget.color, const Color(0xFFFFD43B),
+                              premium ? 0.32 : 0.0)!
+                          .withAlpha(210)
+                      : widget.color.withAlpha(42),
+                  width: active ? 1.4 + tier * 0.18 : 0.7 + tier * 0.12,
+                ),
+                boxShadow: active || hit > 0
+                    ? [
+                        BoxShadow(
+                          color: widget.color
+                              .withAlpha(active ? 44 + (hit * 28).round() : 32),
+                          blurRadius: 6 + hit * 8 + tier * 2.2,
+                        ),
+                        if (premium)
+                          BoxShadow(
+                            color: const Color(0xFFFFD43B)
+                                .withAlpha(20 + tier * 8),
+                            blurRadius: 8 + tier * 2,
+                          ),
+                      ]
+                    : null,
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(7 + tier * 0.8),
+                child: Stack(
+                  children: [
+                    if (premium)
+                      Positioned.fill(
+                        child: DecoratedBox(
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(7 + tier * 0.8),
+                            border: Border.all(
+                              color: Colors.white.withAlpha(80),
+                              width: 0.7,
+                            ),
+                          ),
+                        ),
+                      ),
+                    Positioned.fill(
+                      child: Align(
+                        alignment: Alignment.bottomCenter,
+                        child: FractionallySizedBox(
+                          widthFactor: 1,
+                          heightFactor: widget.progress.clamp(0.0, 1.0),
+                          alignment: Alignment.bottomCenter,
+                          child: DecoratedBox(
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                begin: Alignment.bottomCenter,
+                                end: Alignment.topCenter,
+                                colors: [
+                                  widget.color.withAlpha(
+                                      active ? 132 + tier * 12 : 78 + tier * 8),
+                                  Color.lerp(widget.color, Colors.white,
+                                          premium ? 0.24 : 0.08)!
+                                      .withAlpha(active
+                                          ? 62 + tier * 8
+                                          : 32 + tier * 6),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    if (hit > 0)
+                      Positioned.fill(
+                        child: Opacity(
+                          opacity: hit * 0.34,
+                          child: DecoratedBox(
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(7),
+                            ),
+                          ),
+                        ),
+                      ),
+                    Center(
+                      child: Stack(
+                        alignment: Alignment.center,
+                        children: [
+                          if (legendary)
+                            Transform.rotate(
+                              angle: math.sin(_impactCtrl.value * math.pi * 2) *
+                                  0.2,
+                              child: Icon(
+                                Icons.auto_awesome_rounded,
+                                size: 28,
+                                color: const Color(0xFFFFD43B).withAlpha(95),
+                              ),
+                            ),
+                          Text(
+                            widget.emoji,
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 17 + tier * 0.5,
+                              height: 1,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    if (tier >= 2)
+                      Positioned(
+                        left: 5,
+                        top: 4,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: List.generate(
+                            tier - 1,
+                            (index) => Container(
+                              width: 3.5,
+                              height: 3.5,
+                              margin: const EdgeInsets.only(right: 2),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFFFD43B)
+                                    .withAlpha(170 + index * 18),
+                                shape: BoxShape.circle,
+                                boxShadow: [
+                                  BoxShadow(
+                                    color:
+                                        const Color(0xFFFFD43B).withAlpha(55),
+                                    blurRadius: 3,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    if (legendary)
+                      Positioned(
+                        left: 5,
+                        right: 5,
+                        top: 5,
+                        child: Opacity(
+                          opacity: 0.5 + hit * 0.3,
+                          child: const Icon(Icons.star_rounded,
+                              size: 9, color: Color(0xFFFFD43B)),
+                        ),
+                      ),
+                    Positioned(
+                      left: 5,
+                      right: 5,
+                      bottom: 4,
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(999),
+                        child: LinearProgressIndicator(
+                          value: widget.progress.clamp(0.0, 1.0),
+                          minHeight: 3,
+                          backgroundColor: AppTheme.textSecondary.withAlpha(18),
+                          valueColor:
+                              AlwaysStoppedAnimation<Color>(widget.color),
+                        ),
+                      ),
+                    ),
+                    if (widget.canProduce)
+                      Positioned(
+                        top: 4,
+                        right: 4,
+                        child: _BottleStatusDot(
+                          color: widget.color,
+                          icon: Icons.restaurant_rounded,
+                        ),
+                      )
+                    else if (widget.canUpgrade)
+                      const Positioned(
+                        top: 4,
+                        right: 4,
+                        child: _BottleStatusDot(
+                          color: AppTheme.accentPrimary,
+                          icon: Icons.arrow_upward_rounded,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  int _bottleVisualTier(int level) {
+    if (level >= 9) return 4;
+    if (level >= 6) return 3;
+    if (level >= 3) return 2;
+    return 1;
+  }
+}
+
+class _BottleStatusDot extends StatelessWidget {
+  final Color color;
+  final IconData icon;
+
+  const _BottleStatusDot({
+    required this.color,
+    required this.icon,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 14,
+      height: 14,
+      decoration: BoxDecoration(
+        color: color,
+        shape: BoxShape.circle,
+        border: Border.all(color: AppTheme.bgCard, width: 1),
+      ),
+      child: Icon(icon, size: 9, color: Colors.white),
+    );
+  }
+}
+
+class _DessertToDisplayCaseOverlay extends StatefulWidget {
+  final String emoji;
+  final Offset start;
+  final Offset end;
+  final int count;
+  final VoidCallback onComplete;
+
+  const _DessertToDisplayCaseOverlay({
+    required this.emoji,
+    required this.start,
+    required this.end,
+    required this.count,
+    required this.onComplete,
+  });
+
+  @override
+  State<_DessertToDisplayCaseOverlay> createState() =>
+      _DessertToDisplayCaseOverlayState();
+}
+
+class _DessertToDisplayCaseOverlayState
+    extends State<_DessertToDisplayCaseOverlay>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _ctrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 760),
+    )..forward().whenComplete(widget.onComplete);
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return IgnorePointer(
+      child: AnimatedBuilder(
+        animation: _ctrl,
+        builder: (_, __) {
+          final t = Curves.easeInOutCubic.transform(_ctrl.value);
+          final arc = math.sin(t * math.pi) * 42;
+          final pos = Offset.lerp(widget.start, widget.end, t)!;
+          final scale = 1.0 + math.sin(t * math.pi) * 0.24;
+          final opacity = _ctrl.value > 0.86
+              ? ((1 - _ctrl.value) / 0.14).clamp(0.0, 1.0)
+              : 1.0;
+
+          return Stack(
+            children: [
+              Positioned(
+                left: pos.dx - 18,
+                top: pos.dy - 18 - arc,
+                child: Opacity(
+                  opacity: opacity,
+                  child: Transform.scale(
+                    scale: scale,
+                    child: Text(
+                      widget.emoji,
+                      style: const TextStyle(fontSize: 30),
+                    ),
+                  ),
+                ),
+              ),
+              if (widget.count > 1 && t > 0.2)
+                Positioned(
+                  left: pos.dx + 8,
+                  top: pos.dy - 28 - arc,
+                  child: Opacity(
+                    opacity: opacity,
+                    child: Text(
+                      'x${widget.count}',
+                      style: TextStyle(
+                        color: AppTheme.accentPrimary,
+                        fontSize: AppTheme.fontLabelLg,
+                        fontWeight: FontWeight.w900,
+                        shadows: [
+                          Shadow(
+                            color: Colors.white.withAlpha(240),
+                            blurRadius: 5,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _LoopToastOverlay extends StatefulWidget {
+  final String message;
+  final VoidCallback onComplete;
+
+  const _LoopToastOverlay({
+    required this.message,
+    required this.onComplete,
+  });
+
+  @override
+  State<_LoopToastOverlay> createState() => _LoopToastOverlayState();
+}
+
+class _LoopToastOverlayState extends State<_LoopToastOverlay>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _ctrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1150),
+    )..forward().whenComplete(widget.onComplete);
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final safeTop = MediaQuery.of(context).padding.top;
+    return AnimatedBuilder(
+      animation: _ctrl,
+      builder: (_, __) {
+        final intro = Curves.easeOutCubic.transform(
+          (_ctrl.value / 0.2).clamp(0.0, 1.0),
+        );
+        final outro = _ctrl.value > 0.72
+            ? (1 - ((_ctrl.value - 0.72) / 0.28)).clamp(0.0, 1.0)
+            : 1.0;
+        return Positioned(
+          top: safeTop + 72 - intro * 8,
+          left: 0,
+          right: 0,
+          child: IgnorePointer(
+            child: Opacity(
+              opacity: intro * outro,
+              child: Center(
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                  decoration: BoxDecoration(
+                    color: AppTheme.textPrimary.withAlpha(220),
+                    borderRadius: BorderRadius.circular(999),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withAlpha(28),
+                        blurRadius: 8,
+                        offset: const Offset(0, 3),
+                      ),
+                    ],
+                  ),
+                  child: Text(
+                    widget.message,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: AppTheme.fontLabelLg,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
 // ═══════════════════════════════════════════
 // 演出區 + 瓶子合體
 // ═══════════════════════════════════════════
 
 class _StageAndBottles extends StatelessWidget {
+  final GlobalKey stageKey;
   final String stageMode;
   final BlockColor? stageColor;
   final VoidCallback onHarvest;
@@ -959,6 +1560,7 @@ class _StageAndBottles extends StatelessWidget {
   final void Function(BlockColor color)? onBottleTap;
 
   const _StageAndBottles({
+    required this.stageKey,
     required this.stageMode,
     this.stageColor,
     required this.onHarvest,
@@ -974,7 +1576,7 @@ class _StageAndBottles extends StatelessWidget {
   bool get _isExpanded => stageMode == 'serving';
   // 演出區固定高度 + 瓶子高度
   static const _stageHeight = 120.0;
-  static const _bottleHeight = 60.0;
+  static const _bottleHeight = 46.0;
 
   @override
   Widget build(BuildContext context) {
@@ -1012,6 +1614,7 @@ class _StageAndBottles extends StatelessWidget {
               curve: Curves.easeInOutCubic,
               height: _isExpanded ? _stageHeight + _bottleHeight : _stageHeight,
               child: _StageArea(
+                key: stageKey,
                 stageMode: stageMode,
                 stageColor: stageColor,
                 onHarvest: onHarvest,
@@ -1040,6 +1643,7 @@ class _StageArea extends StatelessWidget {
   final bool tutorialMode;
 
   const _StageArea({
+    super.key,
     required this.stageMode,
     this.stageColor,
     required this.onHarvest,
@@ -1193,6 +1797,17 @@ class _StageArea extends StatelessWidget {
                   child: _buildGearButton(
                       context, idle, bp, tutorialAutoSwitchKey),
                 ),
+
+              if (stageMode == 'idle' &&
+                  (bp.autoHarvestEnabled || idle.autoConfig.isAutoActive))
+                Positioned(
+                  right: 46,
+                  top: 8,
+                  child: _AutoStatusPill(
+                    autoCraft: bp.autoHarvestEnabled,
+                    autoEliminate: idle.autoConfig.isAutoActive,
+                  ),
+                ),
             ],
           ),
         );
@@ -1262,6 +1877,41 @@ class _StageArea extends StatelessWidget {
   }
 }
 
+class _AutoStatusPill extends StatelessWidget {
+  final bool autoCraft;
+  final bool autoEliminate;
+
+  const _AutoStatusPill({
+    required this.autoCraft,
+    required this.autoEliminate,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 24,
+      padding: const EdgeInsets.symmetric(horizontal: 7),
+      decoration: BoxDecoration(
+        color: Colors.white.withAlpha(218),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: AppTheme.accentSecondary.withAlpha(32)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (autoEliminate)
+            Icon(Icons.auto_awesome_rounded,
+                size: 13, color: AppTheme.accentPrimary.withAlpha(210)),
+          if (autoEliminate && autoCraft) const SizedBox(width: 4),
+          if (autoCraft)
+            const Icon(Icons.local_dining_rounded,
+                size: 13, color: Color(0xFF4CAF50)),
+        ],
+      ),
+    );
+  }
+}
+
 ProductionSlot? _productionSlotForCat(
     ProductionProvider production, String catId) {
   for (final slot in production.activeSlots) {
@@ -1273,44 +1923,101 @@ ProductionSlot? _productionSlotForCat(
 class _DisplayCaseStrip extends StatelessWidget {
   final VoidCallback onSellAll;
 
-  const _DisplayCaseStrip({required this.onSellAll});
+  const _DisplayCaseStrip({super.key, required this.onSellAll});
 
   @override
   Widget build(BuildContext context) {
-    return Consumer<ProductionProvider>(
-      builder: (context, production, _) {
+    return Consumer2<ProductionProvider, BottleProvider>(
+      builder: (context, production, bp, _) {
         if (!production.isInitialized) return const SizedBox(height: 50);
         final display = production.displayCase;
         final items = display.desserts.entries.toList();
+        final ready = display.totalCount > 0;
+        final autoSell = bp.autoHarvestEnabled;
+        final estimatedGold = items.fold<int>(0, (sum, entry) {
+          final recipe = DessertDefinitions.getById(entry.key);
+          return sum + (recipe?.sellPrice ?? 0) * entry.value;
+        });
 
-        return Container(
-          height: 54,
+        return AnimatedContainer(
+          duration: const Duration(milliseconds: 220),
+          height: ready ? 54 : 32,
           margin: const EdgeInsets.fromLTRB(8, 0, 8, 4),
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+          padding: EdgeInsets.symmetric(
+            horizontal: 10,
+            vertical: ready ? 7 : 5,
+          ),
           decoration: BoxDecoration(
-            color: AppTheme.bgCard,
+            color: ready ? const Color(0xFFFFFCF2) : AppTheme.bgCard,
             borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-            border: Border.all(color: AppTheme.accentSecondary.withAlpha(35)),
+            border: Border.all(
+              color: ready
+                  ? AppTheme.accentPrimary.withAlpha(135)
+                  : AppTheme.accentSecondary.withAlpha(35),
+              width: ready ? 1.2 : 1,
+            ),
+            boxShadow: ready
+                ? [
+                    BoxShadow(
+                      color: AppTheme.accentPrimary.withAlpha(28),
+                      blurRadius: 10,
+                      offset: const Offset(0, 2),
+                    ),
+                  ]
+                : null,
           ),
           child: Row(
             children: [
-              Text(
-                '展示櫃 ${display.totalCount}/${display.maxCapacity}',
-                style: const TextStyle(
-                  color: AppTheme.textPrimary,
-                  fontSize: AppTheme.fontLabelLg,
-                  fontWeight: FontWeight.bold,
-                ),
+              Container(
+                width: ready ? 58 : 30,
+                alignment: Alignment.centerLeft,
+                child: ready
+                    ? Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            autoSell ? '自動售出' : '可售出',
+                            style: const TextStyle(
+                              color: AppTheme.accentPrimary,
+                              fontSize: AppTheme.fontLabelLg,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          Text(
+                            '${display.totalCount}/${display.maxCapacity}',
+                            style: TextStyle(
+                              color: AppTheme.textSecondary.withAlpha(145),
+                              fontSize: AppTheme.fontLabelSm,
+                              height: 1.1,
+                            ),
+                          ),
+                        ],
+                      )
+                    : Icon(
+                        Icons.storefront_rounded,
+                        size: 17,
+                        color: AppTheme.textSecondary.withAlpha(120),
+                      ),
               ),
-              const SizedBox(width: 8),
+              if (ready) const SizedBox(width: 8),
               Expanded(
                 child: items.isEmpty
-                    ? Text(
-                        '完成的甜點會放在這裡',
-                        style: TextStyle(
-                          color: AppTheme.textSecondary.withAlpha(130),
-                          fontSize: AppTheme.fontLabelLg,
-                        ),
+                    ? Row(
+                        children: [
+                          Text(
+                            '展示櫃待機',
+                            style: TextStyle(
+                              color: AppTheme.textSecondary.withAlpha(120),
+                              fontSize: AppTheme.fontLabelLg,
+                            ),
+                          ),
+                          if (autoSell) ...[
+                            const SizedBox(width: 6),
+                            const Icon(Icons.local_dining_rounded,
+                                size: 13, color: Color(0xFF4CAF50)),
+                          ],
+                        ],
                       )
                     : ListView.separated(
                         scrollDirection: Axis.horizontal,
@@ -1345,31 +2052,39 @@ class _DisplayCaseStrip extends StatelessWidget {
                         },
                       ),
               ),
-              const SizedBox(width: 8),
-              GestureDetector(
-                onTap: display.totalCount > 0 ? onSellAll : null,
-                child: Container(
-                  height: 34,
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    color: display.totalCount > 0
-                        ? AppTheme.accentPrimary
-                        : AppTheme.bgSecondary,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(
-                    '售出',
-                    style: TextStyle(
-                      color: display.totalCount > 0
-                          ? Colors.white
-                          : AppTheme.textSecondary.withAlpha(120),
-                      fontSize: AppTheme.fontLabelLg,
-                      fontWeight: FontWeight.bold,
+              if (ready) ...[
+                const SizedBox(width: 8),
+                GestureDetector(
+                  onTap: onSellAll,
+                  child: Container(
+                    height: 34,
+                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: AppTheme.accentPrimary,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (autoSell) ...[
+                          const Icon(Icons.bolt_rounded,
+                              size: 13, color: Colors.white),
+                          const SizedBox(width: 3),
+                        ],
+                        Text(
+                          estimatedGold > 0 ? '+$estimatedGold' : '售出',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: AppTheme.fontLabelLg,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ),
-              ),
+              ],
             ],
           ),
         );
@@ -2506,21 +3221,225 @@ class _HarvestButtonState extends State<_HarvestButton>
 }
 
 // ═══════════════════════════════════════════
-// 收成動畫 — 糖果粒子散開 → 飛向資源區 + 計數器跳動
+// 收成動畫 — 開寶箱式結算 → 獎勵爆光 → 金幣飛向資源區
 // ═══════════════════════════════════════════
+
+class _SaleRewardChipOverlay extends StatefulWidget {
+  final int totalGold;
+  final int critBonusGold;
+  final int dessertCount;
+  final bool automatic;
+  final VoidCallback? onParticlesArrived;
+  final VoidCallback onComplete;
+
+  const _SaleRewardChipOverlay({
+    required this.totalGold,
+    required this.critBonusGold,
+    required this.dessertCount,
+    required this.automatic,
+    this.onParticlesArrived,
+    required this.onComplete,
+  });
+
+  @override
+  State<_SaleRewardChipOverlay> createState() => _SaleRewardChipOverlayState();
+}
+
+class _SaleRewardChipOverlayState extends State<_SaleRewardChipOverlay>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _ctrl;
+  late List<_CandyParticle> _particles;
+  bool _arrivedFired = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1350),
+    );
+    _particles = _generateParticles();
+    _start();
+  }
+
+  List<_CandyParticle> _generateParticles() {
+    final rng = math.Random();
+    final count = widget.automatic ? 8 : 11;
+    return List.generate(count, (i) {
+      return _CandyParticle(
+        emoji: i.isEven ? '🪙' : '🍬',
+        angle: -math.pi / 2 + (rng.nextDouble() - 0.5) * 1.35,
+        burstRadius: 28 + rng.nextDouble() * 54,
+        delay: rng.nextDouble() * 0.1,
+        size: 15 + rng.nextDouble() * 5,
+      );
+    });
+  }
+
+  Future<void> _start() async {
+    if (!widget.automatic) HapticFeedback.mediumImpact();
+    _ctrl.addListener(_checkArrival);
+    await _ctrl.forward();
+    if (!mounted) return;
+    _fireArrived();
+    widget.onComplete();
+  }
+
+  void _checkArrival() {
+    if (_ctrl.value >= 0.78) _fireArrived();
+  }
+
+  void _fireArrived() {
+    if (_arrivedFired) return;
+    _arrivedFired = true;
+    _ctrl.removeListener(_checkArrival);
+    widget.onParticlesArrived?.call();
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final screenSize = MediaQuery.of(context).size;
+    final safeTop = MediaQuery.of(context).padding.top;
+    final origin = Offset(screenSize.width / 2, screenSize.height - 92);
+    final target = Offset(screenSize.width * 0.85, safeTop + 20);
+    final isCrit = widget.critBonusGold > 0;
+
+    return IgnorePointer(
+      child: AnimatedBuilder(
+        animation: _ctrl,
+        builder: (context, _) {
+          final t = _ctrl.value;
+          final enter = Curves.easeOutBack.transform((t / 0.22).clamp(0, 1));
+          final flyT =
+              Curves.easeInCubic.transform(((t - 0.34) / 0.44).clamp(0, 1));
+          final fade =
+              t > 0.76 ? (1 - ((t - 0.76) / 0.24)).clamp(0.0, 1.0) : 1.0;
+          final chipDy = -10 * enter - 10 * flyT;
+
+          return Stack(
+            children: [
+              Positioned(
+                left: 20,
+                right: 20,
+                bottom: 74 + chipDy,
+                child: Opacity(
+                  opacity: fade,
+                  child: Transform.scale(
+                    scale: 0.82 + enter * 0.18,
+                    child: Center(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 14, vertical: 9),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withAlpha(242),
+                          borderRadius: BorderRadius.circular(999),
+                          border: Border.all(
+                            color: (isCrit
+                                    ? const Color(0xFFFFD43B)
+                                    : AppTheme.accentPrimary)
+                                .withAlpha(220),
+                            width: 1.4,
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: AppTheme.accentPrimary.withAlpha(35),
+                              blurRadius: 12,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(widget.automatic ? '⚙️' : '💰'),
+                            const SizedBox(width: 6),
+                            Text(
+                              '${widget.automatic ? '自動售出' : '售出'} +${widget.totalGold}',
+                              style: const TextStyle(
+                                color: AppTheme.textPrimary,
+                                fontSize: AppTheme.fontBodyMd,
+                                fontWeight: FontWeight.w900,
+                              ),
+                            ),
+                            if (widget.dessertCount > 0) ...[
+                              const SizedBox(width: 6),
+                              Text(
+                                'x${widget.dessertCount}',
+                                style: TextStyle(
+                                  color: AppTheme.textSecondary.withAlpha(180),
+                                  fontSize: AppTheme.fontLabelLg,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                            if (isCrit) ...[
+                              const SizedBox(width: 6),
+                              const Text(
+                                'CRIT',
+                                style: TextStyle(
+                                  color: Color(0xFF7C5E10),
+                                  fontSize: AppTheme.fontLabelLg,
+                                  fontWeight: FontWeight.w900,
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              ..._particles.map((p) {
+                final burstT = Curves.easeOutCubic.transform(
+                  ((t - 0.12 - p.delay) / 0.24).clamp(0.0, 1.0),
+                );
+                final burst = Offset(
+                  math.cos(p.angle) * p.burstRadius,
+                  math.sin(p.angle) * p.burstRadius,
+                );
+                final pos = Offset.lerp(
+                  origin + burst * burstT,
+                  target,
+                  flyT,
+                )!;
+                final arc = math.sin(flyT * math.pi) * 18;
+                final alpha = burstT <= 0
+                    ? 0.0
+                    : ((1 - flyT * 0.75) * fade).clamp(0.0, 1.0);
+                return Positioned(
+                  left: pos.dx - p.size / 2,
+                  top: pos.dy - p.size / 2 - arc,
+                  child: Opacity(
+                    opacity: alpha,
+                    child: Text(p.emoji, style: TextStyle(fontSize: p.size)),
+                  ),
+                );
+              }),
+            ],
+          );
+        },
+      ),
+    );
+  }
+}
 
 class _HarvestAnimationOverlay extends StatefulWidget {
   final int totalGold;
   final int critBonusGold;
   final int dessertCount;
-  final VoidCallback? onParticlesArrived;
   final VoidCallback onComplete;
 
   const _HarvestAnimationOverlay({
     required this.totalGold,
     required this.critBonusGold,
     required this.dessertCount,
-    this.onParticlesArrived,
     required this.onComplete,
   });
 
@@ -2531,89 +3450,63 @@ class _HarvestAnimationOverlay extends StatefulWidget {
 
 class _HarvestAnimationOverlayState extends State<_HarvestAnimationOverlay>
     with TickerProviderStateMixin {
-  late AnimationController _burstCtrl; // 粒子散開
-  late AnimationController _flyCtrl; // 粒子飛向資源區
+  late AnimationController _ctrl;
 
   late List<_CandyParticle> _particles;
-  static const _particleCount = 12;
-  static const _candyEmojis = ['🍬', '🍭', '🧁', '🍪', '🍩'];
+  static const _particleCount = 18;
+  static const _rewardEmojis = ['🍬', '🍭', '🧁', '🍪', '🍩', '🪙'];
 
   @override
   void initState() {
     super.initState();
-
-    // Phase 1: 粒子爆開 (600ms)
-    _burstCtrl = AnimationController(
+    _ctrl = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 600),
-    );
-
-    // Phase 2: 粒子飛向右上角 (800ms)
-    _flyCtrl = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 800),
+      duration: const Duration(milliseconds: 2200),
     );
 
     _particles = _generateParticles();
-
     _startSequence();
   }
 
   List<_CandyParticle> _generateParticles() {
     final rng = math.Random();
     return List.generate(_particleCount, (i) {
-      final angle = (i / _particleCount) * 2 * math.pi + rng.nextDouble() * 0.5;
+      final angle =
+          (i / _particleCount) * 2 * math.pi + rng.nextDouble() * 0.45;
+      final isCoin = i % 3 == 0;
       return _CandyParticle(
-        emoji: _candyEmojis[rng.nextInt(_candyEmojis.length)],
+        emoji: isCoin
+            ? '🪙'
+            : _rewardEmojis[rng.nextInt(_rewardEmojis.length - 1)],
         angle: angle,
-        burstRadius: 40 + rng.nextDouble() * 60,
-        delay: rng.nextDouble() * 0.15,
+        burstRadius: 46 + rng.nextDouble() * 88,
+        delay: rng.nextDouble() * 0.12,
+        size: isCoin ? 20 + rng.nextDouble() * 6 : 18 + rng.nextDouble() * 7,
       );
     });
   }
 
-  bool _arrivedFired = false;
-
   Future<void> _startSequence() async {
     HapticFeedback.heavyImpact();
-    // Phase 1: 爆開
-    await _burstCtrl.forward();
-    if (!mounted) return;
-    // Phase 2: 飛行 — 粒子到達錢幣區域時才觸發計數器
-    _flyCtrl.addListener(_checkArrival);
-    _flyCtrl.forward();
+    Future.delayed(const Duration(milliseconds: 420), () {
+      if (mounted) HapticFeedback.mediumImpact();
+    });
+    Future.delayed(const Duration(milliseconds: 650), () {
+      if (mounted) HapticFeedback.heavyImpact();
+    });
     if (widget.critBonusGold > 0) {
-      Future.delayed(const Duration(milliseconds: 300), () {
+      Future.delayed(const Duration(milliseconds: 880), () {
         if (mounted) HapticFeedback.heavyImpact();
       });
     }
-    await _flyCtrl.forward();
+    await _ctrl.forward();
     if (!mounted) return;
-    // 確保到達回呼一定觸發
-    _fireArrived();
-    // 短暫停留讓計數器跑完
-    await Future.delayed(const Duration(milliseconds: 600));
     if (mounted) widget.onComplete();
-  }
-
-  void _checkArrival() {
-    // easeInCubic 在 85% 時間時粒子已視覺到達目標附近
-    if (_flyCtrl.value >= 0.85) {
-      _fireArrived();
-    }
-  }
-
-  void _fireArrived() {
-    if (_arrivedFired) return;
-    _arrivedFired = true;
-    _flyCtrl.removeListener(_checkArrival);
-    widget.onParticlesArrived?.call();
   }
 
   @override
   void dispose() {
-    _burstCtrl.dispose();
-    _flyCtrl.dispose();
+    _ctrl.dispose();
     super.dispose();
   }
 
@@ -2623,73 +3516,197 @@ class _HarvestAnimationOverlayState extends State<_HarvestAnimationOverlay>
     final safeTop = MediaQuery.of(context).padding.top;
     final isCrit = widget.critBonusGold > 0;
 
-    // 起始位置：左側面板中下方（收成按鈕附近）
-    final originX = screenSize.width * 0.16;
-    final originY = screenSize.height * 0.65;
+    final originX = screenSize.width * 0.5;
+    final originY = screenSize.height - 150;
     // 目標位置：右上方資源區（金幣 🪙 位置）
     final targetX = screenSize.width * 0.85;
     final targetY = safeTop + 20;
 
     return AnimatedBuilder(
-      animation: Listenable.merge([_burstCtrl, _flyCtrl]),
+      animation: _ctrl,
       builder: (context, _) {
+        final t = _ctrl.value;
+        final appearT = Curves.elasticOut.transform((t / 0.24).clamp(0.0, 1.0));
+        final flashT = ((t - 0.34) / 0.22).clamp(0.0, 1.0);
+        final rewardT =
+            Curves.easeOutBack.transform(((t - 0.40) / 0.18).clamp(0.0, 1.0));
+        final flyT =
+            Curves.easeInCubic.transform(((t - 0.56) / 0.30).clamp(0.0, 1.0));
+        final fadeOut =
+            t > 0.84 ? (1 - ((t - 0.84) / 0.16)).clamp(0.0, 1.0) : 1.0;
+        final servingFrame =
+            (((t / 0.56).clamp(0.0, 1.0)) * 5).floor().clamp(0, 5) + 1;
+        final backdropOpacity =
+            (0.42 * (t / 0.16).clamp(0.0, 1.0) * fadeOut).clamp(0.0, 0.42);
+
         return IgnorePointer(
           child: Stack(
             children: [
-              // 糖果粒子
+              Positioned.fill(
+                child: ColoredBox(
+                  color:
+                      Colors.black.withAlpha((255 * backdropOpacity).round()),
+                ),
+              ),
+              if (flashT > 0 && flashT < 1)
+                Positioned(
+                  left: originX - 110 - flashT * 28,
+                  top: originY - 118 - flashT * 28,
+                  child: Opacity(
+                    opacity: math.sin(flashT * math.pi) * 0.9,
+                    child: Container(
+                      width: 220 + flashT * 56,
+                      height: 220 + flashT * 56,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        gradient: RadialGradient(
+                          colors: [
+                            Colors.white.withAlpha(230),
+                            const Color(0xFFFFD43B).withAlpha(120),
+                            Colors.transparent,
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              Positioned(
+                left: originX - 78,
+                top: originY - 106,
+                width: 156,
+                child: Opacity(
+                  opacity: fadeOut,
+                  child: Transform.scale(
+                    scale: 0.55 + appearT * 0.45,
+                    child: Transform.rotate(
+                      angle: math.sin(t * math.pi * 10) * 0.015 * (1 - t),
+                      child: Image.asset(
+                        'assets/images/output/vfx/serving_reward_reveal/serve-$servingFrame.png',
+                        width: 156,
+                        height: 156,
+                        fit: BoxFit.contain,
+                        gaplessPlayback: true,
+                        errorBuilder: (_, __, ___) => const Text(
+                          '🍰',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(fontSize: 80),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              if (rewardT > 0)
+                Positioned(
+                  left: 24,
+                  right: 24,
+                  top: originY - 176 - rewardT * 14,
+                  child: Opacity(
+                    opacity: rewardT * fadeOut,
+                    child: Transform.scale(
+                      scale: 0.72 + rewardT * 0.28,
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            isCrit ? '驚喜加成！' : '售出成功！',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              color: const Color(0xFFFFF3BF),
+                              fontSize: AppTheme.fontDisplayMd,
+                              fontWeight: FontWeight.w900,
+                              shadows: [
+                                Shadow(
+                                  color: Colors.black.withAlpha(190),
+                                  blurRadius: 8,
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 14, vertical: 7),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withAlpha(235),
+                              borderRadius: BorderRadius.circular(999),
+                              border: Border.all(
+                                color: const Color(0xFFFFD43B).withAlpha(220),
+                                width: 1.5,
+                              ),
+                            ),
+                            child: Text(
+                              '+${widget.totalGold} 金幣${isCrit ? '  暴擊 +${widget.critBonusGold}' : ''}',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: Color(0xFF7C5E10),
+                                fontSize: AppTheme.fontBodyLg,
+                                fontWeight: FontWeight.w900,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
               ..._particles.map((p) {
-                final burstT = (_burstCtrl.value - p.delay).clamp(0.0, 1.0) /
-                    (1.0 - p.delay);
-                final flyT = Curves.easeInCubic.transform(_flyCtrl.value);
+                final burstT = Curves.easeOutCubic.transform(
+                  ((t - 0.32 - p.delay) / 0.24).clamp(0.0, 1.0),
+                );
+                final burstX = originX + math.cos(p.angle) * p.burstRadius;
+                final burstY = originY - 28 + math.sin(p.angle) * p.burstRadius;
 
-                // Phase 1: 從中心爆開
-                final burstX =
-                    originX + math.cos(p.angle) * p.burstRadius * burstT;
-                final burstY =
-                    originY + math.sin(p.angle) * p.burstRadius * burstT;
+                final currentX = originX +
+                    (burstX - originX) * burstT +
+                    (targetX - burstX) * flyT;
+                final currentY = originY -
+                    28 +
+                    (burstY - originY + 28) * burstT -
+                    math.sin(burstT * math.pi) * 28 +
+                    (targetY - burstY) * flyT;
 
-                // Phase 2: 從爆開位置飛向目標
-                final currentX = burstX + (targetX - burstX) * flyT;
-                final currentY = burstY + (targetY - burstY) * flyT;
-
-                // 透明度：爆開時漸入，飛行末段漸出
-                final alpha =
-                    burstT > 0 ? (1.0 - flyT * flyT).clamp(0.0, 1.0) : 0.0;
-                // 縮放：飛行時逐漸縮小
-                final scale = 1.0 - flyT * 0.6;
+                final alpha = burstT > 0
+                    ? ((1.0 - flyT * 0.85) * fadeOut).clamp(0.0, 1.0)
+                    : 0.0;
+                final scale = (1.0 - flyT * 0.42) *
+                    (0.75 + math.sin(burstT * math.pi) * 0.35);
 
                 return Positioned(
-                  left: currentX - 12,
-                  top: currentY - 12,
+                  left: currentX - p.size / 2,
+                  top: currentY - p.size / 2,
                   child: Opacity(
                     opacity: alpha,
                     child: Transform.scale(
                       scale: scale,
-                      child: Text(p.emoji,
-                          style:
-                              const TextStyle(fontSize: AppTheme.fontTitleLg)),
+                      child: Text(p.emoji, style: TextStyle(fontSize: p.size)),
                     ),
                   ),
                 );
               }),
-
-              // 暴擊提示（僅暴擊時短暫顯示）
-              if (isCrit && _burstCtrl.value > 0.3 && _flyCtrl.value < 0.8)
+              if (isCrit && t > 0.48 && t < 0.78)
                 Positioned(
-                  left: originX - 40,
-                  top: originY - 45,
-                  width: 80,
-                  child: Text(
-                    '暴擊！✨',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: const Color(0xFFFFD43B),
-                      fontSize: AppTheme.fontTitleMd,
-                      fontWeight: FontWeight.bold,
-                      shadows: [
-                        Shadow(
-                            color: Colors.black.withAlpha(200), blurRadius: 6)
-                      ],
+                  left: originX + 36,
+                  top: originY - 118,
+                  child: Transform.rotate(
+                    angle: -0.16,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 9, vertical: 5),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFFD43B),
+                        borderRadius: BorderRadius.circular(999),
+                        border: Border.all(color: Colors.white, width: 1.5),
+                      ),
+                      child: const Text(
+                        'CRIT!',
+                        style: TextStyle(
+                          color: Color(0xFF7C5E10),
+                          fontSize: AppTheme.fontLabelLg,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
                     ),
                   ),
                 ),
@@ -2707,12 +3724,14 @@ class _CandyParticle {
   final double angle;
   final double burstRadius;
   final double delay;
+  final double size;
 
   const _CandyParticle({
     required this.emoji,
     required this.angle,
     required this.burstRadius,
     required this.delay,
+    required this.size,
   });
 }
 
