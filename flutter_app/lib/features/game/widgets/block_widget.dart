@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../../config/image_assets.dart';
 import '../../../config/theme.dart';
 import '../../../core/models/block.dart';
+import '../../../core/services/settings_service.dart';
 
 /// 方塊上的敵人技能狀態覆蓋
 enum BlockSkillOverlay {
@@ -187,11 +188,6 @@ class _BlockWidgetState extends State<BlockWidget>
   }
 
   Widget _buildBlockContainer(Color color, Color darkerColor, double size) {
-    final imagePath = ImageAssets.blockImage(
-      widget.block.color,
-      dark: widget.block.isBlackened,
-    );
-
     return Container(
       width: size,
       height: size,
@@ -207,13 +203,22 @@ class _BlockWidgetState extends State<BlockWidget>
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(AppTheme.radiusBlock),
-        child: Image.asset(
-          imagePath,
-          width: size,
-          height: size,
-          fit: BoxFit.cover,
-          errorBuilder: (_, __, ___) =>
-              _buildFallbackBlock(color, darkerColor, size),
+        child: ListenableBuilder(
+          listenable: SettingsService.instance,
+          builder: (context, _) {
+            final imagePath = ImageAssets.blockImage(
+              widget.block.color,
+              dark: widget.block.isBlackened,
+            );
+            return Image.asset(
+              imagePath,
+              width: size,
+              height: size,
+              fit: BoxFit.cover,
+              errorBuilder: (_, __, ___) =>
+                  _buildFallbackBlock(color, darkerColor, size),
+            );
+          },
         ),
       ),
     );

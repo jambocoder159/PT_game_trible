@@ -4,7 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../../config/app_version.dart';
+import '../../../config/image_assets.dart';
 import '../../../config/theme.dart';
+import '../../../core/models/block.dart';
 import '../../../core/services/local_storage.dart';
 import '../../../core/services/settings_service.dart';
 import '../../../core/widgets/paper_dialog.dart';
@@ -76,7 +78,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     value: _settings.isMuted,
                     onChanged: (_) => _settings.toggleMute(),
                   ),
-                  Divider(color: AppTheme.accentSecondary.withAlpha(60), height: 1),
+                  Divider(
+                      color: AppTheme.accentSecondary.withAlpha(60), height: 1),
                   // BGM 音量
                   _SliderRow(
                     icon: Icons.music_note_rounded,
@@ -85,7 +88,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     enabled: !_settings.isMuted,
                     onChanged: (v) => _settings.setBgmVolume(v),
                   ),
-                  Divider(color: AppTheme.accentSecondary.withAlpha(60), height: 1),
+                  Divider(
+                      color: AppTheme.accentSecondary.withAlpha(60), height: 1),
                   // SFX 音量
                   _SliderRow(
                     icon: Icons.speaker_rounded,
@@ -114,13 +118,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       HapticFeedback.lightImpact();
                     },
                   ),
-                  Divider(color: AppTheme.accentSecondary.withAlpha(60), height: 1),
+                  Divider(
+                      color: AppTheme.accentSecondary.withAlpha(60), height: 1),
                   // 震動回饋
                   _ToggleRow(
                     icon: Icons.vibration_rounded,
                     label: '震動回饋',
                     value: _settings.hapticEnabled,
                     onChanged: (v) => _settings.setHapticEnabled(v),
+                  ),
+                  Divider(
+                      color: AppTheme.accentSecondary.withAlpha(60), height: 1),
+                  _BlockThemePicker(
+                    selectedTheme: _settings.blockTheme,
+                    onChanged: (theme) {
+                      _settings.setBlockTheme(theme);
+                      HapticFeedback.selectionClick();
+                    },
                   ),
                 ],
               ),
@@ -142,13 +156,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       if (_versionTapCount >= 5) {
                         _versionTapCount = 0;
                         Navigator.of(context).push(
-                          MaterialPageRoute(
-                              builder: (_) => const GmScreen()),
+                          MaterialPageRoute(builder: (_) => const GmScreen()),
                         );
                       }
                     },
                   ),
-                  Divider(color: AppTheme.accentSecondary.withAlpha(60), height: 1),
+                  Divider(
+                      color: AppTheme.accentSecondary.withAlpha(60), height: 1),
                   // 遊戲資訊
                   _InfoRow(
                     icon: Icons.pets_rounded,
@@ -170,8 +184,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               Container(
                 decoration: BoxDecoration(
                   color: AppTheme.bgCard,
-                  borderRadius:
-                      BorderRadius.circular(AppTheme.radiusMedium),
+                  borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
                   border: Border.all(
                     color: Colors.red.withAlpha(40),
                   ),
@@ -194,8 +207,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     ),
                   ),
                   shape: RoundedRectangleBorder(
-                    borderRadius:
-                        BorderRadius.circular(AppTheme.radiusMedium),
+                    borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
                   ),
                   onTap: () => _showResetConfirmation(context),
                 ),
@@ -351,7 +363,8 @@ class _SliderRow extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(16, 8, 8, 8),
       child: Row(
         children: [
-          Icon(icon, size: 20,
+          Icon(icon,
+              size: 20,
               color: enabled
                   ? AppTheme.textSecondary
                   : AppTheme.textSecondary.withAlpha(60)),
@@ -375,13 +388,10 @@ class _SliderRow extends StatelessWidget {
                     ? AppTheme.accentSecondary
                     : AppTheme.accentSecondary.withAlpha(40),
                 inactiveTrackColor: AppTheme.bgSecondary,
-                thumbColor: enabled
-                    ? AppTheme.accentSecondary
-                    : Colors.grey,
+                thumbColor: enabled ? AppTheme.accentSecondary : Colors.grey,
                 overlayColor: AppTheme.accentSecondary.withAlpha(30),
                 trackHeight: 4,
-                thumbShape: const RoundSliderThumbShape(
-                    enabledThumbRadius: 8),
+                thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 8),
               ),
               child: Slider(
                 value: value,
@@ -450,6 +460,130 @@ class _OptionRow extends StatelessWidget {
             const SizedBox(width: 4),
             const Icon(Icons.chevron_right,
                 color: AppTheme.textSecondary, size: 20),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _BlockThemePicker extends StatelessWidget {
+  final BlockVisualTheme selectedTheme;
+  final ValueChanged<BlockVisualTheme> onChanged;
+
+  const _BlockThemePicker({
+    required this.selectedTheme,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              Icon(Icons.dashboard_customize_rounded,
+                  size: 20, color: AppTheme.textSecondary),
+              SizedBox(width: 12),
+              Text(
+                '方塊樣式',
+                style: TextStyle(
+                  color: AppTheme.textPrimary,
+                  fontSize: AppTheme.fontTitleMd,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            children: [
+              for (final theme in BlockVisualTheme.values)
+                _BlockThemeOption(
+                  theme: theme,
+                  selected: theme == selectedTheme,
+                  onTap: () => onChanged(theme),
+                ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _BlockThemeOption extends StatelessWidget {
+  final BlockVisualTheme theme;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _BlockThemeOption({
+    required this.theme,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 160),
+        width: 166,
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          color: selected
+              ? AppTheme.accentSecondary.withAlpha(36)
+              : AppTheme.bgSecondary.withAlpha(120),
+          borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
+          border: Border.all(
+            color: selected
+                ? AppTheme.accentSecondary
+                : AppTheme.accentSecondary.withAlpha(50),
+            width: selected ? 2 : 1,
+          ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                for (final color in BlockColor.values) ...[
+                  Image.asset(
+                    ImageAssets.blockImage(color, theme: theme),
+                    width: 24,
+                    height: 24,
+                    fit: BoxFit.contain,
+                  ),
+                  const SizedBox(width: 2),
+                ],
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              theme.label,
+              style: TextStyle(
+                color:
+                    selected ? AppTheme.accentSecondary : AppTheme.textPrimary,
+                fontSize: AppTheme.fontBodyLg,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              theme.description,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: AppTheme.textSecondary.withAlpha(170),
+                fontSize: AppTheme.fontBodyMd,
+              ),
+            ),
           ],
         ),
       ),

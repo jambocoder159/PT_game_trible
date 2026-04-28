@@ -4,6 +4,7 @@
 import 'package:flutter/material.dart';
 import '../core/models/block.dart';
 import '../core/models/cat_agent.dart';
+import '../core/services/settings_service.dart';
 
 class ImageAssets {
   ImageAssets._();
@@ -39,8 +40,7 @@ class ImageAssets {
   };
 
   /// 進化階段後綴（0=無, 1=_evo1, 2=_evo2）
-  static String _evoSuffix(int stage) =>
-      stage > 0 ? '_evo$stage' : '';
+  static String _evoSuffix(int stage) => stage > 0 ? '_evo$stage' : '';
 
   /// 取得角色立繪路徑（支援進化階段變體）
   /// 嘗試載入 char_wheat_evo1.png，不存在則 fallback 到 char_wheat.png
@@ -93,10 +93,18 @@ class ImageAssets {
   };
 
   /// 取得方塊圖片路徑
-  static String blockImage(BlockColor color, {bool dark = false}) {
+  static String blockImage(
+    BlockColor color, {
+    bool dark = false,
+    BlockVisualTheme? theme,
+  }) {
     final name = _blockImageNames[color]!;
     final suffix = dark ? '_dark' : '';
-    return '$_base/blocks/$name$suffix.png';
+    final selectedTheme = theme ?? SettingsService.instance.blockTheme;
+    if (selectedTheme == BlockVisualTheme.classic) {
+      return '$_base/blocks/$name$suffix.png';
+    }
+    return '$_base/blocks/themes/${selectedTheme.assetKey}/$name$suffix.png';
   }
 
   static const blockObstacle = '$_base/blocks/block_obstacle.png';

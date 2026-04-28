@@ -56,6 +56,11 @@ flutter:
     - assets/images/
     - assets/images/output/avatars/
     - assets/images/output/blocks/
+    - assets/images/output/blocks/themes/style_jelly/
+    - assets/images/output/blocks/themes/style_cookie/
+    - assets/images/output/blocks/themes/style_gem/
+    - assets/images/output/blocks/themes/style_sticker/
+    - assets/images/output/blocks/themes/style_enamel/
     - assets/images/output/characters/
     - assets/images/output/icons/
     - assets/images/output/background/
