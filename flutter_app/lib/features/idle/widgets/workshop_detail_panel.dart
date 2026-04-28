@@ -6,6 +6,7 @@ import '../../../config/ingredient_data.dart';
 import '../../../config/theme.dart';
 import '../../../core/models/block.dart';
 import '../../../core/models/bottle_data.dart';
+import '../../../core/models/dessert.dart';
 import '../../agents/providers/player_provider.dart';
 import '../providers/bottle_provider.dart';
 import '../providers/production_provider.dart';
@@ -24,10 +25,7 @@ class WorkshopDetailPanel extends StatefulWidget {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: AppTheme.bgSecondary,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
+      backgroundColor: Colors.transparent,
       builder: (_) => WorkshopDetailPanel(initialColor: initialColor),
     );
   }
@@ -52,404 +50,620 @@ class _WorkshopDetailPanelState extends State<WorkshopDetailPanel> {
         final bottle = bottleProvider.getBottle(_selectedColor);
         final bottleDef = BottleDefinitions.getByColor(_selectedColor);
         final currentDessert = bottleProvider.getCurrentDessert(_selectedColor);
-        final allTiers = BottleDessertMap.getAll(_selectedColor);
+        final tiers = BottleDessertMap.getAll(_selectedColor);
 
         return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // 拖曳指示條
-                Container(
-                  width: 36,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: AppTheme.accentSecondary.withAlpha(60),
-                    borderRadius: BorderRadius.circular(2),
+          child: Align(
+            alignment: Alignment.bottomCenter,
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                maxHeight: MediaQuery.sizeOf(context).height * 0.76,
+              ),
+              child: Container(
+                padding: const EdgeInsets.fromLTRB(16, 10, 16, 16),
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [Color(0xFFFFF0D0), Color(0xFFEADDC0)],
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
                   ),
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Color(0x4D000000),
+                      offset: Offset(0, -8),
+                      blurRadius: 24,
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 12),
-
-                const Text(
-                  '🧁 甜點工坊',
-                  style: TextStyle(
-                    color: AppTheme.textPrimary,
-                    fontSize: AppTheme.fontTitleMd,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 10),
-
-                // 瓶子選擇條
-                SizedBox(
-                  height: 40,
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                    children: BlockColor.values.map((color) {
-                      final def = BottleDefinitions.getByColor(color);
-                      final isSelected = color == _selectedColor;
-                      final b = bottleProvider.getBottle(color);
-                      return GestureDetector(
-                        onTap: () => setState(() => _selectedColor = color),
-                        child: Container(
-                          width: 40,
-                          height: 40,
-                          decoration: BoxDecoration(
-                            color: isSelected
-                                ? color.color.withAlpha(30)
-                                : Colors.transparent,
-                            borderRadius: BorderRadius.circular(10),
-                            border: Border.all(
-                              color: isSelected
-                                  ? color.color.withAlpha(180)
-                                  : AppTheme.accentSecondary.withAlpha(40),
-                              width: isSelected ? 2 : 1,
-                            ),
-                          ),
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Text(def.emoji,
-                                  style: const TextStyle(
-                                      fontSize: AppTheme.fontTitleMd)),
-                              Text(
-                                'Lv.${b.level}',
-                                style: TextStyle(
-                                  color: isSelected
-                                      ? color.color
-                                      : AppTheme.textSecondary,
-                                  fontSize: AppTheme.fontLabelSm,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      );
-                    }).toList(),
-                  ),
-                ),
-                const SizedBox(height: 12),
-
-                // 當前瓶子資訊卡
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: AppTheme.bgCard,
-                    borderRadius: BorderRadius.circular(10),
-                    border:
-                        Border.all(color: _selectedColor.color.withAlpha(60)),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Text(bottleDef.emoji,
-                              style: const TextStyle(
-                                  fontSize: AppTheme.fontDisplayLg)),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  bottleDef.name,
-                                  style: const TextStyle(
-                                    color: AppTheme.textPrimary,
-                                    fontSize: AppTheme.fontBodyLg,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                                if (currentDessert != null)
-                                  Text(
-                                    '目前生產：${currentDessert.emoji} ${currentDessert.name}  售價 ${currentDessert.sellPrice}🍬',
-                                    style: TextStyle(
-                                      color:
-                                          AppTheme.textSecondary.withAlpha(180),
-                                      fontSize: AppTheme.fontLabelLg,
-                                    ),
-                                  ),
-                              ],
-                            ),
-                          ),
-                        ],
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 38,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: AppTheme.accentSecondary.withAlpha(70),
+                        borderRadius: BorderRadius.circular(999),
                       ),
-                      const SizedBox(height: 8),
-                      // 能量進度條
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(4),
-                        child: LinearProgressIndicator(
-                          value: bottle.fillProgress,
-                          minHeight: 8,
-                          backgroundColor: AppTheme.bgSecondary,
-                          valueColor: AlwaysStoppedAnimation(
-                            _selectedColor.color
-                                .withAlpha(bottle.isFull ? 220 : 140),
-                          ),
-                        ),
+                    ),
+                    const SizedBox(height: 10),
+                    _Header(color: _selectedColor),
+                    const SizedBox(height: 12),
+                    _BottleTabs(
+                      selectedColor: _selectedColor,
+                      bottleProvider: bottleProvider,
+                      onSelected: (color) {
+                        HapticFeedback.selectionClick();
+                        setState(() => _selectedColor = color);
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    _BottleSummaryCard(
+                      bottle: bottle,
+                      bottleDef: bottleDef,
+                      dessert: currentDessert,
+                      color: _selectedColor,
+                    ),
+                    const SizedBox(height: 10),
+                    Expanded(
+                      child: ListView.builder(
+                        padding: EdgeInsets.zero,
+                        itemCount: tiers.length,
+                        itemBuilder: (context, index) {
+                          final tier = tiers[index];
+                          final recipe =
+                              DessertDefinitions.getById(tier.dessertId);
+                          if (recipe == null) return const SizedBox.shrink();
+
+                          final isUnlocked = tier.requiredLevel <= bottle.level;
+                          final isCurrent =
+                              currentDessert?.id == tier.dessertId;
+                          final catId =
+                              production.firstIdleCat(playerProvider.data.team);
+                          final canProduce = isUnlocked &&
+                              catId != null &&
+                              bottleProvider.canProduce(
+                                  _selectedColor, tier.dessertId) &&
+                              !production.displayCase.isFull;
+
+                          return _DessertTile(
+                            recipe: recipe,
+                            tier: tier,
+                            color: _selectedColor,
+                            isUnlocked: isUnlocked,
+                            isCurrent: isCurrent,
+                            canProduce: canProduce,
+                            onSwitch: isUnlocked && !isCurrent
+                                ? () {
+                                    HapticFeedback.lightImpact();
+                                    bottleProvider.setCurrentDessert(
+                                      _selectedColor,
+                                      tier.dessertId,
+                                    );
+                                    setState(() {});
+                                  }
+                                : null,
+                            onProduce: canProduce
+                                ? () async {
+                                    HapticFeedback.mediumImpact();
+                                    bottleProvider.setCurrentDessert(
+                                      _selectedColor,
+                                      tier.dessertId,
+                                    );
+                                    final agent =
+                                        playerProvider.data.agents[catId];
+                                    final didStart =
+                                        await production.startProduction(
+                                      catId: catId,
+                                      dessertId: tier.dessertId,
+                                      sourceColor: _selectedColor,
+                                      catLevel: agent?.level ?? 1,
+                                      bottleProvider: bottleProvider,
+                                    );
+                                    if (!context.mounted) return;
+                                    if (didStart) Navigator.of(context).pop();
+                                  }
+                                : null,
+                          );
+                        },
                       ),
-                      const SizedBox(height: 4),
-                      Text(
-                        '能量 ${bottle.currentEnergy} / ${bottle.capacity}',
-                        style: TextStyle(
-                          color: AppTheme.textSecondary.withAlpha(130),
-                          fontSize: AppTheme.fontLabelSm,
-                        ),
+                    ),
+                    if (bottle.level < BottleDefinitions.maxLevel) ...[
+                      const SizedBox(height: 10),
+                      _UpgradeButton(
+                        bottle: bottle,
+                        bottleDef: bottleDef,
+                        color: _selectedColor,
+                        bottleProvider: bottleProvider,
+                        playerProvider: playerProvider,
+                        onUpgraded: () => setState(() {}),
                       ),
                     ],
-                  ),
+                  ],
                 ),
-                const SizedBox(height: 12),
-
-                // 可選甜點列表
-                ConstrainedBox(
-                  constraints: const BoxConstraints(maxHeight: 240),
-                  child: ListView.builder(
-                    shrinkWrap: true,
-                    itemCount: allTiers.length,
-                    itemBuilder: (context, index) {
-                      final tier = allTiers[index];
-                      final recipe = DessertDefinitions.getById(tier.dessertId);
-                      if (recipe == null) return const SizedBox.shrink();
-
-                      final isUnlocked = tier.requiredLevel <= bottle.level;
-                      final isCurrent = currentDessert?.id == tier.dessertId;
-                      final catId =
-                          production.firstIdleCat(playerProvider.data.team);
-                      final canProduce = catId != null &&
-                          bottleProvider.canProduce(
-                              _selectedColor, tier.dessertId) &&
-                          !production.displayCase.isFull;
-
-                      return Container(
-                        margin: const EdgeInsets.only(bottom: 6),
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 10, vertical: 8),
-                        decoration: BoxDecoration(
-                          color: isCurrent
-                              ? _selectedColor.color.withAlpha(15)
-                              : AppTheme.bgCard,
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(
-                            color: isCurrent
-                                ? _selectedColor.color.withAlpha(120)
-                                : AppTheme.accentSecondary.withAlpha(30),
-                          ),
-                        ),
-                        child: Row(
-                          children: [
-                            Text(
-                              recipe.emoji,
-                              style: TextStyle(
-                                fontSize: AppTheme.fontDisplayMd,
-                                color: isUnlocked
-                                    ? null
-                                    : AppTheme.textSecondary.withAlpha(60),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    recipe.name,
-                                    style: TextStyle(
-                                      color: isUnlocked
-                                          ? AppTheme.textPrimary
-                                          : AppTheme.textSecondary
-                                              .withAlpha(80),
-                                      fontSize: AppTheme.fontBodyMd,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                  Text(
-                                    isUnlocked
-                                        ? '售價 ${recipe.sellPrice}🍬 · 耗能 ${tier.energyCost} · ${recipe.craftDurationSec}s'
-                                        : '🔒 需 Lv.${tier.requiredLevel}',
-                                    style: TextStyle(
-                                      color: AppTheme.textSecondary
-                                          .withAlpha(isUnlocked ? 150 : 80),
-                                      fontSize: AppTheme.fontLabelSm,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            if (isUnlocked)
-                              Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  if (isCurrent)
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(
-                                          horizontal: 6, vertical: 3),
-                                      decoration: BoxDecoration(
-                                        color: const Color(0xFF51CF66)
-                                            .withAlpha(20),
-                                        borderRadius: BorderRadius.circular(4),
-                                      ),
-                                      child: const Text(
-                                        '目前',
-                                        style: TextStyle(
-                                          color: Color(0xFF51CF66),
-                                          fontSize: AppTheme.fontLabelSm,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                    )
-                                  else
-                                    GestureDetector(
-                                      onTap: () {
-                                        HapticFeedback.lightImpact();
-                                        bottleProvider.setCurrentDessert(
-                                          _selectedColor,
-                                          tier.dessertId,
-                                        );
-                                        setState(() {});
-                                      },
-                                      child: Container(
-                                        padding: const EdgeInsets.symmetric(
-                                            horizontal: 8, vertical: 4),
-                                        decoration: BoxDecoration(
-                                          color: _selectedColor.color
-                                              .withAlpha(20),
-                                          borderRadius:
-                                              BorderRadius.circular(4),
-                                          border: Border.all(
-                                              color: _selectedColor.color
-                                                  .withAlpha(100)),
-                                        ),
-                                        child: Text(
-                                          '切換',
-                                          style: TextStyle(
-                                            color: _selectedColor.color,
-                                            fontSize: AppTheme.fontLabelLg,
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  const SizedBox(width: 6),
-                                  GestureDetector(
-                                    onTap: canProduce
-                                        ? () async {
-                                            HapticFeedback.mediumImpact();
-                                            bottleProvider.setCurrentDessert(
-                                              _selectedColor,
-                                              tier.dessertId,
-                                            );
-                                            final agent = playerProvider
-                                                .data.agents[catId];
-                                            final didStart = await production
-                                                .startProduction(
-                                              catId: catId,
-                                              dessertId: tier.dessertId,
-                                              sourceColor: _selectedColor,
-                                              catLevel: agent?.level ?? 1,
-                                              bottleProvider: bottleProvider,
-                                            );
-                                            if (!context.mounted) return;
-                                            if (didStart) {
-                                              Navigator.of(context).pop();
-                                            }
-                                          }
-                                        : null,
-                                    child: Container(
-                                      padding: const EdgeInsets.symmetric(
-                                          horizontal: 8, vertical: 4),
-                                      decoration: BoxDecoration(
-                                        color: canProduce
-                                            ? AppTheme.accentPrimary
-                                            : AppTheme.bgSecondary,
-                                        borderRadius: BorderRadius.circular(4),
-                                      ),
-                                      child: Text(
-                                        '製作',
-                                        style: TextStyle(
-                                          color: canProduce
-                                              ? Colors.white
-                                              : AppTheme.textSecondary
-                                                  .withAlpha(100),
-                                          fontSize: AppTheme.fontLabelLg,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                          ],
-                        ),
-                      );
-                    },
-                  ),
-                ),
-
-                // 瓶子升級按鈕（永遠顯示）
-                if (bottle.level < BottleDefinitions.maxLevel) ...[
-                  const SizedBox(height: 8),
-                  _buildUpgradeButton(context, bottle, bottleDef,
-                      bottleProvider, playerProvider),
-                ],
-              ],
+              ),
             ),
           ),
         );
       },
     );
   }
+}
 
-  Widget _buildUpgradeButton(
-    BuildContext context,
-    BottleStatus bottle,
-    BottleDefinition bottleDef,
-    BottleProvider bottleProvider,
-    PlayerProvider playerProvider,
-  ) {
-    final canUpgrade =
-        bottleProvider.canUpgrade(_selectedColor, playerProvider.data);
+class _Header extends StatelessWidget {
+  final BlockColor color;
+
+  const _Header({required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Container(
+          width: 34,
+          height: 34,
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [Colors.white, color.color.withAlpha(58)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            shape: BoxShape.circle,
+            border: Border.all(color: Colors.white.withAlpha(210)),
+            boxShadow: [
+              BoxShadow(
+                color: color.color.withAlpha(62),
+                offset: const Offset(0, 4),
+                blurRadius: 9,
+              ),
+            ],
+          ),
+          child: const Center(
+            child: Text('🧁', style: TextStyle(fontSize: 17)),
+          ),
+        ),
+        const SizedBox(width: 10),
+        const Expanded(
+          child: Text(
+            '甜點工坊',
+            style: TextStyle(
+              color: AppTheme.textPrimary,
+              fontSize: AppTheme.fontTitleMd,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+          decoration: BoxDecoration(
+            color: Colors.white.withAlpha(132),
+            borderRadius: BorderRadius.circular(999),
+            border: Border.all(color: AppTheme.accentSecondary.withAlpha(32)),
+          ),
+          child: Text(
+            '魔法瓶設定',
+            style: TextStyle(
+              color: AppTheme.textSecondary.withAlpha(190),
+              fontSize: AppTheme.fontLabelLg,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _BottleTabs extends StatelessWidget {
+  final BlockColor selectedColor;
+  final BottleProvider bottleProvider;
+  final ValueChanged<BlockColor> onSelected;
+
+  const _BottleTabs({
+    required this.selectedColor,
+    required this.bottleProvider,
+    required this.onSelected,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: BlockColor.values.map((color) {
+        final def = BottleDefinitions.getByColor(color);
+        final bottle = bottleProvider.getBottle(color);
+        final isSelected = color == selectedColor;
+
+        return Expanded(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: () => onSelected(color),
+              child: AnimatedContainer(
+                duration: AppTheme.animSwap,
+                height: 48,
+                decoration: BoxDecoration(
+                  gradient: isSelected
+                      ? LinearGradient(
+                          colors: [Colors.white, color.color.withAlpha(56)],
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                        )
+                      : null,
+                  color: isSelected ? null : Colors.white.withAlpha(86),
+                  borderRadius: BorderRadius.circular(13),
+                  border: Border.all(
+                    color: isSelected
+                        ? color.color.withAlpha(190)
+                        : AppTheme.accentSecondary.withAlpha(34),
+                    width: isSelected ? 1.7 : 1,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: isSelected
+                          ? color.color.withAlpha(48)
+                          : AppTheme.accentSecondary.withAlpha(14),
+                      offset: const Offset(0, 4),
+                      blurRadius: isSelected ? 9 : 5,
+                    ),
+                  ],
+                ),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(def.emoji,
+                        style: const TextStyle(fontSize: AppTheme.fontTitleMd)),
+                    const SizedBox(height: 1),
+                    Text(
+                      'Lv.${bottle.level}',
+                      style: TextStyle(
+                        color: isSelected
+                            ? color.color
+                            : AppTheme.textSecondary.withAlpha(150),
+                        fontSize: AppTheme.fontLabelSm,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      }).toList(),
+    );
+  }
+}
+
+class _BottleSummaryCard extends StatelessWidget {
+  final BottleStatus bottle;
+  final BottleDefinition bottleDef;
+  final DessertRecipe? dessert;
+  final BlockColor color;
+
+  const _BottleSummaryCard({
+    required this.bottle,
+    required this.bottleDef,
+    required this.dessert,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Colors.white.withAlpha(232), color.color.withAlpha(38)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: color.color.withAlpha(74)),
+        boxShadow: [
+          BoxShadow(
+            color: color.color.withAlpha(36),
+            offset: const Offset(0, 6),
+            blurRadius: 14,
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 50,
+                height: 50,
+                decoration: BoxDecoration(
+                  color: Colors.white.withAlpha(180),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: Colors.white.withAlpha(230)),
+                ),
+                child: Center(
+                  child: Text(
+                    bottleDef.emoji,
+                    style: const TextStyle(fontSize: AppTheme.fontDisplayLg),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      bottleDef.name,
+                      style: const TextStyle(
+                        color: AppTheme.textPrimary,
+                        fontSize: AppTheme.fontBodyLg,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      dessert == null
+                          ? '尚未指定甜點'
+                          : '目前：${dessert!.emoji} ${dessert!.name}  售價 ${dessert!.sellPrice}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: AppTheme.textSecondary.withAlpha(175),
+                        fontSize: AppTheme.fontLabelLg,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(999),
+            child: LinearProgressIndicator(
+              value: bottle.fillProgress,
+              minHeight: 9,
+              backgroundColor: AppTheme.accentSecondary.withAlpha(28),
+              valueColor: AlwaysStoppedAnimation(
+                color.color.withAlpha(bottle.isFull ? 235 : 175),
+              ),
+            ),
+          ),
+          const SizedBox(height: 5),
+          Row(
+            children: [
+              Text(
+                '能量 ${bottle.currentEnergy} / ${bottle.capacity}',
+                style: TextStyle(
+                  color: AppTheme.textSecondary.withAlpha(145),
+                  fontSize: AppTheme.fontLabelSm,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const Spacer(),
+              if (bottle.isFull)
+                const _SmallPill(label: '已滿', color: Color(0xFFE86B30)),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DessertTile extends StatelessWidget {
+  final DessertRecipe recipe;
+  final BottleDessertTier tier;
+  final BlockColor color;
+  final bool isUnlocked;
+  final bool isCurrent;
+  final bool canProduce;
+  final VoidCallback? onSwitch;
+  final VoidCallback? onProduce;
+
+  const _DessertTile({
+    required this.recipe,
+    required this.tier,
+    required this.color,
+    required this.isUnlocked,
+    required this.isCurrent,
+    required this.canProduce,
+    required this.onSwitch,
+    required this.onProduce,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final muted = !isUnlocked;
+
+    return AnimatedContainer(
+      duration: AppTheme.animSwap,
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color:
+            isCurrent ? color.color.withAlpha(24) : Colors.white.withAlpha(185),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: isCurrent
+              ? color.color.withAlpha(128)
+              : AppTheme.accentSecondary.withAlpha(32),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: AppTheme.accentSecondary.withAlpha(isCurrent ? 26 : 14),
+            offset: const Offset(0, 4),
+            blurRadius: 9,
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Opacity(
+            opacity: muted ? 0.38 : 1,
+            child: Container(
+              width: 42,
+              height: 42,
+              decoration: BoxDecoration(
+                color: AppTheme.bgSecondary.withAlpha(150),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.white.withAlpha(180)),
+              ),
+              child: Center(
+                child: Text(
+                  recipe.emoji,
+                  style: const TextStyle(fontSize: AppTheme.fontDisplayMd),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  recipe.name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: muted
+                        ? AppTheme.textSecondary.withAlpha(85)
+                        : AppTheme.textPrimary,
+                    fontSize: AppTheme.fontBodyMd,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  isUnlocked
+                      ? '售價 ${recipe.sellPrice} · 耗能 ${tier.energyCost} · ${recipe.craftDurationSec}s'
+                      : '需 Lv.${tier.requiredLevel}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color:
+                        AppTheme.textSecondary.withAlpha(isUnlocked ? 150 : 82),
+                    fontSize: AppTheme.fontLabelSm,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          if (isUnlocked)
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (isCurrent)
+                  const _SmallPill(label: '目前', color: Color(0xFF41B96D))
+                else
+                  _ActionChipButton(
+                    label: '切換',
+                    color: color,
+                    filled: false,
+                    onTap: onSwitch,
+                  ),
+                const SizedBox(width: 6),
+                _ActionChipButton(
+                  label: '製作',
+                  color: color,
+                  filled: canProduce,
+                  onTap: onProduce,
+                ),
+              ],
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ActionChipButton extends StatelessWidget {
+  final String label;
+  final BlockColor color;
+  final bool filled;
+  final VoidCallback? onTap;
+
+  const _ActionChipButton({
+    required this.label,
+    required this.color,
+    required this.filled,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final enabled = onTap != null;
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap,
+      child: Container(
+        constraints: const BoxConstraints(minWidth: 43),
+        height: 28,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: enabled
+              ? (filled ? color.color : color.color.withAlpha(22))
+              : AppTheme.accentSecondary.withAlpha(22),
+          borderRadius: BorderRadius.circular(9),
+          border: Border.all(
+            color: enabled
+                ? color.color.withAlpha(filled ? 0 : 95)
+                : AppTheme.accentSecondary.withAlpha(28),
+          ),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: enabled
+                ? (filled ? Colors.white : color.color)
+                : AppTheme.textSecondary.withAlpha(95),
+            fontSize: AppTheme.fontLabelLg,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _UpgradeButton extends StatelessWidget {
+  final BottleStatus bottle;
+  final BottleDefinition bottleDef;
+  final BlockColor color;
+  final BottleProvider bottleProvider;
+  final PlayerProvider playerProvider;
+  final VoidCallback onUpgraded;
+
+  const _UpgradeButton({
+    required this.bottle,
+    required this.bottleDef,
+    required this.color,
+    required this.bottleProvider,
+    required this.playerProvider,
+    required this.onUpgraded,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final canUpgrade = bottleProvider.canUpgrade(color, playerProvider.data);
     final targetLevel = bottle.level + 1;
     final levelData = BottleDefinitions.getLevelData(targetLevel);
-    final materials =
-        BottleDefinitions.getUpgradeMaterials(targetLevel, _selectedColor);
-
-    // 判斷缺什麼
-    String? blockReason;
-    if (!canUpgrade) {
-      if (levelData.stageGateId != null) {
-        final progress =
-            playerProvider.data.stageProgress[levelData.stageGateId!];
-        if (progress == null || !progress.cleared) {
-          blockReason = '需通關 ${levelData.stageGateId}';
-        }
-      }
-      if (blockReason == null &&
-          playerProvider.data.gold < levelData.upgradeCostGold) {
-        blockReason = '金幣不足 (需 ${levelData.upgradeCostGold})';
-      }
-      if (blockReason == null) {
-        for (final entry in materials.entries) {
-          if ((playerProvider.data.materials[entry.key] ?? 0) < entry.value) {
-            blockReason = '素材不足';
-            break;
-          }
-        }
-      }
-      blockReason ??= '條件不足';
-    }
+    final blockReason = _upgradeBlockReason(canUpgrade, levelData);
 
     return GestureDetector(
+      behavior: HitTestBehavior.opaque,
       onTap: canUpgrade
           ? () {
-              if (bottleProvider.upgradeBottle(
-                  _selectedColor, playerProvider.data)) {
+              if (bottleProvider.upgradeBottle(color, playerProvider.data)) {
                 HapticFeedback.mediumImpact();
                 playerProvider.notifyAndSave();
-                setState(() {});
+                onUpgraded();
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
                     content: Text('${bottleDef.name} 升級至 Lv.${bottle.level}！'),
@@ -461,25 +675,37 @@ class _WorkshopDetailPanelState extends State<WorkshopDetailPanel> {
           : null,
       child: Container(
         width: double.infinity,
-        padding: const EdgeInsets.symmetric(vertical: 10),
+        padding: const EdgeInsets.symmetric(vertical: 11, horizontal: 12),
         decoration: BoxDecoration(
           gradient: canUpgrade
-              ? LinearGradient(colors: [
-                  _selectedColor.color.withAlpha(180),
-                  _selectedColor.color
-                ])
+              ? LinearGradient(
+                  colors: [color.color.withAlpha(205), color.color],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                )
               : null,
-          color: canUpgrade ? null : AppTheme.bgSecondary,
-          borderRadius: BorderRadius.circular(8),
-          border: canUpgrade
-              ? null
-              : Border.all(color: AppTheme.accentSecondary.withAlpha(30)),
+          color: canUpgrade ? null : Colors.white.withAlpha(92),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: canUpgrade
+                ? Colors.white.withAlpha(120)
+                : AppTheme.accentSecondary.withAlpha(32),
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: canUpgrade
+                  ? color.color.withAlpha(45)
+                  : AppTheme.accentSecondary.withAlpha(12),
+              offset: const Offset(0, 4),
+              blurRadius: 9,
+            )
+          ],
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
-              '⬆ 升級至 Lv.$targetLevel',
+              '升級至 Lv.$targetLevel',
               style: TextStyle(
                 color: canUpgrade
                     ? Colors.white
@@ -488,27 +714,71 @@ class _WorkshopDetailPanelState extends State<WorkshopDetailPanel> {
                 fontWeight: FontWeight.bold,
               ),
             ),
-            if (!canUpgrade && blockReason != null) ...[
-              const SizedBox(height: 2),
-              Text(
-                blockReason,
-                style: TextStyle(
-                  color: AppTheme.textSecondary.withAlpha(100),
-                  fontSize: AppTheme.fontLabelSm,
-                ),
+            const SizedBox(height: 2),
+            Text(
+              canUpgrade
+                  ? '${levelData.upgradeCostGold} 金幣'
+                  : blockReason ?? '條件不足',
+              style: TextStyle(
+                color: canUpgrade
+                    ? Colors.white.withAlpha(210)
+                    : AppTheme.textSecondary.withAlpha(95),
+                fontSize: AppTheme.fontLabelSm,
               ),
-            ],
-            if (canUpgrade && levelData.upgradeCostGold > 0) ...[
-              const SizedBox(height: 2),
-              Text(
-                '${levelData.upgradeCostGold} 🍬',
-                style: TextStyle(
-                  color: Colors.white.withAlpha(200),
-                  fontSize: AppTheme.fontLabelSm,
-                ),
-              ),
-            ],
+            ),
           ],
+        ),
+      ),
+    );
+  }
+
+  String? _upgradeBlockReason(bool canUpgrade, BottleLevelData levelData) {
+    if (canUpgrade) return null;
+    if (levelData.stageGateId != null) {
+      final progress =
+          playerProvider.data.stageProgress[levelData.stageGateId!];
+      if (progress == null || !progress.cleared) {
+        return '需通關 ${levelData.stageGateId}';
+      }
+    }
+    if (playerProvider.data.gold < levelData.upgradeCostGold) {
+      return '金幣不足';
+    }
+    final materials =
+        BottleDefinitions.getUpgradeMaterials(levelData.level, color);
+    for (final entry in materials.entries) {
+      if ((playerProvider.data.materials[entry.key] ?? 0) < entry.value) {
+        return '素材不足';
+      }
+    }
+    return '條件不足';
+  }
+}
+
+class _SmallPill extends StatelessWidget {
+  final String label;
+  final Color color;
+
+  const _SmallPill({
+    required this.label,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+      decoration: BoxDecoration(
+        color: color.withAlpha(25),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: color.withAlpha(56)),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          color: color,
+          fontSize: AppTheme.fontLabelSm,
+          fontWeight: FontWeight.bold,
         ),
       ),
     );

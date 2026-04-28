@@ -1751,7 +1751,8 @@ class _StageArea extends StatelessWidget {
                   child: _wrapWithKey(
                       externalHarvestButtonKey,
                       GestureDetector(
-                        onTap: onHarvest,
+                        behavior: HitTestBehavior.opaque,
+                        onTap: () => WorkshopDetailPanel.show(context),
                         child: Container(
                           padding: const EdgeInsets.symmetric(
                               horizontal: 10, vertical: 6),
@@ -1761,29 +1762,20 @@ class _StageArea extends StatelessWidget {
                             border: Border.all(
                                 color: AppTheme.accentSecondary.withAlpha(40)),
                           ),
-                          child: Consumer<ProductionProvider>(
-                            builder: (_, production, __) {
-                              final ready =
-                                  production.displayCase.totalCount > 0;
-                              return Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Text(ready ? '💰' : '🏠',
-                                      style: const TextStyle(fontSize: 14)),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    ready ? '售出' : '廚房',
-                                    style: TextStyle(
-                                      fontSize: AppTheme.fontLabelLg,
-                                      fontWeight: FontWeight.w900,
-                                      color: ready
-                                          ? AppTheme.accentPrimary
-                                          : AppTheme.textSecondary,
-                                    ),
-                                  ),
-                                ],
-                              );
-                            },
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text('🏠', style: TextStyle(fontSize: 14)),
+                              SizedBox(width: 4),
+                              Text(
+                                '廚房',
+                                style: TextStyle(
+                                  fontSize: AppTheme.fontLabelLg,
+                                  fontWeight: FontWeight.w900,
+                                  color: AppTheme.textSecondary,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       )),
@@ -1801,11 +1793,13 @@ class _StageArea extends StatelessWidget {
               if (stageMode == 'idle' &&
                   (bp.autoHarvestEnabled || idle.autoConfig.isAutoActive))
                 Positioned(
-                  right: 46,
+                  right: 56,
                   top: 8,
-                  child: _AutoStatusPill(
-                    autoCraft: bp.autoHarvestEnabled,
-                    autoEliminate: idle.autoConfig.isAutoActive,
+                  child: IgnorePointer(
+                    child: _AutoStatusPill(
+                      autoCraft: bp.autoHarvestEnabled,
+                      autoEliminate: idle.autoConfig.isAutoActive,
+                    ),
                   ),
                 ),
             ],
@@ -1833,8 +1827,9 @@ class _StageArea extends StatelessWidget {
         (isEliminateUnlocked && config.isAutoActive);
 
     return KeyedSubtree(
-      key: tutorialKey ?? GlobalKey(),
+      key: tutorialKey,
       child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
         onTap: () {
           showModalBottomSheet(
             context: context,
@@ -1846,30 +1841,46 @@ class _StageArea extends StatelessWidget {
             builder: (_) => const AutoEliminateSettings(),
           );
         },
-        child: Container(
-          width: 32,
-          height: 32,
-          decoration: BoxDecoration(
-            color: Colors.white.withAlpha(220),
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: AppTheme.accentSecondary.withAlpha(40)),
-          ),
-          child: Stack(
-            children: [
-              Center(
-                  child: Icon(Icons.tune_rounded,
-                      size: 16, color: AppTheme.textSecondary.withAlpha(160))),
-              if (hasAutoActive)
-                Positioned(
-                  top: 2,
-                  right: 2,
-                  child: Container(
-                      width: 6,
-                      height: 6,
-                      decoration: const BoxDecoration(
-                          color: Color(0xFF4CAF50), shape: BoxShape.circle)),
-                ),
-            ],
+        child: SizedBox(
+          width: 44,
+          height: 44,
+          child: Center(
+            child: Container(
+              width: 38,
+              height: 38,
+              decoration: BoxDecoration(
+                color: Colors.white.withAlpha(232),
+                borderRadius: BorderRadius.circular(12),
+                border:
+                    Border.all(color: AppTheme.accentSecondary.withAlpha(44)),
+                boxShadow: [
+                  BoxShadow(
+                    color: AppTheme.accentSecondary.withAlpha(28),
+                    offset: const Offset(0, 3),
+                    blurRadius: 8,
+                  ),
+                ],
+              ),
+              child: Stack(
+                children: [
+                  Center(
+                      child: Icon(Icons.tune_rounded,
+                          size: 18,
+                          color: AppTheme.textSecondary.withAlpha(175))),
+                  if (hasAutoActive)
+                    Positioned(
+                      top: 4,
+                      right: 4,
+                      child: Container(
+                          width: 7,
+                          height: 7,
+                          decoration: const BoxDecoration(
+                              color: Color(0xFF4CAF50),
+                              shape: BoxShape.circle)),
+                    ),
+                ],
+              ),
+            ),
           ),
         ),
       ),
