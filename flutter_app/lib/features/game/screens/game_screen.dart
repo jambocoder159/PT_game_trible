@@ -2,13 +2,25 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../config/theme.dart';
 import '../../../core/models/game_state.dart';
+import '../../../core/services/audio_service.dart';
 import '../providers/game_provider.dart';
 import '../widgets/game_board.dart';
 import '../widgets/game_hud.dart';
 
 /// 遊戲主畫面
-class GameScreen extends StatelessWidget {
+class GameScreen extends StatefulWidget {
   const GameScreen({super.key});
+
+  @override
+  State<GameScreen> createState() => _GameScreenState();
+}
+
+class _GameScreenState extends State<GameScreen> {
+  @override
+  void initState() {
+    super.initState();
+    AudioService.instance.playBGM(AudioService.normalBgm);
+  }
 
   @override
   Widget build(BuildContext context) {

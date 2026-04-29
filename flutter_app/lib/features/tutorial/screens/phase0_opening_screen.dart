@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../config/theme.dart';
+import '../../../core/services/audio_service.dart';
 import '../../../core/widgets/paper_dialog.dart';
 import '../models/tutorial_dialogue_data.dart';
 import '../providers/tutorial_provider.dart';
@@ -50,6 +51,7 @@ class _Phase0OpeningScreenState extends State<Phase0OpeningScreen>
   @override
   void initState() {
     super.initState();
+    AudioService.instance.playBGM(AudioService.normalBgm);
     _fadeController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 600),

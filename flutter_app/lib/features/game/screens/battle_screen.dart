@@ -18,6 +18,7 @@ import '../../../core/models/battle_state.dart';
 import '../../../core/models/enemy.dart';
 import '../../../core/models/game_state.dart';
 import '../../../core/models/material.dart';
+import '../../../core/services/audio_service.dart';
 import '../../../core/services/local_storage.dart';
 import '../../agents/providers/player_provider.dart';
 import '../providers/battle_provider.dart';
@@ -103,6 +104,7 @@ class _BattleScreenState extends State<BattleScreen> {
   @override
   void initState() {
     super.initState();
+    AudioService.instance.playBGM(AudioService.challengeBgm);
     _loadBoardPosition();
     // Boss 關（X-10）顯示對話演出
     if (widget.stage.stageNumber == 10 &&
@@ -347,6 +349,7 @@ class _BattleScreenState extends State<BattleScreen> {
 
   @override
   void dispose() {
+    AudioService.instance.playBGM(AudioService.normalBgm);
     final gameProvider = _gameProvider;
     final battleProvider = _battleProvider;
     if (gameProvider != null) {

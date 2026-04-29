@@ -25,6 +25,7 @@ import '../widgets/player_info_bar.dart';
 import '../widgets/bottom_nav_bar.dart';
 import '../widgets/idle_mini_game.dart';
 import '../../../core/models/auto_eliminate_config.dart';
+import '../../../core/services/audio_service.dart';
 import '../widgets/auto_eliminate_settings.dart';
 import '../widgets/workshop_detail_panel.dart';
 import '../widgets/energy_orb_overlay.dart';
@@ -125,6 +126,7 @@ class _HomeScreenState extends State<HomeScreen> {
       _setupProductionListener();
       _checkHomeGuide();
       _migrateIngredients();
+      _playBgmForCurrentTab();
     });
   }
 
@@ -134,6 +136,7 @@ class _HomeScreenState extends State<HomeScreen> {
     // 教學模式下，外部可以透過 initialNavIndex 切換 Tab
     if (widget.tutorialMode && widget.initialNavIndex != _currentNavIndex) {
       setState(() => _currentNavIndex = widget.initialNavIndex);
+      _playBgmForCurrentTab();
     }
   }
 
@@ -142,6 +145,11 @@ class _HomeScreenState extends State<HomeScreen> {
     if (index == _currentNavIndex) return;
     setState(() => _currentNavIndex = index);
     widget.onTabChanged?.call(index);
+    _playBgmForCurrentTab();
+  }
+
+  void _playBgmForCurrentTab() {
+    AudioService.instance.playBGM(AudioService.normalBgm);
   }
 
   void _startIdleGame() {
@@ -471,6 +479,7 @@ class _HomeScreenState extends State<HomeScreen> {
     if (index == _currentNavIndex) return;
     setState(() => _currentNavIndex = index);
     widget.onTabChanged?.call(index);
+    _playBgmForCurrentTab();
   }
 
   void _showSettingsModal() {
@@ -577,6 +586,7 @@ class _HomeScreenState extends State<HomeScreen> {
             onComplete: _onHomeGuideComplete,
             onSwitchTab: (index) {
               setState(() => _currentNavIndex = index);
+              _playBgmForCurrentTab();
             },
           ),
 
