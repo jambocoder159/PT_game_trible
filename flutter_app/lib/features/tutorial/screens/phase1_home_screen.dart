@@ -120,7 +120,11 @@ class _Phase1HomeScreenState extends State<Phase1HomeScreen> {
           if (mounted) _ensureBottleFull();
         });
       case 1:
-        _showFloatingHint('甜點做好了！點「售出」賺金幣', emoji: '💰');
+        _showFloatingHint(
+          '甜點做好了！點「售出」賺金幣',
+          emoji: '💰',
+          position: TutorialHintPosition.top,
+        );
       case 2:
         _showHomeTutorialDialogue = true;
     }
@@ -254,7 +258,11 @@ class _Phase1HomeScreenState extends State<Phase1HomeScreen> {
           setState(() {
             _homeTutorialStep = 1;
           });
-          _showFloatingHint('甜點做好了！點「售出」賺金幣', emoji: '💰');
+          _showFloatingHint(
+            '甜點做好了！點「售出」賺金幣',
+            emoji: '💰',
+            position: TutorialHintPosition.top,
+          );
         }
       });
     }
@@ -406,7 +414,7 @@ class _Phase1HomeScreenState extends State<Phase1HomeScreen> {
 
         // 跳過按鈕（避開頂部 PlayerInfoBar）
         Positioned(
-          top: MediaQuery.of(context).padding.top + 52,
+          top: MediaQuery.of(context).padding.top + 232,
           right: 12,
           child: TextButton(
             onPressed: _skipTutorial,

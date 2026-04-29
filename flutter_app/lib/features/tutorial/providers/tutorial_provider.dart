@@ -138,16 +138,17 @@ class TutorialProvider extends ChangeNotifier {
     String? agentToUnlock,
     bool skipAgentUnlock = false,
   }) async {
-    _state.currentPhase = TutorialPhase.completed;
-    await _save();
-
     await player.completeTutorial(
       bonusGold: TutorialConfig.rewardGold,
       bonusDiamonds: TutorialConfig.rewardDiamonds,
       stagesToClear: stagesToClear ?? ['1-1'],
-      agentToUnlock: skipAgentUnlock ? null : (agentToUnlock ?? TutorialConfig.luluAgentId),
+      agentToUnlock: skipAgentUnlock
+          ? null
+          : (agentToUnlock ?? TutorialConfig.luluAgentId),
     );
 
+    _state.currentPhase = TutorialPhase.completed;
+    await _save();
     notifyListeners();
   }
 
@@ -165,7 +166,6 @@ class TutorialProvider extends ChangeNotifier {
 
   /// 清除本地存檔
   static Future<void> clearStorage() async {
-    await LocalStorageService.instance
-        .setJson(_storageKey, null);
+    await LocalStorageService.instance.setJson(_storageKey, null);
   }
 }

@@ -28,12 +28,11 @@ class EnergyEvent {
 class EnergyCalculator {
   static const int baseEnergy = 10;
   static const int matchBonus = 5;
-  static const int maxComboBonus = 5;
   static const int maxVolumeExtraBlocks = 6;
 
   /// 計算單次消除的每顆能量
   /// [isMatch] 是否為三消匹配（而非單點消除）
-  /// [combo] 當前連擊數
+  /// [combo] 保留給既有呼叫端，不再影響放置模式能量
   /// [totalBlocksInOperation] 本次操作消除的總方塊數
   /// [teamLevelMultiplier] 隊伍等級加成（1.0 = 無加成）
   static int perBlockEnergy({
@@ -44,7 +43,6 @@ class EnergyCalculator {
   }) {
     int energy = baseEnergy;
     if (isMatch) energy += matchBonus;
-    energy += combo.clamp(0, maxComboBonus) * 3;
     energy += (totalBlocksInOperation - 4).clamp(0, maxVolumeExtraBlocks) * 2;
     return (energy * teamLevelMultiplier).round();
   }
@@ -133,7 +131,9 @@ class IdleProvider extends ChangeNotifier {
 
     // 產出能量（點擊消除的方塊，非三消，基礎能量）
     final perBlock = EnergyCalculator.perBlockEnergy(
-      isMatch: false, combo: 0, totalBlocksInOperation: 1,
+      isMatch: false,
+      combo: 0,
+      totalBlocksInOperation: 1,
       teamLevelMultiplier: _teamLevelMultiplier,
     );
     final tapEnergy = {tappedColor: perBlock};
@@ -554,7 +554,10 @@ class IdleProvider extends ChangeNotifier {
 
     notifyListeners();
     await Future.delayed(const Duration(milliseconds: 400));
-    if (_gameGeneration != gen) { _isProcessing = false; return; }
+    if (_gameGeneration != gen) {
+      _isProcessing = false;
+      return;
+    }
 
     // 消除類效果需要重力 + 補充 + 連鎖
     if (effect.type == BoardEffectType.eliminateRandom ||
@@ -563,17 +566,26 @@ class IdleProvider extends ChangeNotifier {
       _removeEliminatedBlocks();
       notifyListeners();
       await Future.delayed(const Duration(milliseconds: 80));
-      if (_gameGeneration != gen) { _isProcessing = false; return; }
+      if (_gameGeneration != gen) {
+        _isProcessing = false;
+        return;
+      }
 
       _applyGravity();
       notifyListeners();
       await Future.delayed(const Duration(milliseconds: 350));
-      if (_gameGeneration != gen) { _isProcessing = false; return; }
+      if (_gameGeneration != gen) {
+        _isProcessing = false;
+        return;
+      }
 
       _refillGrid();
       notifyListeners();
       await Future.delayed(const Duration(milliseconds: 250));
-      if (_gameGeneration != gen) { _isProcessing = false; return; }
+      if (_gameGeneration != gen) {
+        _isProcessing = false;
+        return;
+      }
 
       await _processMatchLoop();
     }
@@ -800,17 +812,25 @@ class IdleProvider extends ChangeNotifier {
     s.grid[col][row] = s.grid[col][row]!.copyWith(isEliminating: true);
     notifyListeners();
     await Future.delayed(const Duration(milliseconds: 400));
-    if (_gameGeneration != gen) { _isProcessing = false; return; }
+    if (_gameGeneration != gen) {
+      _isProcessing = false;
+      return;
+    }
 
     // 移除
     s.grid[col][row] = null;
     notifyListeners();
     await Future.delayed(const Duration(milliseconds: 80));
-    if (_gameGeneration != gen) { _isProcessing = false; return; }
+    if (_gameGeneration != gen) {
+      _isProcessing = false;
+      return;
+    }
 
     // 產出能量（自動消除也給完整能量，不打折）
     final perBlock = EnergyCalculator.perBlockEnergy(
-      isMatch: false, combo: 0, totalBlocksInOperation: 1,
+      isMatch: false,
+      combo: 0,
+      totalBlocksInOperation: 1,
       teamLevelMultiplier: _teamLevelMultiplier,
     );
     final autoEnergy = {eliminatedColor: perBlock};
@@ -826,16 +846,25 @@ class IdleProvider extends ChangeNotifier {
     _applyGravity();
     notifyListeners();
     await Future.delayed(const Duration(milliseconds: 350));
-    if (_gameGeneration != gen) { _isProcessing = false; return; }
+    if (_gameGeneration != gen) {
+      _isProcessing = false;
+      return;
+    }
 
     _refillGrid();
     notifyListeners();
     await Future.delayed(const Duration(milliseconds: 250));
-    if (_gameGeneration != gen) { _isProcessing = false; return; }
+    if (_gameGeneration != gen) {
+      _isProcessing = false;
+      return;
+    }
 
     // 連鎖消除（自動消除觸發的連鎖也給完整能量）
     await _processMatchLoop();
-    if (_gameGeneration != gen) { _isProcessing = false; return; }
+    if (_gameGeneration != gen) {
+      _isProcessing = false;
+      return;
+    }
 
     // 自動消除後重置 combo
     s.combo = 0;

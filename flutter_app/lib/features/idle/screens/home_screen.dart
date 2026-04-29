@@ -282,15 +282,6 @@ class _HomeScreenState extends State<HomeScreen> {
     final gameCenter = gameBox.localToGlobal(
       Offset(gameBox.size.width / 2, gameBox.size.height / 2),
     );
-    final combo = context.read<IdleProvider>().state?.combo ?? 0;
-    final comboTier = combo >= 12
-        ? 4
-        : combo >= 8
-            ? 3
-            : combo >= 4
-                ? 2
-                : 1;
-
     for (final entry in energyByColor.entries) {
       final color = entry.key;
 
@@ -308,8 +299,8 @@ class _HomeScreenState extends State<HomeScreen> {
         color: color,
         start: gameCenter,
         end: bottleCenter,
-        count: (entry.value + comboTier - 1).clamp(1, 8),
-        intensity: comboTier,
+        count: entry.value.clamp(1, 8),
+        intensity: 1,
       );
     }
   }
@@ -752,7 +743,6 @@ class _HomeScreenState extends State<HomeScreen> {
                 stageMode: _stageMode,
                 stageColor: _stageColor,
                 onHarvest: _onHarvest,
-                externalHarvestButtonKey: widget.externalConvertButtonKey,
                 externalCraftButtonKey: widget.externalCraftButtonKey,
                 tutorialAutoSwitchKey: widget.tutorialAutoSwitchKey,
                 tutorialMode: widget.tutorialMode,
@@ -772,10 +762,12 @@ class _HomeScreenState extends State<HomeScreen> {
                   child: IdleMiniGame(key: _gameAreaKey),
                 ),
               ),
-              if (!widget.tutorialMode)
+              if (!widget.tutorialMode ||
+                  widget.externalConvertButtonKey != null)
                 _DisplayCaseStrip(
                   key: _displayCaseKey,
                   onSellAll: _onHarvest,
+                  sellButtonKey: widget.externalConvertButtonKey,
                 ),
             ],
           ),
@@ -793,9 +785,6 @@ class _HomeScreenState extends State<HomeScreen> {
 
           // ─── 能量球飛行動畫覆蓋層 ───
           EnergyOrbOverlay(controller: _orbController),
-
-          // ─── Combo 浮動動畫覆蓋層 ───
-          _ComboOverlay(gameAreaKey: _gameAreaKey),
 
           // ─── 技能施放 VFX 覆蓋層 ───
           if (_showSkillVfx && _skillVfxAttribute != null)
@@ -1561,7 +1550,6 @@ class _StageAndBottles extends StatelessWidget {
   final String stageMode;
   final BlockColor? stageColor;
   final VoidCallback onHarvest;
-  final GlobalKey? externalHarvestButtonKey;
   final GlobalKey? externalCraftButtonKey;
   final GlobalKey? tutorialAutoSwitchKey;
   final bool tutorialMode;
@@ -1574,7 +1562,6 @@ class _StageAndBottles extends StatelessWidget {
     required this.stageMode,
     this.stageColor,
     required this.onHarvest,
-    this.externalHarvestButtonKey,
     this.externalCraftButtonKey,
     this.tutorialAutoSwitchKey,
     this.tutorialMode = false,
@@ -1628,7 +1615,6 @@ class _StageAndBottles extends StatelessWidget {
                 stageMode: stageMode,
                 stageColor: stageColor,
                 onHarvest: onHarvest,
-                externalHarvestButtonKey: externalHarvestButtonKey,
                 tutorialAutoSwitchKey: tutorialAutoSwitchKey,
                 tutorialMode: tutorialMode,
               ),
@@ -1648,7 +1634,6 @@ class _StageArea extends StatelessWidget {
   final String stageMode; // 'idle' | 'serving'
   final BlockColor? stageColor;
   final VoidCallback onHarvest;
-  final GlobalKey? externalHarvestButtonKey;
   final GlobalKey? tutorialAutoSwitchKey;
   final bool tutorialMode;
 
@@ -1657,7 +1642,6 @@ class _StageArea extends StatelessWidget {
     required this.stageMode,
     this.stageColor,
     required this.onHarvest,
-    this.externalHarvestButtonKey,
     this.tutorialAutoSwitchKey,
     this.tutorialMode = false,
   });
@@ -1758,37 +1742,35 @@ class _StageArea extends StatelessWidget {
                 Positioned(
                   left: 8,
                   top: 8,
-                  child: _wrapWithKey(
-                      externalHarvestButtonKey,
-                      GestureDetector(
-                        behavior: HitTestBehavior.opaque,
-                        onTap: () => WorkshopDetailPanel.show(context),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 10, vertical: 6),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withAlpha(220),
-                            borderRadius: BorderRadius.circular(10),
-                            border: Border.all(
-                                color: AppTheme.accentSecondary.withAlpha(40)),
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: () => WorkshopDetailPanel.show(context),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withAlpha(220),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(
+                            color: AppTheme.accentSecondary.withAlpha(40)),
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text('🏠', style: TextStyle(fontSize: 14)),
+                          SizedBox(width: 4),
+                          Text(
+                            '廚房',
+                            style: TextStyle(
+                              fontSize: AppTheme.fontLabelLg,
+                              fontWeight: FontWeight.w900,
+                              color: AppTheme.textSecondary,
+                            ),
                           ),
-                          child: const Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text('🏠', style: TextStyle(fontSize: 14)),
-                              SizedBox(width: 4),
-                              Text(
-                                '廚房',
-                                style: TextStyle(
-                                  fontSize: AppTheme.fontLabelLg,
-                                  fontWeight: FontWeight.w900,
-                                  color: AppTheme.textSecondary,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      )),
+                        ],
+                      ),
+                    ),
+                  ),
                 ),
 
               // ── 右上：齒輪（自動設定） ──
@@ -1817,11 +1799,6 @@ class _StageArea extends StatelessWidget {
         );
       },
     );
-  }
-
-  Widget _wrapWithKey(GlobalKey? key, Widget child) {
-    if (key == null) return child;
-    return KeyedSubtree(key: key, child: child);
   }
 
   static Widget _buildGearButton(BuildContext context, IdleProvider idle,
@@ -1943,8 +1920,13 @@ ProductionSlot? _productionSlotForCat(
 
 class _DisplayCaseStrip extends StatelessWidget {
   final VoidCallback onSellAll;
+  final GlobalKey? sellButtonKey;
 
-  const _DisplayCaseStrip({super.key, required this.onSellAll});
+  const _DisplayCaseStrip({
+    super.key,
+    required this.onSellAll,
+    this.sellButtonKey,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -2075,33 +2057,36 @@ class _DisplayCaseStrip extends StatelessWidget {
               ),
               if (ready) ...[
                 const SizedBox(width: 8),
-                GestureDetector(
-                  onTap: onSellAll,
-                  child: Container(
-                    height: 34,
-                    padding: const EdgeInsets.symmetric(horizontal: 10),
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      color: AppTheme.accentPrimary,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        if (autoSell) ...[
-                          const Icon(Icons.bolt_rounded,
-                              size: 13, color: Colors.white),
-                          const SizedBox(width: 3),
-                        ],
-                        Text(
-                          estimatedGold > 0 ? '+$estimatedGold' : '售出',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: AppTheme.fontLabelLg,
-                            fontWeight: FontWeight.bold,
+                KeyedSubtree(
+                  key: sellButtonKey,
+                  child: GestureDetector(
+                    onTap: onSellAll,
+                    child: Container(
+                      height: 34,
+                      padding: const EdgeInsets.symmetric(horizontal: 10),
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: AppTheme.accentPrimary,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (autoSell) ...[
+                            const Icon(Icons.bolt_rounded,
+                                size: 13, color: Colors.white),
+                            const SizedBox(width: 3),
+                          ],
+                          Text(
+                            estimatedGold > 0 ? '+$estimatedGold' : '售出',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: AppTheme.fontLabelLg,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
                 ),
@@ -2902,7 +2887,7 @@ class _SideCharmState extends State<_SideCharm>
 
   @override
   Widget build(BuildContext context) {
-    final topPad = MediaQuery.of(context).padding.top + 56;
+    final topPad = MediaQuery.of(context).padding.top + 238;
 
     return Positioned(
       left: 0,
@@ -3623,7 +3608,7 @@ class _HarvestAnimationOverlayState extends State<_HarvestAnimationOverlay>
                   right: 24,
                   top: originY - 176 - rewardT * 14,
                   child: Opacity(
-                    opacity: rewardT * fadeOut,
+                    opacity: (rewardT * fadeOut).clamp(0.0, 1.0),
                     child: Transform.scale(
                       scale: 0.72 + rewardT * 0.28,
                       child: Column(
@@ -3757,132 +3742,6 @@ class _CandyParticle {
 }
 
 // ═══════════════════════════════════════════
-// Combo 浮動動畫覆蓋層（不占版面高度）
-// ═══════════════════════════════════════════
-
-class _ComboOverlay extends StatefulWidget {
-  final GlobalKey gameAreaKey;
-
-  const _ComboOverlay({required this.gameAreaKey});
-
-  @override
-  State<_ComboOverlay> createState() => _ComboOverlayState();
-}
-
-class _ComboOverlayState extends State<_ComboOverlay>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _animCtrl;
-  late Animation<double> _scaleAnim;
-  late Animation<double> _opacityAnim;
-  int _lastCombo = 0;
-
-  @override
-  void initState() {
-    super.initState();
-    _animCtrl = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 500),
-    );
-    _scaleAnim = TweenSequence<double>([
-      TweenSequenceItem(tween: Tween(begin: 0.5, end: 1.3), weight: 40),
-      TweenSequenceItem(tween: Tween(begin: 1.3, end: 1.0), weight: 60),
-    ]).animate(CurvedAnimation(parent: _animCtrl, curve: Curves.easeOut));
-    _opacityAnim = TweenSequence<double>([
-      TweenSequenceItem(tween: Tween(begin: 0.0, end: 1.0), weight: 20),
-      TweenSequenceItem(tween: ConstantTween(1.0), weight: 80),
-    ]).animate(_animCtrl);
-  }
-
-  @override
-  void dispose() {
-    _animCtrl.dispose();
-    super.dispose();
-  }
-
-  void _onComboChanged(int combo) {
-    if (combo > 1 && combo != _lastCombo) {
-      _animCtrl.forward(from: 0);
-    }
-    _lastCombo = combo;
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Consumer<IdleProvider>(
-      builder: (context, idle, _) {
-        final combo = idle.state?.combo ?? 0;
-        // 觸發動畫
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          _onComboChanged(combo);
-        });
-
-        if (combo <= 1) return const SizedBox.shrink();
-
-        // 定位到棋盤區域上方（使用全屏覆蓋 + 手動偏移）
-        final gameBox =
-            widget.gameAreaKey.currentContext?.findRenderObject() as RenderBox?;
-        if (gameBox == null) return const SizedBox.shrink();
-        final gamePos = gameBox.localToGlobal(Offset.zero);
-        final gameCenterX = gamePos.dx + gameBox.size.width / 2;
-
-        return IgnorePointer(
-          child: Stack(
-            children: [
-              Positioned(
-                left: gameCenterX - 80,
-                top: gamePos.dy + 6,
-                width: 160,
-                child: Center(
-                  child: AnimatedBuilder(
-                    animation: _animCtrl,
-                    builder: (context, child) {
-                      return Opacity(
-                        opacity: _opacityAnim.value,
-                        child: Transform.scale(
-                          scale: _scaleAnim.value,
-                          child: child,
-                        ),
-                      );
-                    },
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 14, vertical: 5),
-                      decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                          colors: [Color(0xFFFF6B6B), Color(0xFFFFAA5B)],
-                        ),
-                        borderRadius: BorderRadius.circular(14),
-                        boxShadow: [
-                          BoxShadow(
-                            color: const Color(0xFFFF6B6B).withAlpha(120),
-                            blurRadius: 12,
-                            spreadRadius: 1,
-                          ),
-                        ],
-                      ),
-                      child: Text(
-                        '${combo}x Combo!',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: AppTheme.fontTitleMd,
-                          fontWeight: FontWeight.bold,
-                          shadows: [
-                            Shadow(color: Colors.black54, blurRadius: 4),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-}
-
 CatAgentDefinition? _findAgentDef(String agentId) {
   for (final a in CatAgentData.allAgents) {
     if (a.id == agentId) return a;
