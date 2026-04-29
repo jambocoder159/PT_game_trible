@@ -97,14 +97,16 @@ class _Phase3BattleScreenState extends State<Phase3BattleScreen> {
     }
   }
 
-  void _onBattleComplete() {
+  Future<void> _onBattleComplete() async {
     final player = context.read<PlayerProvider>();
-    player.markTutorialStageCleared('1-1');
+    await player.markTutorialStageCleared('1-1');
+    if (!mounted) return;
     // 教學精簡版：不提前解鎖露露，讓 1-3 自然解鎖
-    context.read<TutorialProvider>().completeTutorial(
-      player,
-      skipAgentUnlock: true,
-    );
+    await context.read<TutorialProvider>().completeTutorial(
+          player,
+          stagesToClear: const ['1-1'],
+          skipAgentUnlock: true,
+        );
   }
 
   @override
@@ -164,7 +166,10 @@ class _Phase3BattleScreenState extends State<Phase3BattleScreen> {
                     style: TextStyle(
                       color: Colors.white.withAlpha(180),
                       fontSize: AppTheme.fontTitleMd,
-                      shadows: [Shadow(color: Colors.black.withAlpha(180), blurRadius: 6)],
+                      shadows: [
+                        Shadow(
+                            color: Colors.black.withAlpha(180), blurRadius: 6)
+                      ],
                     )),
                 const SizedBox(height: 4),
                 Text('推開店門',
@@ -172,7 +177,10 @@ class _Phase3BattleScreenState extends State<Phase3BattleScreen> {
                       color: Colors.white,
                       fontSize: AppTheme.fontDisplayMd,
                       fontWeight: FontWeight.bold,
-                      shadows: [Shadow(color: Colors.black.withAlpha(200), blurRadius: 8)],
+                      shadows: [
+                        Shadow(
+                            color: Colors.black.withAlpha(200), blurRadius: 8)
+                      ],
                     )),
               ],
             ),
@@ -194,7 +202,9 @@ class _Phase3BattleScreenState extends State<Phase3BattleScreen> {
       canPop: false,
       child: BattleScreen(
         stage: _tutorialStage,
-        onBattleEnd: _onBattleComplete,
+        onBattleEnd: () {
+          _onBattleComplete();
+        },
         initialColors: _tutorialGrid,
         tutorialBattleIndex: 0,
         // tutorialSwipeHint removed — 讓玩家自由操作

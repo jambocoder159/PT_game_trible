@@ -21,6 +21,7 @@ import '../../../core/models/material.dart';
 import '../../../core/services/audio_service.dart';
 import '../../../core/services/local_storage.dart';
 import '../../agents/providers/player_provider.dart';
+import '../../agents/screens/agent_list_screen.dart';
 import '../providers/battle_provider.dart';
 import '../providers/game_provider.dart';
 import '../widgets/board_attack_effect.dart';
@@ -31,26 +32,36 @@ import '../widgets/cat_placeholder.dart';
 import '../widgets/pause_menu.dart';
 
 // ─── 點心屋風格配色（陽光鄉村木質） ───
-const _woodLight = Color(0xFFFFE4B5);   // 蜂蜜金
-const _woodMid = Color(0xFFDEB887);     // 小麥色
-const _woodDark = Color(0xFFC49A6C);    // 暖木色
-const _woodBorder = Color(0xFFA0764E);  // 深木邊框
-const _panelBg = Color(0xFFFFE4B5);     // 蜂蜜金 (= AppTheme.bgSecondary)
+const _woodLight = Color(0xFFFFE4B5); // 蜂蜜金
+const _woodMid = Color(0xFFDEB887); // 小麥色
+const _woodDark = Color(0xFFC49A6C); // 暖木色
+const _woodBorder = Color(0xFFA0764E); // 深木邊框
+const _panelBg = Color(0xFFFFE4B5); // 蜂蜜金 (= AppTheme.bgSecondary)
 const _gamePanelBg = Color(0xFFFFFFFF); // 純白 (= AppTheme.bgCard)
 
 /// 戰鬥畫面
 class BattleScreen extends StatefulWidget {
   final StageDefinition stage;
+
   /// 戰鬥結束回調（教學模式使用），若為 null 則用 Navigator.pop
   final VoidCallback? onBattleEnd;
+
   /// 教學用：指定初始棋盤顏色 [col][row]
   final List<List<BlockColor>>? initialColors;
+
   /// 教學戰鬥索引（0=第一場, 1=第二場, null=非教學）
   final int? tutorialBattleIndex;
+
   /// 教學提示：高亮指定方塊並引導滑動方向 (col, row)
   final ({int col, int row})? tutorialSwipeHint;
 
-  const BattleScreen({super.key, required this.stage, this.onBattleEnd, this.initialColors, this.tutorialBattleIndex, this.tutorialSwipeHint});
+  const BattleScreen(
+      {super.key,
+      required this.stage,
+      this.onBattleEnd,
+      this.initialColors,
+      this.tutorialBattleIndex,
+      this.tutorialSwipeHint});
 
   @override
   State<BattleScreen> createState() => _BattleScreenState();
@@ -58,6 +69,7 @@ class BattleScreen extends StatefulWidget {
 
 class _BattleScreenState extends State<BattleScreen> {
   bool _resultSaved = false;
+  bool _savingResult = false;
   BattleRewardResult? _reward;
   // 角色固定左側、棋盤固定右側
   bool _victoryAnimPlaying = false; // 勝利爆炸演出中
@@ -137,12 +149,6 @@ class _BattleScreenState extends State<BattleScreen> {
     final battleProvider = _battleProvider ?? context.read<BattleProvider>();
     final playerProvider = _playerProvider ?? context.read<PlayerProvider>();
 
-    battleProvider.startBattle(
-      stage: widget.stage,
-      teamAgentIds: playerProvider.data.team,
-      playerData: playerProvider.data,
-    );
-
     final battleMode = GameModeConfig(
       id: 'battle_${widget.stage.id}',
       title: widget.stage.name,
@@ -185,6 +191,11 @@ class _BattleScreenState extends State<BattleScreen> {
     gameProvider.getBlockedPositions = _getBlockedPositions;
 
     gameProvider.startGame(battleMode, initialColors: widget.initialColors);
+    battleProvider.startBattle(
+      stage: widget.stage,
+      teamAgentIds: playerProvider.data.team,
+      playerData: playerProvider.data,
+    );
 
     // 進入關卡時：小麥說明該關卡首次出現的敵人技能
     final newSkills = battleProvider.consumeNewlyDiscoveredSkills();
@@ -213,9 +224,8 @@ class _BattleScreenState extends State<BattleScreen> {
     final playerProvider = context.read<PlayerProvider>();
     final battleProvider = context.read<BattleProvider>();
     final bs = battleProvider.battleState;
-    final hpPercent = bs != null && bs.teamMaxHp > 0
-        ? bs.teamCurrentHp / bs.teamMaxHp
-        : 0.0;
+    final hpPercent =
+        bs != null && bs.teamMaxHp > 0 ? bs.teamCurrentHp / bs.teamMaxHp : 0.0;
 
     final reward = await playerProvider.completeBattle(
       stageId: widget.stage.id,
@@ -318,6 +328,7 @@ class _BattleScreenState extends State<BattleScreen> {
 
       // 消耗體力並切換到下一關
       playerProvider.consumeStamina(ns.staminaCost);
+      setState(() => _showResult = false);
       battle.endBattle();
       Navigator.of(context).pushReplacement(
         PageRouteBuilder(
@@ -364,7 +375,8 @@ class _BattleScreenState extends State<BattleScreen> {
       }
     }
     if (battleProvider != null &&
-        identical(battleProvider.onBoardEffectRequested, _onBoardEffectRequested)) {
+        identical(
+            battleProvider.onBoardEffectRequested, _onBoardEffectRequested)) {
       battleProvider.onBoardEffectRequested = null;
     }
     _attackAnimPlaying.dispose();
@@ -383,62 +395,64 @@ class _BattleScreenState extends State<BattleScreen> {
         }
       },
       child: Scaffold(
-      backgroundColor: AppTheme.bgPrimary,
-      body: SafeArea(
-        child: Stack(
-          children: [
-            // 章節背景圖
-            if (bgPath != null)
-              Positioned.fill(
-                child: Opacity(
-                  opacity: 0.5,
-                  child: Image.asset(
-                    bgPath,
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+        backgroundColor: AppTheme.bgPrimary,
+        body: SafeArea(
+          child: Stack(
+            children: [
+              // 章節背景圖
+              if (bgPath != null)
+                Positioned.fill(
+                  child: Opacity(
+                    opacity: 0.5,
+                    child: Image.asset(
+                      bgPath,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                    ),
                   ),
                 ),
-              ),
-            Consumer<BattleProvider>(
-          builder: (context, battle, _) {
-            final battleState = battle.battleState;
+              Consumer<BattleProvider>(
+                builder: (context, battle, _) {
+                  final battleState = battle.battleState;
 
-            // 偵測技能施放 → 觸發橫幅動畫
-            if (battle.lastSkillAgentId != null && !_showSkillBanner) {
-              final agentDef = battleState?.team
-                  .where((a) => a.definition.id == battle.lastSkillAgentId)
-                  .firstOrNull
-                  ?.definition;
-              final agentColor = agentDef?.attribute.blockColor.color;
-              WidgetsBinding.instance.addPostFrameCallback((_) {
-                if (mounted && battle.lastSkillAgentId != null) {
-                  setState(() {
-                    _showSkillBanner = true;
-                    _skillBannerAgentId = battle.lastSkillAgentId;
-                    _skillBannerAgentName = battle.lastSkillAgentName;
-                    _skillBannerSkillName = battle.lastSkillName;
-                    _skillBannerColor = agentColor ?? Colors.amber;
-                  });
-                  battle.consumeSkillAnim();
-                }
-              });
-            }
+                  // 偵測技能施放 → 觸發橫幅動畫
+                  if (battle.lastSkillAgentId != null && !_showSkillBanner) {
+                    final agentDef = battleState?.team
+                        .where(
+                            (a) => a.definition.id == battle.lastSkillAgentId)
+                        .firstOrNull
+                        ?.definition;
+                    final agentColor = agentDef?.attribute.blockColor.color;
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      if (mounted && battle.lastSkillAgentId != null) {
+                        setState(() {
+                          _showSkillBanner = true;
+                          _skillBannerAgentId = battle.lastSkillAgentId;
+                          _skillBannerAgentName = battle.lastSkillAgentName;
+                          _skillBannerSkillName = battle.lastSkillName;
+                          _skillBannerColor = agentColor ?? Colors.amber;
+                        });
+                        battle.consumeSkillAnim();
+                      }
+                    });
+                  }
 
-            return Stack(
-              children: [
-                Column(
-                  children: [
-                    // ── 頂部木質風格標題欄 ──
-                    _WoodTopBar(
-                      stage: widget.stage,
-                      onBack: () => _confirmExitBattle(context, battle),
-                      onPause: () => context.read<GameProvider>().pauseGame(),
-                    ),
-
-                    // ── 主體分屏區域 ──
-                    Expanded(
-                      child: Row(
+                  return Stack(
+                    children: [
+                      Column(
                         children: [
+                          // ── 頂部木質風格標題欄 ──
+                          _WoodTopBar(
+                            stage: widget.stage,
+                            onBack: () => _confirmExitBattle(context, battle),
+                            onPause: () =>
+                                context.read<GameProvider>().pauseGame(),
+                          ),
+
+                          // ── 主體分屏區域 ──
+                          Expanded(
+                            child: Row(
+                              children: [
                                 // 角色在左
                                 if (battleState != null)
                                   Expanded(
@@ -447,10 +461,12 @@ class _BattleScreenState extends State<BattleScreen> {
                                       key: _agentPanelKey,
                                       child: RepaintBoundary(
                                         child: Consumer<GameProvider>(
-                                          builder: (_, game, __) => _CatAgentPanel(
+                                          builder: (_, game, __) =>
+                                              _CatAgentPanel(
                                             battleState: battleState,
                                             battleProvider: battle,
-                                            attackAnimPlaying: _attackAnimPlaying,
+                                            attackAnimPlaying:
+                                                _attackAnimPlaying,
                                             boardKey: _boardKey,
                                             gameState: game.state,
                                           ),
@@ -468,7 +484,8 @@ class _BattleScreenState extends State<BattleScreen> {
                                         builder: (_, game, __) => _GamePanel(
                                           battleState: battleState,
                                           gameState: game.state,
-                                          tutorialHintBlock: widget.tutorialSwipeHint,
+                                          tutorialHintBlock:
+                                              widget.tutorialSwipeHint,
                                           boardKey: _boardKey,
                                         ),
                                       ),
@@ -476,164 +493,186 @@ class _BattleScreenState extends State<BattleScreen> {
                                   ),
                                 ),
                               ],
+                            ),
+                          ),
+
+                          // ── 底部控制列 ──
+                          Consumer<GameProvider>(
+                            builder: (_, game, __) => _WoodBottomBar(
+                              gameState: game.state,
+                              battleProvider: battle,
+                            ),
+                          ),
+                        ],
                       ),
-                    ),
 
-                    // ── 底部控制列 ──
-                    Consumer<GameProvider>(
-                      builder: (_, game, __) => _WoodBottomBar(
-                        gameState: game.state,
-                        battleProvider: battle,
-                      ),
-                    ),
-                  ],
-                ),
-
-                // 暫停選單覆蓋層
-                Consumer<GameProvider>(
-                  builder: (_, game, __) {
-                    if (game.state?.status != GameStatus.paused) {
-                      return const SizedBox.shrink();
-                    }
-                    return PauseMenu(
-                      onResume: () => game.resumeGame(),
-                      onExitToMenu: () {
-                        battle.endBattle();
-                        Navigator.of(context).pop();
-                      },
-                    );
-                  },
-                ),
-
-                // 戰鬥結束 — 等攻擊動畫播完，再播爆炸演出＋結算
-                ValueListenableBuilder<bool>(
-                  valueListenable: _attackAnimPlaying,
-                  builder: (_, animPlaying, __) => Consumer<GameProvider>(
-                    builder: (_, game, __) {
-                      final gameState = game.state;
-                      if ((battle.isBattleOver || (gameState?.status == GameStatus.gameOver && !battle.isBattleOver)) &&
-                          !_victoryAnimPlaying && !_showResult &&
-                          !animPlaying) {
-                        final isVictory = battle.isBattleOver && battle.isVictory;
-                        WidgetsBinding.instance.addPostFrameCallback((_) {
-                          _saveResult(isVictory, gameState?.score ?? 0);
-                          _startEndAnimation(isVictory);
-                        });
-                      }
-                      return const SizedBox.shrink();
-                    },
-                  ),
-                ),
-
-                // 技能施放橫幅動畫（寶可夢藍寶石版飛天風格）
-                if (_showSkillBanner)
-                  _SkillBannerAnimation(
-                    agentId: _skillBannerAgentId!,
-                    agentName: _skillBannerAgentName ?? '',
-                    skillName: _skillBannerSkillName ?? '',
-                    color: _skillBannerColor ?? Colors.amber,
-                    onComplete: () {
-                      if (mounted) {
-                        setState(() => _showSkillBanner = false);
-                      }
-                    },
-                  ),
-
-                // Boss 對話演出
-                if (_showBossIntro)
-                  _BossIntroOverlay(
-                    chapter: widget.stage.chapter,
-                    onComplete: () {
-                      if (mounted) {
-                        setState(() => _showBossIntro = false);
-                      }
-                    },
-                  ),
-
-                // 教學戰鬥介紹 Overlay（角色立繪對話 + 高亮引導）
-                if (_showTutorialIntro)
-                  _TutorialBattleIntro(
-                    battleIndex: widget.tutorialBattleIndex!,
-                    gamePanelKey: _gamePanelKey,
-                    agentPanelKey: _agentPanelKey,
-                    onComplete: () {
-                      if (mounted) {
-                        setState(() {
-                          _showTutorialIntro = false;
-                          if (widget.tutorialSwipeHint != null) {
-                            _showTutorialSwipeHint = true;
+                      // 暫停選單覆蓋層
+                      Consumer<GameProvider>(
+                        builder: (_, game, __) {
+                          if (game.state?.status != GameStatus.paused) {
+                            return const SizedBox.shrink();
                           }
-                        });
-                      }
-                    },
-                  ),
+                          return PauseMenu(
+                            onResume: () => game.resumeGame(),
+                            onExitToMenu: () {
+                              battle.endBattle();
+                              Navigator.of(context).pop();
+                            },
+                          );
+                        },
+                      ),
 
-                // 教學滑動提示 Overlay
-                if (_showTutorialSwipeHint && widget.tutorialSwipeHint != null)
-                  _TutorialSwipeHint(
-                    onDismiss: () {
-                      if (mounted) {
-                        setState(() => _showTutorialSwipeHint = false);
-                      }
-                    },
-                  ),
+                      // 戰鬥結束 — 等攻擊動畫播完，再播爆炸演出＋結算
+                      ValueListenableBuilder<bool>(
+                        valueListenable: _attackAnimPlaying,
+                        builder: (_, animPlaying, __) => Consumer<GameProvider>(
+                          builder: (_, game, __) {
+                            final gameState = game.state;
+                            final canResolveResult = battleState != null &&
+                                (battle.isBattleOver ||
+                                    (gameState?.status == GameStatus.gameOver &&
+                                        !battle.isBattleOver));
+                            if (canResolveResult &&
+                                !_savingResult &&
+                                !_victoryAnimPlaying &&
+                                !_showResult &&
+                                !animPlaying) {
+                              final isVictory =
+                                  battle.isBattleOver && battle.isVictory;
+                              WidgetsBinding.instance.addPostFrameCallback((_) {
+                                if (!mounted ||
+                                    _savingResult ||
+                                    _victoryAnimPlaying ||
+                                    _showResult) {
+                                  return;
+                                }
+                                _savingResult = true;
+                                _saveResult(isVictory, gameState?.score ?? 0)
+                                    .whenComplete(() {
+                                  if (!mounted) return;
+                                  _savingResult = false;
+                                  _startEndAnimation(isVictory);
+                                });
+                              });
+                            }
+                            return const SizedBox.shrink();
+                          },
+                        ),
+                      ),
 
-                // 首戰引導 Overlay（非教學模式的 1-1）
-                if (_battleGuideStep >= 0 && !_showTutorialIntro)
-                  _FirstBattleGuide(
-                    step: _battleGuideStep,
-                    onNext: () {
-                      if (_battleGuideStep >= 1) {
-                        setState(() => _battleGuideStep = -1);
-                      } else {
-                        setState(() => _battleGuideStep++);
-                      }
-                    },
-                  ),
+                      // 技能施放橫幅動畫（寶可夢藍寶石版飛天風格）
+                      if (_showSkillBanner)
+                        _SkillBannerAnimation(
+                          agentId: _skillBannerAgentId!,
+                          agentName: _skillBannerAgentName ?? '',
+                          skillName: _skillBannerSkillName ?? '',
+                          color: _skillBannerColor ?? Colors.amber,
+                          onComplete: () {
+                            if (mounted) {
+                              setState(() => _showSkillBanner = false);
+                            }
+                          },
+                        ),
 
-                // 爆炸演出層
-                if (_victoryAnimPlaying)
-                  _BattleEndExplosion(
-                    isVictory: battle.isVictory,
-                    onComplete: () {
-                      if (mounted) {
-                        setState(() {
-                          _victoryAnimPlaying = false;
-                          _showResult = true;
-                        });
-                      }
-                    },
-                  ),
+                      // Boss 對話演出
+                      if (_showBossIntro)
+                        _BossIntroOverlay(
+                          chapter: widget.stage.chapter,
+                          onComplete: () {
+                            if (mounted) {
+                              setState(() => _showBossIntro = false);
+                            }
+                          },
+                        ),
 
-                // 結算畫面
-                if (_showResult)
-                  _BattleEndOverlay(
-                    isVictory: battle.isBattleOver ? battle.isVictory : false,
-                    stage: widget.stage,
-                    score: context.read<GameProvider>().state?.score ?? 0,
-                    reward: _reward,
-                    onExit: () {
-                      setState(() => _showResult = false);
-                      battle.endBattle();
-                      if (widget.onBattleEnd != null) {
-                        widget.onBattleEnd!();
-                      } else {
-                        Navigator.of(context).pop();
-                      }
-                    },
-                    onRetry: () => _retryBattle(context),
-                    onNextStage: (battle.isBattleOver && battle.isVictory && widget.onBattleEnd == null)
-                        ? _getNextStageCallback(context, battle)
-                        : null,
-                  ),
-              ],
-            );
-          },
-        ),
-          ],
+                      // 教學戰鬥介紹 Overlay（角色立繪對話 + 高亮引導）
+                      if (_showTutorialIntro)
+                        _TutorialBattleIntro(
+                          battleIndex: widget.tutorialBattleIndex!,
+                          gamePanelKey: _gamePanelKey,
+                          agentPanelKey: _agentPanelKey,
+                          onComplete: () {
+                            if (mounted) {
+                              setState(() {
+                                _showTutorialIntro = false;
+                                if (widget.tutorialSwipeHint != null) {
+                                  _showTutorialSwipeHint = true;
+                                }
+                              });
+                            }
+                          },
+                        ),
+
+                      // 教學滑動提示 Overlay
+                      if (_showTutorialSwipeHint &&
+                          widget.tutorialSwipeHint != null)
+                        _TutorialSwipeHint(
+                          onDismiss: () {
+                            if (mounted) {
+                              setState(() => _showTutorialSwipeHint = false);
+                            }
+                          },
+                        ),
+
+                      // 首戰引導 Overlay（非教學模式的 1-1）
+                      if (_battleGuideStep >= 0 && !_showTutorialIntro)
+                        _FirstBattleGuide(
+                          step: _battleGuideStep,
+                          onNext: () {
+                            if (_battleGuideStep >= 1) {
+                              setState(() => _battleGuideStep = -1);
+                            } else {
+                              setState(() => _battleGuideStep++);
+                            }
+                          },
+                        ),
+
+                      // 爆炸演出層
+                      if (_victoryAnimPlaying)
+                        _BattleEndExplosion(
+                          isVictory: battle.isVictory,
+                          onComplete: () {
+                            if (mounted) {
+                              setState(() {
+                                _victoryAnimPlaying = false;
+                                _showResult = true;
+                              });
+                            }
+                          },
+                        ),
+
+                      // 結算畫面
+                      if (_showResult)
+                        _BattleEndOverlay(
+                          isVictory:
+                              battle.isBattleOver ? battle.isVictory : false,
+                          stage: widget.stage,
+                          score: context.read<GameProvider>().state?.score ?? 0,
+                          reward: _reward,
+                          onExit: () {
+                            setState(() => _showResult = false);
+                            battle.endBattle();
+                            if (widget.onBattleEnd != null) {
+                              widget.onBattleEnd!();
+                            } else {
+                              Navigator.of(context).pop();
+                            }
+                          },
+                          onRetry: () => _retryBattle(context),
+                          onNextStage: (battle.isBattleOver &&
+                                  battle.isVictory &&
+                                  widget.onBattleEnd == null)
+                              ? _getNextStageCallback(context, battle)
+                              : null,
+                        ),
+                    ],
+                  );
+                },
+              ),
+            ],
+          ),
         ),
       ),
-    ),
     );
   }
 }
@@ -675,7 +714,8 @@ class _WoodTopBar extends StatelessWidget {
           // 返回按鈕
           _WoodButton(
             onTap: onBack,
-            child: const Icon(Icons.arrow_back_ios_new, size: 16, color: Colors.white),
+            child: const Icon(Icons.arrow_back_ios_new,
+                size: 16, color: Colors.white),
           ),
           const SizedBox(width: 8),
           // STAGE 名稱
@@ -758,7 +798,7 @@ class _RushAnimData {
   final UniqueKey key = UniqueKey();
 
   // 傷害分解（神魔風格）
-  final int preComboDamage;  // combo 前累積傷害
+  final int preComboDamage; // combo 前累積傷害
   final int combo;
   final double comboMult;
   final double attributeMult;
@@ -784,8 +824,7 @@ class _RushAnimData {
   });
 
   /// 是否需要計數器演出
-  bool get needsCounterBuildup =>
-      combo > 1 || attributeMult > 1.0;
+  bool get needsCounterBuildup => combo > 1 || attributeMult > 1.0;
 }
 
 /// 飄浮傷害數字資料
@@ -901,9 +940,12 @@ class _CatAgentPanelState extends State<_CatAgentPanel>
     _screenShakeAnim = TweenSequence<double>([
       TweenSequenceItem(tween: Tween(begin: 0, end: max), weight: 12),
       TweenSequenceItem(tween: Tween(begin: max, end: -max * 0.75), weight: 18),
-      TweenSequenceItem(tween: Tween(begin: -max * 0.75, end: max * 0.6), weight: 18),
-      TweenSequenceItem(tween: Tween(begin: max * 0.6, end: -max * 0.4), weight: 20),
-      TweenSequenceItem(tween: Tween(begin: -max * 0.4, end: max * 0.18), weight: 16),
+      TweenSequenceItem(
+          tween: Tween(begin: -max * 0.75, end: max * 0.6), weight: 18),
+      TweenSequenceItem(
+          tween: Tween(begin: max * 0.6, end: -max * 0.4), weight: 20),
+      TweenSequenceItem(
+          tween: Tween(begin: -max * 0.4, end: max * 0.18), weight: 16),
       TweenSequenceItem(tween: Tween(begin: max * 0.18, end: 0), weight: 16),
     ]).animate(CurvedAnimation(
       parent: _screenShakeController,
@@ -913,7 +955,8 @@ class _CatAgentPanelState extends State<_CatAgentPanel>
 
   /// 觸發畫面震動（同強度若已在進行中則不打斷；新強度更高則覆蓋）
   void _triggerScreenShake(_ScreenShakeStrength s) {
-    final shouldOverride = !_screenShakeController.isAnimating || _shakeIsStronger(s);
+    final shouldOverride =
+        !_screenShakeController.isAnimating || _shakeIsStronger(s);
     if (!shouldOverride) return;
     _currentShake = s;
     _setShakeAnim(s);
@@ -970,7 +1013,8 @@ class _CatAgentPanelState extends State<_CatAgentPanel>
 
   /// 將棋盤格座標 (col, row) 轉為 panel 座標系的方塊中心點
   Offset? _gridToPanel(int col, int row) {
-    final boardBox = widget.boardKey.currentContext?.findRenderObject() as RenderBox?;
+    final boardBox =
+        widget.boardKey.currentContext?.findRenderObject() as RenderBox?;
     final panelBox = _panelKey.currentContext?.findRenderObject() as RenderBox?;
     if (boardBox == null || panelBox == null) return null;
 
@@ -999,7 +1043,8 @@ class _CatAgentPanelState extends State<_CatAgentPanel>
   }
 
   Offset? _getPlayerSectionCenter() {
-    final renderBox = _playerSectionKey.currentContext?.findRenderObject() as RenderBox?;
+    final renderBox =
+        _playerSectionKey.currentContext?.findRenderObject() as RenderBox?;
     final panelBox = _panelKey.currentContext?.findRenderObject() as RenderBox?;
     if (renderBox == null || panelBox == null) return null;
     final center = renderBox.localToGlobal(
@@ -1048,7 +1093,8 @@ class _CatAgentPanelState extends State<_CatAgentPanel>
           }
           // fallback：若座標轉換失敗，用棋盤右邊緣
           if (sources.isEmpty) {
-            final panelBox = _panelKey.currentContext?.findRenderObject() as RenderBox?;
+            final panelBox =
+                _panelKey.currentContext?.findRenderObject() as RenderBox?;
             final edgeX = panelBox != null ? panelBox.size.width : 300.0;
             sources.add(AttackParticleSource(
               position: Offset(edgeX, to.dy),
@@ -1094,7 +1140,8 @@ class _CatAgentPanelState extends State<_CatAgentPanel>
             from: from,
             to: to,
             emoji: event.emoji ?? '⚔',
-            color: attacker?.definition.attribute.blockColor.color ?? Colors.cyan,
+            color:
+                attacker?.definition.attribute.blockColor.color ?? Colors.cyan,
             damage: event.value,
             isPlayerAttack: true,
             targetIndex: event.targetIndex,
@@ -1120,7 +1167,8 @@ class _CatAgentPanelState extends State<_CatAgentPanel>
             from: from,
             to: playerSectionCenter,
             emoji: event.emoji ?? '👊',
-            color: enemyAttacker?.definition.attribute.blockColor.color ?? Colors.red,
+            color: enemyAttacker?.definition.attribute.blockColor.color ??
+                Colors.red,
             damage: event.value,
             isPlayerAttack: false,
             attackerAgentId: enemyAttacker?.definition.id,
@@ -1274,193 +1322,194 @@ class _CatAgentPanelState extends State<_CatAgentPanel>
         child: child,
       ),
       child: Stack(
-      key: _panelKey,
-      children: [
-        // 原有佈局
-        Container(
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [
-                Color(0xCCE8D5B7),  // Warm Wheat
-                Color(0xBBF5E6D3),  // Almond
-                Color(0xAAE8D5B7),  // Warm Wheat
-                Color(0x99D7C4A8),  // Muted wheat
-              ],
-              stops: [0.0, 0.3, 0.75, 1.0],
+        key: _panelKey,
+        children: [
+          // 原有佈局
+          Container(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  Color(0xCCE8D5B7), // Warm Wheat
+                  Color(0xBBF5E6D3), // Almond
+                  Color(0xAAE8D5B7), // Warm Wheat
+                  Color(0x99D7C4A8), // Muted wheat
+                ],
+                stops: [0.0, 0.3, 0.75, 1.0],
+              ),
             ),
-          ),
-          child: Column(
-            children: [
-              // ── 上半：敵人卡牌 ──
-              Expanded(
-                flex: 5,
-                child: _EnemyCardsSection(
-                  battleState: widget.battleState,
-                  cardKeys: _enemyKeys,
-                  hitStates: _enemyHitStates,
-                ),
-              ),
-              // 分隔線
-              Container(
-                height: 2,
-                color: AppTheme.accentSecondary.withAlpha(60),
-                margin: const EdgeInsets.symmetric(horizontal: 6),
-              ),
-              // ── 下半：我方角色 ──
-              Expanded(
-                flex: 5,
-                child: _ShakeWrapper(
-                  key: _playerSectionKey,
-                  isShaking: _playerSectionHit,
-                  intensity: ShakeIntensity.heavy,
-                  child: _PlayerCardsSection(
+            child: Column(
+              children: [
+                // ── 上半：敵人卡牌 ──
+                Expanded(
+                  flex: 5,
+                  child: _EnemyCardsSection(
                     battleState: widget.battleState,
-                    battleProvider: widget.battleProvider,
-                    cardKeys: _playerKeys,
-                    accumDamage: _accumDamage,
+                    cardKeys: _enemyKeys,
+                    hitStates: _enemyHitStates,
                   ),
                 ),
-              ),
-            ],
-          ),
-        ),
-        // 預感暗幕層（敵方回合前的戲劇停頓）
-        if (_anticipationAlpha > 0)
-          Positioned.fill(
-            child: IgnorePointer(
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
-                color: Colors.black.withAlpha(_anticipationAlpha.round()),
-              ),
+                // 分隔線
+                Container(
+                  height: 2,
+                  color: AppTheme.accentSecondary.withAlpha(60),
+                  margin: const EdgeInsets.symmetric(horizontal: 6),
+                ),
+                // ── 下半：我方角色 ──
+                Expanded(
+                  flex: 5,
+                  child: _ShakeWrapper(
+                    key: _playerSectionKey,
+                    isShaking: _playerSectionHit,
+                    intensity: ShakeIntensity.heavy,
+                    child: _PlayerCardsSection(
+                      battleState: widget.battleState,
+                      battleProvider: widget.battleProvider,
+                      cardKeys: _playerKeys,
+                      accumDamage: _accumDamage,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
-        // 階段標示層（動畫化）
-        if (_phaseBanner != null)
-          _PhaseBannerWidget(
-            key: ValueKey('phase_$_phaseBanner'),
-            text: _phaseBanner!,
-            isEnemy: _phaseBannerIsEnemy,
-          ),
-        // 棋盤攻擊粒子層
-        ..._activeBoardAttacks.map((ba) {
-          return BoardAttackEffect(
-            key: ValueKey('board_attack_${ba.id}'),
-            data: ba,
-            onHit: () {
-              // 粒子到達：顯示傷害數字 + 敵人閃爍 + 畫面震動 + 強震動
-              if (!mounted) return;
-              final hitColor = ba.sources.isNotEmpty
-                  ? ba.sources.first.color
-                  : Colors.amber;
-
-              // 找到對應的敵人並判斷震動強度
-              _ScreenShakeStrength shakeStrength =
-                  _ScreenShakeStrength.light;
-              int? hitIdx;
-              for (int i = 0; i < _enemyHitStates.length; i++) {
-                final pos = _getCardCenter(_enemyKeys[i]);
-                if (pos != null && (pos - ba.target).distance < 30) {
-                  hitIdx = i;
-                  break;
-                }
-              }
-              if (hitIdx != null &&
-                  hitIdx < widget.battleState.enemies.length) {
-                final enemy = widget.battleState.enemies[hitIdx];
-                final isFinishingBlow = enemy.currentHp <= ba.damage;
-                final isBoss = enemy.definition.hasPhases;
-                if (isBoss && isFinishingBlow) {
-                  shakeStrength = _ScreenShakeStrength.heavy;
-                } else if (isBoss || isFinishingBlow) {
-                  shakeStrength = _ScreenShakeStrength.medium;
-                }
-              }
-
-              // 觸覺：強度越高，震動越重
-              switch (shakeStrength) {
-                case _ScreenShakeStrength.light:
-                  HapticFeedback.mediumImpact();
-                  Future.delayed(const Duration(milliseconds: 60), () {
-                    HapticFeedback.mediumImpact();
-                  });
-                  break;
-                case _ScreenShakeStrength.medium:
-                  HapticFeedback.heavyImpact();
-                  Future.delayed(const Duration(milliseconds: 80), () {
-                    HapticFeedback.mediumImpact();
-                  });
-                  break;
-                case _ScreenShakeStrength.heavy:
-                  HapticFeedback.heavyImpact();
-                  Future.delayed(const Duration(milliseconds: 60), () {
-                    HapticFeedback.heavyImpact();
-                  });
-                  Future.delayed(const Duration(milliseconds: 160), () {
-                    HapticFeedback.heavyImpact();
-                  });
-                  break;
-              }
-
-              _triggerScreenShake(shakeStrength);
-
-              setState(() {
-                _activeDamagePopups.add(_DamagePopupData(
-                  position: ba.target + const Offset(-20, -28),
-                  damage: ba.damage,
-                  color: hitColor,
-                  useCounter: false,
-                ));
-                if (hitIdx != null) {
-                  _enemyHitStates[hitIdx] = true;
-                  final idx = hitIdx;
-                  Future.delayed(const Duration(milliseconds: 200), () {
-                    if (mounted) setState(() => _enemyHitStates[idx] = false);
-                  });
-                }
-              });
-            },
-            onComplete: () {
-              if (mounted) {
-                setState(() => _activeBoardAttacks.removeWhere((e) => e.id == ba.id));
-              }
-            },
-          );
-        }),
-        // 衝撞動畫層
-        ..._activeRushAnims.map((rush) => IgnorePointer(
-          child: _RushAttackWidget(
-            key: rush.key,
-            data: rush,
-            onHit: () => _onRushHit(rush),
-            onComplete: () => _removeRush(rush),
-          ),
-        )),
-        // 飄浮傷害數字層
-        ..._activeDamagePopups.map((popup) => popup.useCounter
-            ? DamageCounterWidget(
-                key: popup.key,
-                position: popup.position,
-                finalDamage: popup.damage,
-                preComboDamage: popup.preComboDamage,
-                combo: popup.combo,
-                comboMult: popup.comboMult,
-                attributeMult: popup.attributeMult,
-                color: popup.color,
-                onComplete: () => _removePopup(popup),
-              )
-            : _DamagePopup(
-                key: popup.key,
-                position: popup.position,
-                damage: popup.damage,
-                color: popup.color,
-                combo: popup.combo,
-                onComplete: () => _removePopup(popup),
+          // 預感暗幕層（敵方回合前的戲劇停頓）
+          if (_anticipationAlpha > 0)
+            Positioned.fill(
+              child: IgnorePointer(
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  color: Colors.black.withAlpha(_anticipationAlpha.round()),
+                ),
               ),
-        ),
-      ],
-    ),
+            ),
+          // 階段標示層（動畫化）
+          if (_phaseBanner != null)
+            _PhaseBannerWidget(
+              key: ValueKey('phase_$_phaseBanner'),
+              text: _phaseBanner!,
+              isEnemy: _phaseBannerIsEnemy,
+            ),
+          // 棋盤攻擊粒子層
+          ..._activeBoardAttacks.map((ba) {
+            return BoardAttackEffect(
+              key: ValueKey('board_attack_${ba.id}'),
+              data: ba,
+              onHit: () {
+                // 粒子到達：顯示傷害數字 + 敵人閃爍 + 畫面震動 + 強震動
+                if (!mounted) return;
+                final hitColor = ba.sources.isNotEmpty
+                    ? ba.sources.first.color
+                    : Colors.amber;
+
+                // 找到對應的敵人並判斷震動強度
+                _ScreenShakeStrength shakeStrength = _ScreenShakeStrength.light;
+                int? hitIdx;
+                for (int i = 0; i < _enemyHitStates.length; i++) {
+                  final pos = _getCardCenter(_enemyKeys[i]);
+                  if (pos != null && (pos - ba.target).distance < 30) {
+                    hitIdx = i;
+                    break;
+                  }
+                }
+                if (hitIdx != null &&
+                    hitIdx < widget.battleState.enemies.length) {
+                  final enemy = widget.battleState.enemies[hitIdx];
+                  final isFinishingBlow = enemy.currentHp <= ba.damage;
+                  final isBoss = enemy.definition.hasPhases;
+                  if (isBoss && isFinishingBlow) {
+                    shakeStrength = _ScreenShakeStrength.heavy;
+                  } else if (isBoss || isFinishingBlow) {
+                    shakeStrength = _ScreenShakeStrength.medium;
+                  }
+                }
+
+                // 觸覺：強度越高，震動越重
+                switch (shakeStrength) {
+                  case _ScreenShakeStrength.light:
+                    HapticFeedback.mediumImpact();
+                    Future.delayed(const Duration(milliseconds: 60), () {
+                      HapticFeedback.mediumImpact();
+                    });
+                    break;
+                  case _ScreenShakeStrength.medium:
+                    HapticFeedback.heavyImpact();
+                    Future.delayed(const Duration(milliseconds: 80), () {
+                      HapticFeedback.mediumImpact();
+                    });
+                    break;
+                  case _ScreenShakeStrength.heavy:
+                    HapticFeedback.heavyImpact();
+                    Future.delayed(const Duration(milliseconds: 60), () {
+                      HapticFeedback.heavyImpact();
+                    });
+                    Future.delayed(const Duration(milliseconds: 160), () {
+                      HapticFeedback.heavyImpact();
+                    });
+                    break;
+                }
+
+                _triggerScreenShake(shakeStrength);
+
+                setState(() {
+                  _activeDamagePopups.add(_DamagePopupData(
+                    position: ba.target + const Offset(-20, -28),
+                    damage: ba.damage,
+                    color: hitColor,
+                    useCounter: false,
+                  ));
+                  if (hitIdx != null) {
+                    _enemyHitStates[hitIdx] = true;
+                    final idx = hitIdx;
+                    Future.delayed(const Duration(milliseconds: 200), () {
+                      if (mounted) setState(() => _enemyHitStates[idx] = false);
+                    });
+                  }
+                });
+              },
+              onComplete: () {
+                if (mounted) {
+                  setState(() =>
+                      _activeBoardAttacks.removeWhere((e) => e.id == ba.id));
+                }
+              },
+            );
+          }),
+          // 衝撞動畫層
+          ..._activeRushAnims.map((rush) => IgnorePointer(
+                child: _RushAttackWidget(
+                  key: rush.key,
+                  data: rush,
+                  onHit: () => _onRushHit(rush),
+                  onComplete: () => _removeRush(rush),
+                ),
+              )),
+          // 飄浮傷害數字層
+          ..._activeDamagePopups.map(
+            (popup) => popup.useCounter
+                ? DamageCounterWidget(
+                    key: popup.key,
+                    position: popup.position,
+                    finalDamage: popup.damage,
+                    preComboDamage: popup.preComboDamage,
+                    combo: popup.combo,
+                    comboMult: popup.comboMult,
+                    attributeMult: popup.attributeMult,
+                    color: popup.color,
+                    onComplete: () => _removePopup(popup),
+                  )
+                : _DamagePopup(
+                    key: popup.key,
+                    position: popup.position,
+                    damage: popup.damage,
+                    color: popup.color,
+                    combo: popup.combo,
+                    onComplete: () => _removePopup(popup),
+                  ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -1470,9 +1519,9 @@ class _CatAgentPanelState extends State<_CatAgentPanel>
 // ═══════════════════════════════════════════
 
 enum ShakeIntensity {
-  light,   // 消方塊等輕微反饋
-  medium,  // 普攻命中
-  heavy,   // 敵方攻擊、大傷害
+  light, // 消方塊等輕微反饋
+  medium, // 普攻命中
+  heavy, // 敵方攻擊、大傷害
   massive, // 技能施放、Boss 擊殺
 }
 
@@ -1647,9 +1696,9 @@ class _ShakeWrapperState extends State<_ShakeWrapper>
 
   // 各等級參數
   static const _params = {
-    ShakeIntensity.light:   (amplitude: 3.0,  durationMs: 200, zoom: 1.0),
-    ShakeIntensity.medium:  (amplitude: 6.0,  durationMs: 300, zoom: 1.0),
-    ShakeIntensity.heavy:   (amplitude: 10.0, durationMs: 400, zoom: 1.02),
+    ShakeIntensity.light: (amplitude: 3.0, durationMs: 200, zoom: 1.0),
+    ShakeIntensity.medium: (amplitude: 6.0, durationMs: 300, zoom: 1.0),
+    ShakeIntensity.heavy: (amplitude: 10.0, durationMs: 400, zoom: 1.02),
     ShakeIntensity.massive: (amplitude: 14.0, durationMs: 500, zoom: 1.03),
   };
 
@@ -1776,8 +1825,8 @@ class _RushAttackWidgetState extends State<_RushAttackWidget>
       ),
       // 衝刺階段 (15-40%): 衝向目標
       TweenSequenceItem(
-        tween: Tween(begin: 0.0, end: 1.0)
-            .chain(CurveTween(curve: Curves.easeIn)),
+        tween:
+            Tween(begin: 0.0, end: 1.0).chain(CurveTween(curve: Curves.easeIn)),
         weight: 25,
       ),
       // 撞擊停頓 (40-55%): 停在目標
@@ -1883,7 +1932,8 @@ class _RushAttackWidgetState extends State<_RushAttackWidget>
           ),
         );
       } else {
-        imageWidget = Text(data.emoji, style: const TextStyle(fontSize: AppTheme.fontDisplayLg));
+        imageWidget = Text(data.emoji,
+            style: const TextStyle(fontSize: AppTheme.fontDisplayLg));
       }
     } else if (!isPlayer && agentId != null) {
       imageWidget = GameImage(
@@ -1893,7 +1943,8 @@ class _RushAttackWidgetState extends State<_RushAttackWidget>
         height: 36,
       );
     } else {
-      imageWidget = Text(data.emoji, style: const TextStyle(fontSize: AppTheme.fontDisplayLg));
+      imageWidget = Text(data.emoji,
+          style: const TextStyle(fontSize: AppTheme.fontDisplayLg));
     }
 
     return Container(
@@ -2279,8 +2330,7 @@ class _EnemyCard extends StatefulWidget {
   State<_EnemyCard> createState() => _EnemyCardState();
 }
 
-class _EnemyCardState extends State<_EnemyCard>
-    with TickerProviderStateMixin {
+class _EnemyCardState extends State<_EnemyCard> with TickerProviderStateMixin {
   late AnimationController _shakeController;
   late Animation<double> _shakeAnim;
   late AnimationController _flashController;
@@ -2467,7 +2517,8 @@ class _EnemyCardState extends State<_EnemyCard>
                 GameImage(
                   assetPath: ImageAssets.enemyImage(enemy.definition.id),
                   fallbackEmoji: enemy.definition.emoji,
-                  width: 24, height: 24,
+                  width: 24,
+                  height: 24,
                 ),
                 const SizedBox(width: 6),
                 Text(
@@ -2512,278 +2563,297 @@ class _EnemyCardState extends State<_EnemyCard>
       child: GestureDetector(
         onLongPress: () => _showSkillDetail(context),
         child: AnimatedBuilder(
-        animation: Listenable.merge([
-          _shakeAnim,
-          _flashAnim,
-          _hitScaleController,
-          _defeatController,
-          _statePulseController,
-        ]),
-        builder: (_, child) {
-          // 擊敗動畫中：膨脹→縮小→淡出
-          final defeatScale = _defeatController.isAnimating
-              ? _defeatScaleAnim.value.clamp(0.0, 2.0) : 1.0;
-          final defeatOpacity = _defeatController.isAnimating
-              ? _defeatOpacityAnim.value.clamp(0.0, 1.0) : 1.0;
-          // 著彈微縮
-          final hitScale = _hitScaleController.isAnimating
-              ? _hitScaleAnim.value : 1.0;
-          // 狂暴狀態下，配合脈衝做微微放大
-          final pulseT = _statePulse.value;
-          final stateScale =
-              isEnraged ? 1.0 + pulseT * 0.04 : 1.0;
-          return Opacity(
-            opacity: defeatOpacity,
-            child: Transform.scale(
-              scale: defeatScale * hitScale * stateScale,
-              child: Transform.translate(
-                offset: Offset(_shakeAnim.value, 0),
-                child: child,
-              ),
-            ),
-          );
-        },
-        child: AnimatedBuilder(
-          animation: _statePulseController,
-          builder: (_, __) {
+          animation: Listenable.merge([
+            _shakeAnim,
+            _flashAnim,
+            _hitScaleController,
+            _defeatController,
+            _statePulseController,
+          ]),
+          builder: (_, child) {
+            // 擊敗動畫中：膨脹→縮小→淡出
+            final defeatScale = _defeatController.isAnimating
+                ? _defeatScaleAnim.value.clamp(0.0, 2.0)
+                : 1.0;
+            final defeatOpacity = _defeatController.isAnimating
+                ? _defeatOpacityAnim.value.clamp(0.0, 1.0)
+                : 1.0;
+            // 著彈微縮
+            final hitScale =
+                _hitScaleController.isAnimating ? _hitScaleAnim.value : 1.0;
+            // 狂暴狀態下，配合脈衝做微微放大
             final pulseT = _statePulse.value;
-            // 蓄力 / 狂暴：邊框透明度 + 外發光呼吸
-            final pulseColor = isEnraged
-                ? Colors.red.shade400
-                : isCharging
-                    ? Colors.amber
-                    : null;
-            final extraShadows = <BoxShadow>[
-              if (pulseColor != null)
-                BoxShadow(
-                  color: pulseColor.withAlpha((100 + pulseT * 130).toInt()),
-                  blurRadius: 10 + pulseT * 12,
-                  spreadRadius: pulseT * 2,
+            final stateScale = isEnraged ? 1.0 + pulseT * 0.04 : 1.0;
+            return Opacity(
+              opacity: defeatOpacity,
+              child: Transform.scale(
+                scale: defeatScale * hitScale * stateScale,
+                child: Transform.translate(
+                  offset: Offset(_shakeAnim.value, 0),
+                  child: child,
                 ),
-            ];
-            // 邊框顏色在 pulse 高峰時更亮
-            final pulsedOuter = pulseColor != null
-                ? Color.lerp(outerBorderColor, Colors.white, pulseT * 0.35)!
-                : outerBorderColor;
-            return Container(
-              height: 80,
-              clipBehavior: Clip.antiAlias,
-              decoration: BoxDecoration(
-                color: AppTheme.bgCard,
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: pulsedOuter, width: 2),
-                boxShadow: [
-                  if (isCurrent)
-                    BoxShadow(
-                        color: color.withAlpha(60),
-                        blurRadius: 10,
-                        spreadRadius: 1),
-                  if (isHit)
-                    BoxShadow(
-                        color: Colors.white.withAlpha(80), blurRadius: 12),
-                  ...extraShadows,
-                ],
               ),
-        child: Container(
-          decoration: BoxDecoration(
-            border: Border.all(color: innerBorderColor, width: 1),
-            borderRadius: BorderRadius.circular(6),
-          ),
-          child: Stack(
-            children: [
-              Row(
-                children: [
-                  // ─── 左側：大圖區域 ───
-                  SizedBox(
-                    width: 72,
-                    child: Stack(
-                      fit: StackFit.expand,
-                      children: [
-                        Container(
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                              colors: [
-                                color.withAlpha(40),
-                                color.withAlpha(15),
-                              ],
-                            ),
-                            border: Border(
-                              right: BorderSide(color: color.withAlpha(80), width: 1.5),
-                            ),
-                          ),
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.all(4),
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(4),
-                            child: GameImage(
-                              assetPath: ImageAssets.enemyImage(enemy.definition.id),
-                              fallbackEmoji: enemy.definition.emoji,
-                              width: 64,
-                              height: 72,
-                            ),
-                          ),
-                        ),
-                        // 倒數弧形指示器
-                    Positioned(
-                      top: 2,
-                      right: 4,
-                      child: _MiniCountdownArc(
-                        progress: countdownPercent,
-                        color: color,
-                      ),
-                    ),
+            );
+          },
+          child: AnimatedBuilder(
+            animation: _statePulseController,
+            builder: (_, __) {
+              final pulseT = _statePulse.value;
+              // 蓄力 / 狂暴：邊框透明度 + 外發光呼吸
+              final pulseColor = isEnraged
+                  ? Colors.red.shade400
+                  : isCharging
+                      ? Colors.amber
+                      : null;
+              final extraShadows = <BoxShadow>[
+                if (pulseColor != null)
+                  BoxShadow(
+                    color: pulseColor.withAlpha((100 + pulseT * 130).toInt()),
+                    blurRadius: 10 + pulseT * 12,
+                    spreadRadius: pulseT * 2,
+                  ),
+              ];
+              // 邊框顏色在 pulse 高峰時更亮
+              final pulsedOuter = pulseColor != null
+                  ? Color.lerp(outerBorderColor, Colors.white, pulseT * 0.35)!
+                  : outerBorderColor;
+              return Container(
+                height: 80,
+                clipBehavior: Clip.antiAlias,
+                decoration: BoxDecoration(
+                  color: AppTheme.bgCard,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: pulsedOuter, width: 2),
+                  boxShadow: [
+                    if (isCurrent)
+                      BoxShadow(
+                          color: color.withAlpha(60),
+                          blurRadius: 10,
+                          spreadRadius: 1),
+                    if (isHit)
+                      BoxShadow(
+                          color: Colors.white.withAlpha(80), blurRadius: 12),
+                    ...extraShadows,
                   ],
                 ),
-              ),
-              // ─── 右側：名稱 + HP 條 + ATK + 狀態 ───
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 5),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisAlignment: MainAxisAlignment.center,
+                child: Container(
+                  decoration: BoxDecoration(
+                    border: Border.all(color: innerBorderColor, width: 1),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Stack(
                     children: [
-                      // 名稱列
                       Row(
                         children: [
-                          Expanded(
-                            child: Text(
-                              enemy.definition.name,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: AppTheme.fontBodyMd,
-                                fontWeight: FontWeight.bold,
-                                shadows: [
-                                  Shadow(color: Colors.black87, blurRadius: 3)
-                                ],
-                              ),
-                              overflow: TextOverflow.ellipsis,
+                          // ─── 左側：大圖區域 ───
+                          SizedBox(
+                            width: 72,
+                            child: Stack(
+                              fit: StackFit.expand,
+                              children: [
+                                Container(
+                                  decoration: BoxDecoration(
+                                    gradient: LinearGradient(
+                                      begin: Alignment.topLeft,
+                                      end: Alignment.bottomRight,
+                                      colors: [
+                                        color.withAlpha(40),
+                                        color.withAlpha(15),
+                                      ],
+                                    ),
+                                    border: Border(
+                                      right: BorderSide(
+                                          color: color.withAlpha(80),
+                                          width: 1.5),
+                                    ),
+                                  ),
+                                ),
+                                Padding(
+                                  padding: const EdgeInsets.all(4),
+                                  child: ClipRRect(
+                                    borderRadius: BorderRadius.circular(4),
+                                    child: GameImage(
+                                      assetPath: ImageAssets.enemyImage(
+                                          enemy.definition.id),
+                                      fallbackEmoji: enemy.definition.emoji,
+                                      width: 64,
+                                      height: 72,
+                                    ),
+                                  ),
+                                ),
+                                // 倒數弧形指示器
+                                Positioned(
+                                  top: 2,
+                                  right: 4,
+                                  child: _MiniCountdownArc(
+                                    progress: countdownPercent,
+                                    color: color,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
-                          _AttackIntent(
-                            countdown: enemy.attackCountdown,
-                            atk: enemy.atk,
+                          // ─── 右側：名稱 + HP 條 + ATK + 狀態 ───
+                          Expanded(
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 6, vertical: 5),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  // 名稱列
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: Text(
+                                          enemy.definition.name,
+                                          style: const TextStyle(
+                                            color: Colors.white,
+                                            fontSize: AppTheme.fontBodyMd,
+                                            fontWeight: FontWeight.bold,
+                                            shadows: [
+                                              Shadow(
+                                                  color: Colors.black87,
+                                                  blurRadius: 3)
+                                            ],
+                                          ),
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                      _AttackIntent(
+                                        countdown: enemy.attackCountdown,
+                                        atk: enemy.atk,
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 4),
+                                  // HP 條（雙層追趕：current 立刻反應、trail 延遲跟上）
+                                  _DamageTrailBar(
+                                    percent: enemy.hpPercent,
+                                    minHeight: 8,
+                                    borderRadius: 3,
+                                  ),
+                                  // 護盾條（護盾 > 0 時顯示在 HP 條下方）
+                                  if (enemy.hasShield) ...[
+                                    const SizedBox(height: 2),
+                                    ClipRRect(
+                                      borderRadius: BorderRadius.circular(2),
+                                      child: TweenAnimationBuilder<double>(
+                                        tween: Tween(
+                                          end: enemy.skillState.shieldMaxHp > 0
+                                              ? enemy.skillState.shieldHp /
+                                                  enemy.skillState.shieldMaxHp
+                                              : 0.0,
+                                        ),
+                                        duration:
+                                            const Duration(milliseconds: 350),
+                                        curve: Curves.easeOut,
+                                        builder: (_, value, __) =>
+                                            LinearProgressIndicator(
+                                          value: value.clamp(0.0, 1.0),
+                                          minHeight: 4,
+                                          backgroundColor: Colors.grey.shade800,
+                                          valueColor:
+                                              const AlwaysStoppedAnimation<
+                                                  Color>(
+                                            Colors.cyan,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                  const SizedBox(height: 3),
+                                  // 數值列 + 技能圖示
+                                  Row(
+                                    children: [
+                                      Text(
+                                        '${enemy.currentHp}/${enemy.maxHp}',
+                                        style: const TextStyle(
+                                          color: Colors.white70,
+                                          fontSize: AppTheme.fontLabelSm,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 6),
+                                      Text(
+                                        'ATK ${enemy.atk}',
+                                        style: TextStyle(
+                                          color: enemy.skillState.isEnraged
+                                              ? Colors.red.shade100
+                                              : Colors.red.shade200,
+                                          fontSize: AppTheme.fontLabelSm,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                      const Spacer(),
+                                      // 常駐技能圖示列
+                                      ...enemy.activeSkills.map((skill) {
+                                        final info =
+                                            enemySkillInfoMap[skill.type];
+                                        if (info == null)
+                                          return const SizedBox.shrink();
+                                        final cd = enemy.skillState
+                                            .cooldownTimers[skill.type];
+                                        final isReady = cd != null && cd <= 1;
+                                        final isActive =
+                                            _isSkillActive(skill.type, enemy);
+                                        return _SkillIconChip(
+                                          info: info,
+                                          isReady: isReady,
+                                          isActive: isActive,
+                                        );
+                                      }),
+                                      // 我方施加的 debuff
+                                      if (isCurrent) ...[
+                                        if (battleState.defDebuffTurns > 0)
+                                          _StatusIcon(
+                                            icon: Icons.shield_outlined,
+                                            color: Colors.orange,
+                                            label:
+                                                '${battleState.defDebuffTurns}',
+                                            tooltip: '破防',
+                                          ),
+                                        if (battleState.activeDots.isNotEmpty)
+                                          _StatusIcon(
+                                            icon: Icons.local_fire_department,
+                                            color: Colors.deepOrange,
+                                            label:
+                                                '${battleState.activeDots.first.turnsRemaining}',
+                                            tooltip: 'DoT',
+                                          ),
+                                      ],
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ),
                           ),
                         ],
                       ),
-                      const SizedBox(height: 4),
-                      // HP 條（雙層追趕：current 立刻反應、trail 延遲跟上）
-                      _DamageTrailBar(
-                        percent: enemy.hpPercent,
-                        minHeight: 8,
-                        borderRadius: 3,
-                      ),
-                      // 護盾條（護盾 > 0 時顯示在 HP 條下方）
-                      if (enemy.hasShield) ...[
-                        const SizedBox(height: 2),
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(2),
-                          child: TweenAnimationBuilder<double>(
-                            tween: Tween(
-                              end: enemy.skillState.shieldMaxHp > 0
-                                  ? enemy.skillState.shieldHp / enemy.skillState.shieldMaxHp
-                                  : 0.0,
-                            ),
-                            duration: const Duration(milliseconds: 350),
-                            curve: Curves.easeOut,
-                            builder: (_, value, __) => LinearProgressIndicator(
-                              value: value.clamp(0.0, 1.0),
-                              minHeight: 4,
-                              backgroundColor: Colors.grey.shade800,
-                              valueColor: const AlwaysStoppedAnimation<Color>(
-                                Colors.cyan,
+                      // ── 白色閃爍 overlay ──
+                      if (_flashAnim.value > 0)
+                        Positioned.fill(
+                          child: IgnorePointer(
+                            child: Container(
+                              decoration: BoxDecoration(
+                                color: Colors.white.withAlpha(
+                                  (_flashAnim.value * 255)
+                                      .round()
+                                      .clamp(0, 255),
+                                ),
+                                borderRadius: BorderRadius.circular(6),
                               ),
                             ),
                           ),
                         ),
-                      ],
-                      const SizedBox(height: 3),
-                      // 數值列 + 技能圖示
-                      Row(
-                        children: [
-                          Text(
-                            '${enemy.currentHp}/${enemy.maxHp}',
-                            style: const TextStyle(
-                              color: Colors.white70,
-                              fontSize: AppTheme.fontLabelSm,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          const SizedBox(width: 6),
-                          Text(
-                            'ATK ${enemy.atk}',
-                            style: TextStyle(
-                              color: enemy.skillState.isEnraged
-                                  ? Colors.red.shade100
-                                  : Colors.red.shade200,
-                              fontSize: AppTheme.fontLabelSm,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          const Spacer(),
-                          // 常駐技能圖示列
-                          ...enemy.activeSkills.map((skill) {
-                            final info = enemySkillInfoMap[skill.type];
-                            if (info == null) return const SizedBox.shrink();
-                            final cd = enemy.skillState.cooldownTimers[skill.type];
-                            final isReady = cd != null && cd <= 1;
-                            final isActive = _isSkillActive(skill.type, enemy);
-                            return _SkillIconChip(
-                              info: info,
-                              isReady: isReady,
-                              isActive: isActive,
-                            );
-                          }),
-                          // 我方施加的 debuff
-                          if (isCurrent) ...[
-                            if (battleState.defDebuffTurns > 0)
-                              _StatusIcon(
-                                icon: Icons.shield_outlined,
-                                color: Colors.orange,
-                                label: '${battleState.defDebuffTurns}',
-                                tooltip: '破防',
-                              ),
-                            if (battleState.activeDots.isNotEmpty)
-                              _StatusIcon(
-                                icon: Icons.local_fire_department,
-                                color: Colors.deepOrange,
-                                label:
-                                    '${battleState.activeDots.first.turnsRemaining}',
-                                tooltip: 'DoT',
-                              ),
-                          ],
-                        ],
-                      ),
                     ],
                   ),
                 ),
-              ),
-              ],
-            ),
-            // ── 白色閃爍 overlay ──
-            if (_flashAnim.value > 0)
-              Positioned.fill(
-                child: IgnorePointer(
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: Colors.white.withAlpha(
-                        (_flashAnim.value * 255).round().clamp(0, 255),
-                      ),
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                  ),
-                ),
-              ),
-            ],
+              );
+            },
           ),
         ),
-      );
-          },
-        ),
-      ),
       ),
     );
   }
@@ -2969,19 +3039,19 @@ class _PlayerCardsSection extends StatelessWidget {
         const SizedBox(height: 2),
         // 角色卡牌
         ...battleState.team.asMap().entries.map((entry) {
-        final index = entry.key;
-        final agent = entry.value;
-        return _CatAgentCard(
-          key: index < cardKeys.length ? cardKeys[index] : null,
-          agent: agent,
-          accumDamage: accumDamage[index] ?? 0,
-          onTap: () {
-            if (agent.isSkillReady) {
-              _showSkillConfirm(context, agent, index);
-            }
-          },
-        );
-      }),
+          final index = entry.key;
+          final agent = entry.value;
+          return _CatAgentCard(
+            key: index < cardKeys.length ? cardKeys[index] : null,
+            agent: agent,
+            accumDamage: accumDamage[index] ?? 0,
+            onTap: () {
+              if (agent.isSkillReady) {
+                _showSkillConfirm(context, agent, index);
+              }
+            },
+          );
+        }),
       ],
     );
   }
@@ -3025,7 +3095,8 @@ class _PlayerCardsSection extends StatelessWidget {
               const SizedBox(height: 6),
               // 完整技能說明（戰鬥效果 + 棋盤效果）
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                 decoration: BoxDecoration(
                   color: color.withAlpha(20),
                   borderRadius: BorderRadius.circular(8),
@@ -3033,7 +3104,8 @@ class _PlayerCardsSection extends StatelessWidget {
                 child: Text(
                   agent.definition.skill.description.replaceAll(
                     '{multiplier}',
-                    agent.definition.skill.multiplierAtLevel(agent.level)
+                    agent.definition.skill
+                        .multiplierAtLevel(agent.level)
                         .toStringAsFixed(1),
                   ),
                   style: TextStyle(color: color, fontSize: AppTheme.fontBodyMd),
@@ -3348,12 +3420,10 @@ class _CatAgentCardState extends State<_CatAgentCard>
     final hasAccum = widget.accumDamage > 0;
 
     // 外框顏色
-    final outerBorderColor = isReady
-        ? Colors.amber.withAlpha(200)
-        : color.withAlpha(100);
-    final innerBorderColor = isReady
-        ? Colors.amber.withAlpha(100)
-        : color.withAlpha(50);
+    final outerBorderColor =
+        isReady ? Colors.amber.withAlpha(200) : color.withAlpha(100);
+    final innerBorderColor =
+        isReady ? Colors.amber.withAlpha(100) : color.withAlpha(50);
 
     return GestureDetector(
       onTap: isReady ? widget.onTap : null,
@@ -3385,8 +3455,7 @@ class _CatAgentCardState extends State<_CatAgentCard>
             builder: (_, inner) {
               final pulseT = isReady ? _readyPulse.value : 0.0;
               final pulsedBorder = isReady
-                  ? Color.lerp(
-                      outerBorderColor, Colors.amber.shade200, pulseT)!
+                  ? Color.lerp(outerBorderColor, Colors.amber.shade200, pulseT)!
                   : outerBorderColor;
               return Container(
                 height: 80,
@@ -3398,8 +3467,8 @@ class _CatAgentCardState extends State<_CatAgentCard>
                   boxShadow: [
                     if (isReady)
                       BoxShadow(
-                        color: Colors.amber
-                            .withAlpha((60 + pulseT * 140).toInt()),
+                        color:
+                            Colors.amber.withAlpha((60 + pulseT * 140).toInt()),
                         blurRadius: 10 + pulseT * 14,
                         spreadRadius: 1 + pulseT * 2,
                       ),
@@ -3432,7 +3501,8 @@ class _CatAgentCardState extends State<_CatAgentCard>
                               ],
                             ),
                             border: Border(
-                              right: BorderSide(color: color.withAlpha(80), width: 1.5),
+                              right: BorderSide(
+                                  color: color.withAlpha(80), width: 1.5),
                             ),
                           ),
                         ),
@@ -3441,7 +3511,9 @@ class _CatAgentCardState extends State<_CatAgentCard>
                           child: ClipRRect(
                             borderRadius: BorderRadius.circular(4),
                             child: _buildAgentAvatar(
-                              agent.definition.id, color, 64,
+                              agent.definition.id,
+                              color,
+                              64,
                             ),
                           ),
                         ),
@@ -3463,184 +3535,195 @@ class _CatAgentCardState extends State<_CatAgentCard>
                   // ─── 右側：正常資訊 or 累積計數器 ───
                   Expanded(
                     child: hasAccum
-                      // ── 累積模式：灰底 + 傷害計數器 ──
-                      ? AnimatedBuilder(
-                          animation: _countController,
-                          builder: (_, __) => Container(
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFF5E6C8).withAlpha(200), // 半透明米色
-                            ),
-                            child: Center(
-                              child: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Text(
-                                    '$_displayCount',
-                                    style: TextStyle(
-                                      color: Color.lerp(const Color(0xFF5D3A1A), color, 0.3)!, // 深棕帶屬性色
-                                      fontSize: 28,
-                                      fontWeight: FontWeight.w900,
-                                      shadows: [
-                                        Shadow(color: color.withAlpha(100), blurRadius: 8),
-                                      ],
-                                    ),
-                                  ),
-                                  Text(
-                                    isReady ? '技能就緒！' : '蓄力中',
-                                    style: TextStyle(
-                                      color: isReady
-                                          ? Colors.amber.shade700
-                                          : const Color(0xFF8B6914).withAlpha(180),
-                                      fontSize: AppTheme.fontLabelSm,
-                                      fontWeight: isReady ? FontWeight.bold : FontWeight.normal,
-                                    ),
-                                  ),
-                                ],
+                        // ── 累積模式：灰底 + 傷害計數器 ──
+                        ? AnimatedBuilder(
+                            animation: _countController,
+                            builder: (_, __) => Container(
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFF5E6C8)
+                                    .withAlpha(200), // 半透明米色
                               ),
-                            ),
-                          ),
-                        )
-                      // ── 正常模式 ──
-                      : Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 5),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: Text(
-                                      agent.definition.name,
-                                      style: const TextStyle(
-                                        color: Colors.white,
-                                        fontSize: AppTheme.fontBodyMd,
-                                        fontWeight: FontWeight.bold,
+                              child: Center(
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(
+                                      '$_displayCount',
+                                      style: TextStyle(
+                                        color: Color.lerp(
+                                            const Color(0xFF5D3A1A),
+                                            color,
+                                            0.3)!, // 深棕帶屬性色
+                                        fontSize: 28,
+                                        fontWeight: FontWeight.w900,
                                         shadows: [
-                                          Shadow(color: Colors.black87, blurRadius: 3)
+                                          Shadow(
+                                              color: color.withAlpha(100),
+                                              blurRadius: 8),
                                         ],
                                       ),
-                                      overflow: TextOverflow.ellipsis,
                                     ),
-                                  ),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-                                    decoration: BoxDecoration(
-                                      color: color.withAlpha(40),
-                                      borderRadius: BorderRadius.circular(3),
-                                    ),
-                                    child: Text(
-                                      'Lv.${agent.level}',
+                                    Text(
+                                      isReady ? '技能就緒！' : '蓄力中',
                                       style: TextStyle(
-                                        color: color,
+                                        color: isReady
+                                            ? Colors.amber.shade700
+                                            : const Color(0xFF8B6914)
+                                                .withAlpha(180),
                                         fontSize: AppTheme.fontLabelSm,
+                                        fontWeight: isReady
+                                            ? FontWeight.bold
+                                            : FontWeight.normal,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          )
+                        // ── 正常模式 ──
+                        : Padding(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 6, vertical: 5),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: Text(
+                                        agent.definition.name,
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: AppTheme.fontBodyMd,
+                                          fontWeight: FontWeight.bold,
+                                          shadows: [
+                                            Shadow(
+                                                color: Colors.black87,
+                                                blurRadius: 3)
+                                          ],
+                                        ),
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 4, vertical: 1),
+                                      decoration: BoxDecoration(
+                                        color: color.withAlpha(40),
+                                        borderRadius: BorderRadius.circular(3),
+                                      ),
+                                      child: Text(
+                                        'Lv.${agent.level}',
+                                        style: TextStyle(
+                                          color: color,
+                                          fontSize: AppTheme.fontLabelSm,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 3),
+                                Row(
+                                  children: [
+                                    Text(
+                                      'ATK ${agent.atk}',
+                                      style: TextStyle(
+                                        color: Colors.orange.shade200,
+                                        fontSize: AppTheme.fontLabelLg,
                                         fontWeight: FontWeight.bold,
                                       ),
                                     ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 3),
-                              Row(
-                                children: [
-                                  Text(
-                                    'ATK ${agent.atk}',
-                                    style: TextStyle(
-                                      color: Colors.orange.shade200,
-                                      fontSize: AppTheme.fontLabelLg,
-                                      fontWeight: FontWeight.bold,
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      'DEF ${agent.def}',
+                                      style: TextStyle(
+                                        color: Colors.blue.shade200,
+                                        fontSize: AppTheme.fontLabelLg,
+                                        fontWeight: FontWeight.bold,
+                                      ),
                                     ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Text(
-                                    'DEF ${agent.def}',
-                                    style: TextStyle(
-                                      color: Colors.blue.shade200,
-                                      fontSize: AppTheme.fontLabelLg,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 4),
-                              AnimatedBuilder(
-                                animation: _readyPulseController,
-                                builder: (_, __) {
-                                  final pulseT =
-                                      isReady ? _readyPulse.value : 0.0;
-                                  return ClipRRect(
-                                    borderRadius: BorderRadius.circular(3),
-                                    child: Stack(
-                                      children: [
-                                        LinearProgressIndicator(
-                                          value: agent.energyPercent,
-                                          minHeight: 7,
-                                          backgroundColor: AppTheme.bgCard,
-                                          valueColor:
-                                              AlwaysStoppedAnimation(
-                                            isReady
-                                                ? Color.lerp(
-                                                    Colors.amber,
-                                                    Colors.yellow.shade300,
-                                                    pulseT,
-                                                  )!
-                                                : color.withAlpha(150),
+                                  ],
+                                ),
+                                const SizedBox(height: 4),
+                                AnimatedBuilder(
+                                  animation: _readyPulseController,
+                                  builder: (_, __) {
+                                    final pulseT =
+                                        isReady ? _readyPulse.value : 0.0;
+                                    return ClipRRect(
+                                      borderRadius: BorderRadius.circular(3),
+                                      child: Stack(
+                                        children: [
+                                          LinearProgressIndicator(
+                                            value: agent.energyPercent,
+                                            minHeight: 7,
+                                            backgroundColor: AppTheme.bgCard,
+                                            valueColor: AlwaysStoppedAnimation(
+                                              isReady
+                                                  ? Color.lerp(
+                                                      Colors.amber,
+                                                      Colors.yellow.shade300,
+                                                      pulseT,
+                                                    )!
+                                                  : color.withAlpha(150),
+                                            ),
                                           ),
-                                        ),
-                                        // 就緒時掃光：白色從左到右流動
-                                        if (isReady)
-                                          Positioned.fill(
-                                            child: IgnorePointer(
-                                              child: FractionallySizedBox(
-                                                widthFactor: 0.35,
-                                                alignment: Alignment(
-                                                  -1 + pulseT * 2.7,
-                                                  0,
-                                                ),
-                                                child: Container(
-                                                  decoration: BoxDecoration(
-                                                    gradient:
-                                                        LinearGradient(
-                                                      colors: [
-                                                        Colors.white
-                                                            .withAlpha(0),
-                                                        Colors.white
-                                                            .withAlpha(140),
-                                                        Colors.white
-                                                            .withAlpha(0),
-                                                      ],
+                                          // 就緒時掃光：白色從左到右流動
+                                          if (isReady)
+                                            Positioned.fill(
+                                              child: IgnorePointer(
+                                                child: FractionallySizedBox(
+                                                  widthFactor: 0.35,
+                                                  alignment: Alignment(
+                                                    -1 + pulseT * 2.7,
+                                                    0,
+                                                  ),
+                                                  child: Container(
+                                                    decoration: BoxDecoration(
+                                                      gradient: LinearGradient(
+                                                        colors: [
+                                                          Colors.white
+                                                              .withAlpha(0),
+                                                          Colors.white
+                                                              .withAlpha(140),
+                                                          Colors.white
+                                                              .withAlpha(0),
+                                                        ],
+                                                      ),
                                                     ),
                                                   ),
                                                 ),
                                               ),
                                             ),
-                                          ),
-                                      ],
-                                    ),
-                                  );
-                                },
-                              ),
-                              const SizedBox(height: 2),
-                              if (isReady)
-                                const Text(
-                                  '▶ 點擊施放技能',
-                                  style: TextStyle(
-                                    color: Colors.amber,
-                                    fontSize: AppTheme.fontLabelSm,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                )
-                              else
-                                Text(
-                                  '能量 ${agent.currentEnergy}/${agent.maxEnergy}',
-                                  style: const TextStyle(
-                                    color: Colors.white54,
-                                    fontSize: AppTheme.fontLabelSm,
-                                  ),
+                                        ],
+                                      ),
+                                    );
+                                  },
                                 ),
-                            ],
+                                const SizedBox(height: 2),
+                                if (isReady)
+                                  const Text(
+                                    '▶ 點擊施放技能',
+                                    style: TextStyle(
+                                      color: Colors.amber,
+                                      fontSize: AppTheme.fontLabelSm,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  )
+                                else
+                                  Text(
+                                    '能量 ${agent.currentEnergy}/${agent.maxEnergy}',
+                                    style: const TextStyle(
+                                      color: Colors.white54,
+                                      fontSize: AppTheme.fontLabelSm,
+                                    ),
+                                  ),
+                              ],
+                            ),
                           ),
-                        ),
                   ),
                 ],
               ),
@@ -3706,7 +3789,11 @@ class _GamePanel extends StatelessWidget {
   final ({int col, int row})? tutorialHintBlock;
   final GlobalKey? boardKey;
 
-  const _GamePanel({required this.battleState, required this.gameState, this.tutorialHintBlock, this.boardKey});
+  const _GamePanel(
+      {required this.battleState,
+      required this.gameState,
+      this.tutorialHintBlock,
+      this.boardKey});
 
   @override
   Widget build(BuildContext context) {
@@ -3727,7 +3814,10 @@ class _GamePanel extends StatelessWidget {
           Expanded(
             child: Padding(
               padding: const EdgeInsets.all(4),
-              child: Center(child: GameBoard(tutorialHintBlock: tutorialHintBlock, boardKey: boardKey)),
+              child: Center(
+                  child: GameBoard(
+                      tutorialHintBlock: tutorialHintBlock,
+                      boardKey: boardKey)),
             ),
           ),
 
@@ -3813,14 +3903,18 @@ class _ComboBar extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: 3),
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [Colors.orange.withAlpha(200), AppTheme.blockGold.withAlpha(200)],
+          colors: [
+            Colors.orange.withAlpha(200),
+            AppTheme.blockGold.withAlpha(200)
+          ],
         ),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.local_fire_department, size: 14, color: Colors.white),
+          const Icon(Icons.local_fire_department,
+              size: 14, color: Colors.white),
           const SizedBox(width: 4),
           Text(
             '${combo}x Combo!',
@@ -4067,7 +4161,8 @@ class _SkillDiscoveryDialogState extends State<_SkillDiscoveryDialog>
                         const Spacer(),
                         // 技能 badge
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 3),
                           decoration: BoxDecoration(
                             color: info.color.withAlpha(30),
                             borderRadius: BorderRadius.circular(10),
@@ -4324,8 +4419,8 @@ class _BattleEndOverlayState extends State<_BattleEndOverlay>
           child: AnimatedBuilder(
             animation: _cardController,
             builder: (_, child) {
-              final t = Curves.easeOutBack.transform(
-                  _cardController.value.clamp(0.0, 1.0));
+              final t = Curves.easeOutBack
+                  .transform(_cardController.value.clamp(0.0, 1.0));
               return Opacity(
                 opacity: _cardController.value.clamp(0.0, 1.0),
                 child: Transform.scale(
@@ -4342,9 +4437,8 @@ class _BattleEndOverlayState extends State<_BattleEndOverlay>
   }
 
   Widget _buildCard() {
-    final titleColor = isVictory
-        ? const Color(0xFFB8860B)
-        : Colors.red.shade700;
+    final titleColor =
+        isVictory ? const Color(0xFFB8860B) : Colors.red.shade700;
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 28),
@@ -4353,17 +4447,14 @@ class _BattleEndOverlayState extends State<_BattleEndOverlay>
         color: const Color(0xFFFAF3D8),
         borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
         border: Border.all(
-          color: isVictory
-              ? const Color(0xFFD9B96A)
-              : Colors.red.withAlpha(120),
+          color:
+              isVictory ? const Color(0xFFD9B96A) : Colors.red.withAlpha(120),
           width: 1.5,
         ),
         boxShadow: [
           // 環境暖光
           BoxShadow(
-            color: (isVictory
-                    ? const Color(0xFFE8723A)
-                    : Colors.red.shade900)
+            color: (isVictory ? const Color(0xFFE8723A) : Colors.red.shade900)
                 .withAlpha(60),
             blurRadius: 40,
             spreadRadius: 4,
@@ -4458,8 +4549,7 @@ class _BattleEndOverlayState extends State<_BattleEndOverlay>
                             ? _starAnims[i].value
                             : (filled ? 1.0 : 0.0);
                         return Padding(
-                          padding:
-                              const EdgeInsets.symmetric(horizontal: 4),
+                          padding: const EdgeInsets.symmetric(horizontal: 4),
                           child: Stack(
                             alignment: Alignment.center,
                             children: [
@@ -4472,8 +4562,7 @@ class _BattleEndOverlayState extends State<_BattleEndOverlay>
                                     shape: BoxShape.circle,
                                     boxShadow: [
                                       BoxShadow(
-                                        color: Colors.amber
-                                            .withAlpha(120),
+                                        color: Colors.amber.withAlpha(120),
                                         blurRadius: 18,
                                         spreadRadius: 2,
                                       ),
@@ -4481,9 +4570,7 @@ class _BattleEndOverlayState extends State<_BattleEndOverlay>
                                   ),
                                 ),
                               Transform.scale(
-                                scale: filled
-                                    ? scale.clamp(0.0, 2.0)
-                                    : 0.7,
+                                scale: filled ? scale.clamp(0.0, 2.0) : 0.7,
                                 child: Transform.rotate(
                                   angle: filled && scale > 1.0
                                       ? (scale - 1.0) * 0.5
@@ -4492,8 +4579,7 @@ class _BattleEndOverlayState extends State<_BattleEndOverlay>
                                     Icons.star_rounded,
                                     color: filled
                                         ? const Color(0xFFFFD43B)
-                                        : const Color(0xFFD9B96A)
-                                            .withAlpha(80),
+                                        : const Color(0xFFD9B96A).withAlpha(80),
                                     size: 44,
                                     shadows: filled
                                         ? const [
@@ -4518,254 +4604,249 @@ class _BattleEndOverlayState extends State<_BattleEndOverlay>
             ),
           ),
 
-              // ── 獎勵區 ──
-              Padding(
-                padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (isVictory && reward != null) ...[
-                      // 金幣 + 經驗（滾動數字）
-                      AnimatedBuilder(
-                        animation: _rewardController,
-                        builder: (_, __) {
-                          final t = Curves.easeOutCubic.transform(
-                            _rewardController.value,
-                          );
-                          final goldDisplay = (reward!.gold * t).round();
-                          final expDisplay = (reward!.exp * t).round();
-                          return Row(
-                            children: [
-                              Expanded(
-                                child: _RewardCard(
-                                  emoji: '🪙',
-                                  label: '金幣',
-                                  value: '+$goldDisplay',
-                                  color: const Color(0xFFD4A017),
-                                ),
-                              ),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: _RewardCard(
-                                  emoji: '✨',
-                                  label: '經驗值',
-                                  value: '+$expDisplay',
-                                  color: const Color(0xFF7EC8E3),
-                                ),
-                              ),
-                            ],
-                          );
-                        },
-                      ),
-
-                      // 重複通關提示
-                      if (!reward!.isFirstClear)
-                        Padding(
-                          padding: const EdgeInsets.only(top: 6),
-                          child: Text(
-                            '(重複通關 — 半額獎勵)',
-                            style: TextStyle(
-                              color: AppTheme.textSecondary.withAlpha(180),
-                              fontSize: AppTheme.fontLabelLg,
-                            ),
-                          ),
-                        ),
-
-                      // 素材掉落
-                      if (reward!.materialDrops.isNotEmpty) ...[
-                        const SizedBox(height: 12),
-                        Align(
-                          alignment: Alignment.centerLeft,
-                          child: Text(
-                            '素材掉落',
-                            style: TextStyle(
-                              color: AppTheme.textSecondary,
-                              fontSize: AppTheme.fontBodyMd,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 6),
-                        Wrap(
-                          spacing: 8,
-                          runSpacing: 6,
-                          children: reward!.materialDrops.entries.map((e) {
-                            return Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 10, vertical: 5),
-                              decoration: BoxDecoration(
-                                color: AppTheme.bgCard,
-                                borderRadius: BorderRadius.circular(8),
-                                border: Border.all(
-                                    color: AppTheme.accentSecondary.withAlpha(60)),
-                              ),
-                              child: Text(
-                                '${e.key.emoji} x${e.value}',
-                                style: const TextStyle(
-                                  color: AppTheme.textPrimary,
-                                  fontSize: AppTheme.fontBodyLg,
-                                ),
-                              ),
-                            );
-                          }).toList(),
-                        ),
-                      ],
-
-                      // 新夥伴解鎖
-                      if (reward!.agentUnlocked &&
-                          reward!.unlockedAgentId != null) ...[
-                        const SizedBox(height: 12),
-                        GestureDetector(
-                          onTap: () {
-                            final def = CatAgentData.getById(reward!.unlockedAgentId!);
-                            if (def != null) {
-                              final overlay = Overlay.of(context);
-                              late OverlayEntry entry;
-                              entry = OverlayEntry(
-                                builder: (_) => AgentUnlockAnimation(
-                                  definition: def,
-                                  onComplete: () {
-                                    entry.remove();
-                                  },
-                                ),
-                              );
-                              overlay.insert(entry);
-                            }
-                          },
-                          child: Container(
-                            width: double.infinity,
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 14, vertical: 10),
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                colors: [
-                                  Colors.amber.withAlpha(30),
-                                  Colors.orange.withAlpha(20),
-                                ],
-                              ),
-                              borderRadius: BorderRadius.circular(10),
-                              border: Border.all(
-                                  color: Colors.amber.withAlpha(100)),
-                            ),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                const Text('🎉', style: TextStyle(fontSize: AppTheme.fontDisplayMd)),
-                                const SizedBox(width: 8),
-                                Text(
-                                  '新夥伴加入！點擊查看',
-                                  style: TextStyle(
-                                    color: Colors.amber,
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: AppTheme.fontTitleMd,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ],
-                    ],
-
-                    // 失敗時的小麥引導
-                    if (!isVictory)
-                      _DefeatAdviceSection(stage: stage),
-
-                    const SizedBox(height: 20),
-
-                    // ── 按鈕區 ──
-                    // 勝利且有下一關 → 三個按鈕（返回地圖 / 再戰 / 下一關）
-                    if (isVictory && onNextStage != null) ...[
-                      // 下一關（主按鈕）
-                      SizedBox(
-                        width: double.infinity,
-                        child: ElevatedButton.icon(
-                          onPressed: onNextStage,
-                          icon: const Icon(Icons.arrow_forward_rounded, size: 18),
-                          label: const Text('繼續下一關'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppTheme.accentSecondary,
-                            padding: const EdgeInsets.symmetric(vertical: 13),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Row(
+          // ── 獎勵區 ──
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (isVictory && reward != null) ...[
+                  // 金幣 + 經驗（滾動數字）
+                  AnimatedBuilder(
+                    animation: _rewardController,
+                    builder: (_, __) {
+                      final t = Curves.easeOutCubic.transform(
+                        _rewardController.value,
+                      );
+                      final goldDisplay = (reward!.gold * t).round();
+                      final expDisplay = (reward!.exp * t).round();
+                      return Row(
                         children: [
                           Expanded(
-                            child: OutlinedButton.icon(
-                              onPressed: onExit,
-                              icon: const Icon(Icons.map_outlined, size: 16),
-                              label: const Text('返回地圖',
-                                  style: TextStyle(fontSize: AppTheme.fontBodyLg)),
-                              style: OutlinedButton.styleFrom(
-                                foregroundColor: AppTheme.textPrimary,
-                                side: BorderSide(
-                                    color: Colors.white.withAlpha(60)),
-                                padding:
-                                    const EdgeInsets.symmetric(vertical: 10),
-                              ),
+                            child: _RewardCard(
+                              emoji: '🪙',
+                              label: '金幣',
+                              value: '+$goldDisplay',
+                              color: const Color(0xFFD4A017),
                             ),
                           ),
                           const SizedBox(width: 10),
                           Expanded(
-                            child: OutlinedButton.icon(
-                              onPressed: onRetry,
-                              icon: const Icon(Icons.refresh, size: 16),
-                              label: const Text('再戰一次',
-                                  style: TextStyle(fontSize: AppTheme.fontBodyLg)),
-                              style: OutlinedButton.styleFrom(
-                                foregroundColor: AppTheme.textPrimary,
-                                side: BorderSide(
-                                    color: Colors.white.withAlpha(60)),
-                                padding:
-                                    const EdgeInsets.symmetric(vertical: 10),
-                              ),
+                            child: _RewardCard(
+                              emoji: '✨',
+                              label: '經驗值',
+                              value: '+$expDisplay',
+                              color: const Color(0xFF7EC8E3),
                             ),
                           ),
                         ],
+                      );
+                    },
+                  ),
+
+                  // 重複通關提示
+                  if (!reward!.isFirstClear)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 6),
+                      child: Text(
+                        '(重複通關 — 半額獎勵)',
+                        style: TextStyle(
+                          color: AppTheme.textSecondary.withAlpha(180),
+                          fontSize: AppTheme.fontLabelLg,
+                        ),
                       ),
-                    ] else ...[
-                      // 無下一關或失敗 → 兩個按鈕
-                      Row(
-                        children: [
-                          Expanded(
-                            child: OutlinedButton.icon(
-                              onPressed: onExit,
-                              icon: const Icon(Icons.map_outlined, size: 18),
-                              label: const Text('返回地圖'),
-                              style: OutlinedButton.styleFrom(
-                                foregroundColor: AppTheme.textPrimary,
-                                side: BorderSide(
-                                    color: Colors.white.withAlpha(60)),
-                                padding:
-                                    const EdgeInsets.symmetric(vertical: 12),
-                              ),
+                    ),
+
+                  // 素材掉落
+                  if (reward!.materialDrops.isNotEmpty) ...[
+                    const SizedBox(height: 12),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        '素材掉落',
+                        style: TextStyle(
+                          color: AppTheme.textSecondary,
+                          fontSize: AppTheme.fontBodyMd,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 6,
+                      children: reward!.materialDrops.entries.map((e) {
+                        return Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 10, vertical: 5),
+                          decoration: BoxDecoration(
+                            color: AppTheme.bgCard,
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                                color: AppTheme.accentSecondary.withAlpha(60)),
+                          ),
+                          child: Text(
+                            '${e.key.emoji} x${e.value}',
+                            style: const TextStyle(
+                              color: AppTheme.textPrimary,
+                              fontSize: AppTheme.fontBodyLg,
                             ),
                           ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: ElevatedButton.icon(
-                              onPressed: onRetry,
-                              icon: const Icon(Icons.refresh, size: 18),
-                              label: Text(isVictory ? '再戰一次' : '重新挑戰'),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: isVictory
-                                    ? AppTheme.accentPrimary
-                                    : AppTheme.accentSecondary,
-                                padding:
-                                    const EdgeInsets.symmetric(vertical: 12),
+                        );
+                      }).toList(),
+                    ),
+                  ],
+
+                  // 新夥伴解鎖
+                  if (reward!.agentUnlocked &&
+                      reward!.unlockedAgentId != null) ...[
+                    const SizedBox(height: 12),
+                    GestureDetector(
+                      onTap: () {
+                        final def =
+                            CatAgentData.getById(reward!.unlockedAgentId!);
+                        if (def != null) {
+                          final overlay = Overlay.of(context);
+                          late OverlayEntry entry;
+                          entry = OverlayEntry(
+                            builder: (_) => AgentUnlockAnimation(
+                              definition: def,
+                              onComplete: () {
+                                entry.remove();
+                              },
+                            ),
+                          );
+                          overlay.insert(entry);
+                        }
+                      },
+                      child: Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 14, vertical: 10),
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [
+                              Colors.amber.withAlpha(30),
+                              Colors.orange.withAlpha(20),
+                            ],
+                          ),
+                          borderRadius: BorderRadius.circular(10),
+                          border:
+                              Border.all(color: Colors.amber.withAlpha(100)),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Text('🎉',
+                                style: TextStyle(
+                                    fontSize: AppTheme.fontDisplayMd)),
+                            const SizedBox(width: 8),
+                            Text(
+                              '新夥伴加入！點擊查看',
+                              style: TextStyle(
+                                color: Colors.amber,
+                                fontWeight: FontWeight.bold,
+                                fontSize: AppTheme.fontTitleMd,
                               ),
                             ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
+
+                // 失敗時的小麥引導
+                if (!isVictory) _DefeatAdviceSection(stage: stage),
+
+                const SizedBox(height: 20),
+
+                // ── 按鈕區 ──
+                // 勝利且有下一關 → 三個按鈕（返回地圖 / 再戰 / 下一關）
+                if (isVictory && onNextStage != null) ...[
+                  // 下一關（主按鈕）
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      onPressed: onNextStage,
+                      icon: const Icon(Icons.arrow_forward_rounded, size: 18),
+                      label: const Text('繼續下一關'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.accentSecondary,
+                        padding: const EdgeInsets.symmetric(vertical: 13),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: onExit,
+                          icon: const Icon(Icons.map_outlined, size: 16),
+                          label: const Text('返回地圖',
+                              style: TextStyle(fontSize: AppTheme.fontBodyLg)),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: AppTheme.textPrimary,
+                            side: BorderSide(color: Colors.white.withAlpha(60)),
+                            padding: const EdgeInsets.symmetric(vertical: 10),
                           ),
-                        ],
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: onRetry,
+                          icon: const Icon(Icons.refresh, size: 16),
+                          label: const Text('再戰一次',
+                              style: TextStyle(fontSize: AppTheme.fontBodyLg)),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: AppTheme.textPrimary,
+                            side: BorderSide(color: Colors.white.withAlpha(60)),
+                            padding: const EdgeInsets.symmetric(vertical: 10),
+                          ),
+                        ),
                       ),
                     ],
-                  ],
-                ),
-              ),
-            ],
+                  ),
+                ] else ...[
+                  // 無下一關或失敗 → 兩個按鈕
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: onExit,
+                          icon: const Icon(Icons.map_outlined, size: 18),
+                          label: const Text('返回地圖'),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: AppTheme.textPrimary,
+                            side: BorderSide(color: Colors.white.withAlpha(60)),
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed: onRetry,
+                          icon: const Icon(Icons.refresh, size: 18),
+                          label: Text(isVictory ? '再戰一次' : '重新挑戰'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: isVictory
+                                ? AppTheme.accentPrimary
+                                : AppTheme.accentSecondary,
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ],
+            ),
           ),
+        ],
+      ),
     );
   }
 }
@@ -4849,11 +4930,14 @@ class _DefeatAdviceSection extends StatelessWidget {
           Wrap(
             spacing: 6,
             runSpacing: 6,
-            children: advice.ctas.map((cta) => _AdviceChip(
-              icon: cta.icon,
-              label: cta.label,
-              color: cta.color,
-            )).toList(),
+            children: advice.ctas
+                .map((cta) => _AdviceChip(
+                      icon: cta.icon,
+                      label: cta.label,
+                      color: cta.color,
+                      onTap: () => _openAgentGuide(context),
+                    ))
+                .toList(),
           ),
         ],
       ),
@@ -4915,11 +4999,13 @@ class _DefeatAdviceSection extends StatelessWidget {
 
     // 預設 CTA
     if (ctas.isEmpty || !ctas.any((c) => c.label == '強化角色')) {
-      ctas.insert(0, const _AdviceCTA(
-        icon: Icons.fitness_center,
-        label: '強化角色',
-        color: Colors.orange,
-      ));
+      ctas.insert(
+          0,
+          const _AdviceCTA(
+            icon: Icons.fitness_center,
+            label: '強化角色',
+            color: Colors.orange,
+          ));
     }
     if (!ctas.any((c) => c.label == '調整隊伍')) {
       ctas.add(const _AdviceCTA(
@@ -4941,6 +5027,12 @@ class _DefeatAdviceSection extends StatelessWidget {
 
     return _DefeatAdvice(message: message, ctas: ctas);
   }
+
+  void _openAgentGuide(BuildContext context) {
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const AgentListScreen()),
+    );
+  }
 }
 
 class _DefeatAdvice {
@@ -4953,43 +5045,53 @@ class _AdviceCTA {
   final IconData icon;
   final String label;
   final Color color;
-  const _AdviceCTA({required this.icon, required this.label, required this.color});
+  const _AdviceCTA(
+      {required this.icon, required this.label, required this.color});
 }
 
 class _AdviceChip extends StatelessWidget {
   final IconData icon;
   final String label;
   final Color color;
+  final VoidCallback onTap;
 
   const _AdviceChip({
     required this.icon,
     required this.label,
     required this.color,
+    required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: color.withAlpha(20),
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: color.withAlpha(80)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 14, color: color),
-          const SizedBox(width: 4),
-          Text(
-            label,
-            style: TextStyle(
-              color: color,
-              fontSize: AppTheme.fontBodyMd,
-              fontWeight: FontWeight.bold,
-            ),
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          decoration: BoxDecoration(
+            color: color.withAlpha(20),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: color.withAlpha(80)),
           ),
-        ],
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 14, color: color),
+              const SizedBox(width: 4),
+              Text(
+                label,
+                style: TextStyle(
+                  color: color,
+                  fontSize: AppTheme.fontBodyMd,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -5165,7 +5267,8 @@ class _StatusIcon extends StatelessWidget {
             Icon(icon, size: 8, color: color),
             Text(
               label,
-              style: TextStyle(color: color, fontSize: 7, fontWeight: FontWeight.bold),
+              style: TextStyle(
+                  color: color, fontSize: 7, fontWeight: FontWeight.bold),
             ),
           ],
         ),
@@ -5188,7 +5291,11 @@ class _SkillIconChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final opacity = isActive ? 1.0 : isReady ? 0.9 : 0.35;
+    final opacity = isActive
+        ? 1.0
+        : isReady
+            ? 0.9
+            : 0.35;
     return Padding(
       padding: const EdgeInsets.only(left: 2),
       child: Opacity(
@@ -5197,7 +5304,8 @@ class _SkillIconChip extends StatelessWidget {
           width: 16,
           height: 16,
           decoration: BoxDecoration(
-            color: isActive ? info.color.withAlpha(80) : info.color.withAlpha(25),
+            color:
+                isActive ? info.color.withAlpha(80) : info.color.withAlpha(25),
             borderRadius: BorderRadius.circular(3),
             border: isActive
                 ? Border.all(color: info.color.withAlpha(180), width: 1)
@@ -5494,16 +5602,14 @@ class _AttackIntentState extends State<_AttackIntent>
               borderRadius: BorderRadius.circular(3),
               border: _isDanger
                   ? Border.all(
-                      color: Colors.red
-                          .withAlpha((120 + pulseT * 100).toInt()),
+                      color: Colors.red.withAlpha((120 + pulseT * 100).toInt()),
                       width: 0.5,
                     )
                   : null,
               boxShadow: _isDanger
                   ? [
                       BoxShadow(
-                        color: Colors.red
-                            .withAlpha((pulseT * 130).toInt()),
+                        color: Colors.red.withAlpha((pulseT * 130).toInt()),
                         blurRadius: 4 + pulseT * 4,
                         spreadRadius: pulseT * 1.2,
                       ),
@@ -5535,8 +5641,7 @@ class _AttackIntentState extends State<_AttackIntent>
                   Text(
                     '${widget.countdown}',
                     style: TextStyle(
-                      color:
-                          _isWarning ? Colors.orange : Colors.white54,
+                      color: _isWarning ? Colors.orange : Colors.white54,
                       fontSize: AppTheme.fontLabelSm,
                       fontWeight: FontWeight.bold,
                     ),
@@ -5705,8 +5810,7 @@ class _BuffChipState extends State<_BuffChip>
           child: Transform.scale(
             scale: scale,
             child: Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 3, vertical: 1),
+              padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 1),
               decoration: BoxDecoration(
                 color: color.withAlpha(bgAlpha),
                 borderRadius: BorderRadius.circular(3),
@@ -5773,13 +5877,13 @@ class _SkillBannerAnimationState extends State<_SkillBannerAnimation>
     with TickerProviderStateMixin {
   late AnimationController _mainController;
   // 各階段動畫
-  late Animation<double> _bannerOpenAnim;   // 黑條展開
-  late Animation<double> _charSlideAnim;    // 角色滑入
-  late Animation<double> _textFadeAnim;     // 文字淡入
-  late Animation<double> _flashAnim;        // 閃光
-  late Animation<double> _bannerCloseAnim;  // 黑條收合
-  late Animation<double> _zoomAnim;         // 整體縮放（電影感）
-  late Animation<double> _freezeFlashAnim;  // 開場凍結閃光
+  late Animation<double> _bannerOpenAnim; // 黑條展開
+  late Animation<double> _charSlideAnim; // 角色滑入
+  late Animation<double> _textFadeAnim; // 文字淡入
+  late Animation<double> _flashAnim; // 閃光
+  late Animation<double> _bannerCloseAnim; // 黑條收合
+  late Animation<double> _zoomAnim; // 整體縮放（電影感）
+  late Animation<double> _freezeFlashAnim; // 開場凍結閃光
 
   @override
   void initState() {
@@ -5903,165 +6007,166 @@ class _SkillBannerAnimationState extends State<_SkillBannerAnimation>
                   child: Container(
                     color: Colors.black.withAlpha((bannerScale * 120).round()),
                   ),
+                ),
               ),
-            ),
 
-            // 中央橫幅區域
-            Center(
-              child: ClipRect(
-                child: Align(
-                  alignment: Alignment.center,
-                  heightFactor: bannerScale.clamp(0.0, 1.0),
-                  child: Container(
-                    width: screenSize.width,
-                    height: bannerHeight,
-                    decoration: BoxDecoration(
-                      // 斜切黑條（類似寶可夢風格）
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [
-                          Colors.black.withAlpha(0),
-                          Colors.black.withAlpha(220),
-                          Colors.black.withAlpha(240),
-                          Colors.black.withAlpha(220),
-                          Colors.black.withAlpha(0),
-                        ],
-                        stops: const [0.0, 0.15, 0.5, 0.85, 1.0],
+              // 中央橫幅區域
+              Center(
+                child: ClipRect(
+                  child: Align(
+                    alignment: Alignment.center,
+                    heightFactor: bannerScale.clamp(0.0, 1.0),
+                    child: Container(
+                      width: screenSize.width,
+                      height: bannerHeight,
+                      decoration: BoxDecoration(
+                        // 斜切黑條（類似寶可夢風格）
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [
+                            Colors.black.withAlpha(0),
+                            Colors.black.withAlpha(220),
+                            Colors.black.withAlpha(240),
+                            Colors.black.withAlpha(220),
+                            Colors.black.withAlpha(0),
+                          ],
+                          stops: const [0.0, 0.15, 0.5, 0.85, 1.0],
+                        ),
                       ),
-                    ),
-                    child: Stack(
-                      clipBehavior: Clip.none,
-                      children: [
-                        // 上下彩色線條
-                        Positioned(
-                          top: bannerHeight * 0.12,
-                          left: 0,
-                          right: 0,
-                          child: Container(
-                            height: 2,
-                            color: widget.color.withAlpha(180),
+                      child: Stack(
+                        clipBehavior: Clip.none,
+                        children: [
+                          // 上下彩色線條
+                          Positioned(
+                            top: bannerHeight * 0.12,
+                            left: 0,
+                            right: 0,
+                            child: Container(
+                              height: 2,
+                              color: widget.color.withAlpha(180),
+                            ),
                           ),
-                        ),
-                        Positioned(
-                          bottom: bannerHeight * 0.12,
-                          left: 0,
-                          right: 0,
-                          child: Container(
-                            height: 2,
-                            color: widget.color.withAlpha(180),
+                          Positioned(
+                            bottom: bannerHeight * 0.12,
+                            left: 0,
+                            right: 0,
+                            child: Container(
+                              height: 2,
+                              color: widget.color.withAlpha(180),
+                            ),
                           ),
-                        ),
 
-                        // 角色立繪（從左滑入）
-                        Positioned(
-                          left: screenSize.width * 0.05 +
-                              (_charSlideAnim.value * screenSize.width * 0.3),
-                          top: -bannerHeight * 0.15,
-                          child: Opacity(
-                            opacity: (_charSlideAnim.value + 1.5).clamp(0.0, 1.0),
-                            child: SizedBox(
-                              height: bannerHeight * 1.3,
-                              width: bannerHeight * 1.0,
-                              child: charImagePath != null
-                                  ? Image.asset(
-                                      charImagePath,
-                                      fit: BoxFit.contain,
-                                      errorBuilder: (_, __, ___) =>
-                                          CatPlaceholder(
+                          // 角色立繪（從左滑入）
+                          Positioned(
+                            left: screenSize.width * 0.05 +
+                                (_charSlideAnim.value * screenSize.width * 0.3),
+                            top: -bannerHeight * 0.15,
+                            child: Opacity(
+                              opacity:
+                                  (_charSlideAnim.value + 1.5).clamp(0.0, 1.0),
+                              child: SizedBox(
+                                height: bannerHeight * 1.3,
+                                width: bannerHeight * 1.0,
+                                child: charImagePath != null
+                                    ? Image.asset(
+                                        charImagePath,
+                                        fit: BoxFit.contain,
+                                        errorBuilder: (_, __, ___) =>
+                                            CatPlaceholder(
+                                          color: widget.color,
+                                          size: bannerHeight * 0.8,
+                                        ),
+                                      )
+                                    : CatPlaceholder(
                                         color: widget.color,
                                         size: bannerHeight * 0.8,
                                       ),
-                                    )
-                                  : CatPlaceholder(
+                              ),
+                            ),
+                          ),
+
+                          // 技能名稱（右側）
+                          Positioned(
+                            right: screenSize.width * 0.08,
+                            top: 0,
+                            bottom: 0,
+                            child: Opacity(
+                              opacity: _textFadeAnim.value,
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                crossAxisAlignment: CrossAxisAlignment.end,
+                                children: [
+                                  // 角色名
+                                  Text(
+                                    widget.agentName,
+                                    style: TextStyle(
                                       color: widget.color,
-                                      size: bannerHeight * 0.8,
+                                      fontSize: AppTheme.fontBodyLg,
+                                      fontWeight: FontWeight.bold,
+                                      letterSpacing: 2,
+                                      shadows: [
+                                        Shadow(
+                                          color: widget.color.withAlpha(120),
+                                          blurRadius: 8,
+                                        ),
+                                      ],
                                     ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  // 技能名
+                                  Text(
+                                    widget.skillName,
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: AppTheme.fontDisplayMd,
+                                      fontWeight: FontWeight.w900,
+                                      letterSpacing: 3,
+                                      shadows: [
+                                        Shadow(
+                                          color: widget.color.withAlpha(200),
+                                          blurRadius: 12,
+                                        ),
+                                        const Shadow(
+                                          color: Colors.black,
+                                          blurRadius: 4,
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
-                        ),
 
-                        // 技能名稱（右側）
-                        Positioned(
-                          right: screenSize.width * 0.08,
-                          top: 0,
-                          bottom: 0,
-                          child: Opacity(
-                            opacity: _textFadeAnim.value,
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              crossAxisAlignment: CrossAxisAlignment.end,
-                              children: [
-                                // 角色名
-                                Text(
-                                  widget.agentName,
-                                  style: TextStyle(
-                                    color: widget.color,
-                                    fontSize: AppTheme.fontBodyLg,
-                                    fontWeight: FontWeight.bold,
-                                    letterSpacing: 2,
-                                    shadows: [
-                                      Shadow(
-                                        color: widget.color.withAlpha(120),
-                                        blurRadius: 8,
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                const SizedBox(height: 4),
-                                // 技能名
-                                Text(
-                                  widget.skillName,
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: AppTheme.fontDisplayMd,
-                                    fontWeight: FontWeight.w900,
-                                    letterSpacing: 3,
-                                    shadows: [
-                                      Shadow(
-                                        color: widget.color.withAlpha(200),
-                                        blurRadius: 12,
-                                      ),
-                                      const Shadow(
-                                        color: Colors.black,
-                                        blurRadius: 4,
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-
-                        // 閃光效果
-                        if (_flashAnim.value > 0.01)
-                          Positioned.fill(
-                            child: IgnorePointer(
-                              child: Container(
-                                decoration: BoxDecoration(
-                                  gradient: RadialGradient(
-                                    center: const Alignment(-0.2, 0.0),
-                                    radius: 1.5,
-                                    colors: [
-                                      widget.color
-                                          .withAlpha((_flashAnim.value * 200).round()),
-                                      Colors.white
-                                          .withAlpha((_flashAnim.value * 100).round()),
-                                      Colors.transparent,
-                                    ],
-                                    stops: const [0.0, 0.3, 1.0],
+                          // 閃光效果
+                          if (_flashAnim.value > 0.01)
+                            Positioned.fill(
+                              child: IgnorePointer(
+                                child: Container(
+                                  decoration: BoxDecoration(
+                                    gradient: RadialGradient(
+                                      center: const Alignment(-0.2, 0.0),
+                                      radius: 1.5,
+                                      colors: [
+                                        widget.color.withAlpha(
+                                            (_flashAnim.value * 200).round()),
+                                        Colors.white.withAlpha(
+                                            (_flashAnim.value * 100).round()),
+                                        Colors.transparent,
+                                      ],
+                                      stops: const [0.0, 0.3, 1.0],
+                                    ),
                                   ),
                                 ),
                               ),
                             ),
-                          ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
                 ),
               ),
-            ),
             ],
           ),
         );
@@ -6758,6 +6863,7 @@ class _IntroStep {
   final String text;
   final String? guideTitle;
   final String? buttonText;
+
   /// 高亮引導目標：'board' = 棋盤面板, 'agent' = 角色面板
   final String? highlightTarget;
 
@@ -6775,22 +6881,27 @@ class _IntroStep {
   });
 
   static _IntroStep dialogue(
-    String name, String? emoji, bool isPlayer, String text,
-    {String? agentId, String? enemyId}
-  ) {
+      String name, String? emoji, bool isPlayer, String text,
+      {String? agentId, String? enemyId}) {
     return _IntroStep._(
-      isDialogue: true, speakerName: name, emoji: emoji,
-      agentId: agentId, enemyId: enemyId, isPlayerSide: isPlayer, text: text,
+      isDialogue: true,
+      speakerName: name,
+      emoji: emoji,
+      agentId: agentId,
+      enemyId: enemyId,
+      isPlayerSide: isPlayer,
+      text: text,
     );
   }
 
-  static _IntroStep guide(
-    String title, String text,
-    {String? buttonText, String? highlightTarget}
-  ) {
+  static _IntroStep guide(String title, String text,
+      {String? buttonText, String? highlightTarget}) {
     return _IntroStep._(
-      isDialogue: false, isPlayerSide: false, text: text,
-      guideTitle: title, buttonText: buttonText,
+      isDialogue: false,
+      isPlayerSide: false,
+      text: text,
+      guideTitle: title,
+      buttonText: buttonText,
       highlightTarget: highlightTarget,
     );
   }
@@ -6847,12 +6958,16 @@ class _TutorialBattleIntroState extends State<_TutorialBattleIntro>
       case 0:
         return [
           _IntroStep.dialogue(
-            '發霉小餐包', '🍞', false,
+            '發霉小餐包',
+            '🍞',
+            false,
             '哼！誰准你進來的？這裡是我們的地盤！',
             enemyId: 'moldy_bun',
           ),
           _IntroStep.dialogue(
-            '小麥', null, true,
+            '小麥',
+            null,
+            true,
             '才不怕你！我要用食材的力量把你趕出去！',
             agentId: 'blaze',
           ),
@@ -6871,12 +6986,16 @@ class _TutorialBattleIntroState extends State<_TutorialBattleIntro>
       case 1:
         return [
           _IntroStep.dialogue(
-            '發霉小餐包', '🍞', false,
+            '發霉小餐包',
+            '🍞',
+            false,
             '又來了？這次有兩個，你打不過我們的！',
             enemyId: 'moldy_bun',
           ),
           _IntroStep.dialogue(
-            '小麥', null, true,
+            '小麥',
+            null,
+            true,
             '不用擔心！我的技能快準備好了！',
             agentId: 'blaze',
           ),
@@ -6950,7 +7069,10 @@ class _TutorialBattleIntroState extends State<_TutorialBattleIntro>
     if (renderBox == null || !renderBox.hasSize) return null;
     final offset = renderBox.localToGlobal(Offset.zero);
     return Rect.fromLTWH(
-      offset.dx, offset.dy, renderBox.size.width, renderBox.size.height,
+      offset.dx,
+      offset.dy,
+      renderBox.size.width,
+      renderBox.size.height,
     );
   }
 
@@ -6980,7 +7102,8 @@ class _TutorialBattleIntroState extends State<_TutorialBattleIntro>
               child: CustomPaint(
                 painter: _TutorialSpotlightPainter(
                   highlightRect: highlightRect,
-                  overlayColor: Colors.black.withAlpha(step.isDialogue ? 180 : 150),
+                  overlayColor:
+                      Colors.black.withAlpha(step.isDialogue ? 180 : 150),
                 ),
               ),
             ),
@@ -7001,8 +7124,7 @@ class _TutorialBattleIntroState extends State<_TutorialBattleIntro>
             ),
 
           // 角色立繪（對話步驟）
-          if (step.isDialogue)
-            _buildPortrait(step, screenSize),
+          if (step.isDialogue) _buildPortrait(step, screenSize),
 
           // 對話框 / 引導面板
           Positioned(
@@ -7060,43 +7182,43 @@ class _TutorialBattleIntroState extends State<_TutorialBattleIntro>
                   ),
                 )
               : step.enemyId != null
-              ? Image.asset(
-                  ImageAssets.enemyImage(step.enemyId!),
-                  fit: BoxFit.contain,
-                  errorBuilder: (_, __, ___) => Center(
-                    child: Text(
-                      step.emoji ?? '❓',
-                      style: TextStyle(fontSize: screenSize.width * 0.15),
-                    ),
-                  ),
-                )
-              : Center(
-                  child: Container(
-                    width: screenSize.width * 0.28,
-                    height: screenSize.width * 0.28,
-                    decoration: BoxDecoration(
-                      color: Colors.red.withAlpha(40),
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color: Colors.red.withAlpha(120),
-                        width: 3,
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.red.withAlpha(40),
-                          blurRadius: 20,
-                          spreadRadius: 4,
+                  ? Image.asset(
+                      ImageAssets.enemyImage(step.enemyId!),
+                      fit: BoxFit.contain,
+                      errorBuilder: (_, __, ___) => Center(
+                        child: Text(
+                          step.emoji ?? '❓',
+                          style: TextStyle(fontSize: screenSize.width * 0.15),
                         ),
-                      ],
-                    ),
-                    child: Center(
-                      child: Text(
-                        step.emoji ?? '❓',
-                        style: TextStyle(fontSize: screenSize.width * 0.12),
+                      ),
+                    )
+                  : Center(
+                      child: Container(
+                        width: screenSize.width * 0.28,
+                        height: screenSize.width * 0.28,
+                        decoration: BoxDecoration(
+                          color: Colors.red.withAlpha(40),
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: Colors.red.withAlpha(120),
+                            width: 3,
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.red.withAlpha(40),
+                              blurRadius: 20,
+                              spreadRadius: 4,
+                            ),
+                          ],
+                        ),
+                        child: Center(
+                          child: Text(
+                            step.emoji ?? '❓',
+                            style: TextStyle(fontSize: screenSize.width * 0.12),
+                          ),
+                        ),
                       ),
                     ),
-                  ),
-                ),
         ),
       ),
     );
@@ -7245,7 +7367,8 @@ class _TutorialSpotlightPainter extends CustomPainter {
     }
     final path = Path()
       ..addRect(Rect.fromLTWH(0, 0, size.width, size.height))
-      ..addRRect(RRect.fromRectAndRadius(highlightRect!, const Radius.circular(12)))
+      ..addRRect(
+          RRect.fromRectAndRadius(highlightRect!, const Radius.circular(12)))
       ..fillType = PathFillType.evenOdd;
     canvas.drawPath(path, paint);
   }
@@ -7602,8 +7725,8 @@ class _CelebrationParticlesPainter extends CustomPainter {
         Offset.zero,
         p.size * 0.4,
         Paint()
-          ..color = Colors.white
-              .withAlpha((opacity * 200).clamp(0, 255).toInt()),
+          ..color =
+              Colors.white.withAlpha((opacity * 200).clamp(0, 255).toInt()),
       );
       canvas.restore();
     }
@@ -7624,8 +7747,8 @@ class _FallingParticle {
   final Color color;
   final int alpha;
 
-  _FallingParticle({required int seed}) :
-        startX = _rand(seed),
+  _FallingParticle({required int seed})
+      : startX = _rand(seed),
         phase = _rand(seed + 1),
         swayPhase = _rand(seed + 2) * 6.28,
         swayAmt = 0.04 + _rand(seed + 3) * 0.06,
