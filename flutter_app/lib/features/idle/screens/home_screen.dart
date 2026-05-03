@@ -172,7 +172,10 @@ class _HomeScreenState extends State<HomeScreen> {
     // 設定隊伍（技能系統用）
     final player = context.read<PlayerProvider>();
     final team = player.data.team;
-    idle.setTeam(team);
+    final teamLevels = team
+        .map((id) => player.data.agents[id]?.level ?? 1)
+        .toList(growable: false);
+    idle.setTeam(team, teamLevels: teamLevels);
   }
 
   /// 一次性遷移：舊版食材自動售出換金幣
@@ -485,6 +488,26 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  void _showQuickTeamManager() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _QuickTeamManagerSheet(
+        onTeamChanged: () {
+          final player = context.read<PlayerProvider>();
+          final team = player.data.team;
+          context.read<IdleProvider>().setTeam(
+                team,
+                teamLevels: team
+                    .map((id) => player.data.agents[id]?.level ?? 1)
+                    .toList(growable: false),
+              );
+        },
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Stack(
@@ -727,6 +750,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   child: PlayerInfoBar(
                     onSettings: _showSettingsModal,
                     onStats: _showCareerStatsModal,
+                    onAddResource: () => _onNavTap(4),
                     onDailyQuest: () {
                       Navigator.of(context).push(
                         MaterialPageRoute(
@@ -746,6 +770,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 externalCraftButtonKey: widget.externalCraftButtonKey,
                 tutorialAutoSwitchKey: widget.tutorialAutoSwitchKey,
                 tutorialMode: widget.tutorialMode,
+                onTeamManage: _showQuickTeamManager,
                 bottleKeys: _bottleKeys,
                 bottleAreaKey:
                     widget.externalBottleAreaKey ?? _guideBottleAreaKey,
@@ -1553,6 +1578,7 @@ class _StageAndBottles extends StatelessWidget {
   final GlobalKey? externalCraftButtonKey;
   final GlobalKey? tutorialAutoSwitchKey;
   final bool tutorialMode;
+  final VoidCallback onTeamManage;
   final Map<BlockColor, GlobalKey> bottleKeys;
   final GlobalKey bottleAreaKey;
   final void Function(BlockColor color)? onBottleTap;
@@ -1565,6 +1591,7 @@ class _StageAndBottles extends StatelessWidget {
     this.externalCraftButtonKey,
     this.tutorialAutoSwitchKey,
     this.tutorialMode = false,
+    required this.onTeamManage,
     required this.bottleKeys,
     required this.bottleAreaKey,
     this.onBottleTap,
@@ -1617,6 +1644,7 @@ class _StageAndBottles extends StatelessWidget {
                 onHarvest: onHarvest,
                 tutorialAutoSwitchKey: tutorialAutoSwitchKey,
                 tutorialMode: tutorialMode,
+                onTeamManage: onTeamManage,
               ),
             ),
           ),
@@ -1636,6 +1664,7 @@ class _StageArea extends StatelessWidget {
   final VoidCallback onHarvest;
   final GlobalKey? tutorialAutoSwitchKey;
   final bool tutorialMode;
+  final VoidCallback onTeamManage;
 
   const _StageArea({
     super.key,
@@ -1644,6 +1673,7 @@ class _StageArea extends StatelessWidget {
     required this.onHarvest,
     this.tutorialAutoSwitchKey,
     this.tutorialMode = false,
+    required this.onTeamManage,
   });
 
   bool get _isExpanded => stageMode == 'serving';
@@ -1737,39 +1767,25 @@ class _StageArea extends StatelessWidget {
               // ── serving：上菜動畫 ──
               if (stageMode == 'serving') _ServingScene(stageColor: stageColor),
 
-              // ── 左上：廚房按鈕 ──
+              // ── 左上：廚房 / 隊伍按鈕 ──
               if (stageMode == 'idle')
                 Positioned(
                   left: 8,
                   top: 8,
-                  child: GestureDetector(
-                    behavior: HitTestBehavior.opaque,
-                    onTap: () => WorkshopDetailPanel.show(context),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 10, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withAlpha(220),
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(
-                            color: AppTheme.accentSecondary.withAlpha(40)),
+                  child: Row(
+                    children: [
+                      _StagePillButton(
+                        icon: '🏠',
+                        label: '廚房',
+                        onTap: () => WorkshopDetailPanel.show(context),
                       ),
-                      child: const Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text('🏠', style: TextStyle(fontSize: 14)),
-                          SizedBox(width: 4),
-                          Text(
-                            '廚房',
-                            style: TextStyle(
-                              fontSize: AppTheme.fontLabelLg,
-                              fontWeight: FontWeight.w900,
-                              color: AppTheme.textSecondary,
-                            ),
-                          ),
-                        ],
+                      const SizedBox(width: 6),
+                      _StagePillButton(
+                        icon: '🐾',
+                        label: '隊伍',
+                        onTap: onTeamManage,
                       ),
-                    ),
+                    ],
                   ),
                 ),
 
@@ -1871,6 +1887,391 @@ class _StageArea extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _StagePillButton extends StatelessWidget {
+  final String icon;
+  final String label;
+  final VoidCallback onTap;
+
+  const _StagePillButton({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: Colors.white.withAlpha(224),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: AppTheme.accentSecondary.withAlpha(40)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withAlpha(12),
+              blurRadius: 6,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(icon, style: const TextStyle(fontSize: 14)),
+            const SizedBox(width: 4),
+            Text(
+              label,
+              style: const TextStyle(
+                fontSize: AppTheme.fontLabelLg,
+                fontWeight: FontWeight.w900,
+                color: AppTheme.textSecondary,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _QuickTeamManagerSheet extends StatefulWidget {
+  final VoidCallback onTeamChanged;
+
+  const _QuickTeamManagerSheet({required this.onTeamChanged});
+
+  @override
+  State<_QuickTeamManagerSheet> createState() => _QuickTeamManagerSheetState();
+}
+
+class _QuickTeamManagerSheetState extends State<_QuickTeamManagerSheet> {
+  int _selectedSlot = 0;
+
+  Future<void> _assignAgent(PlayerProvider player, String agentId) async {
+    final team = List<String>.from(player.data.team);
+    final existingSlot = team.indexOf(agentId);
+    if (existingSlot == _selectedSlot) return;
+
+    if (existingSlot >= 0) {
+      setState(() => _selectedSlot = existingSlot);
+      HapticFeedback.selectionClick();
+      return;
+    }
+
+    if (_selectedSlot < team.length) {
+      team[_selectedSlot] = agentId;
+    } else if (team.length < 3) {
+      team.add(agentId);
+      _selectedSlot = team.length - 1;
+    } else {
+      team[_selectedSlot.clamp(0, 2)] = agentId;
+    }
+
+    await player.setTeam(team);
+    widget.onTeamChanged();
+    HapticFeedback.selectionClick();
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _removeSlot(PlayerProvider player, int slot) async {
+    final team = List<String>.from(player.data.team);
+    if (slot >= team.length || team.length <= 1) return;
+    team.removeAt(slot);
+    _selectedSlot = _selectedSlot.clamp(0, math.max(0, team.length - 1));
+    await player.setTeam(team);
+    widget.onTeamChanged();
+    HapticFeedback.selectionClick();
+    if (mounted) setState(() {});
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return DraggableScrollableSheet(
+      initialChildSize: 0.7,
+      minChildSize: 0.48,
+      maxChildSize: 0.9,
+      builder: (context, scrollController) {
+        return Container(
+          decoration: const BoxDecoration(
+            color: AppTheme.bgSecondary,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
+          ),
+          child: Consumer<PlayerProvider>(
+            builder: (context, player, _) {
+              final team = player.teamAgents;
+              final unlocked = player.unlockedAgents;
+              final selectedAgentId = _selectedSlot < player.data.team.length
+                  ? player.data.team[_selectedSlot]
+                  : null;
+              return ListView(
+                controller: scrollController,
+                padding: const EdgeInsets.fromLTRB(16, 10, 16, 24),
+                children: [
+                  Center(
+                    child: Container(
+                      width: 42,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: AppTheme.textSecondary.withAlpha(80),
+                        borderRadius: BorderRadius.circular(99),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  Row(
+                    children: [
+                      const Expanded(
+                        child: Text(
+                          '隊伍管理',
+                          style: TextStyle(
+                            color: AppTheme.textPrimary,
+                            fontSize: AppTheme.fontTitleMd,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 9, vertical: 5),
+                        decoration: BoxDecoration(
+                          color: AppTheme.accentPrimary.withAlpha(24),
+                          borderRadius: BorderRadius.circular(99),
+                        ),
+                        child: Text(
+                          '選擇槽位 ${_selectedSlot + 1}',
+                          style: const TextStyle(
+                            color: AppTheme.accentPrimary,
+                            fontSize: AppTheme.fontLabelLg,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        '${player.data.team.length}/3',
+                        style: TextStyle(
+                          color: AppTheme.textSecondary.withAlpha(170),
+                          fontSize: AppTheme.fontBodyMd,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: List.generate(3, (index) {
+                      final agent = index < team.length ? team[index] : null;
+                      final selected = index == _selectedSlot;
+                      return Expanded(
+                        child: GestureDetector(
+                          behavior: HitTestBehavior.opaque,
+                          onTap: () => setState(() => _selectedSlot = index),
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 160),
+                            height: 86,
+                            margin: EdgeInsets.only(right: index == 2 ? 0 : 8),
+                            padding: const EdgeInsets.all(7),
+                            decoration: BoxDecoration(
+                              color: selected
+                                  ? AppTheme.accentPrimary.withAlpha(30)
+                                  : Colors.white.withAlpha(125),
+                              borderRadius: BorderRadius.circular(14),
+                              border: Border.all(
+                                color: selected
+                                    ? AppTheme.accentPrimary
+                                    : agent == null
+                                        ? AppTheme.accentSecondary.withAlpha(35)
+                                        : agent.definition.attribute.blockColor
+                                            .color
+                                            .withAlpha(150),
+                                width: selected ? 2 : 1.2,
+                              ),
+                            ),
+                            child: Stack(
+                              children: [
+                                Center(
+                                  child: agent == null
+                                      ? Icon(
+                                          Icons.add_rounded,
+                                          color: AppTheme.textSecondary
+                                              .withAlpha(100),
+                                        )
+                                      : _TeamAvatar(agent: agent, dense: true),
+                                ),
+                                Positioned(
+                                  left: 0,
+                                  top: 0,
+                                  child: Container(
+                                    width: 20,
+                                    height: 20,
+                                    alignment: Alignment.center,
+                                    decoration: BoxDecoration(
+                                      color: selected
+                                          ? AppTheme.accentPrimary
+                                          : AppTheme.textSecondary
+                                              .withAlpha(110),
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: Text(
+                                      '${index + 1}',
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: AppTheme.fontLabelSm,
+                                        fontWeight: FontWeight.w900,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                if (agent != null && team.length > 1)
+                                  Positioned(
+                                    right: 0,
+                                    top: 0,
+                                    child: GestureDetector(
+                                      behavior: HitTestBehavior.opaque,
+                                      onTap: () => _removeSlot(player, index),
+                                      child: Container(
+                                        width: 22,
+                                        height: 22,
+                                        decoration: const BoxDecoration(
+                                          color: Color(0xFFE57373),
+                                          shape: BoxShape.circle,
+                                        ),
+                                        child: const Icon(
+                                          Icons.close_rounded,
+                                          color: Colors.white,
+                                          size: 15,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      );
+                    }),
+                  ),
+                  const SizedBox(height: 14),
+                  GridView.builder(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    itemCount: unlocked.length,
+                    gridDelegate:
+                        const SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 3,
+                      mainAxisSpacing: 8,
+                      crossAxisSpacing: 8,
+                      childAspectRatio: 0.88,
+                    ),
+                    itemBuilder: (context, index) {
+                      final agent = unlocked[index];
+                      final inTeam =
+                          player.data.team.contains(agent.definition.id);
+                      final isSelectedAgent =
+                          selectedAgentId == agent.definition.id;
+                      return GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTap: () => _assignAgent(player, agent.definition.id),
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 160),
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: isSelectedAgent
+                                ? agent.definition.attribute.blockColor.color
+                                    .withAlpha(44)
+                                : Colors.white.withAlpha(110),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: isSelectedAgent
+                                  ? AppTheme.accentPrimary
+                                  : inTeam
+                                      ? agent
+                                          .definition.attribute.blockColor.color
+                                          .withAlpha(140)
+                                      : AppTheme.accentSecondary.withAlpha(30),
+                              width: isSelectedAgent ? 2 : 1,
+                            ),
+                          ),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              _TeamAvatar(agent: agent),
+                              const SizedBox(height: 6),
+                              Text(
+                                agent.displayName,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  color: AppTheme.textPrimary,
+                                  fontSize: AppTheme.fontLabelLg,
+                                  fontWeight: FontWeight.w900,
+                                ),
+                              ),
+                              Text(
+                                'Lv.${agent.level}  ${agent.definition.rarity.display}',
+                                maxLines: 1,
+                                style: TextStyle(
+                                  color: AppTheme.textSecondary.withAlpha(145),
+                                  fontSize: AppTheme.fontLabelSm,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ],
+              );
+            },
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _TeamAvatar extends StatelessWidget {
+  final AgentInfo agent;
+  final bool dense;
+
+  const _TeamAvatar({required this.agent, this.dense = false});
+
+  @override
+  Widget build(BuildContext context) {
+    final size = dense ? 42.0 : 48.0;
+    final path = ImageAssets.avatarImage(
+      agent.definition.id,
+      evolutionStage: agent.evolutionStage,
+    );
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(10),
+      child: path == null
+          ? Container(
+              width: size,
+              height: size,
+              alignment: Alignment.center,
+              child: Text(agent.definition.attribute.emoji),
+            )
+          : Image.asset(
+              path,
+              width: size,
+              height: size,
+              fit: BoxFit.cover,
+              errorBuilder: (_, __, ___) => Container(
+                width: size,
+                height: size,
+                alignment: Alignment.center,
+                child: Text(agent.definition.attribute.emoji),
+              ),
+            ),
     );
   }
 }
@@ -2212,11 +2613,13 @@ class _CharacterSpriteSet {
   final List<String> moveFrames;
   final List<String> cookFrames;
   final List<String> doneFrames;
+  final bool reverseMoveFacing;
 
   const _CharacterSpriteSet({
     required this.moveFrames,
     required this.cookFrames,
     required this.doneFrames,
+    this.reverseMoveFacing = false,
   });
 }
 
@@ -2262,6 +2665,69 @@ class _StageCharacterState extends State<_StageCharacter>
         'assets/images/output/characters/char_dew_done_2.png',
         'assets/images/output/characters/char_dew_done_3.png',
         'assets/images/output/characters/char_dew_done_4.png',
+      ],
+    ),
+    'sprout': _CharacterSpriteSet(
+      reverseMoveFacing: true,
+      moveFrames: [
+        'assets/images/output/characters/char_mint_move_1.png',
+        'assets/images/output/characters/char_mint_move_2.png',
+        'assets/images/output/characters/char_mint_move_3.png',
+        'assets/images/output/characters/char_mint_move_4.png',
+      ],
+      cookFrames: [
+        'assets/images/output/characters/char_mint_cook_1.png',
+        'assets/images/output/characters/char_mint_cook_2.png',
+        'assets/images/output/characters/char_mint_cook_3.png',
+        'assets/images/output/characters/char_mint_cook_4.png',
+      ],
+      doneFrames: [
+        'assets/images/output/characters/char_mint_done_1.png',
+        'assets/images/output/characters/char_mint_done_2.png',
+        'assets/images/output/characters/char_mint_done_3.png',
+        'assets/images/output/characters/char_mint_done_4.png',
+      ],
+    ),
+    'spark': _CharacterSpriteSet(
+      reverseMoveFacing: true,
+      moveFrames: [
+        'assets/images/output/characters/char_cotton_move_1.png',
+        'assets/images/output/characters/char_cotton_move_2.png',
+        'assets/images/output/characters/char_cotton_move_3.png',
+        'assets/images/output/characters/char_cotton_move_4.png',
+      ],
+      cookFrames: [
+        'assets/images/output/characters/char_cotton_cook_1.png',
+        'assets/images/output/characters/char_cotton_cook_2.png',
+        'assets/images/output/characters/char_cotton_cook_3.png',
+        'assets/images/output/characters/char_cotton_cook_4.png',
+      ],
+      doneFrames: [
+        'assets/images/output/characters/char_cotton_done_1.png',
+        'assets/images/output/characters/char_cotton_done_2.png',
+        'assets/images/output/characters/char_cotton_done_3.png',
+        'assets/images/output/characters/char_cotton_done_4.png',
+      ],
+    ),
+    'phantom': _CharacterSpriteSet(
+      reverseMoveFacing: true,
+      moveFrames: [
+        'assets/images/output/characters/char_pudding_move_1.png',
+        'assets/images/output/characters/char_pudding_move_2.png',
+        'assets/images/output/characters/char_pudding_move_3.png',
+        'assets/images/output/characters/char_pudding_move_4.png',
+      ],
+      cookFrames: [
+        'assets/images/output/characters/char_pudding_cook_1.png',
+        'assets/images/output/characters/char_pudding_cook_2.png',
+        'assets/images/output/characters/char_pudding_cook_3.png',
+        'assets/images/output/characters/char_pudding_cook_4.png',
+      ],
+      doneFrames: [
+        'assets/images/output/characters/char_pudding_done_1.png',
+        'assets/images/output/characters/char_pudding_done_2.png',
+        'assets/images/output/characters/char_pudding_done_3.png',
+        'assets/images/output/characters/char_pudding_done_4.png',
       ],
     ),
   };
@@ -2512,7 +2978,9 @@ class _StageCharacterState extends State<_StageCharacter>
               child: Transform.scale(
                 scale: _breathAnim.value,
                 child: Transform.flip(
-                  flipX: !facingRight,
+                  flipX: _spriteSet!.reverseMoveFacing
+                      ? facingRight
+                      : !facingRight,
                   child: SizedBox(
                     width: _charSize,
                     height: _charSize,
@@ -2537,7 +3005,7 @@ class _StageCharacterState extends State<_StageCharacter>
       const ringSize = _charSize + ringPadding * 2;
 
       return AnimatedBuilder(
-        animation: Listenable.merge([frameCtrl, _breathAnim, _bounceAnim]),
+        animation: Listenable.merge([frameCtrl, _breathAnim]),
         builder: (_, __) {
           final frameIndex = math.min(
             cookFrames.length - 1,
@@ -2577,41 +3045,38 @@ class _StageCharacterState extends State<_StageCharacter>
                   Positioned(
                     left: 24,
                     top: 22,
-                    child: Transform.translate(
-                      offset: Offset(0, _bounceAnim.value),
-                      child: Transform.scale(
-                        scale: _breathAnim.value,
-                        child: SizedBox(
-                          width: ringSize,
-                          height: ringSize,
-                          child: Stack(
-                            alignment: Alignment.center,
-                            children: [
-                              Positioned.fill(
-                                child: CircularProgressIndicator(
-                                  value: _productionProgress,
-                                  strokeWidth: 3,
-                                  backgroundColor: Colors.white.withAlpha(190),
-                                  valueColor: AlwaysStoppedAnimation(
-                                    AppTheme.accentPrimary.withAlpha(230),
-                                  ),
+                    child: Transform.scale(
+                      scale: _breathAnim.value,
+                      child: SizedBox(
+                        width: ringSize,
+                        height: ringSize,
+                        child: Stack(
+                          alignment: Alignment.center,
+                          children: [
+                            Positioned.fill(
+                              child: CircularProgressIndicator(
+                                value: _productionProgress,
+                                strokeWidth: 3,
+                                backgroundColor: Colors.white.withAlpha(190),
+                                valueColor: AlwaysStoppedAnimation(
+                                  AppTheme.accentPrimary.withAlpha(230),
                                 ),
                               ),
-                              Transform.flip(
-                                flipX: !_facingRight,
-                                child: SizedBox(
-                                  width: _charSize,
-                                  height: _charSize,
-                                  child: Image.asset(
-                                    cookFrames[frameIndex],
-                                    fit: BoxFit.contain,
-                                    errorBuilder: (_, __, ___) =>
-                                        _buildFallbackCharacter(),
-                                  ),
+                            ),
+                            Transform.flip(
+                              flipX: !_facingRight,
+                              child: SizedBox(
+                                width: _charSize,
+                                height: _charSize,
+                                child: Image.asset(
+                                  cookFrames[frameIndex],
+                                  fit: BoxFit.contain,
+                                  errorBuilder: (_, __, ___) =>
+                                      _buildFallbackCharacter(),
                                 ),
                               ),
-                            ],
-                          ),
+                            ),
+                          ],
                         ),
                       ),
                     ),

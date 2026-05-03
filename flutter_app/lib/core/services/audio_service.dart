@@ -6,6 +6,7 @@ import 'settings_service.dart';
 class AudioService {
   static const normalBgm = 'audio/bgm/Sugar_Dusted_Whiskers.mp3';
   static const challengeBgm = 'audio/bgm/Kitten_in_a_Sugar_Jar.mp3';
+  static const blockEliminateSfx = 'audio/sfx/block_eliminate.wav';
 
   static AudioService? _instance;
   static AudioService get instance {

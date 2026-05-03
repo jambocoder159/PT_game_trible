@@ -9,6 +9,7 @@ import '../../../core/models/cat_agent.dart';
 import '../../../core/models/game_state.dart';
 import '../../../core/models/auto_eliminate_config.dart';
 import '../../../core/engine/match_detector.dart';
+import '../../../core/services/audio_service.dart';
 import '../../../core/services/local_storage.dart';
 
 /// 能量產出事件（給 BottleProvider 消費）
@@ -119,6 +120,7 @@ class IdleProvider extends ChangeNotifier {
 
     // 消除動畫
     s.grid[col][row] = s.grid[col][row]!.copyWith(isEliminating: true);
+    _playBlockEliminateSfx();
     notifyListeners();
     await Future.delayed(const Duration(milliseconds: 300));
     if (_gameGeneration != gen) return;
@@ -293,6 +295,7 @@ class IdleProvider extends ChangeNotifier {
       // 消除動畫
       final idsToRemove = MatchDetector.getBlockIdsToEliminate(matches);
       _markBlocksForElimination(idsToRemove);
+      _playBlockEliminateSfx();
       notifyListeners();
       await Future.delayed(const Duration(milliseconds: 300));
       if (_gameGeneration != gen) return false;
@@ -391,6 +394,10 @@ class IdleProvider extends ChangeNotifier {
         }
       }
     }
+  }
+
+  void _playBlockEliminateSfx() {
+    unawaited(AudioService.instance.playSFX(AudioService.blockEliminateSfx));
   }
 
   void _removeEliminatedBlocks() {
@@ -532,14 +539,17 @@ class IdleProvider extends ChangeNotifier {
         break;
       case BoardEffectType.eliminateRandom:
         _eliminateRandomBlocksByCount(effect.value);
+        _playBlockEliminateSfx();
         break;
       case BoardEffectType.eliminateRow:
         final row = effect.value == -1 ? s.mode.numRows - 1 : effect.value;
         _eliminateRow(row);
+        _playBlockEliminateSfx();
         break;
       case BoardEffectType.eliminateColumn:
         final col = _random.nextInt(s.mode.numCols);
         _eliminateColumn(col);
+        _playBlockEliminateSfx();
         break;
       case BoardEffectType.shuffleBoard:
         _shuffleBoard();
@@ -810,6 +820,7 @@ class IdleProvider extends ChangeNotifier {
 
     // 消除動畫（自動消除稍慢，視覺區分）
     s.grid[col][row] = s.grid[col][row]!.copyWith(isEliminating: true);
+    _playBlockEliminateSfx();
     notifyListeners();
     await Future.delayed(const Duration(milliseconds: 400));
     if (_gameGeneration != gen) {

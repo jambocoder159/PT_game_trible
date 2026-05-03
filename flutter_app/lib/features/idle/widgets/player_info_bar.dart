@@ -11,12 +11,14 @@ class PlayerInfoBar extends StatelessWidget {
   final VoidCallback? onSettings;
   final VoidCallback? onStats;
   final VoidCallback? onDailyQuest;
+  final VoidCallback? onAddResource;
 
   const PlayerInfoBar({
     super.key,
     this.onSettings,
     this.onStats,
     this.onDailyQuest,
+    this.onAddResource,
   });
 
   @override
@@ -73,20 +75,32 @@ class PlayerInfoBar extends StatelessWidget {
               const SizedBox(width: 8),
 
               // ── 體力 ──
-              _StaminaDisplay(
-                stamina: data.stamina,
-                maxStamina: data.maxStamina,
-                lastRecover: data.lastStaminaRecover,
+              _ResourcePill(
+                icon: '⚡',
+                onAdd: onAddResource,
+                child: _StaminaAmount(
+                  stamina: data.stamina,
+                  maxStamina: data.maxStamina,
+                  lastRecover: data.lastStaminaRecover,
+                ),
               ),
 
               const Spacer(),
 
               // ── 金幣 ──
-              _AnimatedCurrencyChip(icon: '🪙', value: data.gold),
+              _ResourcePill(
+                icon: '🪙',
+                onAdd: onAddResource,
+                child: _AnimatedCurrencyAmount(value: data.gold),
+              ),
               const SizedBox(width: 6),
 
               // ── 鑽石 ──
-              _AnimatedCurrencyChip(icon: '💎', value: data.diamonds),
+              _ResourcePill(
+                icon: '💎',
+                onAdd: onAddResource,
+                child: _AnimatedCurrencyAmount(value: data.diamonds),
+              ),
 
               const SizedBox(width: 8),
 
@@ -136,13 +150,65 @@ const _nextQuestIds = [
   'daily_all',
 ];
 
-/// 體力顯示：⚡ 45/60（滿時脈動）
-class _StaminaDisplay extends StatelessWidget {
+class _ResourcePill extends StatelessWidget {
+  final String icon;
+  final Widget child;
+  final VoidCallback? onAdd;
+
+  const _ResourcePill({
+    required this.icon,
+    required this.child,
+    this.onAdd,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 28,
+      padding: const EdgeInsets.only(left: 8, right: 3),
+      decoration: BoxDecoration(
+        color: Colors.white.withAlpha(210),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: AppTheme.accentSecondary.withAlpha(35)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(icon, style: const TextStyle(fontSize: AppTheme.fontBodyMd)),
+          const SizedBox(width: 4),
+          child,
+          const SizedBox(width: 5),
+          GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: onAdd,
+            child: Container(
+              width: 20,
+              height: 20,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: AppTheme.accentPrimary.withAlpha(28),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.add_rounded,
+                size: 15,
+                color: AppTheme.accentPrimary,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// 體力數值：45/60（未滿時顯示倒數）
+class _StaminaAmount extends StatelessWidget {
   final int stamina;
   final int maxStamina;
   final DateTime lastRecover;
 
-  const _StaminaDisplay({
+  const _StaminaAmount({
     required this.stamina,
     required this.maxStamina,
     required this.lastRecover,
@@ -155,8 +221,6 @@ class _StaminaDisplay extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        const Text('⚡', style: TextStyle(fontSize: AppTheme.fontBodyLg)),
-        const SizedBox(width: 2),
         Text(
           '$stamina/$maxStamina',
           style: TextStyle(
@@ -268,18 +332,18 @@ class _HeaderIconButton extends StatelessWidget {
   }
 }
 
-/// 帶計數器跳動動畫的貨幣顯示
-class _AnimatedCurrencyChip extends StatefulWidget {
-  final String icon;
+/// 帶計數器跳動動畫的貨幣數值
+class _AnimatedCurrencyAmount extends StatefulWidget {
   final int value;
 
-  const _AnimatedCurrencyChip({required this.icon, required this.value});
+  const _AnimatedCurrencyAmount({required this.value});
 
   @override
-  State<_AnimatedCurrencyChip> createState() => _AnimatedCurrencyChipState();
+  State<_AnimatedCurrencyAmount> createState() =>
+      _AnimatedCurrencyAmountState();
 }
 
-class _AnimatedCurrencyChipState extends State<_AnimatedCurrencyChip>
+class _AnimatedCurrencyAmountState extends State<_AnimatedCurrencyAmount>
     with SingleTickerProviderStateMixin {
   late AnimationController _ctrl;
   late Animation<double> _countAnim;
@@ -320,7 +384,7 @@ class _AnimatedCurrencyChipState extends State<_AnimatedCurrencyChip>
   }
 
   @override
-  void didUpdateWidget(_AnimatedCurrencyChip oldWidget) {
+  void didUpdateWidget(_AnimatedCurrencyAmount oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.value != widget.value) {
       final diff = widget.value - oldWidget.value;
@@ -369,21 +433,13 @@ class _AnimatedCurrencyChipState extends State<_AnimatedCurrencyChip>
 
         return Transform.scale(
           scale: scale,
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(widget.icon,
-                  style: const TextStyle(fontSize: AppTheme.fontBodyMd)),
-              const SizedBox(width: 2),
-              Text(
-                _formatNumber(displayValue),
-                style: TextStyle(
-                  color: color,
-                  fontSize: AppTheme.fontBodyMd,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ],
+          child: Text(
+            _formatNumber(displayValue),
+            style: TextStyle(
+              color: color,
+              fontSize: AppTheme.fontBodyMd,
+              fontWeight: FontWeight.bold,
+            ),
           ),
         );
       },

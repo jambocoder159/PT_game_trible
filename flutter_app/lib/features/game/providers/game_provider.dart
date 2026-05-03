@@ -8,6 +8,7 @@ import '../../../core/models/cat_agent.dart';
 import '../../../core/models/game_state.dart';
 import '../../../core/engine/match_detector.dart';
 import '../../../core/engine/score_calculator.dart';
+import '../../../core/services/audio_service.dart';
 
 /// 分數彈出事件
 class ScorePopupEvent {
@@ -188,6 +189,7 @@ class GameProvider extends ChangeNotifier {
 
       // 標記消除動畫
       s.grid[col][row] = s.grid[col][row]!.copyWith(isEliminating: true);
+      _playBlockEliminateSfx();
       notifyListeners();
       await Future.delayed(const Duration(milliseconds: 350));
       if (_gameGeneration != gen) return;
@@ -375,14 +377,17 @@ class GameProvider extends ChangeNotifier {
           break;
         case BoardEffectType.eliminateRandom:
           _eliminateRandomBlocks(s, effect.value);
+          _playBlockEliminateSfx();
           break;
         case BoardEffectType.eliminateRow:
           final row = effect.value == -1 ? s.mode.numRows - 1 : effect.value;
           _eliminateEntireRow(s, row);
+          _playBlockEliminateSfx();
           break;
         case BoardEffectType.eliminateColumn:
           final col = _random.nextInt(s.mode.numCols);
           _eliminateEntireColumn(s, col);
+          _playBlockEliminateSfx();
           break;
         case BoardEffectType.shuffleBoard:
           _shuffleBoard(s);
@@ -596,6 +601,7 @@ class GameProvider extends ChangeNotifier {
       // 標記消除（閃爍動畫）
       final idsToRemove = MatchDetector.getBlockIdsToEliminate(matches);
       _markBlocksForElimination(idsToRemove);
+      _playBlockEliminateSfx();
       notifyListeners();
       await Future.delayed(const Duration(milliseconds: 250));
       if (_gameGeneration != gen) return false;
@@ -745,6 +751,10 @@ class GameProvider extends ChangeNotifier {
         }
       }
     }
+  }
+
+  void _playBlockEliminateSfx() {
+    unawaited(AudioService.instance.playSFX(AudioService.blockEliminateSfx));
   }
 
   void _removeEliminatedBlocks() {

@@ -7,6 +7,7 @@ import '../../../config/theme.dart';
 import '../../../core/models/block.dart';
 import '../../../core/models/bottle_data.dart';
 import '../../../core/models/dessert.dart';
+import '../../../core/models/material.dart' as game_material;
 import '../../agents/providers/player_provider.dart';
 import '../providers/bottle_provider.dart';
 import '../providers/production_provider.dart';
@@ -655,6 +656,10 @@ class _UpgradeButton extends StatelessWidget {
     final targetLevel = bottle.level + 1;
     final levelData = BottleDefinitions.getLevelData(targetLevel);
     final blockReason = _upgradeBlockReason(canUpgrade, levelData);
+    final materials =
+        BottleDefinitions.getUpgradeMaterials(levelData.level, color);
+    final summary =
+        canUpgrade ? '${levelData.upgradeCostGold} 金幣' : blockReason ?? '條件不足';
 
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
@@ -704,29 +709,120 @@ class _UpgradeButton extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(
-              '升級至 Lv.$targetLevel',
-              style: TextStyle(
-                color: canUpgrade
-                    ? Colors.white
-                    : AppTheme.textSecondary.withAlpha(120),
-                fontSize: AppTheme.fontBodyMd,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 2),
-            Text(
-              canUpgrade
-                  ? '${levelData.upgradeCostGold} 金幣'
-                  : blockReason ?? '條件不足',
-              style: TextStyle(
-                color: canUpgrade
-                    ? Colors.white.withAlpha(210)
-                    : AppTheme.textSecondary.withAlpha(95),
-                fontSize: AppTheme.fontLabelSm,
-              ),
+            Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '升級至 Lv.$targetLevel',
+                        style: TextStyle(
+                          color: canUpgrade
+                              ? Colors.white
+                              : AppTheme.textSecondary.withAlpha(120),
+                          fontSize: AppTheme.fontBodyMd,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        summary,
+                        style: TextStyle(
+                          color: canUpgrade
+                              ? Colors.white.withAlpha(210)
+                              : AppTheme.textSecondary.withAlpha(95),
+                          fontSize: AppTheme.fontLabelSm,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () => _showUpgradeDetails(
+                    context,
+                    levelData,
+                    materials,
+                  ),
+                  child: Container(
+                    width: 32,
+                    height: 32,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: (canUpgrade ? Colors.white : AppTheme.bgCard)
+                          .withAlpha(canUpgrade ? 48 : 180),
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: canUpgrade
+                            ? Colors.white.withAlpha(100)
+                            : AppTheme.accentSecondary.withAlpha(38),
+                      ),
+                    ),
+                    child: Icon(
+                      Icons.info_outline_rounded,
+                      size: 18,
+                      color: canUpgrade
+                          ? Colors.white
+                          : AppTheme.textSecondary.withAlpha(150),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  void _showUpgradeDetails(
+    BuildContext context,
+    BottleLevelData levelData,
+    Map<String, int> materials,
+  ) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppTheme.bgSecondary,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (_) => Padding(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 22),
+        child: SafeArea(
+          top: false,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: AppTheme.textSecondary.withAlpha(80),
+                    borderRadius: BorderRadius.circular(99),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 14),
+              Text(
+                '${bottleDef.name} 升級至 Lv.${levelData.level}',
+                style: const TextStyle(
+                  color: AppTheme.textPrimary,
+                  fontSize: AppTheme.fontTitleMd,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              const SizedBox(height: 8),
+              _UpgradeRequirementList(
+                levelData: levelData,
+                materials: materials,
+                playerProvider: playerProvider,
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -752,6 +848,146 @@ class _UpgradeButton extends StatelessWidget {
       }
     }
     return '條件不足';
+  }
+}
+
+class _UpgradeRequirementList extends StatelessWidget {
+  final BottleLevelData levelData;
+  final Map<String, int> materials;
+  final PlayerProvider playerProvider;
+
+  const _UpgradeRequirementList({
+    required this.levelData,
+    required this.materials,
+    required this.playerProvider,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final rows = <Widget>[];
+    if (levelData.stageGateId != null) {
+      final progress =
+          playerProvider.data.stageProgress[levelData.stageGateId!];
+      final ok = progress != null && progress.cleared;
+      rows.add(_RequirementRow(
+        icon: Icons.flag_rounded,
+        label: '通關 ${levelData.stageGateId}',
+        owned: ok ? 1 : 0,
+        required: 1,
+        source: '從闖關頁完成指定關卡',
+      ));
+    }
+    rows.add(_RequirementRow(
+      icon: Icons.monetization_on_rounded,
+      label: '金幣',
+      owned: playerProvider.data.gold,
+      required: levelData.upgradeCostGold,
+      source: '售出展示櫃甜點、任務、關卡獎勵',
+    ));
+    for (final entry in materials.entries) {
+      final material = _materialFromKey(entry.key);
+      rows.add(_RequirementRow(
+        icon: material?.iconData ?? Icons.inventory_2_rounded,
+        label: material?.label ?? entry.key,
+        owned: playerProvider.data.materials[entry.key] ?? 0,
+        required: entry.value,
+        source: _materialSource(material),
+        color: material?.iconColor,
+      ));
+    }
+    return Column(children: rows);
+  }
+
+  static game_material.GameMaterial? _materialFromKey(String key) {
+    for (final material in game_material.GameMaterial.values) {
+      if (material.name == key) return material;
+    }
+    return null;
+  }
+
+  static String _materialSource(game_material.GameMaterial? material) {
+    if (material == null) return '查看背包或關卡獎勵';
+    switch (material.category) {
+      case game_material.MaterialCategory.shard:
+        return '闖關寶箱、每日任務、新手任務';
+      case game_material.MaterialCategory.functional:
+        return '每日任務、商店、較高章節關卡';
+      case game_material.MaterialCategory.essence:
+        return '對應屬性關卡、進階寶箱、商店';
+      case game_material.MaterialCategory.universal:
+        return '任務、活動、商店兌換';
+    }
+  }
+}
+
+class _RequirementRow extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final int owned;
+  final int required;
+  final String source;
+  final Color? color;
+
+  const _RequirementRow({
+    required this.icon,
+    required this.label,
+    required this.owned,
+    required this.required,
+    required this.source,
+    this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final missing = (required - owned).clamp(0, required);
+    final ok = missing == 0;
+    final iconColor =
+        ok ? const Color(0xFF66BB6A) : color ?? AppTheme.accentPrimary;
+    return Container(
+      margin: const EdgeInsets.only(top: 5),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+      decoration: BoxDecoration(
+        color: Colors.white.withAlpha(72),
+        borderRadius: BorderRadius.circular(9),
+        border: Border.all(
+          color: ok
+              ? const Color(0xFF66BB6A).withAlpha(80)
+              : AppTheme.accentSecondary.withAlpha(40),
+        ),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, size: 16, color: iconColor),
+          const SizedBox(width: 7),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '$label  $owned/$required${ok ? '' : '  缺 $missing'}',
+                  style: TextStyle(
+                    color: ok
+                        ? AppTheme.textSecondary.withAlpha(150)
+                        : AppTheme.textPrimary,
+                    fontSize: AppTheme.fontLabelLg,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                Text(
+                  source,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: AppTheme.textSecondary.withAlpha(120),
+                    fontSize: AppTheme.fontLabelSm,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 
