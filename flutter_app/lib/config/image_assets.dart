@@ -11,6 +11,8 @@ class ImageAssets {
 
   static const _base = 'assets/images/output';
   static const _icons = 'assets/images/icons';
+  static const _desserts = '$_base/desserts';
+  static const _bottles = '$_base/bottles';
 
   // ═══════════════════════════════════════
   // 角色 ID → 圖片檔名映射
@@ -276,6 +278,20 @@ class ImageAssets {
   static const comboFireVfx = '$_base/vfx/vfx_combo_fire.png';
   static const orbsVfx = '$_base/vfx/vfx_orbs.png';
   static const damageFontVfx = '$_base/vfx/font_damage.png';
+
+  // ═══════════════════════════════════════
+  // 甜點食譜圖片
+  // ═══════════════════════════════════════
+
+  /// 取得甜點食譜圖片路徑
+  static String dessertImage(String dessertId) {
+    return '$_desserts/dessert_$dessertId.png';
+  }
+
+  /// 取得魔法瓶圖片路徑
+  static String bottleImage(BlockColor color) {
+    return '$_bottles/bottle_${color.name}.png';
+  }
 }
 
 // ═══════════════════════════════════════

@@ -64,6 +64,8 @@ flutter:
     - assets/images/output/characters/
     - assets/images/output/icons/
     - assets/images/output/background/
+    - assets/images/output/bottles/
+    - assets/images/output/desserts/
     - assets/images/output/enemies/
     - assets/images/output/bosses/
     - assets/images/output/vfx/

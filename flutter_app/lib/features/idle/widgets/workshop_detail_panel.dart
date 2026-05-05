@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../../config/bottle_dessert_map.dart';
+import '../../../config/image_assets.dart';
 import '../../../config/ingredient_data.dart';
 import '../../../config/theme.dart';
 import '../../../core/models/block.dart';
@@ -313,8 +314,12 @@ class _BottleTabs extends StatelessWidget {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Text(def.emoji,
-                        style: const TextStyle(fontSize: AppTheme.fontTitleMd)),
+                    GameImage(
+                      assetPath: ImageAssets.bottleImage(color),
+                      fallbackEmoji: def.emoji,
+                      width: 29,
+                      height: 29,
+                    ),
                     const SizedBox(height: 1),
                     Text(
                       'Lv.${bottle.level}',
@@ -384,9 +389,11 @@ class _BottleSummaryCard extends StatelessWidget {
                   border: Border.all(color: Colors.white.withAlpha(230)),
                 ),
                 child: Center(
-                  child: Text(
-                    bottleDef.emoji,
-                    style: const TextStyle(fontSize: AppTheme.fontDisplayLg),
+                  child: GameImage(
+                    assetPath: ImageAssets.bottleImage(bottleDef.color),
+                    fallbackEmoji: bottleDef.emoji,
+                    width: 44,
+                    height: 44,
                   ),
                 ),
               ),
@@ -404,18 +411,41 @@ class _BottleSummaryCard extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 3),
-                    Text(
-                      dessert == null
-                          ? '尚未指定甜點'
-                          : '目前：${dessert!.emoji} ${dessert!.name}  售價 ${dessert!.sellPrice}',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        color: AppTheme.textSecondary.withAlpha(175),
-                        fontSize: AppTheme.fontLabelLg,
-                        fontWeight: FontWeight.w600,
+                    if (dessert == null)
+                      Text(
+                        '尚未指定甜點',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: AppTheme.textSecondary.withAlpha(175),
+                          fontSize: AppTheme.fontLabelLg,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      )
+                    else
+                      Row(
+                        children: [
+                          GameImage(
+                            assetPath: ImageAssets.dessertImage(dessert!.id),
+                            fallbackEmoji: dessert!.emoji,
+                            width: 22,
+                            height: 22,
+                          ),
+                          const SizedBox(width: 4),
+                          Expanded(
+                            child: Text(
+                              '目前：${dessert!.name}  售價 ${dessert!.sellPrice}',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                color: AppTheme.textSecondary.withAlpha(175),
+                                fontSize: AppTheme.fontLabelLg,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
-                    ),
                   ],
                 ),
               ),
@@ -514,9 +544,11 @@ class _DessertTile extends StatelessWidget {
                 border: Border.all(color: Colors.white.withAlpha(180)),
               ),
               child: Center(
-                child: Text(
-                  recipe.emoji,
-                  style: const TextStyle(fontSize: AppTheme.fontDisplayMd),
+                child: GameImage(
+                  assetPath: ImageAssets.dessertImage(recipe.id),
+                  fallbackEmoji: recipe.emoji,
+                  width: 34,
+                  height: 34,
                 ),
               ),
             ),

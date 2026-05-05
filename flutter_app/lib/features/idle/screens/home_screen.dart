@@ -382,7 +382,8 @@ class _HomeScreenState extends State<HomeScreen> {
     late OverlayEntry entry;
     entry = OverlayEntry(
       builder: (_) => _DessertToDisplayCaseOverlay(
-        emoji: recipe?.emoji ?? '🧁',
+        dessertId: dessertId,
+        fallbackEmoji: recipe?.emoji ?? '🧁',
         start: start,
         end: end,
         count: count,
@@ -1055,7 +1056,8 @@ class _HorizontalBottleStrip extends StatelessWidget {
                         child: KeyedSubtree(
                           key: bottleKeys[def.color]!,
                           child: _CompactBottleMeter(
-                            emoji: def.emoji,
+                            imagePath: ImageAssets.bottleImage(def.color),
+                            fallbackEmoji: def.emoji,
                             color: clr,
                             level: bottle.level,
                             progress: bottle.fillProgress,
@@ -1086,7 +1088,8 @@ class _HorizontalBottleStrip extends StatelessWidget {
 }
 
 class _CompactBottleMeter extends StatefulWidget {
-  final String emoji;
+  final String imagePath;
+  final String fallbackEmoji;
   final Color color;
   final int level;
   final double progress;
@@ -1095,7 +1098,8 @@ class _CompactBottleMeter extends StatefulWidget {
   final bool canUpgrade;
 
   const _CompactBottleMeter({
-    required this.emoji,
+    required this.imagePath,
+    required this.fallbackEmoji,
     required this.color,
     required this.level,
     required this.progress,
@@ -1151,7 +1155,7 @@ class _CompactBottleMeterState extends State<_CompactBottleMeter>
         return Transform.scale(
           scale: 1 + hit * 0.06,
           child: SizedBox(
-            height: 42,
+            height: 46,
             child: DecoratedBox(
               decoration: BoxDecoration(
                 gradient: LinearGradient(
@@ -1257,13 +1261,11 @@ class _CompactBottleMeterState extends State<_CompactBottleMeter>
                                 color: const Color(0xFFFFD43B).withAlpha(95),
                               ),
                             ),
-                          Text(
-                            widget.emoji,
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              fontSize: 17 + tier * 0.5,
-                              height: 1,
-                            ),
+                          GameImage(
+                            assetPath: widget.imagePath,
+                            fallbackEmoji: widget.fallbackEmoji,
+                            width: 34 + tier * 1.5,
+                            height: 34 + tier * 1.5,
                           ),
                         ],
                       ),
@@ -1383,14 +1385,16 @@ class _BottleStatusDot extends StatelessWidget {
 }
 
 class _DessertToDisplayCaseOverlay extends StatefulWidget {
-  final String emoji;
+  final String dessertId;
+  final String fallbackEmoji;
   final Offset start;
   final Offset end;
   final int count;
   final VoidCallback onComplete;
 
   const _DessertToDisplayCaseOverlay({
-    required this.emoji,
+    required this.dessertId,
+    required this.fallbackEmoji,
     required this.start,
     required this.end,
     required this.count,
@@ -1445,9 +1449,11 @@ class _DessertToDisplayCaseOverlayState
                   opacity: opacity,
                   child: Transform.scale(
                     scale: scale,
-                    child: Text(
-                      widget.emoji,
-                      style: const TextStyle(fontSize: 30),
+                    child: GameImage(
+                      assetPath: ImageAssets.dessertImage(widget.dessertId),
+                      fallbackEmoji: widget.fallbackEmoji,
+                      width: 36,
+                      height: 36,
                     ),
                   ),
                 ),
@@ -2440,8 +2446,17 @@ class _DisplayCaseStrip extends StatelessWidget {
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                Text(recipe?.emoji ?? '🧁'),
-                                const SizedBox(width: 3),
+                                if (recipe == null)
+                                  Text(recipe?.emoji ?? '🧁')
+                                else
+                                  GameImage(
+                                    assetPath:
+                                        ImageAssets.dessertImage(recipe.id),
+                                    fallbackEmoji: recipe.emoji,
+                                    width: 22,
+                                    height: 22,
+                                  ),
+                                const SizedBox(width: 4),
                                 Text(
                                   'x${entry.value}',
                                   style: const TextStyle(

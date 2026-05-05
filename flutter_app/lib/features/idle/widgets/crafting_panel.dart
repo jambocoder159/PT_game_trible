@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import '../../../config/image_assets.dart';
 import '../../../config/ingredient_data.dart';
 import '../../../config/theme.dart';
 import '../../../core/models/dessert.dart';
@@ -52,7 +53,8 @@ class _CraftingPanelState extends State<CraftingPanel> {
                   children: [
                     // 拖拽指示條
                     Container(
-                      width: 36, height: 4,
+                      width: 36,
+                      height: 4,
                       decoration: BoxDecoration(
                         color: AppTheme.accentSecondary.withAlpha(60),
                         borderRadius: BorderRadius.circular(2),
@@ -77,15 +79,25 @@ class _CraftingPanelState extends State<CraftingPanel> {
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          _FilterChip(label: '全部', isSelected: _selectedTier == 0,
+                          _FilterChip(
+                              label: '全部',
+                              isSelected: _selectedTier == 0,
                               onTap: () => setState(() => _selectedTier = 0)),
-                          _FilterChip(label: '新手', isSelected: _selectedTier == 1,
+                          _FilterChip(
+                              label: '新手',
+                              isSelected: _selectedTier == 1,
                               onTap: () => setState(() => _selectedTier = 1)),
-                          _FilterChip(label: '中級', isSelected: _selectedTier == 2,
+                          _FilterChip(
+                              label: '中級',
+                              isSelected: _selectedTier == 2,
                               onTap: () => setState(() => _selectedTier = 2)),
-                          _FilterChip(label: '進階', isSelected: _selectedTier == 3,
+                          _FilterChip(
+                              label: '進階',
+                              isSelected: _selectedTier == 3,
                               onTap: () => setState(() => _selectedTier = 3)),
-                          _FilterChip(label: '大師', isSelected: _selectedTier == 4,
+                          _FilterChip(
+                              label: '大師',
+                              isSelected: _selectedTier == 4,
                               onTap: () => setState(() => _selectedTier = 4)),
                         ],
                       ),
@@ -97,7 +109,8 @@ class _CraftingPanelState extends State<CraftingPanel> {
                       Padding(
                         padding: const EdgeInsets.only(bottom: 8),
                         child: GestureDetector(
-                          onTap: () => _sellAll(context, craftingProvider, playerProvider),
+                          onTap: () => _sellAll(
+                              context, craftingProvider, playerProvider),
                           child: Container(
                             width: double.infinity,
                             padding: const EdgeInsets.symmetric(vertical: 8),
@@ -117,7 +130,9 @@ class _CraftingPanelState extends State<CraftingPanel> {
                             child: const Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                Text('💰', style: TextStyle(fontSize: AppTheme.fontTitleMd)),
+                                Text('💰',
+                                    style: TextStyle(
+                                        fontSize: AppTheme.fontTitleMd)),
                                 SizedBox(width: 6),
                                 Text(
                                   '一鍵售出全部甜點',
@@ -144,9 +159,12 @@ class _CraftingPanelState extends State<CraftingPanel> {
                             recipe: recipe,
                             craftingProvider: craftingProvider,
                             playerProvider: playerProvider,
-                            onCraft: () => _craft(context, recipe, craftingProvider, playerProvider),
-                            onSell: () => _sell(context, recipe, craftingProvider, playerProvider),
-                            onBuyRecipe: () => _buyRecipe(context, recipe, craftingProvider, playerProvider),
+                            onCraft: () => _craft(context, recipe,
+                                craftingProvider, playerProvider),
+                            onSell: () => _sell(context, recipe,
+                                craftingProvider, playerProvider),
+                            onBuyRecipe: () => _buyRecipe(context, recipe,
+                                craftingProvider, playerProvider),
                           );
                         },
                       ),
@@ -178,7 +196,8 @@ class _CraftingPanelState extends State<CraftingPanel> {
 
   void _sell(BuildContext context, DessertRecipe recipe,
       CraftingProvider craftingProvider, PlayerProvider playerProvider) {
-    final income = craftingProvider.sellDessert(recipe.id, 1, playerProvider.data);
+    final income =
+        craftingProvider.sellDessert(recipe.id, 1, playerProvider.data);
     if (income > 0) {
       HapticFeedback.lightImpact();
       playerProvider.notifyAndSave();
@@ -192,14 +211,15 @@ class _CraftingPanelState extends State<CraftingPanel> {
     }
   }
 
-  void _sellAll(BuildContext context,
-      CraftingProvider craftingProvider, PlayerProvider playerProvider) {
+  void _sellAll(BuildContext context, CraftingProvider craftingProvider,
+      PlayerProvider playerProvider) {
     final result = craftingProvider.sellAllDesserts(playerProvider.data);
     if (result.totalIncome > 0) {
       HapticFeedback.mediumImpact();
       playerProvider.notifyAndSave();
       setState(() {});
-      final summary = result.items.entries.map((e) => '${e.key} x${e.value}').join('、');
+      final summary =
+          result.items.entries.map((e) => '${e.key} x${e.value}').join('、');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('售出 $summary，共獲得 ${result.totalIncome} 🍬'),
@@ -291,10 +311,12 @@ class _RecipeCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isUnlocked = craftingProvider.isRecipeUnlocked(recipe.id, playerProvider.data);
+    final isUnlocked =
+        craftingProvider.isRecipeUnlocked(recipe.id, playerProvider.data);
     final canCraft = craftingProvider.canCraft(recipe.id, playerProvider.data);
     final owned = playerProvider.data.desserts[recipe.id] ?? 0;
-    final isPurchasable = recipe.unlock.type == DessertUnlockType.purchase && !isUnlocked;
+    final isPurchasable =
+        recipe.unlock.type == DessertUnlockType.purchase && !isUnlocked;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
@@ -314,7 +336,12 @@ class _RecipeCard extends StatelessWidget {
           // 標題行
           Row(
             children: [
-              Text(recipe.emoji, style: const TextStyle(fontSize: AppTheme.fontDisplayMd)),
+              GameImage(
+                assetPath: ImageAssets.dessertImage(recipe.id),
+                fallbackEmoji: recipe.emoji,
+                width: 44,
+                height: 44,
+              ),
               const SizedBox(width: 8),
               Expanded(
                 child: Column(
@@ -335,7 +362,8 @@ class _RecipeCard extends StatelessWidget {
                         if (owned > 0) ...[
                           const SizedBox(width: 6),
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 5, vertical: 1),
                             decoration: BoxDecoration(
                               color: AppTheme.accentPrimary.withAlpha(20),
                               borderRadius: BorderRadius.circular(4),
@@ -370,12 +398,14 @@ class _RecipeCard extends StatelessWidget {
                   GestureDetector(
                     onTap: onSell,
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 5),
                       margin: const EdgeInsets.only(right: 4),
                       decoration: BoxDecoration(
                         color: const Color(0xFFFFD43B).withAlpha(30),
                         borderRadius: BorderRadius.circular(6),
-                        border: Border.all(color: const Color(0xFFFFD43B).withAlpha(100)),
+                        border: Border.all(
+                            color: const Color(0xFFFFD43B).withAlpha(100)),
                       ),
                       child: const Text(
                         '售出',
@@ -390,7 +420,8 @@ class _RecipeCard extends StatelessWidget {
                 GestureDetector(
                   onTap: canCraft ? onCraft : null,
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                     decoration: BoxDecoration(
                       color: canCraft
                           ? const Color(0xFF51CF66)
@@ -429,7 +460,8 @@ class _RecipeCard extends StatelessWidget {
                 final hasEnough = owned >= needed;
 
                 return Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
                   decoration: BoxDecoration(
                     color: hasEnough
                         ? const Color(0xFF51CF66).withAlpha(15)
@@ -479,7 +511,8 @@ class _RecipeCard extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(Icons.lock_outline, size: 14, color: AppTheme.textSecondary.withAlpha(80)),
+        Icon(Icons.lock_outline,
+            size: 14, color: AppTheme.textSecondary.withAlpha(80)),
         const SizedBox(width: 2),
         Text(
           _unlockText(),
@@ -505,10 +538,14 @@ class _RecipeCard extends StatelessWidget {
 
   Color _tierColor(int tier) {
     switch (tier) {
-      case 4: return const Color(0xFFCC5DE8);
-      case 3: return const Color(0xFF4DABF7);
-      case 2: return const Color(0xFF51CF66);
-      default: return const Color(0xFF888888);
+      case 4:
+        return const Color(0xFFCC5DE8);
+      case 3:
+        return const Color(0xFF4DABF7);
+      case 2:
+        return const Color(0xFF51CF66);
+      default:
+        return const Color(0xFF888888);
     }
   }
 }
